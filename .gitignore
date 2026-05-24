@@ -1,0 +1,67 @@
+# .NET build output
+bin/
+obj/
+out/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM64/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userprefs
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Test results
+TestResults/
+[Cc]overage*/
+*.coverage
+*.coveragexml
+
+# Logs and crash dumps
+*.log
+*.tlog
+*.pdb
+*.mdb
+*.crashdump
+
+# Windows-specific
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS / Linux clutter (for cross-platform contributors)
+.DS_Store
+*.swp
+*~
+
+# Igloo-specific local development artifacts
+local/
+.test-vm/
+*.iso
+*.iso.sha256
+*.iso.gpg
+
+# Secrets and credentials — should never be committed
+*.pfx
+*.key
+*.pem
+secrets/
+appsettings.local.json
+appsettings.Development.json

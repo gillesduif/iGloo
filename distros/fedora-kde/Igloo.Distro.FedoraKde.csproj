@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Igloo.Distro.FedoraKde</RootNamespace>
+    <AssemblyName>Igloo.Distro.FedoraKde</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Igloo.Core\Igloo.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Bundle the kickstart template and agent files into the assembly's output -->
+    <Content Include="kickstart\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="agent\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="distro.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
+    After each build, copy the plugin DLL to the distro folder root so that DistroRegistry can
+    discover it by scanning distros/<name>/Igloo.Distro.<Name>.dll at runtime.
+    In a dev checkout the distros/ folder is found by FindDistrosDirectory() walking up from bin/.
+  -->
+  <Target Name="CopyPluginToDistroRoot" AfterTargets="Build">
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"
+          DestinationFolder="$(MSBuildProjectDirectory)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

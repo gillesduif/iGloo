@@ -1,0 +1,4 @@
+<Project>
+  <!-- The AppxMSBuildToolsPath workaround for WinUI 3 CLI builds was removed
+       when the project migrated from WinUI 3 to WPF (see docs/decisions/006-wpf-over-winui3.md). -->
+</Project>

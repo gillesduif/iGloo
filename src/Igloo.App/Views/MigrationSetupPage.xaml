@@ -1,0 +1,135 @@
+<UserControl
+    x:Class="Igloo.App.Views.MigrationSetupPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="0,0,8,0">
+
+            <!-- ── Linux Account ─────────────────────────────────────────────── -->
+            <TextBlock Text="Linux account"
+                       FontSize="14" FontWeight="SemiBold"
+                       Margin="0,0,0,14" />
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="Windows user" Opacity="0.6"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Row="0" Grid.Column="1"
+                           Text="{Binding WindowsUsername}"
+                           VerticalAlignment="Center" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           Text="Linux username" Opacity="0.6"
+                           VerticalAlignment="Center" Margin="0,10,0,0" />
+                <StackPanel Grid.Row="1" Grid.Column="1"
+                            Orientation="Horizontal" Margin="0,10,0,0">
+                    <TextBox Text="{Binding LinuxUsername, UpdateSourceTrigger=PropertyChanged}"
+                             Width="220" />
+                    <!-- Valid indicator -->
+                    <TextBlock Text="✓" Foreground="#2E7D32" FontWeight="SemiBold"
+                               Margin="8,0,0,0" VerticalAlignment="Center"
+                               Visibility="{Binding IsUsernameValid, Converter={StaticResource BoolToVis}}" />
+                    <!-- Invalid indicator -->
+                    <TextBlock Foreground="#C62828" Margin="8,0,0,0" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text"       Value="Must start with a–z, then a–z / 0–9 / _ / -" />
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsUsernameValid}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+
+            <Separator Margin="0,20,0,20" />
+
+            <!-- ── Files to migrate ──────────────────────────────────────────── -->
+            <TextBlock Text="Files to migrate"
+                       FontSize="14" FontWeight="SemiBold"
+                       Margin="0,0,0,10" />
+            <TextBlock Text="These folders will be copied to the staging area and restored on your Linux desktop after install."
+                       TextWrapping="Wrap" Opacity="0.65" Margin="0,0,0,14" />
+
+            <WrapPanel>
+                <CheckBox Content="Documents" IsChecked="{Binding IncludeDocuments}" Margin="0,0,20,8" />
+                <CheckBox Content="Downloads" IsChecked="{Binding IncludeDownloads}" Margin="0,0,20,8" />
+                <CheckBox Content="Pictures"  IsChecked="{Binding IncludePictures}"  Margin="0,0,20,8" />
+                <CheckBox Content="Desktop"   IsChecked="{Binding IncludeDesktop}"   Margin="0,0,20,8" />
+                <CheckBox Content="Music"     IsChecked="{Binding IncludeMusic}"     Margin="0,0,20,8" />
+                <CheckBox Content="Videos"    IsChecked="{Binding IncludeVideos}"    Margin="0,0,20,8" />
+            </WrapPanel>
+
+            <!-- ── Browser profiles (only shown when at least one is detected) ── -->
+            <StackPanel Visibility="{Binding HasDetectedBrowsers, Converter={StaticResource BoolToVis}}">
+                <Separator Margin="0,20,0,20" />
+
+                <TextBlock Text="Browser profiles"
+                           FontSize="14" FontWeight="SemiBold"
+                           Margin="0,0,0,10" />
+                <TextBlock Text="Igloo will carry your bookmarks and settings across to the Linux equivalents."
+                           TextWrapping="Wrap" Opacity="0.65" Margin="0,0,0,14" />
+
+                <ItemsControl ItemsSource="{Binding DetectedBrowsers}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox Content="{Binding Name}"
+                                      IsChecked="{Binding IsSelected}"
+                                      Margin="0,0,0,6" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <Separator Margin="0,20,0,20" />
+
+            <!-- ── System settings ───────────────────────────────────────────── -->
+            <TextBlock Text="System settings"
+                       FontSize="14" FontWeight="SemiBold"
+                       Margin="0,0,0,14" />
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="Timezone" Opacity="0.6"
+                           VerticalAlignment="Center" />
+                <TextBox Grid.Row="0" Grid.Column="1"
+                         Text="{Binding Timezone, UpdateSourceTrigger=PropertyChanged}"
+                         Width="260" HorizontalAlignment="Left" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           Text="Keyboard (xkb)" Opacity="0.6"
+                           VerticalAlignment="Center" Margin="0,10,0,0" />
+                <TextBox Grid.Row="1" Grid.Column="1"
+                         Text="{Binding Keymap, UpdateSourceTrigger=PropertyChanged}"
+                         Width="120" HorizontalAlignment="Left" Margin="0,10,0,0" />
+            </Grid>
+
+            <Separator Margin="0,20,0,0" />
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

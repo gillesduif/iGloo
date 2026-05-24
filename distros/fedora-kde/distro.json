@@ -1,0 +1,41 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "fedora-kde",
+  "displayName": "Fedora KDE",
+  "description": "Fedora 44 with the KDE Plasma desktop environment. Current upstream kernel and Mesa, signed Secure Boot support out of the box, official Fedora project release. Recommended for users who want a Windows-like desktop on a fast-moving, well-maintained distribution.",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Anaconda",
+
+  "iso": {
+    "downloadUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/KDE/x86_64/iso/Fedora-KDE-Desktop-Live-44-1.7.x86_64.iso",
+    "sha256": "c8295961d4c41adbf785a31a17c21a971d3b7415fda72dcad0c11c49577bf03a",
+    "gpgSignatureUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/KDE/x86_64/iso/Fedora-KDE-44-1.7-x86_64-CHECKSUM",
+    "gpgKeyUrl": "https://fedoraproject.org/fedora.gpg"
+  },
+
+  "tags": [
+    "best-for-windows-switchers",
+    "current-kernel",
+    "secure-boot-supported",
+    "wayland-default",
+    "free-software-only-by-default"
+  ],
+
+  "screenshots": [
+    "screenshots/desktop.png",
+    "screenshots/discover.png",
+    "screenshots/system-settings.png"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Fedora KDE is the reference distro for Igloo's plugin architecture. Maintained by the project lead."
+  }
+}

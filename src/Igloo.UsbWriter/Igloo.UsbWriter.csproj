@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      net8.0-windows10.0.19041.0 matches Igloo.App and Igloo.Preflight, keeps the
+      Windows 10 2004+ API surface consistent and grants access to System.Management.
+    -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Igloo.UsbWriter</RootNamespace>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WMI for USB drive enumeration (Win32_DiskDrive) -->
+    <PackageReference Include="System.Management"                        Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Igloo.Core\Igloo.Core.csproj" />
+  </ItemGroup>
+
+</Project>

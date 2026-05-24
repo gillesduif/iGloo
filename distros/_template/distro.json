@@ -1,0 +1,36 @@
+{
+  "_comment": "Copy this directory to distros/<your-distro-id>/ and fill in the fields below. The id must match the folder name.",
+  "id": "REPLACE_WITH_YOUR_DISTRO_ID",
+  "displayName": "Your Distro Name",
+  "description": "One paragraph describing the distro. Who it's for, what makes it distinct. Two to four sentences. Shown in Igloo's distro picker.",
+  "defaultDesktopEnvironment": "REPLACE: KDE Plasma | GNOME | Cinnamon | XFCE | MATE | LXQt | Budgie | ...",
+  "installerType": "REPLACE: Anaconda | Ubiquity | Calamares | AutoYaST | Subiquity | Custom",
+
+  "iso": {
+    "downloadUrl": "https://...",
+    "sha256": "REPLACE_WITH_REAL_SHA256",
+    "gpgSignatureUrl": "https://... (optional but strongly recommended)",
+    "gpgKeyUrl": "https://... (optional but strongly recommended)"
+  },
+
+  "tags": [
+    "Choose 2-5 tags from: best-for-new-users | best-for-windows-switchers | gaming | development | older-hardware | privacy | security | rolling-release | stable-release | minimal | beginner-friendly | current-kernel | secure-boot-supported | wayland-default | free-software-only-by-default"
+  ],
+
+  "screenshots": [
+    "screenshots/desktop.png",
+    "screenshots/applications.png"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 2147483648,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "your-github-handle",
+    "note": "Anything Igloo users should know about how this distro is maintained in Igloo's catalog."
+  }
+}

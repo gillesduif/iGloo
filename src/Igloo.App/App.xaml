@@ -1,0 +1,52 @@
+<Application
+    x:Class="Igloo.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:Igloo.App.ViewModels"
+    xmlns:views="clr-namespace:Igloo.App.Views"
+    xmlns:conv="clr-namespace:Igloo.App.Converters">
+
+    <Application.Resources>
+        <ResourceDictionary>
+
+            <!-- ── Converters ─────────────────────────────────────────────── -->
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <conv:BytesToSizeConverter    x:Key="BytesToSize" />
+
+            <!-- ── View-model → view dispatch ─────────────────────────────── -->
+            <DataTemplate DataType="{x:Type vm:WelcomeViewModel}">
+                <views:WelcomePage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:PreflightViewModel}">
+                <views:PreflightPage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:DistroSelectionViewModel}">
+                <views:DistroSelectionPage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:IsoAcquisitionViewModel}">
+                <views:IsoAcquisitionPage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:MigrationSetupViewModel}">
+                <views:MigrationSetupPage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:DiskSelectionViewModel}">
+                <views:DiskSelectionPage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:FileStagingViewModel}">
+                <views:FileStagingPage />
+            </DataTemplate>
+
+            <DataTemplate DataType="{x:Type vm:UsbWriterViewModel}">
+                <views:UsbWriterPage />
+            </DataTemplate>
+
+        </ResourceDictionary>
+    </Application.Resources>
+
+</Application>

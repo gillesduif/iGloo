@@ -1,0 +1,266 @@
+<UserControl
+    x:Class="Igloo.App.Views.UsbWriterPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:conv="clr-namespace:Igloo.App.Converters">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"    />  <!-- Main content          -->
+            <RowDefinition Height="Auto" />  <!-- Cancel / Finish strip -->
+        </Grid.RowDefinitions>
+
+        <!-- ── IDLE / DRIVE SELECTION ───────────────────────────────────────── -->
+        <StackPanel Grid.Row="0"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Stretch">
+
+            <!-- Drive picker row -->
+            <DockPanel LastChildFill="True" Margin="0,0,0,12">
+                <Button DockPanel.Dock="Right"
+                        Content="↺ Refresh"
+                        Command="{Binding RefreshDrivesCommand}"
+                        IsEnabled="{Binding IsEnumerating, Converter={StaticResource BoolToVis},
+                                    ConverterParameter=Inverse}"
+                        Padding="12,5" Margin="8,0,0,0"
+                        VerticalAlignment="Center" />
+
+                <ComboBox ItemsSource="{Binding Drives}"
+                          SelectedItem="{Binding SelectedDrive}"
+                          IsEnabled="{Binding IsRunning, Converter={StaticResource BoolToVis},
+                                      ConverterParameter=Inverse}"
+                          VerticalAlignment="Center">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock>
+                                <Run Text="{Binding Model, Mode=OneWay}" />
+                                <Run Text=" — " Foreground="#888888" />
+                                <Run Text="{Binding SizeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}"
+                                     Foreground="#888888" />
+                                <Run Text=" (Disk " Foreground="#888888" />
+                                <Run Text="{Binding DriveIndex, Mode=OneWay}" Foreground="#888888" />
+                                <Run Text=")" Foreground="#888888" />
+                            </TextBlock>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </DockPanel>
+
+            <!-- "No drives found" hint -->
+            <TextBlock Text="No USB drives detected. Plug in a USB drive (8 GB or larger) and click Refresh."
+                       Opacity="0.5" FontStyle="Italic" TextWrapping="Wrap"
+                       Margin="0,0,0,16">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Drives.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <!-- Warning banner -->
+            <Border Background="#FFF8E1" BorderBrush="#F9A825" BorderThickness="1"
+                    CornerRadius="6" Padding="14,10" Margin="0,0,0,20">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsComplete}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="⚠  This will permanently erase the selected drive."
+                               FontWeight="SemiBold" Foreground="#E65100" />
+                    <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" Opacity="0.75">
+                        All data on the USB drive will be destroyed. Make sure you have
+                        selected the correct drive and that it contains no important files.
+                        Close any File Explorer windows that show the USB drive before writing.
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" Opacity="0.75">
+                        A minimum of <Run FontWeight="SemiBold">8 GB</Run> is recommended.
+                        Writing requires iGloo to be running as <Run FontWeight="SemiBold">Administrator</Run>.
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <!-- ── RUNNING ──────────────────────────────────────────────────── -->
+            <StackPanel Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
+                        Width="420" HorizontalAlignment="Center">
+
+                <TextBlock Text="{Binding PhaseDisplay}"
+                           FontSize="15" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" Margin="0,0,0,16" />
+
+                <ProgressBar Height="6"
+                             Value="{Binding ProgressPercent, Mode=OneWay}"
+                             IsIndeterminate="{Binding IsProgressIndeterminate, Mode=OneWay}"
+                             Minimum="0" Maximum="100" />
+
+                <!-- Byte counter -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                            Margin="0,10,0,0">
+                    <TextBlock Text="{Binding BytesWritten, Converter={StaticResource BytesToSize}}"
+                               Opacity="0.7" />
+                    <TextBlock Opacity="0.4" Margin="4,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text"       Value=" / " />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding BytesTotal}" Value="0">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="{Binding BytesTotal, Converter={StaticResource BytesToSize}}"
+                               Opacity="0.7">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding BytesTotal}" Value="0">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+            </StackPanel>
+
+            <!-- ── ERROR ─────────────────────────────────────────────────────── -->
+            <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
+                    Background="#FFEBEE" BorderBrush="#C62828" BorderThickness="1"
+                    CornerRadius="6" Padding="16" Margin="0,8,0,0">
+                <StackPanel>
+                    <TextBlock Text="Write failed"
+                               FontSize="16" FontWeight="SemiBold" Foreground="#B71C1C" />
+
+                    <!-- Short human-readable message -->
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               TextWrapping="Wrap" Margin="0,8,0,0" Foreground="#B71C1C" />
+
+                    <!-- Full technical detail: exception type, Win32 code, stack trace.
+                         Scrollable and selectable so it can be copied to a bug report. -->
+                    <Border Visibility="{Binding HasErrorDetail, Converter={StaticResource BoolToVis}}"
+                            Background="#FFF0F0" BorderBrush="#C62828" BorderThickness="0,1,0,0"
+                            Margin="0,12,0,0" Padding="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Technical details  (select all → Ctrl+C to copy)"
+                                       FontSize="11" Opacity="0.55" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding ErrorDetail, Mode=OneWay}"
+                                     IsReadOnly="True"
+                                     FontFamily="Consolas, Courier New"
+                                     FontSize="11"
+                                     Foreground="#7B1A1A"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     TextWrapping="NoWrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Auto"
+                                     MaxHeight="200"
+                                     AcceptsReturn="True" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ── COMPLETE ──────────────────────────────────────────────────── -->
+            <Border Visibility="{Binding IsComplete, Converter={StaticResource BoolToVis}}"
+                    Background="#F3F3F3" BorderBrush="#E0E0E0" BorderThickness="1"
+                    CornerRadius="8" Padding="24" Margin="0,8,0,0">
+                <StackPanel>
+                    <TextBlock Text="✓  USB drive is ready"
+                               FontSize="18" FontWeight="SemiBold" Foreground="#2E7D32"
+                               Margin="0,0,0,16" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Width="180" Text="Drive" Opacity="0.65" />
+                        <TextBlock Text="{Binding SelectedDrive.Model}"
+                                   FontWeight="SemiBold" />
+                    </StackPanel>
+
+                    <TextBlock TextWrapping="Wrap" Margin="0,12,0,0" Opacity="0.75">
+                        Boot from this USB drive to start the Fedora installation.
+                        The kickstart file on the OEMDRV partition will configure
+                        the installer automatically.
+                    </TextBlock>
+
+                    <!-- GRUB patch result (visible only when a note was recorded) -->
+                    <Border Visibility="{Binding HasGrubPatchNote, Converter={StaticResource BoolToVis}}"
+                            Margin="0,12,0,0" Padding="10,7"
+                            Background="#E8F5E9" BorderBrush="#A5D6A7" BorderThickness="1"
+                            CornerRadius="4">
+                        <TextBlock Text="{Binding GrubPatchNote}"
+                                   FontSize="11" TextWrapping="Wrap"
+                                   Foreground="#2E7D32" />
+                    </Border>
+
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+
+        <!-- ── Bottom strip ─────────────────────────────────────────────────── -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
+                    Margin="0,16,0,0">
+
+            <!-- Write button (visible when idle and a drive is selected) -->
+            <Button Content="Write to USB"
+                    Command="{Binding WriteCommand}"
+                    FontWeight="SemiBold" Padding="20,7" Margin="0,0,8,0"
+                    Background="#1565C0" Foreground="White">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsComplete}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+
+            <!-- Cancel (visible while running; disabled during the atomic diskpart phase) -->
+            <StackPanel Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
+                        HorizontalAlignment="Center">
+                <Button Content="Cancel"
+                        Command="{Binding WriteCancelCommand}"
+                        IsEnabled="{Binding IsCancelable}"
+                        Padding="16,6" />
+                <!-- Shown only while diskpart is running (IsCancelable = false) -->
+                <TextBlock Text="Partitioning — please wait, this cannot be interrupted."
+                           FontSize="11" Opacity="0.5" HorizontalAlignment="Center"
+                           Margin="0,5,0,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCancelable}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+
+        </StackPanel>
+
+    </Grid>
+</UserControl>

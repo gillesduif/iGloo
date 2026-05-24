@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 600" role="img">
+<title>Igloo logo</title>
+<desc>Skeuomorphic 3D igloo with ice-block texture and a dark entrance tunnel</desc>
+
+<defs>
+  <radialGradient id="dome" cx="32%" cy="18%" r="88%">
+    <stop offset="0%" stop-color="#ffffff"/>
+    <stop offset="14%" stop-color="#f2f8fd"/>
+    <stop offset="38%" stop-color="#cde0ee"/>
+    <stop offset="68%" stop-color="#83a4c2"/>
+    <stop offset="100%" stop-color="#3e607e"/>
+  </radialGradient>
+
+  <radialGradient id="tunnel" cx="42%" cy="20%" r="95%">
+    <stop offset="0%" stop-color="#f4f9fd"/>
+    <stop offset="28%" stop-color="#d2e2ee"/>
+    <stop offset="65%" stop-color="#85a5c2"/>
+    <stop offset="100%" stop-color="#3a587a"/>
+  </radialGradient>
+
+  <radialGradient id="entrance" cx="50%" cy="30%" r="80%">
+    <stop offset="0%" stop-color="#02060e"/>
+    <stop offset="55%" stop-color="#0a1c30"/>
+    <stop offset="100%" stop-color="#1c3852"/>
+  </radialGradient>
+
+  <radialGradient id="gshad" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#000" stop-opacity="0.4"/>
+    <stop offset="55%" stop-color="#000" stop-opacity="0.12"/>
+    <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+  </radialGradient>
+
+  <radialGradient id="snow" cx="50%" cy="20%" r="80%">
+    <stop offset="0%" stop-color="#ffffff"/>
+    <stop offset="100%" stop-color="#bcd2e2"/>
+  </radialGradient>
+
+  <radialGradient id="spec" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.92"/>
+    <stop offset="55%" stop-color="#ffffff" stop-opacity="0.22"/>
+    <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+  </radialGradient>
+
+  <linearGradient id="rim" x1="0%" y1="50%" x2="100%" y2="50%">
+    <stop offset="0%" stop-color="#fff" stop-opacity="0"/>
+    <stop offset="75%" stop-color="#fff" stop-opacity="0"/>
+    <stop offset="92%" stop-color="#7099bd" stop-opacity="0.35"/>
+    <stop offset="100%" stop-color="#3a5c80" stop-opacity="0.55"/>
+  </linearGradient>
+
+  <radialGradient id="innerShadow" cx="50%" cy="50%" r="55%">
+    <stop offset="60%" stop-color="#000" stop-opacity="0"/>
+    <stop offset="90%" stop-color="#000" stop-opacity="0.4"/>
+    <stop offset="100%" stop-color="#000" stop-opacity="0.65"/>
+  </radialGradient>
+
+  <clipPath id="domeClip">
+    <path d="M 100 490 A 240 320 0 0 1 580 490 Z"/>
+  </clipPath>
+
+  <clipPath id="tunnelClip">
+    <path d="M 245 525 L 245 465 A 95 65 0 0 1 435 465 L 435 525 Z"/>
+  </clipPath>
+</defs>
+
+<ellipse cx="340" cy="540" rx="295" ry="34" fill="url(#gshad)"/>
+
+<ellipse cx="340" cy="520" rx="285" ry="22" fill="url(#snow)" opacity="0.75"/>
+
+<path d="M 100 490 A 240 320 0 0 1 580 490 Z" fill="url(#dome)"/>
+
+<g clip-path="url(#domeClip)" fill="none" stroke="#385976" stroke-width="1.1" stroke-linecap="round" opacity="0.55">
+  <path d="M 95 442 Q 340 430 585 442"/>
+  <path d="M 105 392 Q 340 378 575 392"/>
+  <path d="M 120 347 Q 340 330 560 347"/>
+  <path d="M 142 305 Q 340 286 538 305"/>
+  <path d="M 170 268 Q 340 247 510 268"/>
+  <path d="M 205 233 Q 340 211 475 233"/>
+  <path d="M 245 205 Q 340 186 435 205"/>
+  <path d="M 285 185 Q 340 173 395 185"/>
+
+  <line x1="155" y1="490" x2="153" y2="441"/>
+  <line x1="220" y1="490" x2="218" y2="434"/>
+  <line x1="295" y1="490" x2="293" y2="430"/>
+  <line x1="390" y1="490" x2="392" y2="430"/>
+  <line x1="465" y1="490" x2="467" y2="434"/>
+  <line x1="530" y1="490" x2="532" y2="441"/>
+
+  <line x1="180" y1="438" x2="178" y2="391"/>
+  <line x1="258" y1="431" x2="256" y2="383"/>
+  <line x1="345" y1="428" x2="345" y2="380"/>
+  <line x1="428" y1="431" x2="430" y2="383"/>
+  <line x1="505" y1="438" x2="507" y2="391"/>
+
+  <line x1="205" y1="389" x2="203" y2="345"/>
+  <line x1="290" y1="380" x2="288" y2="337"/>
+  <line x1="395" y1="380" x2="397" y2="337"/>
+  <line x1="478" y1="389" x2="480" y2="345"/>
+
+  <line x1="232" y1="342" x2="230" y2="302"/>
+  <line x1="312" y1="332" x2="310" y2="293"/>
+  <line x1="372" y1="332" x2="374" y2="293"/>
+  <line x1="452" y1="342" x2="454" y2="302"/>
+
+  <line x1="262" y1="298" x2="260" y2="263"/>
+  <line x1="340" y1="285" x2="340" y2="252"/>
+  <line x1="425" y1="298" x2="427" y2="263"/>
+
+  <line x1="292" y1="260" x2="290" y2="229"/>
+  <line x1="392" y1="260" x2="394" y2="229"/>
+
+  <line x1="320" y1="225" x2="318" y2="201"/>
+  <line x1="362" y1="225" x2="364" y2="201"/>
+</g>
+
+<path d="M 100 490 A 240 320 0 0 1 580 490 Z" fill="url(#rim)"/>
+
+<ellipse cx="218" cy="265" rx="62" ry="105" fill="url(#spec)" opacity="0.85" transform="rotate(-18 218 265)"/>
+
+<path d="M 245 525 L 245 465 A 95 65 0 0 1 435 465 L 435 525 Z" fill="url(#tunnel)"/>
+
+<g clip-path="url(#tunnelClip)" fill="none" stroke="#385976" stroke-width="1.1" stroke-linecap="round" opacity="0.5">
+  <path d="M 240 495 Q 340 488 440 495"/>
+  <path d="M 248 465 Q 340 455 432 465"/>
+  <line x1="290" y1="525" x2="288" y2="496"/>
+  <line x1="390" y1="525" x2="392" y2="496"/>
+  <line x1="318" y1="494" x2="316" y2="466"/>
+  <line x1="362" y1="494" x2="364" y2="466"/>
+  <line x1="340" y1="464" x2="340" y2="438"/>
+</g>
+
+<path d="M 245 525 L 245 465 A 95 65 0 0 1 435 465 L 435 525 Z" fill="url(#rim)" opacity="0.7"/>
+
+<path d="M 285 525 L 285 480 A 55 42 0 0 1 395 480 L 395 525 Z" fill="url(#entrance)"/>
+
+<path d="M 285 525 L 285 480 A 55 42 0 0 1 395 480 L 395 525 Z" fill="url(#innerShadow)" opacity="0.85"/>
+
+<ellipse cx="202" cy="232" rx="14" ry="26" fill="#ffffff" opacity="0.85" transform="rotate(-22 202 232)"/>
+<ellipse cx="196" cy="218" rx="6" ry="11" fill="#ffffff" opacity="1" transform="rotate(-22 196 218)"/>
+
+</svg>

@@ -1,0 +1,366 @@
+<UserControl
+    x:Class="Igloo.App.Views.PreflightPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstractions="clr-namespace:Igloo.Core.Abstractions;assembly=Igloo.Core">
+
+    <UserControl.Resources>
+
+        <!-- Severity → left-border accent on a finding card -->
+        <Style x:Key="FindingCardStyle" TargetType="Border">
+            <Setter Property="Background"       Value="#F8F8F8" />
+            <Setter Property="BorderBrush"      Value="#CCCCCC" />
+            <Setter Property="BorderThickness"  Value="4,0,0,0" />
+            <Setter Property="CornerRadius"     Value="0,4,4,0" />
+            <Setter Property="Padding"          Value="12,8" />
+            <Setter Property="Margin"           Value="0,0,0,6" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Severity}"
+                             Value="{x:Static abstractions:FindingSeverity.Warning}">
+                    <Setter Property="Background"  Value="#FFF8E1" />
+                    <Setter Property="BorderBrush" Value="#FF8C00" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Severity}"
+                             Value="{x:Static abstractions:FindingSeverity.Blocker}">
+                    <Setter Property="Background"  Value="#FFEBEE" />
+                    <Setter Property="BorderBrush" Value="#C62828" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Severity → short label string -->
+        <Style x:Key="FindingSeverityLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground"  Value="#555555" />
+            <Setter Property="FontSize"    Value="11" />
+            <Setter Property="FontWeight"  Value="SemiBold" />
+            <Setter Property="Margin"      Value="0,0,0,2" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Severity}"
+                             Value="{x:Static abstractions:FindingSeverity.Warning}">
+                    <Setter Property="Foreground" Value="#E65100" />
+                    <Setter Property="Text"       Value="WARNING" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Severity}"
+                             Value="{x:Static abstractions:FindingSeverity.Blocker}">
+                    <Setter Property="Foreground" Value="#B71C1C" />
+                    <Setter Property="Text"       Value="BLOCKER" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Severity}"
+                             Value="{x:Static abstractions:FindingSeverity.Info}">
+                    <Setter Property="Foreground" Value="#555555" />
+                    <Setter Property="Text"       Value="INFO" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+    </UserControl.Resources>
+
+    <!-- Root: all three states share the same slot; Visibility selects the active one -->
+    <Grid>
+
+        <!-- ── 1. RUNNING ──────────────────────────────────────────────────────── -->
+        <StackPanel Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <ProgressBar IsIndeterminate="True" Width="320" Height="4" />
+            <TextBlock Text="Running system check…"
+                       Margin="0,12,0,0" HorizontalAlignment="Center"
+                       FontSize="14" Opacity="0.7" />
+        </StackPanel>
+
+        <!-- ── 2. ERROR ────────────────────────────────────────────────────────── -->
+        <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
+                Background="#FFEBEE" BorderBrush="#C62828" BorderThickness="1"
+                CornerRadius="6" Padding="16" VerticalAlignment="Top">
+            <StackPanel>
+                <TextBlock Text="System check failed"
+                           FontSize="16" FontWeight="SemiBold" Foreground="#B71C1C" />
+                <TextBlock Text="{Binding ErrorMessage}"
+                           TextWrapping="Wrap" Margin="0,8,0,0" Foreground="#B71C1C" />
+            </StackPanel>
+        </Border>
+
+        <!-- ── 3. RESULTS ─────────────────────────────────────────────────────── -->
+        <ScrollViewer Visibility="{Binding HasReport, Converter={StaticResource BoolToVis}}"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <!-- ── System overview ──────────────────────────────────────── -->
+                <Border Background="#F3F3F3" BorderBrush="#E0E0E0" BorderThickness="1"
+                        CornerRadius="8" Padding="20,16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="32" />
+                            <RowDefinition Height="32" />
+                            <RowDefinition Height="32" />
+                            <RowDefinition Height="32" />
+                            <RowDefinition Height="32" />
+                            <RowDefinition Height="32" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Row labels -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Firmware"
+                                   VerticalAlignment="Center" Opacity="0.65" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Secure Boot"
+                                   VerticalAlignment="Center" Opacity="0.65" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="TPM"
+                                   VerticalAlignment="Center" Opacity="0.65" />
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="BitLocker"
+                                   VerticalAlignment="Center" Opacity="0.65" />
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="RAM"
+                                   VerticalAlignment="Center" Opacity="0.65" />
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="GPU"
+                                   VerticalAlignment="Center" Opacity="0.65" />
+
+                        <!-- Firmware: green tick when UEFI, amber cross when Legacy -->
+                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="{Binding FirmwareDisplay}" />
+                            <TextBlock Text=" ✓" Foreground="#2E7D32" FontWeight="SemiBold"
+                                       Visibility="{Binding FirmwareOk, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+
+                        <!-- Secure Boot: amber warning when enabled (may block unsigned kernels) -->
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SecureBootDisplay}" />
+                            <TextBlock Text=" ⚠" Foreground="#E65100" FontWeight="SemiBold"
+                                       Visibility="{Binding SecureBootWarn, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+
+                        <!-- TPM: informational only -->
+                        <TextBlock Grid.Row="2" Grid.Column="1"
+                                   Text="{Binding TpmDisplay}"
+                                   VerticalAlignment="Center" />
+
+                        <!-- BitLocker: red warning when encrypted -->
+                        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="{Binding BitLockerDisplay}" />
+                            <TextBlock Text=" ⚠" Foreground="#C62828" FontWeight="SemiBold"
+                                       Visibility="{Binding BitLockerBlocked, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+
+                        <!-- RAM -->
+                        <TextBlock Grid.Row="4" Grid.Column="1"
+                                   Text="{Binding RamDisplay}"
+                                   VerticalAlignment="Center" />
+
+                        <!-- GPU -->
+                        <TextBlock Grid.Row="5" Grid.Column="1"
+                                   Text="{Binding GpuDisplay}"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+
+                <!-- ── Findings ──────────────────────────────────────────────── -->
+                <TextBlock Text="Findings" FontSize="15" FontWeight="SemiBold"
+                           Margin="0,20,0,8" />
+
+                <!-- "All clear" message when there are no findings -->
+                <Border Background="#E8F5E9" BorderBrush="#388E3C" BorderThickness="1"
+                        CornerRadius="6" Padding="12,8"
+                        Visibility="{Binding HasNoFindings, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="✓  No issues detected. You are ready to proceed."
+                               Foreground="#1B5E20" />
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding Findings}"
+                              Visibility="{Binding HasFindings, Converter={StaticResource BoolToVis}}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource FindingCardStyle}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource FindingSeverityLabelStyle}" />
+                                    <TextBlock Text="{Binding Message}"
+                                               TextWrapping="Wrap" FontSize="13" />
+                                    <TextBlock Text="{Binding Remediation}"
+                                               TextWrapping="Wrap" FontSize="12"
+                                               Opacity="0.7" Margin="0,4,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Remediation}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- ── One-click fix: Disable BitLocker ── -->
+                                    <Button Margin="0,10,0,0"
+                                            Padding="12,5"
+                                            HorizontalAlignment="Left"
+                                            Content="Disable BitLocker now"
+                                            Command="{Binding DataContext.DisableBitLockerCommand,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Code}" Value="BITLOCKER_ACTIVE">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+
+
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- BitLocker action status banner (shown while manage-bde is running) -->
+                <Border Margin="0,6,0,0" Padding="12,8"
+                        Background="#E3F2FD" BorderBrush="#1565C0" BorderThickness="1"
+                        CornerRadius="4"
+                        Visibility="{Binding HasBitLockerActionStatus, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⟳ " Foreground="#1565C0" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding BitLockerActionStatus}"
+                                   Foreground="#1565C0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ── Disks ─────────────────────────────────────────────────── -->
+                <TextBlock Text="Storage" FontSize="15" FontWeight="SemiBold"
+                           Margin="0,20,0,8" />
+
+                <ItemsControl ItemsSource="{Binding Disks}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#F3F3F3" BorderBrush="#E0E0E0" BorderThickness="1"
+                                    CornerRadius="6" Padding="16,12" Margin="0,0,0,8">
+                                <StackPanel>
+
+                                    <!-- Disk header: model + total size -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Model}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text=" — "
+                                                   Opacity="0.5" />
+                                        <TextBlock Text="{Binding TotalBytes,
+                                                       Converter={StaticResource BytesToSize}}" />
+                                        <TextBlock Text=" ("
+                                                   Opacity="0.5" />
+                                        <TextBlock Text="{Binding PartitionStyle}"
+                                                   Opacity="0.5" />
+                                        <TextBlock Text=")"
+                                                   Opacity="0.5" />
+                                    </StackPanel>
+
+                                    <!-- Partition list -->
+                                    <ItemsControl ItemsSource="{Binding Partitions}"
+                                                  Margin="12,8,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal"
+                                                            Margin="0,2,0,2">
+                                                    <TextBlock Text="▪ "
+                                                               Opacity="0.4" />
+                                                    <TextBlock>
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text"
+                                                                        Value="{Binding FileSystem}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Label}"
+                                                                                 Value="{x:Null}">
+                                                                        <Setter Property="Text"
+                                                                                Value="{Binding FileSystem}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <!-- Label (shown only when non-null) -->
+                                                    <TextBlock Margin="4,0,0,0" Opacity="0.6">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text"
+                                                                        Value="{Binding Label}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Label}"
+                                                                                 Value="{x:Null}">
+                                                                        <Setter Property="Visibility"
+                                                                                Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <TextBlock Text=" — "
+                                                               Opacity="0.4" />
+                                                    <TextBlock Text="{Binding SizeBytes,
+                                                                   Converter={StaticResource BytesToSize}}"
+                                                               Opacity="0.8" />
+                                                    <!-- System / Boot tags -->
+                                                    <Border Background="#E3F2FD" CornerRadius="3"
+                                                            Padding="4,1" Margin="6,0,0,0">
+                                                        <TextBlock Text="SYSTEM" FontSize="10"
+                                                                   Foreground="#1565C0"
+                                                                   FontWeight="SemiBold">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsSystem}"
+                                                                                     Value="False">
+                                                                            <Setter Property="Visibility"
+                                                                                    Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsSystem}"
+                                                                                 Value="False">
+                                                                        <Setter Property="Visibility"
+                                                                                Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                    </Border>
+                                                    <Border Background="#F3E5F5" CornerRadius="3"
+                                                            Padding="4,1" Margin="4,0,0,0">
+                                                        <TextBlock Text="BOOT" FontSize="10"
+                                                                   Foreground="#6A1B9A"
+                                                                   FontWeight="SemiBold" />
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsBoot}"
+                                                                                 Value="False">
+                                                                        <Setter Property="Visibility"
+                                                                                Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                    </Border>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </Grid>
+</UserControl>

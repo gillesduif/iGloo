@@ -1,0 +1,48 @@
+<UserControl
+    x:Class="Igloo.App.Views.WelcomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border Background="#F3F3F3"
+            BorderBrush="#E0E0E0"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="32">
+        <StackPanel>
+            <TextBlock Text="Welcome to iGloo"
+                       FontSize="22" FontWeight="SemiBold" />
+
+            <TextBlock TextWrapping="Wrap" LineHeight="22" Opacity="0.85"
+                       Margin="0,16,0,0">
+                This wizard will guide you through installing Linux alongside Windows no USB stick required.
+            </TextBlock>
+
+            <TextBlock TextWrapping="Wrap" LineHeight="22" Opacity="0.85"
+                       Margin="0,12,0,0">
+                <Run FontWeight="SemiBold">What happens next:</Run>
+                <LineBreak />
+                1. A system check confirms your machine is ready.
+                <LineBreak />
+                2. You pick a Linux distribution from the catalog.
+                <LineBreak />
+                3. iGloo downloads and verifies the installer.
+                <LineBreak />
+                4. A reboot installs Linux and migrates your files.
+            </TextBlock>
+
+            <Border Background="#FFF8E1"
+                    BorderBrush="#FFB300"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="12,8"
+                    Margin="0,24,0,0">
+                <TextBlock TextWrapping="Wrap" Opacity="0.9">
+                    <Run FontWeight="SemiBold">Pre-alpha software.</Run>
+                    Do not run this on a machine you cannot afford to lose.
+                    iGloo modifies partition tables and boot configuration.
+                </TextBlock>
+            </Border>
+        </StackPanel>
+    </Border>
+
+</UserControl>

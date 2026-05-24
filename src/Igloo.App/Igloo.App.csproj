@@ -1,0 +1,90 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!--
+      net8.0-windows10.0.19041.0 matches Igloo.Preflight (System.Management) and keeps
+      the Windows 10 2004+ API surface consistent across all projects in the solution.
+    -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Igloo.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Version>0.0.1-alpha</Version>
+    <AssemblyName>iGloo</AssemblyName>
+    <ApplicationIcon>igloo.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="igloo.ico" />
+  </ItemGroup>
+
+  <!--
+    Copy the distros/ tree (data files + compiled plugin DLLs) into the app output so
+    that FindDistrosDirectory can find it as "adjacent" to the exe. This makes the app
+    self-contained when run from a VM, a publish output, or any path outside the repo.
+
+    Excluded: source files (.cs, .csproj), MSBuild artifacts (bin/, obj/), and the
+    top-level README that is only relevant in the repository.
+
+    NormalizePath resolves the ..\..\distros relative path to a fully-qualified path
+    before passing it to the glob — MSBuild does not expand .. inside Target ItemGroups
+    otherwise.
+  -->
+  <PropertyGroup>
+    <_DistrosRoot>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', '..', 'distros'))</_DistrosRoot>
+  </PropertyGroup>
+
+  <!-- Shared item group evaluated inside each target separately (MSBuild batching) -->
+  <Target Name="CopyDistrosToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <_DistroFiles
+          Include="$(_DistrosRoot)\**\*"
+          Exclude="$(_DistrosRoot)\**\*.cs;
+                   $(_DistrosRoot)\**\*.csproj;
+                   $(_DistrosRoot)\**\bin\**;
+                   $(_DistrosRoot)\**\obj\**;
+                   $(_DistrosRoot)\README.md" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_DistroFiles)"
+          DestinationFiles="@(_DistroFiles->'$(OutputPath)distros\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Same copy for dotnet publish — $(PublishDir) is the publish output folder. -->
+  <Target Name="CopyDistrosToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_DistroFilesPublish
+          Include="$(_DistrosRoot)\**\*"
+          Exclude="$(_DistrosRoot)\**\*.cs;
+                   $(_DistrosRoot)\**\*.csproj;
+                   $(_DistrosRoot)\**\bin\**;
+                   $(_DistrosRoot)\**\obj\**;
+                   $(_DistrosRoot)\README.md" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_DistroFilesPublish)"
+          DestinationFiles="@(_DistroFilesPublish->'$(PublishDir)distros\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="Svg.Skia" Version="4.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Igloo.Core\Igloo.Core.csproj" />
+    <ProjectReference Include="..\Igloo.Preflight\Igloo.Preflight.csproj" />
+    <ProjectReference Include="..\Igloo.Iso\Igloo.Iso.csproj" />
+    <ProjectReference Include="..\Igloo.Migration\Igloo.Migration.csproj" />
+    <ProjectReference Include="..\Igloo.UsbWriter\Igloo.UsbWriter.csproj" />
+  </ItemGroup>
+
+</Project>
