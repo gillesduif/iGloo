@@ -1,6 +1,10 @@
 
 <p align="center">
+<<<<<<< HEAD
   <img src="ocs/assets/iGloo-Logo.svg" alt="iGloo" width="220">
+=======
+  <img src="docs/assets/igloo.svg" alt="iGloo" width="220">
+>>>>>>> d2f8000 (Update logo image source in README.md)
 </p>
 
 <p align="center">
