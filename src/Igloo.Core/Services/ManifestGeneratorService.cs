@@ -16,7 +16,9 @@ public sealed class ManifestGeneratorService
         UserSetup         userSetup,
         PreflightReport   hardware,
         FileStagingResult staging,
-        DiskInfo?         targetDisk = null)
+        DiskInfo?         targetDisk    = null,
+        DiskInstallMode   installMode   = DiskInstallMode.ReplaceDisk,
+        int               linuxSizeGb   = 0)
     {
         var browsers = userSetup.SelectedBrowserNames
             .Select(name => new BrowserMigration
@@ -38,6 +40,7 @@ public sealed class ManifestGeneratorService
                 Locale                 = userSetup.Locale,
                 Timezone               = userSetup.Timezone,
                 Keymap                 = userSetup.Keymap,
+                LinuxPassword          = userSetup.LinuxPassword,
             },
 
             Files = new FileMigrationPlan
@@ -57,6 +60,8 @@ public sealed class ManifestGeneratorService
                 NeedsNonFreeCodecs = true,
                 TargetDiskModel    = targetDisk?.Model,
                 TargetDiskBytes    = targetDisk?.TotalBytes ?? 0,
+                InstallMode        = installMode == DiskInstallMode.DualBoot ? "dual-boot" : "replace",
+                LinuxPartitionSizeGb = installMode == DiskInstallMode.DualBoot ? linuxSizeGb : 0,
             },
         };
     }
@@ -67,6 +72,7 @@ public sealed record UserSetup
 {
     public required string                WindowsUsername      { get; init; }
     public required string                LinuxUsername        { get; init; }
+    public string?                        LinuxPassword        { get; init; }
     public string                         Locale               { get; init; } = "en_US.UTF-8";
     public string                         Timezone             { get; init; } = "UTC";
     public string                         Keymap               { get; init; } = "us";

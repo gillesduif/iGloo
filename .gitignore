@@ -58,6 +58,13 @@ local/
 *.iso.sha256
 *.iso.gpg
 
+# Pre-built plugin DLLs shipped inside distros/ (build output, not source)
+distros/**/*.dll
+distros/**/*.pdb
+
+# Personal notes / editor metadata
+.obsidian/
+
 # Secrets and credentials — should never be committed
 *.pfx
 *.key
@@ -65,3 +72,4 @@ local/
 secrets/
 appsettings.local.json
 appsettings.Development.json
+/.claude

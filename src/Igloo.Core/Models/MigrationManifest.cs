@@ -48,6 +48,15 @@ public sealed record MigrationUser
     [JsonPropertyName("locale")] public string Locale { get; init; } = "en_US.UTF-8";
     [JsonPropertyName("timezone")] public string Timezone { get; init; } = "UTC";
     [JsonPropertyName("keymap")] public string Keymap { get; init; } = "us";
+
+    /// <summary>
+    /// Plaintext password chosen by the user during the migration setup wizard.
+    /// Written into the kickstart <c>user --password</c> directive so Anaconda sets
+    /// it directly — no locked account, no SDDM autologin workaround required.
+    /// The kickstart file lives on a temporary FAT32 partition that is deleted after
+    /// installation, so the brief plaintext exposure is acceptable.
+    /// </summary>
+    [JsonPropertyName("linuxPassword")] public string? LinuxPassword { get; init; }
 }
 
 public sealed record FileMigrationPlan
@@ -92,4 +101,16 @@ public sealed record HardwareProfile
     /// to identify the correct /dev/ device without relying on device-name ordering.
     /// </summary>
     [JsonPropertyName("targetDiskBytes")] public long TargetDiskBytes { get; init; }
+
+    /// <summary>
+    /// How Linux is installed relative to existing data.
+    /// <c>"replace"</c> = entire disk erased; <c>"dual-boot"</c> = installed alongside Windows.
+    /// </summary>
+    [JsonPropertyName("installMode")] public string InstallMode { get; init; } = "replace";
+
+    /// <summary>
+    /// Size (in GiB) allocated to Linux when <see cref="InstallMode"/> is <c>"dual-boot"</c>.
+    /// Zero when the install mode is <c>"replace"</c>.
+    /// </summary>
+    [JsonPropertyName("linuxPartitionSizeGb")] public int LinuxPartitionSizeGb { get; init; }
 }

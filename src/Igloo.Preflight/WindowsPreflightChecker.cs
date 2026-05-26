@@ -184,7 +184,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 };
 
                 var (fs, label) = QueryVolumeInfo(dl);
-                partitions.Add(new PartitionInfo(index, fs, size, label, isSystem, isBoot));
+                var shrinkable  = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index, p) : 0L;
+                partitions.Add(new PartitionInfo(index, fs, size, label, isSystem, isBoot, shrinkable));
             }
         }
         catch (Exception ex)
@@ -192,6 +193,41 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             _logger.LogWarning(ex, "MSFT_Partition query failed for disk {DiskNumber}", diskNumber);
         }
         return partitions;
+    }
+
+    /// <summary>
+    /// Calls <c>MSFT_Partition.GetSupportedSize()</c> to find how many bytes the partition
+    /// can be shrunk.  Returns 0 on any failure (non-NTFS, locked, etc.).
+    /// </summary>
+    private long QueryShrinkableBytes(uint diskNumber, uint partitionNumber, ManagementBaseObject partObj)
+    {
+        try
+        {
+            // Re-query as ManagementObject so we can invoke methods on it.
+            using var searcher = new ManagementObjectSearcher(
+                @"root\Microsoft\Windows\Storage",
+                $"SELECT * FROM MSFT_Partition WHERE DiskNumber = {diskNumber} " +
+                $"AND PartitionNumber = {partitionNumber}");
+            using var results = searcher.Get();
+            var mo = results.Cast<ManagementObject>().FirstOrDefault();
+            if (mo is null) return 0;
+
+            var outParams = mo.InvokeMethod("GetSupportedSize", null, null);
+            if (outParams is null) return 0;
+
+            var returnValue = Convert.ToUInt32(outParams["ReturnValue"]);
+            if (returnValue != 0) return 0;   // 0 = success
+
+            var sizeMin = Convert.ToInt64(outParams["SizeMin"]);
+            var sizeMax = Convert.ToInt64(outParams["SizeMax"]);
+            return Math.Max(0, sizeMax - sizeMin);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GetSupportedSize failed for disk {Disk} partition {Part}",
+                diskNumber, partitionNumber);
+            return 0;
+        }
     }
 
     private (string FileSystem, string? Label) QueryVolumeInfo(char driveLetter)

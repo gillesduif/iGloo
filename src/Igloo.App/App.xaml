@@ -38,6 +38,10 @@
                 <views:DiskSelectionPage />
             </DataTemplate>
 
+            <DataTemplate DataType="{x:Type vm:DirectInstallViewModel}">
+                <views:DirectInstallPage />
+            </DataTemplate>
+
             <DataTemplate DataType="{x:Type vm:FileStagingViewModel}">
                 <views:FileStagingPage />
             </DataTemplate>

@@ -23,6 +23,13 @@ public sealed record DistroIsoSpec
     [JsonPropertyName("sha256")]          public required string Sha256         { get; init; }
     [JsonPropertyName("gpgSignatureUrl")] public string? GpgSignatureUrl        { get; init; }
     [JsonPropertyName("gpgKeyUrl")]       public string? GpgKeyUrl              { get; init; }
+
+    /// <summary>
+    /// URL of the Anaconda stage-2 OS tree (e.g. the Fedora mirror's <c>/os/</c> path).
+    /// Required for netinstall: without it Anaconda cannot locate the installer payload.
+    /// Format: <c>https://…/os/</c> (directory, trailing slash).
+    /// </summary>
+    [JsonPropertyName("stage2Url")]       public string? Stage2Url              { get; init; }
 }
 
 public sealed record DistroRequirements

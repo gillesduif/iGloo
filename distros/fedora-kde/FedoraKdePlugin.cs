@@ -154,18 +154,29 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         // Included folder names as a space-separated list for the %post shell loop.
         var folderList = string.Join(" ", m.Files.IncludedFolders);
 
+        // Password: use the user's chosen password (--plaintext).
+        // If somehow empty, fall back to a locked account so we don't create
+        // a passwordless account — the first-boot agent should handle recovery.
+        var password       = m.User.LinuxPassword;
+        var passwordOption = !string.IsNullOrEmpty(password)
+            ? $"--password={password} --plaintext"
+            : "--lock";
+
         return template
-            .Replace("{{LOCALE}}",             m.User.Locale)
-            .Replace("{{KEYMAP}}",             m.User.Keymap)
-            .Replace("{{XLAYOUT}}",            m.User.Keymap)
-            .Replace("{{TIMEZONE}}",           m.User.Timezone)
-            .Replace("{{HOSTNAME}}",           m.User.PreferredLinuxUsername + "-pc")
-            .Replace("{{LINUX_USERNAME}}",     m.User.PreferredLinuxUsername)
-            .Replace("{{FULL_NAME}}",          m.User.FullName ?? m.User.PreferredLinuxUsername)
-            .Replace("{{TARGET_DISK_BYTES}}", (m.Hardware.TargetDiskBytes > 0
+            .Replace("{{LOCALE}}",            m.User.Locale)
+            .Replace("{{KEYMAP}}",            m.User.Keymap)
+            .Replace("{{XLAYOUT}}",           m.User.Keymap)
+            .Replace("{{TIMEZONE}}",          m.User.Timezone)
+            .Replace("{{HOSTNAME}}",          m.User.PreferredLinuxUsername + "-pc")
+            .Replace("{{WINDOWS_USERNAME}}",  m.User.WindowsUsername)
+            .Replace("{{LINUX_USERNAME}}",    m.User.PreferredLinuxUsername)
+            .Replace("{{FULL_NAME}}",         m.User.FullName ?? m.User.PreferredLinuxUsername)
+            .Replace("{{PASSWORD_OPTION}}",   passwordOption)
+            .Replace("{{TARGET_DISK_BYTES}}", m.Hardware.TargetDiskBytes > 0
                                                 ? m.Hardware.TargetDiskBytes.ToString()
-                                                : "0"))
+                                                : "0")
             .Replace("{{TARGET_DISK_MODEL}}", m.Hardware.TargetDiskModel ?? "")
+            .Replace("{{INSTALL_MODE}}",      m.Hardware.InstallMode)
             .Replace("{{INCLUDED_FOLDERS}}",  folderList);
     }
 

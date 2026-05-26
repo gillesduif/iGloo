@@ -244,7 +244,7 @@
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding Model}"
                                                    FontWeight="SemiBold" />
-                                        <TextBlock Text=" — "
+                                        <TextBlock Text=" - "
                                                    Opacity="0.5" />
                                         <TextBlock Text="{Binding TotalBytes,
                                                        Converter={StaticResource BytesToSize}}" />
@@ -296,7 +296,7 @@
                                                             </Style>
                                                         </TextBlock.Style>
                                                     </TextBlock>
-                                                    <TextBlock Text=" — "
+                                                    <TextBlock Text=" - "
                                                                Opacity="0.4" />
                                                     <TextBlock Text="{Binding SizeBytes,
                                                                    Converter={StaticResource BytesToSize}}"

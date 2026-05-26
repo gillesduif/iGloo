@@ -22,10 +22,14 @@ namespace Igloo.App.ViewModels;
 public sealed partial class UsbWriterViewModel : ObservableObject
 {
     private readonly IUsbWriterService          _writer;
+    private readonly IPartitionResizeService    _resizer;
     private readonly ILogger<UsbWriterViewModel> _logger;
 
-    private string? _isoPath;
-    private string? _stagingDirectory;
+    private string?          _isoPath;
+    private string?          _stagingDirectory;
+    private DiskInfo?        _targetDisk;
+    private DiskInstallMode  _installMode  = DiskInstallMode.ReplaceDisk;
+    private int              _linuxSizeGb;
 
     // ── Observable state ──────────────────────────────────────────────────────
 
@@ -113,10 +117,12 @@ public sealed partial class UsbWriterViewModel : ObservableObject
 
     public UsbWriterViewModel(
         IUsbWriterService           writer,
+        IPartitionResizeService     resizer,
         ILogger<UsbWriterViewModel> logger)
     {
-        _writer = writer;
-        _logger = logger;
+        _writer  = writer;
+        _resizer = resizer;
+        _logger  = logger;
     }
 
     // ── API called by MainWindowViewModel ─────────────────────────────────────
@@ -125,10 +131,18 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     /// Stores paths produced by prior wizard steps and resets all observable state.
     /// Call this before navigating to this step.
     /// </summary>
-    public void Prepare(IsoAcquisitionResult isoResult, FileStagingResult stagingResult)
+    public void Prepare(
+        IsoAcquisitionResult isoResult,
+        FileStagingResult    stagingResult,
+        DiskInfo?            targetDisk  = null,
+        DiskInstallMode      installMode = DiskInstallMode.ReplaceDisk,
+        int                  linuxSizeGb = 0)
     {
         _isoPath          = isoResult.LocalPath;
         _stagingDirectory = stagingResult.StagingDirectory;
+        _targetDisk       = targetDisk;
+        _installMode      = installMode;
+        _linuxSizeGb      = linuxSizeGb;
 
         IsComplete   = false;
         HasError     = false;
@@ -139,6 +153,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         BytesTotal   = 0;
         IsRunning    = false;
         CurrentPhase = UsbWritePhase.WritingIso;
+        GrubPatchNote = null;
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
@@ -194,12 +209,13 @@ public sealed partial class UsbWriterViewModel : ObservableObject
             CurrentPhase = p.Phase;    // drives IsCancelable and cancel-message logic
             PhaseDisplay = p.Phase switch
             {
-                UsbWritePhase.WritingIso     => "Writing installer image…",
-                UsbWritePhase.CreatingOemdrv => "Creating OEMDRV partition…",
-                UsbWritePhase.PatchingGrub   => "Patching GRUB configuration…",
-                UsbWritePhase.CopyingFiles   => "Copying migration files…",
-                UsbWritePhase.Complete       => "Complete",
-                _                            => string.Empty,
+                UsbWritePhase.ShrinkingPartition => "Shrinking Windows partition…",
+                UsbWritePhase.WritingIso         => "Writing installer image…",
+                UsbWritePhase.CreatingOemdrv     => "Creating OEMDRV partition…",
+                UsbWritePhase.PatchingGrub       => "Patching GRUB configuration…",
+                UsbWritePhase.CopyingFiles       => "Copying migration files…",
+                UsbWritePhase.Complete           => "Complete",
+                _                               => string.Empty,
             };
 
             // Capture the last GRUB patch message so it is displayed on completion.
@@ -209,6 +225,32 @@ public sealed partial class UsbWriterViewModel : ObservableObject
 
         try
         {
+            // ── Step 0: Shrink Windows partition (dual-boot only) ─────────────
+            if (_installMode == DiskInstallMode.DualBoot && _targetDisk is not null && _linuxSizeGb > 0)
+            {
+                CurrentPhase = UsbWritePhase.ShrinkingPartition;
+                PhaseDisplay = "Shrinking Windows partition…";
+
+                const string prefix = "\\\\.\\PHYSICALDRIVE";
+                int diskNumber = int.Parse(
+                    _targetDisk.DeviceId.AsSpan()[prefix.Length..]);
+
+                long linuxBytes = (long)_linuxSizeGb * 1024 * 1024 * 1024;
+
+                var shrinkProgress = new Progress<string>(msg =>
+                {
+                    PhaseDisplay = msg;
+                    _logger.LogInformation("[resize] {Message}", msg);
+                });
+
+                _logger.LogInformation(
+                    "Dual-boot mode: shrinking disk {Disk} by {GiB} GiB for Linux",
+                    diskNumber, _linuxSizeGb);
+
+                await _resizer.ShrinkAsync(diskNumber, linuxBytes, shrinkProgress, ct);
+            }
+
+            // ── Step 1-4: Write USB ───────────────────────────────────────────
             await _writer.WriteAsync(
                 SelectedDrive, _isoPath, _stagingDirectory, progress, ct);
 

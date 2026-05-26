@@ -29,6 +29,30 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     public bool IsUsernameValid => ValidateLinuxUsername(LinuxUsername);
 
+    // ── Linux password ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The password the user typed in the first PasswordBox.
+    /// Set from code-behind (PasswordBox.Password is not bindable).
+    /// </summary>
+    public string LinuxPassword        { get; private set; } = string.Empty;
+    public string LinuxPasswordConfirm { get; private set; } = string.Empty;
+
+    public bool IsPasswordValid => LinuxPassword.Length >= 8;
+    public bool IsPasswordMatch => LinuxPassword == LinuxPasswordConfirm;
+
+    /// <summary>Called by the view code-behind when either PasswordBox changes.</summary>
+    public void SetPasswords(string password, string confirm)
+    {
+        LinuxPassword        = password;
+        LinuxPasswordConfirm = confirm;
+        OnPropertyChanged(nameof(LinuxPassword));
+        OnPropertyChanged(nameof(LinuxPasswordConfirm));
+        OnPropertyChanged(nameof(IsPasswordValid));
+        OnPropertyChanged(nameof(IsPasswordMatch));
+        OnPropertyChanged(nameof(CanProceed));
+    }
+
     // ── Folders to migrate ────────────────────────────────────────────────────
 
     [ObservableProperty] private bool _includeDocuments = true;
@@ -50,8 +74,8 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     // ── CanProceed ────────────────────────────────────────────────────────────
 
-    /// <summary>Enables "Next" once the username passes validation.</summary>
-    public bool CanProceed => IsUsernameValid;
+    /// <summary>Enables "Next" once the username and password both pass validation.</summary>
+    public bool CanProceed => IsUsernameValid && IsPasswordValid && IsPasswordMatch;
 
     // ── Constructor ──────────────────────────────────────────────────────────
 

@@ -23,7 +23,7 @@ public sealed record DiskInfo(string DeviceId, string Model, long TotalBytes, lo
     string PartitionStyle, IReadOnlyList<PartitionInfo> Partitions);
 
 public sealed record PartitionInfo(int Index, string FileSystem, long SizeBytes, string? Label,
-    bool IsSystem, bool IsBoot);
+    bool IsSystem, bool IsBoot, long ShrinkableBytes = 0);
 
 public enum BitLockerState
 {
@@ -119,4 +119,99 @@ public sealed record UsbWriteProgress(
     long          BytesTotal,
     string?       Message);
 
-public enum UsbWritePhase { WritingIso, CreatingOemdrv, PatchingGrub, CopyingFiles, Complete }
+public enum UsbWritePhase { ShrinkingPartition, WritingIso, CreatingOemdrv, PatchingGrub, CopyingFiles, Complete }
+
+// ── Direct Install (no USB) ───────────────────────────────────────────────────
+
+/// <summary>
+/// Installs the Fedora KDE Live ISO directly onto a temporary FAT32 partition
+/// carved from the target disk — no USB drive required.
+/// Only applicable for <see cref="DiskInstallMode.DualBoot"/>.
+/// </summary>
+public interface IDirectInstallService
+{
+    /// <summary>
+    /// Creates the OEMDRV temp partition on the disk, copies the ISO and
+    /// migration artefacts onto it, and configures a GRUB2 EFI that loop-boots
+    /// the ISO.  The Windows partition shrink is also performed here.
+    /// </summary>
+    Task PrepareAsync(
+        int                               diskNumber,
+        long                              linuxSizeBytes,
+        string                            isoPath,
+        string                            stagingDirectory,
+        string?                           stage2Url = null,
+        IProgress<DirectInstallProgress>? progress  = null,
+        CancellationToken                 ct        = default);
+
+    /// <summary>
+    /// Writes the UEFI <c>BootNext</c> NVRAM variable so the firmware boots
+    /// the GRUB installer exactly once on the next reboot, then returns.
+    /// </summary>
+    Task RegisterBootEntryAsync(
+        IProgress<DirectInstallProgress>? progress = null,
+        CancellationToken                 ct       = default);
+}
+
+public enum DirectInstallPhase
+{
+    ShrinkingPartition,
+    CreatingPartition,
+    CopyingIso,
+    CopyingFiles,
+    ConfiguringGrub,
+    RegisteringBootEntry,
+    Complete,
+}
+
+public sealed record DirectInstallProgress(
+    DirectInstallPhase Phase,
+    long               BytesWritten = 0,
+    long               BytesTotal   = 0,
+    string?            Message      = null);
+
+// ── Installation mode ─────────────────────────────────────────────────────────
+
+/// <summary>How Linux will coexist (or not) with existing data on the target disk.</summary>
+public enum DiskInstallMode
+{
+    /// <summary>
+    /// The entire target disk is erased and Linux is installed alone.
+    /// Kickstart: <c>clearpart --drives=X --all --initlabel</c>.
+    /// </summary>
+    ReplaceDisk,
+
+    /// <summary>
+    /// The main Windows NTFS partition is shrunk to create free space, and Linux
+    /// is installed in that space alongside Windows.
+    /// Kickstart: <c>clearpart --none</c> (Anaconda uses the unpartitioned free space).
+    /// iGloo shrinks the Windows partition during the USB-write step.
+    /// </summary>
+    DualBoot,
+}
+
+// ── Partition resize ──────────────────────────────────────────────────────────
+
+/// <summary>
+/// Queries how much a Windows NTFS partition can be shrunk and performs the resize.
+/// Required for the <see cref="DiskInstallMode.DualBoot"/> path — Linux needs
+/// unpartitioned free space that Anaconda can claim.
+/// </summary>
+public interface IPartitionResizeService
+{
+    /// <summary>
+    /// Returns the number of bytes by which the largest NTFS partition on
+    /// <paramref name="diskNumber"/> can be shrunk (i.e. how much space is available
+    /// for a Linux partition without data loss).  Returns 0 if no shrinkable partition
+    /// is found or the query fails.
+    /// </summary>
+    Task<long> GetShrinkableSpaceAsync(int diskNumber, CancellationToken ct = default);
+
+    /// <summary>
+    /// Shrinks the main NTFS partition on <paramref name="diskNumber"/> so that
+    /// <paramref name="linuxSizeBytes"/> of unallocated space is freed for Linux.
+    /// Requires the process to be running with administrator privileges.
+    /// </summary>
+    Task ShrinkAsync(int diskNumber, long linuxSizeBytes,
+        IProgress<string>? progress = null, CancellationToken ct = default);
+}

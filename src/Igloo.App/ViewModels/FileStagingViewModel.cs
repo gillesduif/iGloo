@@ -32,6 +32,8 @@ public sealed partial class FileStagingViewModel : ObservableObject
     private PreflightReport?         _preflightReport;
     private MigrationSetupViewModel? _setup;
     private DiskInfo?                _targetDisk;
+    private DiskInstallMode          _installMode = DiskInstallMode.ReplaceDisk;
+    private int                      _linuxSizeGb;
 
     private static readonly JsonSerializerOptions PrettyJson =
         new() { WriteIndented = true };
@@ -95,12 +97,16 @@ public sealed partial class FileStagingViewModel : ObservableObject
         MigrationSetupViewModel setup,
         PreflightReport         report,
         DistroManifest          distro,
-        DiskInfo?               targetDisk = null)
+        DiskInfo?               targetDisk  = null,
+        DiskInstallMode         installMode = DiskInstallMode.ReplaceDisk,
+        int                     linuxSizeGb = 0)
     {
         _setup           = setup;
         _preflightReport = report;
         _distroId        = distro.Id;
         _targetDisk      = targetDisk;
+        _installMode     = installMode;
+        _linuxSizeGb     = linuxSizeGb;
         _request         = new FileStagingRequest(distro.Id, setup.GetSelectedFolderPaths());
 
         IsComplete   = false;
@@ -146,6 +152,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
             {
                 WindowsUsername      = _setup.WindowsUsername,
                 LinuxUsername        = _setup.LinuxUsername,
+                LinuxPassword        = _setup.LinuxPassword,
                 Locale               = "en_US.UTF-8",
                 Timezone             = _setup.Timezone,
                 Keymap               = _setup.Keymap,
@@ -154,7 +161,8 @@ public sealed partial class FileStagingViewModel : ObservableObject
             };
 
             var manifest = _manifestGenerator.Generate(
-                _distroId, userSetup, _preflightReport, stagingResult, _targetDisk);
+                _distroId, userSetup, _preflightReport, stagingResult,
+                _targetDisk, _installMode, _linuxSizeGb);
 
             var manifestPath = Path.Combine(stagingResult.StagingDirectory, "migration-manifest.json");
             await File.WriteAllTextAsync(

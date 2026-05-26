@@ -11,8 +11,17 @@
 #   {{FULL_NAME}}          display name (falls back to username)
 #   {{TARGET_DISK_BYTES}}  exact byte size of the user-selected target disk
 #   {{TARGET_DISK_MODEL}}  model string of the target disk (informational)
+#   {{WINDOWS_USERNAME}}   Windows login name (used by direct-install %post to
+#                          locate the user's home directory on the NTFS partition)
+#   {{INSTALL_MODE}}       "replace"   → wipe entire disk (clearpart --all)
+#                          "dual-boot" → keep existing partitions, use free space
+#                                        (clearpart --none; Windows was already
+#                                         shrunk by the Igloo app before boot)
 #   {{INCLUDED_FOLDERS}}   space-separated list of staged folder names
 #                          (e.g. "Documents Downloads Pictures")
+#   {{PASSWORD_OPTION}}    rendered by the plugin as either
+#                          "--password=<plaintext> --plaintext"  (normal case)
+#                          "--lock"                              (fallback if no password)
 #
 # Picked up by Anaconda automatically: OEMDRV is a FAT32 volume with that
 # label, which Anaconda has scanned for kickstart files for many years.
@@ -27,7 +36,7 @@ timezone {{TIMEZONE}} --utc
 network --bootproto=dhcp --device=link --activate --hostname={{HOSTNAME}}
 
 rootpw --lock
-user --name={{LINUX_USERNAME}} --groups=wheel --gecos="{{FULL_NAME}}" --lock
+user --name={{LINUX_USERNAME}} --groups=wheel --gecos="{{FULL_NAME}}" {{PASSWORD_OPTION}}
 
 # ── Disk detection ───────────────────────────────────────────────────────────
 # The %pre script runs before the installer initialises storage. It finds the
@@ -45,7 +54,9 @@ set -euo pipefail
 
 TARGET_BYTES="{{TARGET_DISK_BYTES}}"
 TARGET_MODEL="{{TARGET_DISK_MODEL}}"
+INSTALL_MODE="{{INSTALL_MODE}}"
 TARGET_DISK=""
+OEMDRV_DEV=""
 
 log() { echo "[igloo-pre] $*" >&2; }
 log "Searching for target disk: model='$TARGET_MODEL' size=${TARGET_BYTES} bytes"
@@ -89,13 +100,22 @@ if [ -z "$TARGET_DISK" ]; then
     # Write a dummy that produces a clear error instead of a silent hang
     echo "# ERROR: target disk not found" > /tmp/ks-storage.cfg
 else
-    log "Target disk: /dev/$TARGET_DISK"
+    log "Target disk: /dev/$TARGET_DISK  (mode: $INSTALL_MODE)"
     {
         echo "bootloader --location=mbr --boot-drive=${TARGET_DISK}"
         echo "ignoredisk --only-use=${TARGET_DISK}"
-        echo "clearpart --drives=${TARGET_DISK} --all --initlabel"
+        if [ "$INSTALL_MODE" = "dual-boot" ]; then
+            # Windows partition was already shrunk by Igloo before USB boot.
+            # Keep all existing partitions; Anaconda will use the free space.
+            echo "clearpart --none"
+        else
+            # Replace mode: wipe the entire disk.
+            echo "clearpart --drives=${TARGET_DISK} --all --initlabel"
+        fi
         echo "autopart --type=lvm"
     } > /tmp/ks-storage.cfg
+    log "Storage config written to /tmp/ks-storage.cfg:"
+    cat /tmp/ks-storage.cfg >&2
 fi
 %end
 
@@ -112,6 +132,7 @@ python3
 python3-pip
 rsync
 git
+ntfs-3g
 %end
 
 reboot
@@ -127,9 +148,26 @@ reboot
 %post --nochroot --interpreter=/bin/bash --log=/mnt/sysimage/var/log/igloo-post.log
 set -euo pipefail
 
-OEMDRV="/run/install/repo"
 SYSIMAGE="/mnt/sysimage"
+
+# Locate the OEMDRV partition by its FAT32 filesystem label.
+# With netinstall, /run/install/repo is the network package repo — NOT the OEMDRV
+# device.  We must find OEMDRV explicitly by label and mount it ourselves.
+OEMDRV_DEV=$(blkid -L OEMDRV 2>/dev/null || true)
+OEMDRV=""
+if [ -n "$OEMDRV_DEV" ]; then
+    OEMDRV="/tmp/igloo_oemdrv"
+    mkdir -p "$OEMDRV"
+    if ! mount -o ro "$OEMDRV_DEV" "$OEMDRV" 2>/dev/null; then
+        OEMDRV=""
+    fi
+fi
+if [ -z "$OEMDRV" ]; then
+    echo "[igloo-post] WARNING: Could not mount OEMDRV (tried $OEMDRV_DEV) — agent/manifest copy skipped" >&2
+fi
 USERNAME="{{LINUX_USERNAME}}"
+WINDOWS_USERNAME="{{WINDOWS_USERNAME}}"
+INCLUDED_FOLDERS="{{INCLUDED_FOLDERS}}"
 USER_HOME="$SYSIMAGE/home/$USERNAME"
 
 log() { echo "[igloo-post] $*"; }
@@ -146,7 +184,7 @@ install -d -m 0755 \
     "$SYSIMAGE/var/log/igloo"
 
 # ── 2. Copy the first-boot agent ────────────────────────────────────────────
-if [ -d "$OEMDRV/igloo-agent" ]; then
+if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/igloo-agent" ]; then
     cp -a "$OEMDRV/igloo-agent/." "$SYSIMAGE/opt/igloo/"
     chmod +x "$SYSIMAGE/opt/igloo/first-boot.sh" 2>/dev/null || true
     chmod +x "$SYSIMAGE/opt/igloo/agent.py"       2>/dev/null || true
@@ -156,28 +194,72 @@ else
 fi
 
 # ── 3. Copy the migration manifest ──────────────────────────────────────────
-if [ -f "$OEMDRV/migration-manifest.json" ]; then
+if [ -n "$OEMDRV" ] && [ -f "$OEMDRV/migration-manifest.json" ]; then
     cp "$OEMDRV/migration-manifest.json" "$SYSIMAGE/var/lib/igloo/manifest.json"
     log "Manifest copied to /var/lib/igloo/manifest.json"
 else
     log "WARNING: migration-manifest.json not found on OEMDRV"
 fi
 
-# ── 4. Copy staged user files ────────────────────────────────────────────────
-# Files are at OEMDRV/files/<FolderName>/ (e.g. files/Documents/, files/Downloads/).
-if [ -d "$USER_HOME" ] && [ -d "$OEMDRV/files" ]; then
-    log "Copying staged user files to $USER_HOME"
-    for folder_src in "$OEMDRV/files"/*/; do
-        [ -d "$folder_src" ] || continue
-        folder_name=$(basename "$folder_src")
-        folder_dst="$USER_HOME/$folder_name"
-        mkdir -p "$folder_dst"
-        cp -a "$folder_src/." "$folder_dst/"
-        log "  Copied $folder_name"
-    done
+# ── 4. Copy user files ───────────────────────────────────────────────────────
+# Two strategies depending on how Igloo wrote the installer:
+#
+#   USB mode:    OEMDRV/files/<FolderName>/  (user files were staged to USB)
+#   Direct mode: OEMDRV has no files/ dir → mount Windows NTFS and copy directly
 
-    # Fix ownership — the user was created by the kickstart 'user' command,
-    # so their uid:gid are already in /mnt/sysimage/etc/passwd.
+copy_user_files_done=0
+
+if [ -d "$USER_HOME" ]; then
+    if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/files" ]; then
+        # ── USB mode ─────────────────────────────────────────────────────────
+        log "Copying staged user files from OEMDRV/files/ to $USER_HOME"
+        for folder_src in "$OEMDRV/files"/*/; do
+            [ -d "$folder_src" ] || continue
+            folder_name=$(basename "$folder_src")
+            folder_dst="$USER_HOME/$folder_name"
+            mkdir -p "$folder_dst"
+            cp -a "$folder_src/." "$folder_dst/"
+            log "  Copied $folder_name"
+        done
+        copy_user_files_done=1
+    else
+        # ── Direct install mode ───────────────────────────────────────────────
+        log "OEMDRV/files not present — attempting direct copy from Windows NTFS partition"
+        NTFS_MNT="/tmp/igloo_ntfs_src"
+        mkdir -p "$NTFS_MNT"
+
+        for ntfs_dev in /dev/sd?[0-9]* /dev/nvme?n?p* /dev/vd?[0-9]*; do
+            [ -b "$ntfs_dev" ] || continue
+            blkid "$ntfs_dev" 2>/dev/null | grep -q 'TYPE="ntfs"' || continue
+
+            mount -t ntfs-3g "$ntfs_dev" "$NTFS_MNT" -o ro 2>/dev/null || continue
+            WIN_HOME="$NTFS_MNT/Users/$WINDOWS_USERNAME"
+
+            if [ -d "$WIN_HOME" ]; then
+                log "Found Windows home at $ntfs_dev : $WIN_HOME"
+                for folder in $INCLUDED_FOLDERS; do
+                    src="$WIN_HOME/$folder"
+                    dst="$USER_HOME/$folder"
+                    [ -d "$src" ] || { log "  Skipping $folder (not found)"; continue; }
+                    mkdir -p "$dst"
+                    cp -a "$src/." "$dst/"
+                    log "  Copied $folder from NTFS"
+                done
+                umount "$NTFS_MNT"
+                copy_user_files_done=1
+                break
+            fi
+
+            umount "$NTFS_MNT"
+        done
+
+        [ "$copy_user_files_done" = "1" ] || \
+            log "WARNING: Windows home directory not found on any NTFS partition"
+    fi
+fi
+
+# Fix ownership (only when files were actually copied).
+if [ "$copy_user_files_done" = "1" ] && [ -d "$USER_HOME" ]; then
     USER_UID=$(grep "^${USERNAME}:" "$SYSIMAGE/etc/passwd" 2>/dev/null | cut -d: -f3 || true)
     USER_GID=$(grep "^${USERNAME}:" "$SYSIMAGE/etc/passwd" 2>/dev/null | cut -d: -f4 || true)
     if [ -n "${USER_UID:-}" ] && [ -n "${USER_GID:-}" ]; then
@@ -186,9 +268,6 @@ if [ -d "$USER_HOME" ] && [ -d "$OEMDRV/files" ]; then
     else
         log "WARNING: could not determine uid:gid for $USERNAME — skipping chown"
     fi
-else
-    [ -d "$USER_HOME" ]       || log "WARNING: home directory $USER_HOME does not exist yet"
-    [ -d "$OEMDRV/files" ]    || log "WARNING: OEMDRV/files not found — no files to copy"
 fi
 
 # ── 5. Register the igloo-first-boot systemd service ────────────────────────
@@ -218,5 +297,36 @@ chroot "$SYSIMAGE" systemctl enable igloo-first-boot.service 2>/dev/null || \
            "$SYSIMAGE/etc/systemd/system/multi-user.target.wants/igloo-first-boot.service"
 
 log "igloo-first-boot.service registered"
+
+# ── 6. Enable os-prober so GRUB detects Windows for dual-boot ───────────────
+# Fedora 37+ disables os-prober by default (GRUB 2.06 security change).
+# Without this, grub2-mkconfig never scans for Windows Boot Manager and the
+# GRUB menu only shows Fedora — end users cannot get back to Windows.
+if ! grep -q "GRUB_DISABLE_OS_PROBER=false" "$SYSIMAGE/etc/default/grub" 2>/dev/null; then
+    echo "GRUB_DISABLE_OS_PROBER=false" >> "$SYSIMAGE/etc/default/grub"
+    log "Enabled os-prober (GRUB_DISABLE_OS_PROBER=false)"
+fi
+# Regenerate GRUB config now that os-prober is enabled.
+# Anaconda already ran grub2-mkconfig during install (without os-prober).
+# We run it again here so the Windows entry is present on first boot.
+chroot "$SYSIMAGE" grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null \
+    && log "GRUB config regenerated — Windows entry added" \
+    || log "WARNING: grub2-mkconfig failed; run 'sudo grub2-mkconfig -o /boot/grub2/grub.cfg' after first boot"
+
+# ── 7. Remove EFI bootloader from installer partition (direct install only) ──
+# The OEMDRV partition lives on the internal disk. Strip its EFI boot files so
+# the firmware cannot accidentally restart the installer on the next boot.
+# (BootNext is a one-shot NVRAM variable the firmware clears automatically after
+#  use, but removing the EFI binary is belt-and-suspenders.)
+if [ -n "$OEMDRV" ] && [ ! -d "$OEMDRV/files" ] && [ -d "$OEMDRV/EFI" ]; then
+    rm -rf "$OEMDRV/EFI" 2>/dev/null || true
+    log "Removed EFI boot files from installer partition (direct-install cleanup)"
+fi
+
+# Unmount OEMDRV if we mounted it.
+if [ -n "$OEMDRV" ] && mountpoint -q "$OEMDRV" 2>/dev/null; then
+    umount "$OEMDRV" 2>/dev/null || true
+fi
+
 log "Post-install complete"
 %end

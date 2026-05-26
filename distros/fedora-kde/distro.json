@@ -7,10 +7,11 @@
   "installerType": "Anaconda",
 
   "iso": {
-    "downloadUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/KDE/x86_64/iso/Fedora-KDE-Desktop-Live-44-1.7.x86_64.iso",
-    "sha256": "c8295961d4c41adbf785a31a17c21a971d3b7415fda72dcad0c11c49577bf03a",
-    "gpgSignatureUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/KDE/x86_64/iso/Fedora-KDE-44-1.7-x86_64-CHECKSUM",
-    "gpgKeyUrl": "https://fedoraproject.org/fedora.gpg"
+    "downloadUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-44-1.7.iso",
+    "sha256": "",
+    "gpgSignatureUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/iso/Fedora-Everything-44-1.7-x86_64-CHECKSUM",
+    "gpgKeyUrl": "https://fedoraproject.org/fedora.gpg",
+    "stage2Url": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/os/"
   },
 
   "tags": [

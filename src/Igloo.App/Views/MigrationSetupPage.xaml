@@ -19,8 +19,11 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
+                <!-- Row 0: Windows user (read-only context) -->
                 <TextBlock Grid.Row="0" Grid.Column="0"
                            Text="Windows user" Opacity="0.6"
                            VerticalAlignment="Center" />
@@ -28,6 +31,7 @@
                            Text="{Binding WindowsUsername}"
                            VerticalAlignment="Center" />
 
+                <!-- Row 1: Linux username -->
                 <TextBlock Grid.Row="1" Grid.Column="0"
                            Text="Linux username" Opacity="0.6"
                            VerticalAlignment="Center" Margin="0,10,0,0" />
@@ -49,6 +53,79 @@
                                     <DataTrigger Binding="{Binding IsUsernameValid}" Value="False">
                                         <Setter Property="Visibility" Value="Visible" />
                                     </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Row 2: Password -->
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           Text="Password" Opacity="0.6"
+                           VerticalAlignment="Center" Margin="0,10,0,0" />
+                <StackPanel Grid.Row="2" Grid.Column="1"
+                            Orientation="Horizontal" Margin="0,10,0,0">
+                    <PasswordBox x:Name="PasswordBox"
+                                 Width="220" PasswordChanged="OnPasswordChanged" />
+                    <!-- Too short indicator -->
+                    <TextBlock Foreground="#C62828" Margin="8,0,0,0" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text"       Value="At least 8 characters" />
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsPasswordValid}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Row 3: Confirm password -->
+                <TextBlock Grid.Row="3" Grid.Column="0"
+                           Text="Confirm password" Opacity="0.6"
+                           VerticalAlignment="Center" Margin="0,10,0,0" />
+                <StackPanel Grid.Row="3" Grid.Column="1"
+                            Orientation="Horizontal" Margin="0,10,0,0">
+                    <PasswordBox x:Name="PasswordConfirmBox"
+                                 Width="220" PasswordChanged="OnPasswordChanged" />
+                    <!-- Match indicator -->
+                    <TextBlock Text="✓" Foreground="#2E7D32" FontWeight="SemiBold"
+                               Margin="8,0,0,0" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsPasswordValid}" Value="True" />
+                                            <Condition Binding="{Binding IsPasswordMatch}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <!-- Mismatch indicator -->
+                    <TextBlock Foreground="#C62828" Margin="8,0,0,0" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text"       Value="Passwords do not match" />
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsPasswordValid}" Value="True" />
+                                            <Condition Binding="{Binding IsPasswordMatch}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </TextBlock.Style>

@@ -4,9 +4,9 @@ using CommunityToolkit.Mvvm.Input;
 namespace Igloo.App.ViewModels;
 
 /// <summary>
-/// Orchestrates the linear wizard flow.
-/// Each step is a ViewModel instance; the active one is bound to MainWindow's ContentControl
-/// and resolved to a view via DataTemplates in App.xaml.
+/// Orchestrates the linear wizard flow with a branch at the final install step:
+///   • Dual boot  → DirectInstallViewModel  (no USB needed)
+///   • Replace    → UsbWriterViewModel       (USB required)
 /// </summary>
 public sealed partial class MainWindowViewModel : ObservableObject
 {
@@ -17,6 +17,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly MigrationSetupViewModel  _migrationSetup;
     private readonly DiskSelectionViewModel   _diskSelection;
     private readonly FileStagingViewModel     _fileStaging;
+    private readonly DirectInstallViewModel   _directInstall;
     private readonly UsbWriterViewModel       _usbWriter;
     private int _stepIndex;
 
@@ -36,6 +37,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MigrationSetupViewModel setup  => setup.CanProceed,
         DiskSelectionViewModel disk    => disk.CanProceed,
         FileStagingViewModel fs        => fs.IsComplete && !fs.HasError,
+        DirectInstallViewModel         => false,  // user reboots — no "Next"
         UsbWriterViewModel usb         => usb.IsComplete && !usb.HasError,
         _                              => false,
     };
@@ -49,15 +51,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MigrationSetupViewModel  => "Configure your Linux setup",
         DiskSelectionViewModel   => "Choose installation disk",
         FileStagingViewModel     => "Staging files",
+        DirectInstallViewModel   => "Install without USB",
         UsbWriterViewModel       => "Write to USB",
         _                        => string.Empty,
     };
 
-    /// <summary>
-    /// <c>true</c> when the user is on the last wizard step.
-    /// Used in <c>MainWindow.xaml</c> to swap the "Next →" button label to "Finish".
-    /// </summary>
-    public bool IsLastStep => _stepIndex == _steps.Count - 1;
+    /// <summary>True on the last wizard step — swaps "Next" label to "Finish".</summary>
+    public bool IsLastStep =>
+        CurrentPage is UsbWriterViewModel && _diskSelection.InstallMode == Igloo.Core.Abstractions.DiskInstallMode.ReplaceDisk
+        || CurrentPage is DirectInstallViewModel;
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
@@ -69,6 +71,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MigrationSetupViewModel  migrationSetup,
         DiskSelectionViewModel   diskSelection,
         FileStagingViewModel     fileStaging,
+        DirectInstallViewModel   directInstall,
         UsbWriterViewModel       usbWriter)
     {
         _preflight       = preflight;
@@ -77,9 +80,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _migrationSetup  = migrationSetup;
         _diskSelection   = diskSelection;
         _fileStaging     = fileStaging;
+        _directInstall   = directInstall;
         _usbWriter       = usbWriter;
 
-        _steps = [welcome, preflight, distroSelection, isoAcquisition, migrationSetup, diskSelection, fileStaging, usbWriter];
+        // The step list ends with TWO install pages — only one is ever shown.
+        _steps = [welcome, preflight, distroSelection, isoAcquisition, migrationSetup,
+                  diskSelection, fileStaging, directInstall, usbWriter];
         _stepIndex   = 0;
         _currentPage = _steps[0];
 
@@ -140,56 +146,87 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void Back()
     {
         if (_stepIndex <= 0) return;
+
+        // Skip over the hidden install page when going back.
         _stepIndex--;
+        if (_steps[_stepIndex] is DirectInstallViewModel && _diskSelection.InstallMode != Igloo.Core.Abstractions.DiskInstallMode.DualBoot)
+            _stepIndex--;
+        if (_steps[_stepIndex] is UsbWriterViewModel && _diskSelection.InstallMode != Igloo.Core.Abstractions.DiskInstallMode.ReplaceDisk)
+            _stepIndex--;
+
         CurrentPage = _steps[_stepIndex];
     }
 
     [RelayCommand]
     private async Task NextAsync()
     {
-        // On the last step (USB Writer) with a completed write, "Finish" shuts down.
-        if (_stepIndex == _steps.Count - 1)
+        // Last step: USB writer "Finish" shuts down.
+        if (CurrentPage is UsbWriterViewModel && _usbWriter.IsComplete)
         {
             System.Windows.Application.Current.Shutdown();
             return;
         }
 
         _stepIndex++;
+
+        // ── Branch: after FileStagingViewModel, jump to the right install step ──
+        if (_steps[_stepIndex - 1] is FileStagingViewModel)
+        {
+            if (_diskSelection.InstallMode == Igloo.Core.Abstractions.DiskInstallMode.DualBoot)
+            {
+                // Skip UsbWriterViewModel — land on DirectInstallViewModel.
+                _stepIndex = _steps.IndexOf(_directInstall);
+            }
+            else
+            {
+                // Skip DirectInstallViewModel — land on UsbWriterViewModel.
+                _stepIndex = _steps.IndexOf(_usbWriter);
+            }
+        }
+
         CurrentPage = _steps[_stepIndex];
 
         switch (CurrentPage)
         {
-            // Auto-start system check when first navigating to the preflight step.
             case PreflightViewModel pf when pf.Report is null && !pf.IsRunning:
                 await pf.RunCheckCommand.ExecuteAsync(null);
                 break;
 
-            // Refresh distro compatibility whenever the user arrives at the selection step.
             case DistroSelectionViewModel ds:
                 ds.RefreshCompatibility(_preflight.Report);
                 break;
 
-            // Prepare + auto-start download when navigating to the acquisition step.
             case IsoAcquisitionViewModel acq when !acq.IsRunning && !acq.IsComplete:
                 acq.Prepare(_distroSelection.SelectedDistro!);
                 await acq.AcquireCommand.ExecuteAsync(null);
                 break;
 
-            // Populate disk list when navigating to the disk selection step.
             case DiskSelectionViewModel disk:
                 disk.Prepare(_preflight.Report!);
                 break;
 
-            // Auto-start file staging when navigating to that step.
             case FileStagingViewModel fs when !fs.IsRunning && !fs.IsComplete:
                 fs.Prepare(_migrationSetup, _preflight.Report!,
-                    _distroSelection.SelectedDistro!, _diskSelection.SelectedDisk);
+                    _distroSelection.SelectedDistro!,
+                    _diskSelection.SelectedDisk,
+                    _diskSelection.InstallMode,
+                    _diskSelection.LinuxSizeGb);
                 await fs.StageCommand.ExecuteAsync(null);
                 break;
 
-            // Populate USB drive list when navigating to the write step.
+            case DirectInstallViewModel di when !di.IsRunning && !di.IsComplete:
+                di.Prepare(_isoAcquisition.Result!, _fileStaging.Result!,
+                    _diskSelection.SelectedDisk!,
+                    _diskSelection.LinuxSizeGb,
+                    _distroSelection.SelectedDistro?.Iso.Stage2Url);
+                await di.InstallCommand.ExecuteAsync(null);
+                break;
+
             case UsbWriterViewModel usb when !usb.IsRunning && !usb.IsComplete:
-                usb.Prepare(_isoAcquisition.Result!, _fileStaging.Result!);
+                usb.Prepare(_isoAcquisition.Result!, _fileStaging.Result!,
+                    _diskSelection.SelectedDisk,
+                    _diskSelection.InstallMode,
+                    _diskSelection.LinuxSizeGb);
                 await usb.RefreshDrivesCommand.ExecuteAsync(null);
                 break;
         }

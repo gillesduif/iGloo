@@ -86,6 +86,8 @@ public partial class App : Application
 
         // Core services
         services.AddSingleton<IPreflightChecker, WindowsPreflightChecker>();
+        services.AddSingleton<IPartitionResizeService, PartitionResizeService>();
+        services.AddSingleton<IDirectInstallService, DirectInstallService>();
         services.AddSingleton<IIsoAcquisitionService, IsoAcquisitionService>();
         services.AddSingleton<IFileStagingService, FileStagingService>();
         services.AddSingleton<IUsbWriterService, UsbWriterService>();
@@ -100,6 +102,7 @@ public partial class App : Application
         services.AddSingleton<IsoAcquisitionViewModel>();
         services.AddSingleton<MigrationSetupViewModel>();
         services.AddSingleton<DiskSelectionViewModel>();
+        services.AddSingleton<DirectInstallViewModel>();
         services.AddSingleton<FileStagingViewModel>();
         services.AddSingleton<UsbWriterViewModel>();
         services.AddSingleton<MainWindowViewModel>();

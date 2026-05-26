@@ -16,11 +16,11 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Version>0.0.1-alpha</Version>
     <AssemblyName>iGloo</AssemblyName>
-    <ApplicationIcon>igloo.ico</ApplicationIcon>
+    <ApplicationIcon>iGloo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="igloo.ico" />
+    <Content Include="iGloo.ico" />
   </ItemGroup>
 
   <!--
@@ -42,33 +42,17 @@
   <!-- Shared item group evaluated inside each target separately (MSBuild batching) -->
   <Target Name="CopyDistrosToOutput" AfterTargets="Build">
     <ItemGroup>
-      <_DistroFiles
-          Include="$(_DistrosRoot)\**\*"
-          Exclude="$(_DistrosRoot)\**\*.cs;
-                   $(_DistrosRoot)\**\*.csproj;
-                   $(_DistrosRoot)\**\bin\**;
-                   $(_DistrosRoot)\**\obj\**;
-                   $(_DistrosRoot)\README.md" />
+      <_DistroFiles Include="$(_DistrosRoot)\**\*" Exclude="$(_DistrosRoot)\**\*.cs;&#xA;                   $(_DistrosRoot)\**\*.csproj;&#xA;                   $(_DistrosRoot)\**\bin\**;&#xA;                   $(_DistrosRoot)\**\obj\**;&#xA;                   $(_DistrosRoot)\README.md" />
     </ItemGroup>
-    <Copy SourceFiles="@(_DistroFiles)"
-          DestinationFiles="@(_DistroFiles->'$(OutputPath)distros\%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_DistroFiles)" DestinationFiles="@(_DistroFiles->'$(OutputPath)distros\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
   <!-- Same copy for dotnet publish — $(PublishDir) is the publish output folder. -->
   <Target Name="CopyDistrosToPublish" AfterTargets="Publish">
     <ItemGroup>
-      <_DistroFilesPublish
-          Include="$(_DistrosRoot)\**\*"
-          Exclude="$(_DistrosRoot)\**\*.cs;
-                   $(_DistrosRoot)\**\*.csproj;
-                   $(_DistrosRoot)\**\bin\**;
-                   $(_DistrosRoot)\**\obj\**;
-                   $(_DistrosRoot)\README.md" />
+      <_DistroFilesPublish Include="$(_DistrosRoot)\**\*" Exclude="$(_DistrosRoot)\**\*.cs;&#xA;                   $(_DistrosRoot)\**\*.csproj;&#xA;                   $(_DistrosRoot)\**\bin\**;&#xA;                   $(_DistrosRoot)\**\obj\**;&#xA;                   $(_DistrosRoot)\README.md" />
     </ItemGroup>
-    <Copy SourceFiles="@(_DistroFilesPublish)"
-          DestinationFiles="@(_DistroFilesPublish->'$(PublishDir)distros\%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_DistroFilesPublish)" DestinationFiles="@(_DistroFilesPublish->'$(PublishDir)distros\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
   <ItemGroup>

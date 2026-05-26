@@ -117,7 +117,7 @@
                     <TextBlock Foreground="#888888">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Text"       Value="— Skipped" />
+                                <Setter Property="Text"       Value="- Skipped" />
                                 <Setter Property="Visibility" Value="Visible" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Result.GpgVerified}" Value="True">

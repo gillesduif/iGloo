@@ -34,7 +34,7 @@
                         <DataTemplate>
                             <TextBlock>
                                 <Run Text="{Binding Model, Mode=OneWay}" />
-                                <Run Text=" — " Foreground="#888888" />
+                                <Run Text=" - " Foreground="#888888" />
                                 <Run Text="{Binding SizeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}"
                                      Foreground="#888888" />
                                 <Run Text=" (Disk " Foreground="#888888" />
@@ -244,7 +244,7 @@
                         IsEnabled="{Binding IsCancelable}"
                         Padding="16,6" />
                 <!-- Shown only while diskpart is running (IsCancelable = false) -->
-                <TextBlock Text="Partitioning — please wait, this cannot be interrupted."
+                <TextBlock Text="Partitioning - please wait, this cannot be interrupted."
                            FontSize="11" Opacity="0.5" HorizontalAlignment="Center"
                            Margin="0,5,0,0">
                     <TextBlock.Style>
