@@ -1,6 +1,6 @@
    
 <p align="center">
-  <img src="docs/assets/igloo.svg" alt="iGloo" width="220">
+  <img src="docs/assets/iGloo.svg" alt="iGloo" width="220">
 </p>
 
 <p align="center">
