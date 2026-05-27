@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Shell scripts and Python files must always use LF line endings.
+# Windows git checkouts with text=auto convert these to CRLF, which breaks
+# the shebang line on Linux (bash\r is not a valid interpreter).
+*.sh text eol=lf
+*.py text eol=lf

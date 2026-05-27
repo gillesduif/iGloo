@@ -158,6 +158,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
                 Keymap               = _setup.Keymap,
                 SelectedFolderNames  = _setup.GetSelectedFolderNames(),
                 SelectedBrowserNames = _setup.GetSelectedBrowserNames(),
+                SuggestedPackages    = _setup.GetSelectedSuggestions(),
             };
 
             var manifest = _manifestGenerator.Generate(

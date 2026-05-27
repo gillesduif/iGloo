@@ -140,11 +140,45 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         {
             var path = Path.Combine(asmDir, relative);
             if (!File.Exists(path)) return;
+
+            // Normalize CRLF → LF so shell scripts and Python files execute
+            // correctly on Linux.  Windows git checkouts (text=auto) may add
+            // \r\n even for files now covered by *.sh / *.py eol=lf rules in
+            // .gitattributes — normalising here is belt-and-suspenders.
+            var contents = NormalizeCrLf(File.ReadAllBytes(path));
+
             files.Add(new AgentFile(
                 RelativePath: Path.GetFileName(path),
-                Contents:     File.ReadAllBytes(path),
+                Contents:     contents,
                 Executable:   executable));
         }
+    }
+
+    /// <summary>
+    /// Replaces every bare CR or CRLF sequence with a single LF.
+    /// Returns the original array if no CR bytes are present (fast path).
+    /// </summary>
+    private static byte[] NormalizeCrLf(byte[] bytes)
+    {
+        if (Array.IndexOf(bytes, (byte)'\r') < 0)
+            return bytes;
+
+        var buf = new System.IO.MemoryStream(bytes.Length);
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            if (bytes[i] == (byte)'\r')
+            {
+                // Emit a single LF and skip the following LF if CRLF pair.
+                buf.WriteByte((byte)'\n');
+                if (i + 1 < bytes.Length && bytes[i + 1] == (byte)'\n')
+                    i++;
+            }
+            else
+            {
+                buf.WriteByte(bytes[i]);
+            }
+        }
+        return buf.ToArray();
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────

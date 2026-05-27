@@ -88,6 +88,22 @@ def fedora_version() -> str:
             return "41"
 
 
+def _is_dnf5() -> bool:
+    """Return True when the system uses DNF 5 (Fedora 41+).
+
+    Fedora 41 switched from DNF 4 to DNF 5. The ``groupupdate`` subcommand
+    was removed in DNF 5; group installs use ``dnf install @<group>`` instead.
+    """
+    try:
+        r = subprocess.run(
+            ["dnf", "--version"], capture_output=True, text=True, timeout=10
+        )
+        first_line = (r.stdout.strip().splitlines() or [""])[0]
+        return first_line.startswith("5.")
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Migration steps
 # ---------------------------------------------------------------------------
@@ -107,21 +123,39 @@ def enable_rpmfusion(manifest: dict[str, Any]) -> None:
 
 
 def install_codecs(manifest: dict[str, Any]) -> None:
-    """Install multimedia codecs via RPM Fusion groupupdate."""
+    """Install multimedia codecs via RPM Fusion.
+
+    Fedora 41+ ships DNF 5, which dropped the ``groupupdate`` subcommand.
+    On DNF 5 we use ``dnf install @<group>``; on DNF 4 we use ``groupupdate``
+    with ``--setop=allow_vendor_change`` to let RPM Fusion replace Fedora's
+    stock codec packages.
+    """
     if not manifest.get("hardware", {}).get("needsNonFreeCodecs", True):
         logger.info("Codecs: needsNonFreeCodecs=false, skipping")
         return
 
     logger.info("Installing multimedia codecs")
-    run_cmd(
-        [
-            "dnf", "-y", "groupupdate", "multimedia",
-            "--setop=allow_vendor_change",
-            "--exclude=PackageKit-gstreamer-plugin",
-        ],
-        timeout=600,
-    )
-    run_cmd(["dnf", "-y", "groupupdate", "sound-and-video"], timeout=300)
+    if _is_dnf5():
+        # DNF 5: group installs via @group syntax; vendor change is automatic.
+        run_cmd(
+            [
+                "dnf", "-y", "install", "@multimedia",
+                "--exclude=PackageKit-gstreamer-plugin",
+            ],
+            timeout=600,
+        )
+        run_cmd(["dnf", "-y", "install", "@sound-and-video"], timeout=300)
+    else:
+        # DNF 4 (Fedora ≤ 40)
+        run_cmd(
+            [
+                "dnf", "-y", "groupupdate", "multimedia",
+                "--setop=allow_vendor_change",
+                "--exclude=PackageKit-gstreamer-plugin",
+            ],
+            timeout=600,
+        )
+        run_cmd(["dnf", "-y", "groupupdate", "sound-and-video"], timeout=300)
     logger.info("Multimedia codecs installed")
 
 
@@ -144,6 +178,25 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     logger.info("NVIDIA drivers installed")
 
 
+def setup_flathub(manifest: dict[str, Any]) -> None:
+    """Ensure the Flathub remote is registered.
+
+    Fedora ships Flatpak but does not add the Flathub remote by default.
+    Without it, any ``flatpak install flathub …`` call in the next step
+    would fail with "Remote 'flathub' not found."
+    """
+    logger.info("Registering Flathub remote (if not already present)")
+    run_cmd(
+        [
+            "flatpak", "remote-add", "--if-not-exists", "--system",
+            "flathub",
+            "https://dl.flathub.org/repo/flathub.flatpakrepo",
+        ],
+        timeout=120,
+    )
+    logger.info("Flathub remote ready")
+
+
 def install_suggested_packages(manifest: dict[str, Any]) -> None:
     """Install any auto-install packages listed in the manifest."""
     pkgs = [
@@ -154,21 +207,53 @@ def install_suggested_packages(manifest: dict[str, Any]) -> None:
         logger.info("No auto-install packages in manifest")
         return
 
-    flatpak_ids = [p["flatpakId"]    for p in pkgs if p.get("flatpakId")]
+    flatpak_ids = [p["flatpakId"]     for p in pkgs if p.get("flatpakId")]
     dnf_pkgs    = [p["nativePackage"] for p in pkgs if p.get("nativePackage")]
 
     if flatpak_ids:
-        logger.info("Installing %d Flatpak package(s)", len(flatpak_ids))
+        labels = [p.get("linuxAppName") or p["flatpakId"] for p in pkgs if p.get("flatpakId")]
+        logger.info("Installing Flatpak: %s", ", ".join(labels))
         run_cmd(
             ["flatpak", "install", "-y", "--noninteractive", "flathub"] + flatpak_ids,
             timeout=600,
         )
 
     if dnf_pkgs:
-        logger.info("Installing %d dnf package(s)", len(dnf_pkgs))
+        labels = [p.get("linuxAppName") or p["nativePackage"] for p in pkgs if p.get("nativePackage")]
+        logger.info("Installing dnf packages: %s", ", ".join(labels))
         run_cmd(["dnf", "-y", "install"] + dnf_pkgs, timeout=300)
 
     logger.info("Suggested packages installed")
+
+
+def redact_manifest(manifest: dict[str, Any]) -> None:
+    """Remove sensitive fields from the on-disk manifest.
+
+    ``linuxPassword`` is stored in plaintext so the kickstart can set it
+    during installation.  Once the system is up and the agent has run, the
+    password serves no further purpose but the file at
+    ``/var/lib/igloo/manifest.json`` is world-readable by default.
+    Overwrite the field with ``null`` so the plaintext is no longer present.
+    """
+    manifest_path = Path("/var/lib/igloo/manifest.json")
+    if not manifest_path.exists():
+        return
+
+    try:
+        with manifest_path.open(encoding="utf-8") as f:
+            data: dict[str, Any] = json.load(f)
+
+        user = data.get("user", {})
+        if user.get("linuxPassword") is not None:
+            user["linuxPassword"] = None
+            with manifest_path.open("w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            manifest_path.chmod(0o640)   # root:root rw-r-----
+            logger.info("linuxPassword redacted from manifest")
+        else:
+            logger.info("linuxPassword already absent from manifest")
+    except Exception:
+        logger.exception("Failed to redact manifest (non-fatal)")
 
 
 def install_welcome_app(manifest: dict[str, Any]) -> None:
@@ -277,12 +362,16 @@ def main() -> int:
         return 3
 
     # Steps — each is best-effort; a failure is logged and the rest continue.
+    # Order matters: RPM Fusion must be enabled before codecs/GPU drivers;
+    # Flathub must be registered before suggested-pkgs; redact runs last.
     steps: list[tuple[str, Any]] = [
         ("rpmfusion",       lambda: enable_rpmfusion(manifest)),
         ("codecs",          lambda: install_codecs(manifest)),
         ("gpu-drivers",     lambda: install_gpu_drivers(manifest)),
+        ("flathub",         lambda: setup_flathub(manifest)),
         ("suggested-pkgs",  lambda: install_suggested_packages(manifest)),
         ("welcome-app",     lambda: install_welcome_app(manifest)),
+        ("redact-manifest", lambda: redact_manifest(manifest)),
     ]
 
     failures: list[str] = []

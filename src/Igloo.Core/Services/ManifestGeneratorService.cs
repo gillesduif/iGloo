@@ -24,7 +24,7 @@ public sealed class ManifestGeneratorService
             .Select(name => new BrowserMigration
             {
                 Name               = name,
-                ProfileStagingPath = string.Empty,   // M5: copy browser profiles
+                ProfileStagingPath = string.Empty,   // browser profiles: future milestone
                 IncludesPasswords  = false,
             })
             .ToArray();
@@ -52,6 +52,8 @@ public sealed class ManifestGeneratorService
 
             Browsers = browsers,
 
+            SuggestedPackages = userSetup.SuggestedPackages,
+
             Hardware = new HardwareProfile
             {
                 GpuVendor          = hardware.GpuVendor,
@@ -70,12 +72,13 @@ public sealed class ManifestGeneratorService
 /// <summary>User-supplied migration preferences collected on the Migration Setup wizard step.</summary>
 public sealed record UserSetup
 {
-    public required string                WindowsUsername      { get; init; }
-    public required string                LinuxUsername        { get; init; }
-    public string?                        LinuxPassword        { get; init; }
-    public string                         Locale               { get; init; } = "en_US.UTF-8";
-    public string                         Timezone             { get; init; } = "UTC";
-    public string                         Keymap               { get; init; } = "us";
-    public IReadOnlyList<string>          SelectedFolderNames  { get; init; } = [];
-    public IReadOnlyList<string>          SelectedBrowserNames { get; init; } = [];
+    public required string                     WindowsUsername      { get; init; }
+    public required string                     LinuxUsername        { get; init; }
+    public string?                             LinuxPassword        { get; init; }
+    public string                              Locale               { get; init; } = "en_US.UTF-8";
+    public string                              Timezone             { get; init; } = "UTC";
+    public string                              Keymap               { get; init; } = "us";
+    public IReadOnlyList<string>               SelectedFolderNames  { get; init; } = [];
+    public IReadOnlyList<string>               SelectedBrowserNames { get; init; } = [];
+    public IReadOnlyList<SuggestedPackage>     SuggestedPackages    { get; init; } = [];
 }

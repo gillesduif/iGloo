@@ -75,9 +75,21 @@ public sealed record BrowserMigration
 
 public sealed record SuggestedPackage
 {
+    /// <summary>Display name of the Windows application that triggered this suggestion
+    /// (e.g. "Spotify Music 1.2.x"). Informational only.</summary>
     [JsonPropertyName("windowsAppName")] public required string WindowsAppName { get; init; }
+
+    /// <summary>Display name of the Linux equivalent shown in the wizard and agent logs
+    /// (e.g. "Spotify").</summary>
+    [JsonPropertyName("linuxAppName")] public string? LinuxAppName { get; init; }
+
+    /// <summary>Flathub app ID to install via <c>flatpak install flathub …</c>.</summary>
     [JsonPropertyName("flatpakId")] public string? FlatpakId { get; init; }
+
+    /// <summary>Native DNF package name. Used when no Flatpak exists or is preferred.</summary>
     [JsonPropertyName("nativePackage")] public string? NativePackage { get; init; }
+
+    /// <summary>True when the user opted in during the migration wizard.</summary>
     [JsonPropertyName("autoInstall")] public bool AutoInstall { get; init; }
 }
 

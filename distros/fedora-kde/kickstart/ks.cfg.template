@@ -102,17 +102,25 @@ if [ -z "$TARGET_DISK" ]; then
 else
     log "Target disk: /dev/$TARGET_DISK  (mode: $INSTALL_MODE)"
     {
-        echo "bootloader --location=mbr --boot-drive=${TARGET_DISK}"
+        # bootloader: omit --location on UEFI systems (Anaconda writes to ESP
+        # automatically). --location=mbr on a GPT/UEFI disk triggers a warning
+        # that causes Anaconda to stop at the interactive hub.
+        echo "bootloader --boot-drive=${TARGET_DISK}"
         echo "ignoredisk --only-use=${TARGET_DISK}"
         if [ "$INSTALL_MODE" = "dual-boot" ]; then
             # Windows partition was already shrunk by Igloo before USB boot.
-            # Keep all existing partitions; Anaconda will use the free space.
-            echo "clearpart --none"
+            # clearpart --linux removes only Linux-type partitions (ext4, xfs,
+            # swap, LVM PVs) while preserving the Windows NTFS and EFI
+            # partitions.  This is safer than --none when re-installing because
+            # --none leaves stale LVM volume-group metadata ("fedora" VG) on
+            # disk; Anaconda detects the duplicate VG name and stops for user
+            # confirmation instead of proceeding unattended.
+            echo "clearpart --linux --drives=${TARGET_DISK}"
         else
             # Replace mode: wipe the entire disk.
             echo "clearpart --drives=${TARGET_DISK} --all --initlabel"
         fi
-        echo "autopart --type=lvm"
+        echo "autopart --type=lvm --nohome"
     } > /tmp/ks-storage.cfg
     log "Storage config written to /tmp/ks-storage.cfg:"
     cat /tmp/ks-storage.cfg >&2
@@ -185,10 +193,18 @@ install -d -m 0755 \
 
 # ── 2. Copy the first-boot agent ────────────────────────────────────────────
 if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/igloo-agent" ]; then
-    cp -a "$OEMDRV/igloo-agent/." "$SYSIMAGE/opt/igloo/"
-    chmod +x "$SYSIMAGE/opt/igloo/first-boot.sh" 2>/dev/null || true
-    chmod +x "$SYSIMAGE/opt/igloo/agent.py"       2>/dev/null || true
-    log "Agent copied to /opt/igloo"
+    # Use 'install' rather than 'cp -a' + 'chmod +x' so that:
+    #   a) permissions are set atomically (not dependent on FAT32 mount options),
+    #   b) CRLF line endings from Windows are stripped inline via process
+    #      substitution — a \r in the shebang causes status=203/EXEC on Linux.
+    for src in "$OEMDRV/igloo-agent"/*.sh "$OEMDRV/igloo-agent"/*.py; do
+        [ -f "$src" ] || continue
+        fname=$(basename "$src")
+        # tr -d '\r' strips any Windows CRLF before writing to the target FS.
+        tr -d '\r' < "$src" | install -m 0755 /dev/stdin "$SYSIMAGE/opt/igloo/$fname"
+        log "  Installed $fname (0755, LF-only)"
+    done
+    log "Agent installed to /opt/igloo"
 else
     log "WARNING: igloo-agent directory not found on OEMDRV"
 fi

@@ -2,6 +2,8 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Igloo.Core.Models;
+using Igloo.Preflight;
 using Microsoft.Win32;
 
 namespace Igloo.App.ViewModels;
@@ -67,6 +69,11 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     public IReadOnlyList<BrowserEntry> DetectedBrowsers { get; }
     public bool HasDetectedBrowsers => DetectedBrowsers.Count > 0;
 
+    // ── Suggested Linux apps ──────────────────────────────────────────────────
+
+    public IReadOnlyList<SuggestedPackageEntry> DetectedSuggestions { get; }
+    public bool HasDetectedSuggestions => DetectedSuggestions.Count > 0;
+
     // ── System settings ───────────────────────────────────────────────────────
 
     [ObservableProperty] private string _timezone;
@@ -94,6 +101,11 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
         // Detect installed browsers.
         DetectedBrowsers = DetectBrowsers();
+
+        // Detect Windows apps that have Linux equivalents.
+        DetectedSuggestions = WindowsAppScanner.Scan()
+            .Select(s => new SuggestedPackageEntry(s))
+            .ToList();
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -140,6 +152,20 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     /// <summary>Returns the names of the browsers the user chose to include.</summary>
     public IReadOnlyList<string> GetSelectedBrowserNames()
         => DetectedBrowsers.Where(b => b.IsSelected).Select(b => b.Name).ToList();
+
+    /// <summary>Returns the selected Linux app suggestions as manifest entries.</summary>
+    public IReadOnlyList<SuggestedPackage> GetSelectedSuggestions()
+        => DetectedSuggestions
+            .Where(s => s.IsSelected)
+            .Select(s => new SuggestedPackage
+            {
+                WindowsAppName = s.WindowsDisplayName,
+                LinuxAppName   = s.LinuxAppName,
+                FlatpakId      = s.FlatpakId,
+                NativePackage  = s.NativePackage,
+                AutoInstall    = true,
+            })
+            .ToList();
 
     // ── Validation & sanitization ─────────────────────────────────────────────
 
@@ -346,5 +372,28 @@ public sealed partial class BrowserEntry : ObservableObject
     {
         Name        = name;
         ProfilePath = profilePath;
+    }
+}
+
+/// <summary>
+/// A Windows app detected by <see cref="WindowsAppScanner"/> paired with its
+/// Linux equivalent. Wraps a <see cref="DetectedSuggestion"/> with an
+/// observable <see cref="IsSelected"/> checkbox for the wizard UI.
+/// </summary>
+public sealed partial class SuggestedPackageEntry : ObservableObject
+{
+    public string  WindowsDisplayName { get; }
+    public string  LinuxAppName       { get; }
+    public string? FlatpakId          { get; }
+    public string? NativePackage      { get; }
+
+    [ObservableProperty] private bool _isSelected = true;
+
+    public SuggestedPackageEntry(DetectedSuggestion suggestion)
+    {
+        WindowsDisplayName = suggestion.WindowsDisplayName;
+        LinuxAppName       = suggestion.LinuxAppName;
+        FlatpakId          = suggestion.FlatpakId;
+        NativePackage      = suggestion.NativePackage;
     }
 }

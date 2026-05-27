@@ -151,6 +151,37 @@
                 <CheckBox Content="Videos"    IsChecked="{Binding IncludeVideos}"    Margin="0,0,20,8" />
             </WrapPanel>
 
+            <!-- ── Suggested Linux apps (only shown when matches are found) ──── -->
+            <StackPanel Visibility="{Binding HasDetectedSuggestions, Converter={StaticResource BoolToVis}}">
+                <Separator Margin="0,20,0,20" />
+
+                <TextBlock Text="Suggested Linux apps"
+                           FontSize="14" FontWeight="SemiBold"
+                           Margin="0,0,0,10" />
+                <TextBlock TextWrapping="Wrap" Opacity="0.65" Margin="0,0,0,14">
+                    These Windows apps were found on your machine. Install their Linux
+                    equivalents on first boot?
+                </TextBlock>
+
+                <ItemsControl ItemsSource="{Binding DetectedSuggestions}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected}" Margin="0,0,0,6">
+                                <CheckBox.Content>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding LinuxAppName}"
+                                                   FontWeight="Medium" />
+                                        <TextBlock Opacity="0.55" Margin="4,0,0,0">
+                                            <Run Text="(replaces " /><Run Text="{Binding WindowsDisplayName}" /><Run Text=")" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </CheckBox.Content>
+                            </CheckBox>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
             <!-- ── Browser profiles (only shown when at least one is detected) ── -->
             <StackPanel Visibility="{Binding HasDetectedBrowsers, Converter={StaticResource BoolToVis}}">
                 <Separator Margin="0,20,0,20" />
