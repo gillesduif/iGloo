@@ -172,7 +172,7 @@
                                         <TextBlock Text="{Binding LinuxAppName}"
                                                    FontWeight="Medium" />
                                         <TextBlock Opacity="0.55" Margin="4,0,0,0">
-                                            <Run Text="(replaces " /><Run Text="{Binding WindowsDisplayName}" /><Run Text=")" />
+                                            <Run Text="(replaces " /><Run Text="{Binding WindowsDisplayName, Mode=OneWay}" /><Run Text=")" />
                                         </TextBlock>
                                     </StackPanel>
                                 </CheckBox.Content>

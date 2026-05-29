@@ -6,6 +6,7 @@ using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
 using Igloo.Core.Plugins;
 using Igloo.Core.Services;
+using Igloo.Preflight;
 using Microsoft.Extensions.Logging;
 
 namespace Igloo.App.ViewModels;
@@ -148,6 +149,12 @@ public sealed partial class FileStagingViewModel : ObservableObject
             Phase = FileStagingPhase.Generating;
             OnPropertyChanged(nameof(PhaseDisplay));
 
+            // Export saved Wi-Fi networks (netsh spawns a process — keep it off
+            // the UI thread). Defensive: the scanner never throws, returns [].
+            var wifiNetworks = await Task.Run(WindowsWifiScanner.Scan, ct);
+            _logger.LogInformation("Detected {Count} saved Wi-Fi network(s) for migration",
+                wifiNetworks.Count);
+
             var userSetup = new UserSetup
             {
                 WindowsUsername      = _setup.WindowsUsername,
@@ -157,8 +164,11 @@ public sealed partial class FileStagingViewModel : ObservableObject
                 Timezone             = _setup.Timezone,
                 Keymap               = _setup.Keymap,
                 SelectedFolderNames  = _setup.GetSelectedFolderNames(),
+                SelectedFolders      = _setup.GetSelectedFolders(),
                 SelectedBrowserNames = _setup.GetSelectedBrowserNames(),
+                SelectedBrowsers     = _setup.GetSelectedBrowsers(),
                 SuggestedPackages    = _setup.GetSelectedSuggestions(),
+                WifiNetworks         = wifiNetworks,
             };
 
             var manifest = _manifestGenerator.Generate(

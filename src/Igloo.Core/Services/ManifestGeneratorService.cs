@@ -20,14 +20,18 @@ public sealed class ManifestGeneratorService
         DiskInstallMode   installMode   = DiskInstallMode.ReplaceDisk,
         int               linuxSizeGb   = 0)
     {
-        var browsers = userSetup.SelectedBrowserNames
-            .Select(name => new BrowserMigration
-            {
-                Name               = name,
-                ProfileStagingPath = string.Empty,   // browser profiles: future milestone
-                IncludesPasswords  = false,
-            })
-            .ToArray();
+        // Prefer the richly-resolved browser list (engine + source/dest paths) built on the
+        // Windows side. Fall back to bare names for back-compat when only names are supplied.
+        var browsers = userSetup.SelectedBrowsers.Count > 0
+            ? userSetup.SelectedBrowsers
+            : userSetup.SelectedBrowserNames
+                .Select(name => new BrowserMigration
+                {
+                    Name               = name,
+                    ProfileStagingPath = string.Empty,
+                    IncludesPasswords  = false,
+                })
+                .ToArray();
 
         return new MigrationManifest
         {
@@ -48,11 +52,14 @@ public sealed class ManifestGeneratorService
                 StagingPath     = staging.StagingDirectory,
                 TotalBytes      = staging.TotalBytesCopied,
                 IncludedFolders = userSetup.SelectedFolderNames,
+                Folders         = userSetup.SelectedFolders,
             },
 
             Browsers = browsers,
 
             SuggestedPackages = userSetup.SuggestedPackages,
+
+            WifiNetworks = userSetup.WifiNetworks,
 
             Hardware = new HardwareProfile
             {
@@ -79,6 +86,9 @@ public sealed record UserSetup
     public string                              Timezone             { get; init; } = "UTC";
     public string                              Keymap               { get; init; } = "us";
     public IReadOnlyList<string>               SelectedFolderNames  { get; init; } = [];
+    public IReadOnlyList<MigrationFolder>      SelectedFolders      { get; init; } = [];
     public IReadOnlyList<string>               SelectedBrowserNames { get; init; } = [];
+    public IReadOnlyList<BrowserMigration>     SelectedBrowsers     { get; init; } = [];
     public IReadOnlyList<SuggestedPackage>     SuggestedPackages    { get; init; } = [];
+    public IReadOnlyList<WifiNetwork>          WifiNetworks         { get; init; } = [];
 }

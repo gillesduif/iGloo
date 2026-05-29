@@ -163,24 +163,42 @@ public sealed class DirectInstallService : IDirectInstallService
             kernelBytes / MiB, initrdBytes / MiB, installImgBytes / MiB);
         ct.ThrowIfCancellationRequested();
 
-        // ── Step 2: Shrink Windows partition ─────────────────────────────────
-        Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Querying Windows partition…");
-        _logger.LogInformation("Direct install: shrinking disk {Disk} by {GiB} GiB",
-            diskNumber, linuxSizeBytes / MiB / 1024);
-
+        // ── Step 2: Shrink Windows partition (skip if OEMDRV already exists) ──
         long oemDrvBytes = RoundUpMiB(extractedBytes + PartitionOverheadBytes);
-        long totalShrink = linuxSizeBytes + oemDrvBytes;
+        char driveLetter;
 
-        var shrinkProg = new Progress<string>(msg =>
-            Report(prog, DirectInstallPhase.ShrinkingPartition, message: msg));
-        _resizer.ShrinkAsync(diskNumber, totalShrink, shrinkProg, ct).GetAwaiter().GetResult();
-        ct.ThrowIfCancellationRequested();
+        var existing = FindExistingOemDrv(diskNumber);
+        if (existing is not null)
+        {
+            // A previous run already created the OEMDRV partition on this disk.
+            // Skip shrink + partition creation and reuse it — just re-copy the files.
+            driveLetter   = existing.Value.letter;
+            _oemDrvLetter = driveLetter;
+            _partitionNumber = existing.Value.partitionNumber;
+            _logger.LogInformation(
+                "Reusing existing OEMDRV partition {N} at {L}: — skipping shrink and partition creation",
+                _partitionNumber, driveLetter);
+            Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Reusing existing installer partition…");
+        }
+        else
+        {
+            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Querying Windows partition…");
+            _logger.LogInformation("Direct install: shrinking disk {Disk} by {GiB} GiB",
+                diskNumber, linuxSizeBytes / MiB / 1024);
 
-        // ── Step 3: Create FAT32 OEMDRV partition ────────────────────────────
-        Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating installer partition…");
-        var driveLetter = CreateOemDrvPartition(diskNumber, oemDrvBytes, ct);
-        _oemDrvLetter = driveLetter;
-        ct.ThrowIfCancellationRequested();
+            long totalShrink = linuxSizeBytes + oemDrvBytes;
+
+            var shrinkProg = new Progress<string>(msg =>
+                Report(prog, DirectInstallPhase.ShrinkingPartition, message: msg));
+            _resizer.ShrinkAsync(diskNumber, totalShrink, shrinkProg, ct).GetAwaiter().GetResult();
+            ct.ThrowIfCancellationRequested();
+
+            // ── Step 3: Create FAT32 OEMDRV partition ────────────────────────
+            Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating installer partition…");
+            driveLetter   = CreateOemDrvPartition(diskNumber, oemDrvBytes, ct);
+            _oemDrvLetter = driveLetter;
+            ct.ThrowIfCancellationRequested();
+        }
 
         // ── Step 4: Extract boot content from ISO onto OEMDRV ─────────────────
         // Extracts: igloo-boot/linux, igloo-boot/initrd,
@@ -351,6 +369,42 @@ public sealed class DirectInstallService : IDirectInstallService
         }
         catch (Exception ex) { _logger.LogWarning(ex, "FindPartitionByLetter failed"); }
         return 0;
+    }
+
+    /// <summary>
+    /// Looks for a mounted volume labelled <c>OEMDRV</c> that belongs to
+    /// <paramref name="diskNumber"/>. Returns the drive letter and WMI partition
+    /// number if found, <see langword="null"/> otherwise.
+    /// </summary>
+    private (char letter, uint partitionNumber)? FindExistingOemDrv(int diskNumber)
+    {
+        try
+        {
+            foreach (var di in DriveInfo.GetDrives())
+            {
+                if (!di.IsReady) continue;
+                try
+                {
+                    if (!string.Equals(di.VolumeLabel, "OEMDRV", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                }
+                catch { continue; }
+
+                var letter = char.ToUpper(di.Name[0]);
+                var pn     = FindPartitionByLetter(diskNumber, letter);
+                if (pn == 0) continue; // not on this disk
+
+                _logger.LogInformation(
+                    "Found existing OEMDRV volume at {L}: (partition {N}, disk {D})",
+                    letter, pn, diskNumber);
+                return (letter, pn);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "FindExistingOemDrv scan failed (non-fatal)");
+        }
+        return null;
     }
 
     private static char FindAvailableDriveLetter()
@@ -695,12 +749,41 @@ public sealed class DirectInstallService : IDirectInstallService
     // ISO mounting via PowerShell
     private string MountIso(string isoPath)
     {
-        RunPowerShell($"Mount-DiskImage -ImagePath '{isoPath}' -Access ReadOnly");
-        // Retry a few times until the volume is assigned.
-        for (var i = 0; i < 20; i++)
+        // Dismount first in case a previous run left the ISO mounted.
+        // Errors are silently ignored — the image may not be mounted at all.
+        DismountIso(isoPath);
+        Thread.Sleep(500);
+
+        RunPowerShell($"Mount-DiskImage -ImagePath \"{isoPath}\" -Access ReadOnly");
+
+        // Mount-DiskImage is asynchronous on real hardware; the volume letter is
+        // assigned by Windows after the virtual disk is attached.
+        Thread.Sleep(2_000);
+
+        // First attempt: poll up to 30 seconds.
+        var letter = PollForDriveLetter(isoPath, retries: 60);
+        if (letter is not null) return letter;
+
+        _logger.LogWarning("ISO did not appear after 30 s — dismounting and retrying once");
+
+        // Recovery: dismount, remount, and give it 10 more seconds.
+        DismountIso(isoPath);
+        Thread.Sleep(1_000);
+        RunPowerShell($"Mount-DiskImage -ImagePath \"{isoPath}\" -Access ReadOnly");
+        Thread.Sleep(2_000);
+
+        letter = PollForDriveLetter(isoPath, retries: 20);
+        if (letter is not null) return letter;
+
+        throw new InvalidOperationException("ISO did not mount within 40 seconds.");
+    }
+
+    private string? PollForDriveLetter(string isoPath, int retries)
+    {
+        for (var i = 0; i < retries; i++)
         {
             var letter = RunPowerShell(
-                $"(Get-DiskImage -ImagePath '{isoPath}' | Get-Volume).DriveLetter");
+                $"(Get-DiskImage -ImagePath \"{isoPath}\" | Get-Volume).DriveLetter");
             letter = letter.Trim();
             if (!string.IsNullOrEmpty(letter))
             {
@@ -709,19 +792,23 @@ public sealed class DirectInstallService : IDirectInstallService
             }
             Thread.Sleep(500);
         }
-        throw new InvalidOperationException("ISO did not mount within 10 seconds.");
+        return null;
     }
 
     private void DismountIso(string isoPath)
     {
-        try { RunPowerShell($"Dismount-DiskImage -ImagePath '{isoPath}'"); }
+        try { RunPowerShell($"Dismount-DiskImage -ImagePath \"{isoPath}\""); }
         catch (Exception ex) { _logger.LogWarning(ex, "Dismount-DiskImage failed (non-fatal)"); }
     }
 
     private static string RunPowerShell(string command)
     {
+        // Use -EncodedCommand (Base64 UTF-16LE) so that paths containing
+        // special characters such as apostrophes (e.g. "D'huyvetter") never
+        // break PowerShell's argument / string parsing.
+        var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(command));
         var psi = new ProcessStartInfo("powershell.exe",
-            $"-NonInteractive -NoProfile -Command \"{command}\"")
+            $"-NonInteractive -NoProfile -EncodedCommand {encoded}")
         {
             UseShellExecute        = false,
             RedirectStandardOutput = true,
@@ -782,8 +869,48 @@ public sealed class DirectInstallService : IDirectInstallService
             throw new InvalidOperationException(
                 $"SetFirmwareEnvironmentVariable(BootNext) failed: Win32 error {Marshal.GetLastWin32Error()}.");
 
-        _logger.LogInformation("BootNext set to {Idx:X4} — reboot to install", idx);
+        _logger.LogInformation("BootNext set to {Idx:X4}", idx);
+
+        // Belt-and-suspenders: some firmware ignores BootNext but does respect
+        // BootOrder.  Prepend our entry to BootOrder so the installer is first
+        // in the list.  After the install completes (or if the user aborts), the
+        // entry is removed from BootOrder by the %post cleanup or on next Windows
+        // boot when the Boot#### variable no longer exists.
+        PrependBootOrder(idx);
+
+        _logger.LogInformation("BootNext + BootOrder updated — reboot to install");
         Report(prog, DirectInstallPhase.Complete, message: "UEFI boot entry registered. Ready to reboot.");
+    }
+
+    private void PrependBootOrder(ushort idx)
+    {
+        try
+        {
+            // Read current BootOrder (array of uint16).
+            var buf      = new byte[256];
+            var size     = GetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, buf, (uint)buf.Length);
+            var existing = new List<ushort>();
+            for (var i = 0; i + 1 < size; i += 2)
+                existing.Add(BitConverter.ToUInt16(buf, i));
+
+            // Remove our index if already present, then prepend it.
+            existing.RemoveAll(e => e == idx);
+            existing.Insert(0, idx);
+
+            var newOrder = new byte[existing.Count * 2];
+            for (var i = 0; i < existing.Count; i++)
+                BitConverter.GetBytes(existing[i]).CopyTo(newOrder, i * 2);
+
+            if (!SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, newOrder, (uint)newOrder.Length))
+                _logger.LogWarning("SetFirmwareEnvironmentVariable(BootOrder) failed: {Err} (non-fatal)",
+                    Marshal.GetLastWin32Error());
+            else
+                _logger.LogInformation("BootOrder prepended with {Idx:X4}", idx);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PrependBootOrder failed (non-fatal)");
+        }
     }
 
     private void EnableFirmwarePrivilege()

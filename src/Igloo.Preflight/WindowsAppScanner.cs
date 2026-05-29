@@ -91,6 +91,20 @@ public static class WindowsAppScanner
         // ── File / Network ────────────────────────────────────────────────────
         new(["filezilla"],
             "FileZilla",            "org.filezillaproject.Filezilla",    null),
+
+        // ── Web browsers ────────────────────────────────────────────────────────
+        // Firefox and Falkon ship with Fedora KDE, so they are not listed here.
+        // These are third-party browsers the user installed on Windows.
+        new(["zen browser", "zen-browser"],
+            "Zen Browser",          "app.zen_browser.zen",               null),
+        new(["brave"],
+            "Brave",                "com.brave.Browser",                 null),
+        new(["vivaldi"],
+            "Vivaldi",              "com.vivaldi.Vivaldi",               null),
+        new(["opera"],
+            "Opera",                "com.opera.Opera",                   null),
+        new(["google chrome"],
+            "Google Chrome",        "com.google.Chrome",                 null),
     ];
 
     // ── Public API ────────────────────────────────────────────────────────────

@@ -26,6 +26,13 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     public DistroMetadata Metadata { get; }
 
     /// <summary>
+    /// Anaconda stage-2 OS tree URL from <c>distro.json</c> (<c>iso.stage2Url</c>).
+    /// Used to render the kickstart install-source directive so the netinstall
+    /// knows where to fetch packages without the user configuring it interactively.
+    /// </summary>
+    private readonly string? _stage2Url;
+
+    /// <summary>
     /// Parameterless constructor — reads <c>distro.json</c> from the same directory as this DLL.
     /// </summary>
     public FedoraKdePlugin()
@@ -47,7 +54,8 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             }
         }
 
-        Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
+        Metadata   = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
+        _stage2Url = raw?.Iso?.Stage2Url;
     }
 
     // ── IDistroPlugin ────────────────────────────────────────────────────────
@@ -183,10 +191,30 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
     // ── Private helpers ──────────────────────────────────────────────────────
 
-    private static string RenderFromTemplate(string template, MigrationManifest m)
+    private string RenderFromTemplate(string template, MigrationManifest m)
     {
-        // Included folder names as a space-separated list for the %post shell loop.
+        // Included folder names as a space-separated list (informational / logging).
         var folderList = string.Join(" ", m.Files.IncludedFolders);
+
+        // Folder map for the %post copy loop: one "DestName|source/relative/path"
+        // entry per line. The relative path was resolved on the Windows side
+        // (Known Folder API), so OneDrive-redirected folders carry their real
+        // location (e.g. "OneDrive/Documents") instead of being guessed by name.
+        // Fall back to the name list if a manifest predates the Folders field.
+        var folderMap = m.Files.Folders.Count > 0
+            ? string.Join("\n", m.Files.Folders.Select(f => $"{f.Name}|{f.SourceRelativePath}"))
+            : string.Join("\n", m.Files.IncludedFolders.Select(n => $"{n}|{n}"));
+
+        // Browser map for the %post copy loop: one "source/relative|dest/relative"
+        // entry per migratable browser profile. Only Gecko browsers (Firefox / Zen
+        // / Waterfox) carry non-empty paths — their profile roots are OS-portable
+        // and include saved passwords. Chromium browsers were recorded with empty
+        // paths (DPAPI-bound passwords, Phase 2) and are skipped here.
+        var browserMap = string.Join("\n",
+            m.Browsers
+                .Where(b => !string.IsNullOrEmpty(b.SourceRelativePath)
+                         && !string.IsNullOrEmpty(b.DestRelativePath))
+                .Select(b => $"{b.SourceRelativePath}|{b.DestRelativePath}"));
 
         // Password: use the user's chosen password (--plaintext).
         // If somehow empty, fall back to a locked account so we don't create
@@ -196,7 +224,26 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             ? $"--password={password} --plaintext"
             : "--lock";
 
+        // Wi-Fi pre-seed for Anaconda: pick the network Windows was connected to
+        // (preferring a WPA-PSK one with a recovered key). The %pre script finds
+        // the wireless interface and emits a `network --essid --wpakey` directive
+        // into /tmp/ks-network.cfg, which the template %include-s. SSID/PSK are
+        // escaped for safe embedding in a bash double-quoted assignment.
+        var primaryWifi =
+            m.WifiNetworks.FirstOrDefault(w => w.IsPrimary && w.Security == "wpa-psk" && !string.IsNullOrEmpty(w.Psk))
+            ?? m.WifiNetworks.FirstOrDefault(w => w.IsPrimary && w.Security == "open");
+
+        var wifiSsid = primaryWifi is not null ? ShellDoubleQuote(primaryWifi.Ssid) : "";
+        var wifiPsk  = primaryWifi?.Psk is { Length: > 0 } k ? ShellDoubleQuote(k) : "";
+
+        // Install-source directive for the netinstall. Without this Anaconda has
+        // no package repository and stops with "Error setting up repositories"
+        // (the stage-2 installer environment is local on OEMDRV, but the RPMs
+        // must come from the network). See BuildInstallSourceLine for details.
+        var installSource = BuildInstallSourceLine(_stage2Url);
+
         return template
+            .Replace("{{INSTALL_SOURCE_URL}}", installSource)
             .Replace("{{LOCALE}}",            m.User.Locale)
             .Replace("{{KEYMAP}}",            m.User.Keymap)
             .Replace("{{XLAYOUT}}",           m.User.Keymap)
@@ -211,15 +258,64 @@ public sealed class FedoraKdePlugin : IDistroPlugin
                                                 : "0")
             .Replace("{{TARGET_DISK_MODEL}}", m.Hardware.TargetDiskModel ?? "")
             .Replace("{{INSTALL_MODE}}",      m.Hardware.InstallMode)
-            .Replace("{{INCLUDED_FOLDERS}}",  folderList);
+            .Replace("{{INCLUDED_FOLDERS}}",  folderList)
+            .Replace("{{FOLDER_MAP}}",        folderMap)
+            .Replace("{{BROWSER_MAP}}",       browserMap)
+            .Replace("{{WIFI_SSID}}",         wifiSsid)
+            .Replace("{{WIFI_PSK}}",          wifiPsk);
     }
 
-    private static string RenderInline(MigrationManifest m)
+    /// <summary>
+    /// Builds the Anaconda kickstart install-source command from the distro's
+    /// <c>stage2Url</c>.
+    ///
+    /// Fedora's mirror network is exposed through a metalink service that returns
+    /// the closest, currently-healthy mirror — this is exactly the "Closest
+    /// mirror" option in Anaconda's GUI, which is the most reliable source.
+    /// When the stage2Url points at a versioned release tree
+    /// (<c>…/releases/&lt;ver&gt;/Everything/x86_64/os/</c>) we derive that version
+    /// and emit a metalink <c>url</c> line for it. If the version can't be parsed
+    /// we fall back to a direct <c>url --url=</c> against the tree, and if no
+    /// stage2Url is configured at all we emit a commented-out placeholder so the
+    /// kickstart still parses (Anaconda will then prompt interactively).
+    /// </summary>
+    private static string BuildInstallSourceLine(string? stage2Url)
     {
-        var diskBytes  = m.Hardware.TargetDiskBytes > 0 ? m.Hardware.TargetDiskBytes.ToString() : "0";
-        var folderList = string.Join(" ", m.Files.IncludedFolders);
-        var username   = m.User.PreferredLinuxUsername;
-        var fullName   = m.User.FullName ?? username;
+        if (string.IsNullOrWhiteSpace(stage2Url))
+            return "# url: no stage2Url configured in distro.json — Anaconda will prompt for a source";
+
+        // Extract the Fedora release number from a versioned release tree URL,
+        // e.g. https://…/releases/44/Everything/x86_64/os/  →  "44".
+        var match = System.Text.RegularExpressions.Regex.Match(
+            stage2Url, @"/releases/(\d+)/", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        if (match.Success)
+        {
+            var release = match.Groups[1].Value;
+            return $"url --metalink=\"https://mirrors.fedoraproject.org/metalink?repo=fedora-{release}&arch=x86_64\"";
+        }
+
+        // Non-versioned (e.g. rawhide or a mirror pin): use the tree directly.
+        return $"url --url=\"{stage2Url}\"";
+    }
+
+    /// <summary>
+    /// Escapes a value for safe placement inside a bash double-quoted string
+    /// (e.g. <c>VAR="…"</c>): backslash, double-quote, dollar and backtick.
+    /// </summary>
+    private static string ShellDoubleQuote(string value) =>
+        value.Replace("\\", "\\\\")
+             .Replace("\"", "\\\"")
+             .Replace("$",  "\\$")
+             .Replace("`",  "\\`");
+
+    private string RenderInline(MigrationManifest m)
+    {
+        var diskBytes     = m.Hardware.TargetDiskBytes > 0 ? m.Hardware.TargetDiskBytes.ToString() : "0";
+        var folderList    = string.Join(" ", m.Files.IncludedFolders);
+        var username      = m.User.PreferredLinuxUsername;
+        var fullName      = m.User.FullName ?? username;
+        var installSource = BuildInstallSourceLine(_stage2Url);
 
         return $@"# Generated by Igloo for Fedora KDE
 graphical
@@ -227,6 +323,7 @@ lang {m.User.Locale}
 keyboard --vckeymap={m.User.Keymap} --xlayouts='{m.User.Keymap}'
 timezone {m.User.Timezone} --utc
 network --bootproto=dhcp --device=link --activate --hostname={username}-pc
+{installSource}
 rootpw --lock
 user --name={username} --groups=wheel --gecos=""{fullName}"" --lock
 

@@ -11,8 +11,10 @@
         </Grid.RowDefinitions>
 
         <!-- ── IDLE / DRIVE SELECTION ───────────────────────────────────────── -->
-        <StackPanel Grid.Row="0"
-                    VerticalAlignment="Top"
+        <ScrollViewer Grid.Row="0"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+        <StackPanel VerticalAlignment="Top"
                     HorizontalAlignment="Stretch">
 
             <!-- Drive picker row -->
@@ -211,6 +213,7 @@
             </Border>
 
         </StackPanel>
+        </ScrollViewer>
 
         <!-- ── Bottom strip ─────────────────────────────────────────────────── -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"

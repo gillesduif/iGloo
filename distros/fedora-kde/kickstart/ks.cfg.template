@@ -17,11 +17,33 @@
 #                          "dual-boot" → keep existing partitions, use free space
 #                                        (clearpart --none; Windows was already
 #                                         shrunk by the Igloo app before boot)
-#   {{INCLUDED_FOLDERS}}   space-separated list of staged folder names
+#   {{INCLUDED_FOLDERS}}   space-separated list of folder names (informational)
 #                          (e.g. "Documents Downloads Pictures")
+#   {{FOLDER_MAP}}         newline-separated "DestName|source/relative/path" pairs
+#                          for the %post copy loop. The relative path is resolved
+#                          on the Windows side (Known Folder API) so OneDrive
+#                          redirection is honoured, e.g.:
+#                              Documents|OneDrive/Documents
+#                              Downloads|Downloads
+#   {{BROWSER_MAP}}        newline-separated "source/relative|dest/relative" pairs
+#                          for the %post browser-profile copy loop. Phase 1 covers
+#                          Gecko browsers only (Firefox / Zen / Waterfox), whose
+#                          profile roots are OS-portable and include saved
+#                          passwords. Empty when no such browser was selected, e.g.:
+#                              AppData/Roaming/Mozilla/Firefox|.mozilla/firefox
+#                              AppData/Roaming/zen|.zen
 #   {{PASSWORD_OPTION}}    rendered by the plugin as either
 #                          "--password=<plaintext> --plaintext"  (normal case)
 #                          "--lock"                              (fallback if no password)
+#   {{WIFI_SSID}}          SSID of the network Windows was connected to, escaped
+#                          for a bash double-quoted string ("" if none / wired-only)
+#   {{WIFI_PSK}}           cleartext pre-shared key for {{WIFI_SSID}} ("" if open
+#                          network or no key recovered)
+#   {{INSTALL_SOURCE_URL}} the Anaconda install-source directive (a full `url …`
+#                          line) telling the netinstall where to fetch packages.
+#                          Rendered from distro.json's iso.stage2Url — typically a
+#                          Fedora metalink ("Closest mirror"). Without it Anaconda
+#                          stops with "Error setting up repositories".
 #
 # Picked up by Anaconda automatically: OEMDRV is a FAT32 volume with that
 # label, which Anaconda has scanned for kickstart files for many years.
@@ -34,6 +56,13 @@ keyboard --vckeymap={{KEYMAP}} --xlayouts='{{XLAYOUT}}'
 timezone {{TIMEZONE}} --utc
 
 network --bootproto=dhcp --device=link --activate --hostname={{HOSTNAME}}
+
+# ── Install source ────────────────────────────────────────────────────────────
+# Direct-install boots with a LOCAL stage-2 (inst.stage2=hd:LABEL=OEMDRV) but the
+# RPM packages for a netinstall must come from the network. This line points
+# Anaconda at the Fedora mirror metalink (the "Closest mirror" option) so the
+# repository is configured automatically — no interactive source prompt.
+{{INSTALL_SOURCE_URL}}
 
 rootpw --lock
 user --name={{LINUX_USERNAME}} --groups=wheel --gecos="{{FULL_NAME}}" {{PASSWORD_OPTION}}
@@ -125,10 +154,76 @@ else
     log "Storage config written to /tmp/ks-storage.cfg:"
     cat /tmp/ks-storage.cfg >&2
 fi
+
+# ── Wi-Fi connectivity for the netinstall ─────────────────────────────────────
+# Anaconda's `network --essid --wpakey` kickstart directive is applied very
+# early and is unreliable on real hardware — it frequently fires before the
+# wireless driver/firmware is ready, so association silently never happens and
+# the netinstall then fails with "error setting up repositories". Instead we
+# actively bring the radio up and connect with nmcli HERE in %pre, retrying
+# until association succeeds. NetworkManager is already running in Anaconda's
+# installer environment, so nmcli is available.
+#
+# The freshly-installed system's Wi-Fi is configured separately by the Igloo
+# first-boot agent (it writes NetworkManager keyfiles from the manifest), so we
+# do NOT need a `network` directive at all — /tmp/ks-network.cfg stays empty and
+# its %include below is a harmless no-op. Wired links are already handled by the
+# `network --device=link --activate` line near the top of this kickstart.
+WIFI_SSID="{{WIFI_SSID}}"
+WIFI_PSK="{{WIFI_PSK}}"
+: > /tmp/ks-network.cfg
+if [ -n "$WIFI_SSID" ]; then
+    # Find the wireless interface (name varies: wlan0, wlp3s0, …).
+    WLAN_DEV=""
+    for wif in /sys/class/net/*/wireless; do
+        [ -e "$wif" ] || continue
+        WLAN_DEV=$(basename "$(dirname "$wif")")
+        break
+    done
+
+    if [ -n "$WLAN_DEV" ]; then
+        log "Connecting Wi-Fi: SSID='$WIFI_SSID' on $WLAN_DEV"
+
+        # Ensure NetworkManager has the radio enabled.
+        nmcli radio wifi on 2>/dev/null || true
+
+        # Wait for the device to leave the 'unavailable' state — the driver and
+        # firmware can take several seconds to come up after boot.
+        for i in $(seq 1 15); do
+            state=$(nmcli -t -f DEVICE,STATE device 2>/dev/null | awk -F: -v d="$WLAN_DEV" '$1==d{print $2}')
+            [ -n "$state" ] && [ "$state" != "unavailable" ] && break
+            sleep 2
+        done
+
+        # Associate, retrying to ride out slow scans and DHCP.
+        connected=0
+        for i in $(seq 1 10); do
+            nmcli device wifi rescan ifname "$WLAN_DEV" 2>/dev/null || true
+            if [ -n "$WIFI_PSK" ]; then
+                nmcli device wifi connect "$WIFI_SSID" password "$WIFI_PSK" ifname "$WLAN_DEV" && { connected=1; break; }
+            else
+                nmcli device wifi connect "$WIFI_SSID" ifname "$WLAN_DEV" && { connected=1; break; }
+            fi
+            log "  Wi-Fi attempt $i failed; retrying in 3s"
+            sleep 3
+        done
+
+        if [ "$connected" = "1" ]; then
+            log "Wi-Fi connected on $WLAN_DEV"
+        else
+            log "WARNING: Wi-Fi connection to '$WIFI_SSID' failed after retries — netinstall may have no connectivity"
+        fi
+    else
+        log "Wi-Fi SSID recorded but no wireless interface found — skipping"
+    fi
+fi
 %end
 
 # Pull in the storage commands generated by %pre above.
 %include /tmp/ks-storage.cfg
+
+# Pull in the Wi-Fi network command generated by %pre above (may be empty).
+%include /tmp/ks-network.cfg
 
 # ── Packages ──────────────────────────────────────────────────────────────────
 
@@ -253,14 +348,57 @@ if [ -d "$USER_HOME" ]; then
 
             if [ -d "$WIN_HOME" ]; then
                 log "Found Windows home at $ntfs_dev : $WIN_HOME"
-                for folder in $INCLUDED_FOLDERS; do
-                    src="$WIN_HOME/$folder"
-                    dst="$USER_HOME/$folder"
-                    [ -d "$src" ] || { log "  Skipping $folder (not found)"; continue; }
+                # FOLDER_MAP holds one "DestName|source/relative/path" entry per
+                # line (rendered from the manifest). The relative path is resolved
+                # on the Windows side via the Known Folder API, so OneDrive-
+                # redirected folders carry their real location (e.g.
+                # "OneDrive/Documents") instead of a guessed "$WIN_HOME/Documents".
+                # IFS='|' splits each line into dest name + relative source path;
+                # the heredoc body/delimiter sit at column 0 as bash requires.
+                while IFS='|' read -r fname frel; do
+                    [ -n "$fname" ] || continue
+                    src="$WIN_HOME/$frel"
+                    dst="$USER_HOME/$fname"
+                    if [ ! -d "$src" ]; then
+                        log "  Skipping $fname (source '$frel' not found)"
+                        continue
+                    fi
                     mkdir -p "$dst"
-                    cp -a "$src/." "$dst/"
-                    log "  Copied $folder from NTFS"
-                done
+                    # Tolerate individual unreadable files (e.g. OneDrive online-only
+                    # placeholders) without aborting the whole %post under set -e.
+                    cp -a "$src/." "$dst/" 2>/dev/null \
+                        || log "  WARNING: some files in $fname could not be copied"
+                    log "  Copied $fname from $frel"
+                done <<'FOLDERMAP'
+{{FOLDER_MAP}}
+FOLDERMAP
+
+                # ── Browser profiles (Phase 1: Gecko only) ───────────────────
+                # BROWSER_MAP holds one "source/relative|dest/relative" entry per
+                # migratable browser. Source is relative to the Windows home (e.g.
+                # "AppData/Roaming/Mozilla/Firefox"); dest is relative to the Linux
+                # $HOME (e.g. ".mozilla/firefox"). Only Gecko browsers (Firefox /
+                # Zen / Waterfox) appear here — their profile roots are OS-portable
+                # and carry saved passwords (NSS). Chromium passwords are DPAPI-
+                # bound to the Windows account, so those browsers are not migrated.
+                # The map is empty when no Gecko browser was selected, making the
+                # loop a no-op.
+                while IFS='|' read -r bsrc bdst; do
+                    [ -n "$bsrc" ] || continue
+                    src="$WIN_HOME/$bsrc"
+                    dst="$USER_HOME/$bdst"
+                    if [ ! -d "$src" ]; then
+                        log "  Skipping browser '$bsrc' (source not found)"
+                        continue
+                    fi
+                    mkdir -p "$dst"
+                    cp -a "$src/." "$dst/" 2>/dev/null \
+                        || log "  WARNING: some files in browser profile '$bsrc' could not be copied"
+                    log "  Copied browser profile $bsrc -> $bdst"
+                done <<'BROWSERMAP'
+{{BROWSER_MAP}}
+BROWSERMAP
+
                 umount "$NTFS_MNT"
                 copy_user_files_done=1
                 break
@@ -293,6 +431,13 @@ Description=Igloo first-boot migration agent
 Documentation=https://github.com/gillesduif/iGloo
 After=network-online.target
 Wants=network-online.target
+# Hold the login screen until first-boot setup finishes. The agent performs
+# heavy package operations (RPM Fusion, codecs, NVIDIA driver build, Flatpaks)
+# that must NOT race the Plasma session start — doing so leaves the user on a
+# half-initialised desktop (black screen). Ordering before the display manager
+# means setup completes (and, for NVIDIA, the machine reboots) before any
+# graphical session is created.
+Before=display-manager.service
 ConditionPathExists=/var/lib/igloo/manifest.json
 ConditionPathExists=!/var/lib/igloo/.done
 

@@ -19,7 +19,10 @@ NOTE: User files (Documents, Downloads, …) are NOT handled here.
       runs with simultaneous access to both the OEMDRV and the new rootfs.
       By the time this agent runs, the files are already in place.
 
-      Browser profile migration is planned for a future milestone.
+      The same applies to Gecko browser profiles (Firefox / Zen / Waterfox):
+      their OS-portable profile roots are copied by the same %post phase, so
+      saved passwords and settings are present before first login. Chromium
+      browsers are not migrated (passwords are DPAPI-bound to Windows).
 """
 from __future__ import annotations
 
@@ -27,8 +30,10 @@ import argparse
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -175,6 +180,20 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     # akmods builds the kernel module; wait for it to complete.
     logger.info("Building NVIDIA kernel module (akmods --force) — may take several minutes")
     run_cmd(["akmods", "--force"], timeout=900)
+
+    # Installing the NVIDIA driver blacklists nouveau and builds a new kernel
+    # module that only loads on the next boot.  Starting the Plasma session now
+    # would land on a half-initialised GPU (black screen / broken desktop).
+    # Signal first-boot.sh to reboot once before the display manager starts so
+    # the user's first real session comes up cleanly on the nvidia driver.
+    try:
+        Path("/var/lib/igloo/.reboot-required").write_text(
+            "nvidia-driver-installed\n", encoding="utf-8"
+        )
+        logger.info("Flagged reboot-required (NVIDIA driver needs a clean boot)")
+    except Exception:
+        logger.exception("Could not write reboot-required marker (non-fatal)")
+
     logger.info("NVIDIA drivers installed")
 
 
@@ -226,14 +245,104 @@ def install_suggested_packages(manifest: dict[str, Any]) -> None:
     logger.info("Suggested packages installed")
 
 
+def _nm_keyfile(ssid: str, security: str, psk: str | None, hidden: bool) -> str:
+    """Render a NetworkManager keyfile (.nmconnection) for one Wi-Fi network."""
+    lines = [
+        "[connection]",
+        f"id={ssid}",
+        f"uuid={uuid.uuid4()}",
+        "type=wifi",
+        "autoconnect=true",
+        "",
+        "[wifi]",
+        "mode=infrastructure",
+        f"ssid={ssid}",
+    ]
+    if hidden:
+        lines.append("hidden=true")
+
+    if security == "wpa-psk" and psk:
+        lines += [
+            "",
+            "[wifi-security]",
+            "key-mgmt=wpa-psk",
+            f"psk={psk}",
+        ]
+
+    lines += [
+        "",
+        "[ipv4]",
+        "method=auto",
+        "",
+        "[ipv6]",
+        "method=auto",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _safe_filename(ssid: str) -> str:
+    """Turn an SSID into a filesystem-safe .nmconnection basename."""
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", ssid).strip("_")
+    return (safe or "wifi") + ".nmconnection"
+
+
+def migrate_wifi(manifest: dict[str, Any]) -> None:
+    """Write a NetworkManager profile for each saved Wi-Fi network.
+
+    Networks come from the Windows-side ``netsh wlan export profile key=clear``
+    scan. WPA/WPA2/WPA3-personal networks include their pre-shared key; open
+    networks are written without a security section; enterprise (802.1X)
+    networks are skipped (their credentials cannot be carried as a simple PSK).
+    """
+    nets = manifest.get("wifiNetworks", [])
+    if not nets:
+        logger.info("No Wi-Fi networks in manifest")
+        return
+
+    sysconn = Path("/etc/NetworkManager/system-connections")
+    sysconn.mkdir(parents=True, exist_ok=True)
+
+    written = 0
+    for net in nets:
+        ssid = (net.get("ssid") or "").strip()
+        if not ssid:
+            continue
+
+        security = net.get("security", "wpa-psk")
+        if security == "unsupported":
+            logger.info("Skipping enterprise/unsupported network %r", ssid)
+            continue
+
+        psk = net.get("psk")
+        if security == "wpa-psk" and not psk:
+            logger.info("Skipping %r: WPA-PSK network but no key was recovered", ssid)
+            continue
+
+        content = _nm_keyfile(ssid, security, psk, bool(net.get("hidden", False)))
+        path = sysconn / _safe_filename(ssid)
+        try:
+            path.write_text(content, encoding="utf-8")
+            path.chmod(0o600)   # NetworkManager refuses to load world-readable keyfiles
+            written += 1
+            logger.info("Wrote NetworkManager profile for %r (%s)", ssid, security)
+        except Exception:
+            logger.exception("Failed to write Wi-Fi profile for %r (non-fatal)", ssid)
+
+    if written:
+        # Pick up the new keyfiles without a reboot.
+        run_cmd(["nmcli", "connection", "reload"], check=False, timeout=60)
+    logger.info("Wi-Fi migration complete: %d profile(s) written", written)
+
+
 def redact_manifest(manifest: dict[str, Any]) -> None:
     """Remove sensitive fields from the on-disk manifest.
 
-    ``linuxPassword`` is stored in plaintext so the kickstart can set it
-    during installation.  Once the system is up and the agent has run, the
-    password serves no further purpose but the file at
-    ``/var/lib/igloo/manifest.json`` is world-readable by default.
-    Overwrite the field with ``null`` so the plaintext is no longer present.
+    ``linuxPassword`` and Wi-Fi ``psk`` values are stored in plaintext so the
+    kickstart can connect/authenticate during installation and the agent can
+    write NetworkManager profiles.  Once applied they serve no further purpose,
+    but ``/var/lib/igloo/manifest.json`` is world-readable by default.
+    Overwrite those fields with ``null`` so the plaintext is no longer present.
     """
     manifest_path = Path("/var/lib/igloo/manifest.json")
     if not manifest_path.exists():
@@ -243,15 +352,25 @@ def redact_manifest(manifest: dict[str, Any]) -> None:
         with manifest_path.open(encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
 
+        changed = False
+
         user = data.get("user", {})
         if user.get("linuxPassword") is not None:
             user["linuxPassword"] = None
+            changed = True
+
+        for net in data.get("wifiNetworks", []):
+            if net.get("psk") is not None:
+                net["psk"] = None
+                changed = True
+
+        if changed:
             with manifest_path.open("w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             manifest_path.chmod(0o640)   # root:root rw-r-----
-            logger.info("linuxPassword redacted from manifest")
+            logger.info("Redacted plaintext secrets (linuxPassword, Wi-Fi PSKs) from manifest")
         else:
-            logger.info("linuxPassword already absent from manifest")
+            logger.info("No plaintext secrets present in manifest")
     except Exception:
         logger.exception("Failed to redact manifest (non-fatal)")
 
@@ -370,6 +489,7 @@ def main() -> int:
         ("gpu-drivers",     lambda: install_gpu_drivers(manifest)),
         ("flathub",         lambda: setup_flathub(manifest)),
         ("suggested-pkgs",  lambda: install_suggested_packages(manifest)),
+        ("wifi",            lambda: migrate_wifi(manifest)),
         ("welcome-app",     lambda: install_welcome_app(manifest)),
         ("redact-manifest", lambda: redact_manifest(manifest)),
     ]

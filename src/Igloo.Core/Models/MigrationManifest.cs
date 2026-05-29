@@ -36,6 +36,15 @@ public sealed record MigrationManifest
     [JsonPropertyName("suggestedPackages")]
     public IReadOnlyList<SuggestedPackage> SuggestedPackages { get; init; } = Array.Empty<SuggestedPackage>();
 
+    /// <summary>
+    /// Saved Wi-Fi networks exported from Windows. Pre-seeded into the kickstart
+    /// (so the netinstall can connect automatically) and written as NetworkManager
+    /// connection profiles by the first-boot agent. PSKs are redacted from the
+    /// on-disk manifest once the agent has applied them (same as <see cref="MigrationUser.LinuxPassword"/>).
+    /// </summary>
+    [JsonPropertyName("wifiNetworks")]
+    public IReadOnlyList<WifiNetwork> WifiNetworks { get; init; } = Array.Empty<WifiNetwork>();
+
     [JsonPropertyName("hardware")]
     public required HardwareProfile Hardware { get; init; }
 }
@@ -63,13 +72,68 @@ public sealed record FileMigrationPlan
 {
     [JsonPropertyName("stagingPath")] public required string StagingPath { get; init; }
     [JsonPropertyName("totalBytes")] public long TotalBytes { get; init; }
+
+    /// <summary>
+    /// Destination folder names only (e.g. "Documents", "Downloads"). Kept for
+    /// display and backward compatibility; the copy logic uses <see cref="Folders"/>.
+    /// </summary>
     [JsonPropertyName("includedFolders")] public IReadOnlyList<string> IncludedFolders { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Folders to migrate, each pairing the Linux destination name with the
+    /// source path relative to the Windows user profile. This resolves OneDrive
+    /// Known Folder Move: Documents/Pictures/Desktop are often physically at
+    /// <c>OneDrive/Documents</c> etc., not directly under the profile. The
+    /// kickstart <c>%post</c> joins <see cref="MigrationFolder.SourceRelativePath"/>
+    /// onto the mounted Windows home instead of guessing the location by name.
+    /// </summary>
+    [JsonPropertyName("folders")] public IReadOnlyList<MigrationFolder> Folders { get; init; } = Array.Empty<MigrationFolder>();
+}
+
+/// <summary>One folder to migrate: a Linux destination name plus the real source location.</summary>
+public sealed record MigrationFolder
+{
+    /// <summary>Destination folder name in the Linux home directory (e.g. "Documents").</summary>
+    [JsonPropertyName("name")] public required string Name { get; init; }
+
+    /// <summary>
+    /// Source path relative to the Windows user profile, using forward slashes.
+    /// Resolved on the Windows side via the Known Folder API, so OneDrive-redirected
+    /// folders appear as e.g. <c>"OneDrive/Documents"</c> while non-redirected ones
+    /// are just <c>"Downloads"</c>.
+    /// </summary>
+    [JsonPropertyName("sourceRelativePath")] public required string SourceRelativePath { get; init; }
 }
 
 public sealed record BrowserMigration
 {
     [JsonPropertyName("name")] public required string Name { get; init; }
-    [JsonPropertyName("profileStagingPath")] public required string ProfileStagingPath { get; init; }
+
+    /// <summary>
+    /// Rendering engine: <c>"gecko"</c> (Firefox/Zen/Waterfox — profile folder is
+    /// OS-portable, saved passwords included via NSS) or <c>"chromium"</c>
+    /// (Chrome/Edge/Brave/… — passwords are DPAPI-bound to the Windows account and
+    /// not portable; Phase 1 records but does not migrate these).
+    /// </summary>
+    [JsonPropertyName("engine")] public string Engine { get; init; } = "unknown";
+
+    /// <summary>
+    /// Source profile-root path relative to the Windows user profile, forward
+    /// slashes (e.g. <c>"AppData/Roaming/Mozilla/Firefox"</c>). Empty when the
+    /// browser is not migrated in this phase. Resolved on the Windows side so
+    /// AppData redirection is honoured.
+    /// </summary>
+    [JsonPropertyName("sourceRelativePath")] public string SourceRelativePath { get; init; } = "";
+
+    /// <summary>
+    /// Destination path relative to the Linux <c>$HOME</c>, forward slashes
+    /// (e.g. <c>".mozilla/firefox"</c>, <c>".zen"</c>). Empty when not migrated.
+    /// </summary>
+    [JsonPropertyName("destRelativePath")] public string DestRelativePath { get; init; } = "";
+
+    /// <summary>Legacy USB-staging path. Unused by direct install (copy is from NTFS in %post).</summary>
+    [JsonPropertyName("profileStagingPath")] public string ProfileStagingPath { get; init; } = "";
+
     [JsonPropertyName("includesPasswords")] public bool IncludesPasswords { get; init; }
 }
 
@@ -91,6 +155,37 @@ public sealed record SuggestedPackage
 
     /// <summary>True when the user opted in during the migration wizard.</summary>
     [JsonPropertyName("autoInstall")] public bool AutoInstall { get; init; }
+}
+
+public sealed record WifiNetwork
+{
+    /// <summary>The network name (SSID).</summary>
+    [JsonPropertyName("ssid")] public required string Ssid { get; init; }
+
+    /// <summary>
+    /// Security type, normalised for the agent:
+    /// <c>"wpa-psk"</c> (WPA/WPA2/WPA3 personal — uses <see cref="Psk"/>),
+    /// <c>"open"</c>    (no password), or
+    /// <c>"unsupported"</c> (enterprise/802.1X — recorded for reference but not auto-applied).
+    /// </summary>
+    [JsonPropertyName("security")] public string Security { get; init; } = "wpa-psk";
+
+    /// <summary>
+    /// Pre-shared key in plaintext for <c>wpa-psk</c> networks; null for open or
+    /// unsupported networks. Redacted by the first-boot agent after the
+    /// NetworkManager profile has been written.
+    /// </summary>
+    [JsonPropertyName("psk")] public string? Psk { get; init; }
+
+    /// <summary>
+    /// True for the network Windows is currently connected to. The kickstart
+    /// pre-seeds this one into its <c>network --essid --wpakey</c> directive so
+    /// the netinstall has connectivity without manual entry in Anaconda.
+    /// </summary>
+    [JsonPropertyName("isPrimary")] public bool IsPrimary { get; init; }
+
+    /// <summary>True when the SSID is non-broadcast (hidden).</summary>
+    [JsonPropertyName("hidden")] public bool Hidden { get; init; }
 }
 
 public sealed record HardwareProfile

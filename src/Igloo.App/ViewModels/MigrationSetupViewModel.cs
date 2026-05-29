@@ -149,9 +149,113 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         return names;
     }
 
+    /// <summary>
+    /// Returns the selected folders paired with their source path <em>relative to
+    /// the Windows user profile</em> (forward slashes). The absolute path is
+    /// resolved via the Known Folder API, so OneDrive-redirected folders come back
+    /// as e.g. <c>("Documents", "OneDrive/Documents")</c> while non-redirected ones
+    /// are <c>("Downloads", "Downloads")</c>. Only folders that actually exist on
+    /// disk are included. The kickstart <c>%post</c> uses the relative path to copy
+    /// from the real location instead of guessing <c>$WIN_HOME/&lt;name&gt;</c>.
+    /// </summary>
+    public IReadOnlyList<MigrationFolder> GetSelectedFolders()
+    {
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var result  = new List<MigrationFolder>();
+
+        void TryAdd(string name, string? absolute)
+        {
+            if (string.IsNullOrEmpty(absolute) || !Directory.Exists(absolute)) return;
+
+            // Path relative to the profile, normalised to forward slashes for the
+            // Linux-side %post. Falls back to the leaf name if the folder lives
+            // outside the profile (e.g. redirected to another drive) — the %post
+            // then logs "not found" rather than copying from a bogus location.
+            var rel = Path.GetRelativePath(profile, absolute).Replace('\\', '/');
+            if (rel.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(rel))
+                rel = name;
+
+            result.Add(new MigrationFolder { Name = name, SourceRelativePath = rel });
+        }
+
+        if (IncludeDocuments) TryAdd("Documents", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+        if (IncludeDownloads) TryAdd("Downloads", Path.Combine(profile, "Downloads"));
+        if (IncludePictures)  TryAdd("Pictures",  Environment.GetFolderPath(Environment.SpecialFolder.MyPictures));
+        if (IncludeDesktop)   TryAdd("Desktop",   Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+        if (IncludeMusic)     TryAdd("Music",     Environment.GetFolderPath(Environment.SpecialFolder.MyMusic));
+        if (IncludeVideos)    TryAdd("Videos",    Environment.GetFolderPath(Environment.SpecialFolder.MyVideos));
+
+        return result;
+    }
+
     /// <summary>Returns the names of the browsers the user chose to include.</summary>
     public IReadOnlyList<string> GetSelectedBrowserNames()
         => DetectedBrowsers.Where(b => b.IsSelected).Select(b => b.Name).ToList();
+
+    /// <summary>
+    /// Phase 1 browser migration. Maps each selected browser to a
+    /// <see cref="BrowserMigration"/>:
+    ///   • Gecko browsers (Firefox / Zen / Waterfox) — the on-disk profile root is
+    ///     OS-portable and includes saved passwords (NSS, not bound to the Windows
+    ///     account). Source = the profile root relative to the Windows profile
+    ///     (forward slashes); dest = the canonical Linux home location.
+    ///   • Chromium browsers (Chrome / Edge / Brave / Vivaldi / Opera) — passwords
+    ///     are DPAPI-bound to the Windows account and not portable, so these are
+    ///     recorded (engine + name) but left with empty paths; the kickstart skips
+    ///     them. Real migration is a future phase.
+    /// </summary>
+    public IReadOnlyList<BrowserMigration> GetSelectedBrowsers()
+    {
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var result  = new List<BrowserMigration>();
+
+        // Gecko: detected ProfilePath ends in "Profiles"; the folder we copy is its
+        // parent (the whole browser root), e.g. AppData/Roaming/Mozilla/Firefox.
+        var geckoDest = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Mozilla Firefox"] = ".mozilla/firefox",
+            ["Zen Browser"]     = ".zen",
+            ["Waterfox"]        = ".waterfox",
+        };
+
+        foreach (var b in DetectedBrowsers.Where(b => b.IsSelected))
+        {
+            if (geckoDest.TryGetValue(b.Name, out var dest))
+            {
+                var root = Directory.GetParent(b.ProfilePath)?.FullName;
+                var srcRel = root is not null
+                    ? Path.GetRelativePath(profile, root).Replace('\\', '/')
+                    : string.Empty;
+
+                // Only migrate when the root sits under the Windows profile (it
+                // always should for AppData); otherwise record without paths.
+                var portable = !string.IsNullOrEmpty(srcRel)
+                    && !srcRel.StartsWith("..", StringComparison.Ordinal)
+                    && !Path.IsPathRooted(srcRel);
+
+                result.Add(new BrowserMigration
+                {
+                    Name               = b.Name,
+                    Engine             = "gecko",
+                    SourceRelativePath = portable ? srcRel : string.Empty,
+                    DestRelativePath   = portable ? dest   : string.Empty,
+                    IncludesPasswords  = portable,
+                });
+            }
+            else
+            {
+                // Chromium family — recorded only (Phase 2).
+                result.Add(new BrowserMigration
+                {
+                    Name              = b.Name,
+                    Engine            = "chromium",
+                    IncludesPasswords = false,
+                });
+            }
+        }
+
+        return result;
+    }
 
     /// <summary>Returns the selected Linux app suggestions as manifest entries.</summary>
     public IReadOnlyList<SuggestedPackage> GetSelectedSuggestions()
@@ -350,6 +454,10 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         Check("Microsoft Edge", Path.Combine(localApp, "Microsoft",    "Edge",           "User Data", "Default"));
         Check("Mozilla Firefox",Path.Combine(appData,  "Mozilla",      "Firefox",        "Profiles"));
         Check("Brave",          Path.Combine(localApp, "BraveSoftware","Brave-Browser",  "User Data", "Default"));
+        Check("Zen Browser",    Path.Combine(appData,  "zen",          "Profiles"));
+        Check("Vivaldi",        Path.Combine(localApp, "Vivaldi",      "User Data",      "Default"));
+        Check("Opera",          Path.Combine(appData,  "Opera Software","Opera Stable",  "Default"));
+        Check("Waterfox",       Path.Combine(appData,  "Waterfox",     "Profiles"));
         return results;
 
         void Check(string name, string path)
