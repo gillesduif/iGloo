@@ -57,6 +57,11 @@ local/
 *.iso
 *.iso.sha256
 *.iso.gpg
+# Exception: "Igloo.Iso" is a SOURCE project, not an ISO image. On
+# case-insensitive filesystems (Windows/macOS) the "*.iso" rule above also
+# matches the "Igloo.Iso" folder, which silently excluded the whole project
+# from git (a fresh clone wouldn't build). Keep it tracked.
+!src/Igloo.Iso/
 
 # Pre-built plugin DLLs shipped inside distros/ (build output, not source)
 distros/**/*.dll

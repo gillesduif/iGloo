@@ -19,13 +19,15 @@
 #                                         shrunk by the Igloo app before boot)
 #   {{INCLUDED_FOLDERS}}   space-separated list of folder names (informational)
 #                          (e.g. "Documents Downloads Pictures")
-#   {{FOLDER_MAP}}         newline-separated "DestName|source/relative/path" pairs
+#   FOLDER_MAP (no braces — multi-line value; literal token only in the %post heredoc below)
+#                          newline-separated "DestName|source/relative/path" pairs
 #                          for the %post copy loop. The relative path is resolved
 #                          on the Windows side (Known Folder API) so OneDrive
 #                          redirection is honoured, e.g.:
 #                              Documents|OneDrive/Documents
 #                              Downloads|Downloads
-#   {{BROWSER_MAP}}        newline-separated "source/relative|dest/relative" pairs
+#   BROWSER_MAP (no braces — multi-line value; literal token only in the %post heredoc below)
+#                          newline-separated "source/relative|dest/relative" pairs
 #                          for the %post browser-profile copy loop. Phase 1 covers
 #                          Gecko browsers only (Firefox / Zen / Waterfox), whose
 #                          profile roots are OS-portable and include saved
@@ -130,11 +132,26 @@ if [ -z "$TARGET_DISK" ]; then
     echo "# ERROR: target disk not found" > /tmp/ks-storage.cfg
 else
     log "Target disk: /dev/$TARGET_DISK  (mode: $INSTALL_MODE)"
+
+    # NVIDIA GPUs: the open-source nouveau driver does not support very recent
+    # cards (e.g. RTX 50-series / Blackwell) and mis-renders the framebuffer,
+    # leaving a garbled boot screen that looks like a crash. Blacklist nouveau on
+    # the installed kernel cmdline so the FIRST boot uses the simple UEFI
+    # framebuffer (clean). The Igloo first-boot agent then installs the proprietary
+    # NVIDIA driver; nouveau stays blacklisted afterwards, which is exactly what the
+    # proprietary driver expects — so nothing has to be undone later. On non-NVIDIA
+    # machines lspci finds nothing and the cmdline is left untouched.
+    BOOT_APPEND=""
+    if lspci -nn 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -iq nvidia; then
+        BOOT_APPEND=' --append="rd.driver.blacklist=nouveau modprobe.blacklist=nouveau"'
+        log "NVIDIA GPU detected — blacklisting nouveau for a clean first boot"
+    fi
+
     {
         # bootloader: omit --location on UEFI systems (Anaconda writes to ESP
         # automatically). --location=mbr on a GPT/UEFI disk triggers a warning
         # that causes Anaconda to stop at the interactive hub.
-        echo "bootloader --boot-drive=${TARGET_DISK}"
+        echo "bootloader --boot-drive=${TARGET_DISK}${BOOT_APPEND}"
         echo "ignoredisk --only-use=${TARGET_DISK}"
         if [ "$INSTALL_MODE" = "dual-boot" ]; then
             # Windows partition was already shrunk by Igloo before USB boot.
@@ -169,53 +186,64 @@ fi
 # do NOT need a `network` directive at all — /tmp/ks-network.cfg stays empty and
 # its %include below is a harmless no-op. Wired links are already handled by the
 # `network --device=link --activate` line near the top of this kickstart.
-WIFI_SSID="{{WIFI_SSID}}"
-WIFI_PSK="{{WIFI_PSK}}"
+# Auto-connect Wi-Fi for the netinstall. We try EVERY network the user had saved
+# on Windows (not just one pre-picked "primary"): bring the radio up, scan, and
+# associate with the first known network currently in range. This gets the
+# netinstall online without Anaconda falling back to a manual Wi-Fi prompt.
+# Each WIFI_LIST line is "SSID<TAB>PSK" (PSK empty for open networks). The
+# installed system's Wi-Fi is configured separately by the first-boot agent, so
+# /tmp/ks-network.cfg stays empty (its %include below is a harmless no-op).
 : > /tmp/ks-network.cfg
-if [ -n "$WIFI_SSID" ]; then
-    # Find the wireless interface (name varies: wlan0, wlp3s0, …).
-    WLAN_DEV=""
-    for wif in /sys/class/net/*/wireless; do
-        [ -e "$wif" ] || continue
-        WLAN_DEV=$(basename "$(dirname "$wif")")
-        break
+
+WLAN_DEV=""
+for wif in /sys/class/net/*/wireless; do
+    [ -e "$wif" ] || continue
+    WLAN_DEV=$(basename "$(dirname "$wif")")
+    break
+done
+
+if [ -n "$WLAN_DEV" ]; then
+    log "Wireless device: $WLAN_DEV - enabling radio and scanning"
+    nmcli radio wifi on 2>/dev/null || true
+
+    # Wait for the device to leave 'unavailable' (driver/firmware warm-up).
+    for i in $(seq 1 15); do
+        state=$(nmcli -t -f DEVICE,STATE device 2>/dev/null | awk -F: -v d="$WLAN_DEV" '$1==d{print $2}')
+        [ -n "$state" ] && [ "$state" != "unavailable" ] && break
+        sleep 2
     done
 
-    if [ -n "$WLAN_DEV" ]; then
-        log "Connecting Wi-Fi: SSID='$WIFI_SSID' on $WLAN_DEV"
-
-        # Ensure NetworkManager has the radio enabled.
-        nmcli radio wifi on 2>/dev/null || true
-
-        # Wait for the device to leave the 'unavailable' state — the driver and
-        # firmware can take several seconds to come up after boot.
-        for i in $(seq 1 15); do
-            state=$(nmcli -t -f DEVICE,STATE device 2>/dev/null | awk -F: -v d="$WLAN_DEV" '$1==d{print $2}')
-            [ -n "$state" ] && [ "$state" != "unavailable" ] && break
-            sleep 2
-        done
-
-        # Associate, retrying to ride out slow scans and DHCP.
-        connected=0
-        for i in $(seq 1 10); do
-            nmcli device wifi rescan ifname "$WLAN_DEV" 2>/dev/null || true
-            if [ -n "$WIFI_PSK" ]; then
-                nmcli device wifi connect "$WIFI_SSID" password "$WIFI_PSK" ifname "$WLAN_DEV" && { connected=1; break; }
+    TAB="$(printf '\t')"
+    connected=0
+    for pass in $(seq 1 6); do
+        [ "$connected" = "1" ] && break
+        nmcli device wifi rescan ifname "$WLAN_DEV" 2>/dev/null || true
+        sleep 2
+        VISIBLE=$(nmcli -t -f SSID device wifi list ifname "$WLAN_DEV" 2>/dev/null)
+        while IFS="$TAB" read -r wssid wpsk; do
+            [ -n "$wssid" ] || continue
+            printf '%s\n' "$VISIBLE" | grep -Fxq "$wssid" || continue
+            log "  Known network '$wssid' is in range - connecting"
+            if [ -n "$wpsk" ]; then
+                nmcli device wifi connect "$wssid" password "$wpsk" ifname "$WLAN_DEV" && { connected=1; break; }
             else
-                nmcli device wifi connect "$WIFI_SSID" ifname "$WLAN_DEV" && { connected=1; break; }
+                nmcli device wifi connect "$wssid" ifname "$WLAN_DEV" && { connected=1; break; }
             fi
-            log "  Wi-Fi attempt $i failed; retrying in 3s"
-            sleep 3
-        done
+        done <<'WIFILIST'
+{{WIFI_LIST}}
+WIFILIST
+        [ "$connected" = "1" ] && break
+        log "  No known network connected yet (pass $pass/6) - rescanning"
+        sleep 3
+    done
 
-        if [ "$connected" = "1" ]; then
-            log "Wi-Fi connected on $WLAN_DEV"
-        else
-            log "WARNING: Wi-Fi connection to '$WIFI_SSID' failed after retries — netinstall may have no connectivity"
-        fi
+    if [ "$connected" = "1" ]; then
+        log "Wi-Fi connected on $WLAN_DEV"
     else
-        log "Wi-Fi SSID recorded but no wireless interface found — skipping"
+        log "WARNING: no saved Wi-Fi network in range - Anaconda may prompt for one"
     fi
+else
+    log "No wireless interface found - relying on a wired link if present"
 fi
 %end
 

@@ -197,6 +197,44 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     logger.info("NVIDIA drivers installed")
 
 
+def ensure_kernel_modules(manifest: dict[str, Any]) -> None:
+    """Self-heal an incomplete kernel install.
+
+    A netinstall — or a kernel update pulled mid-install — over a flaky Wi-Fi
+    link can leave an installed kernel with ``kernel-core`` and
+    ``kernel-modules-core`` but WITHOUT ``kernel-modules``: the package that
+    ships most drivers (Wi-Fi such as rtw89, USB tethering, many NICs). The
+    symptom is a freshly-installed system with no usable network device (only
+    loopback). While the agent still has connectivity, make sure every installed
+    kernel has its matching ``kernel-modules`` so the next boot has full hardware
+    support.
+    """
+    res = run_cmd(["rpm", "-q", "kernel-core"], check=False)
+    versions = [
+        line.strip()[len("kernel-core-"):]
+        for line in (res.stdout or "").splitlines()
+        if line.strip().startswith("kernel-core-")
+    ]
+    if not versions:
+        logger.warning("Could not list installed kernels — skipping kernel-modules check")
+        return
+
+    missing = [
+        kver for kver in versions
+        if run_cmd(["rpm", "-q", f"kernel-modules-{kver}"], check=False).returncode != 0
+    ]
+    if not missing:
+        logger.info("All %d installed kernel(s) already have kernel-modules", len(versions))
+        return
+
+    for kver in missing:
+        logger.warning(
+            "kernel-modules-%s is missing (incomplete install) — installing now", kver
+        )
+        run_cmd(["dnf", "-y", "install", f"kernel-modules-{kver}"], timeout=600)
+    logger.info("kernel-modules repaired for: %s", ", ".join(missing))
+
+
 def setup_flathub(manifest: dict[str, Any]) -> None:
     """Ensure the Flathub remote is registered.
 
@@ -489,6 +527,7 @@ def main() -> int:
         ("gpu-drivers",     lambda: install_gpu_drivers(manifest)),
         ("flathub",         lambda: setup_flathub(manifest)),
         ("suggested-pkgs",  lambda: install_suggested_packages(manifest)),
+        ("kernel-modules",  lambda: ensure_kernel_modules(manifest)),
         ("wifi",            lambda: migrate_wifi(manifest)),
         ("welcome-app",     lambda: install_welcome_app(manifest)),
         ("redact-manifest", lambda: redact_manifest(manifest)),

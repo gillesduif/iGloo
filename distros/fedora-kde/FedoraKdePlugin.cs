@@ -113,6 +113,16 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             ? RenderFromTemplate(File.ReadAllText(templatePath), manifest)
             : RenderInline(manifest);
 
+        // Force Unix (LF) line endings. The kickstart is executed by bash (%pre /
+        // %post) and parsed by Anaconda on the target. A Windows checkout or edit
+        // leaves CRLF in the template, and a stray CR is fatal: e.g. the %pre line
+        // "} > /tmp/ks-storage.cfg\r" makes bash create a file literally named
+        // "ks-storage.cfg<CR>", while Anaconda's "%include /tmp/ks-storage.cfg"
+        // strips the CR and looks for "ks-storage.cfg" → "Unable to open input
+        // kickstart file: No such file or directory". Normalising here guarantees a
+        // valid file no matter how the template was authored or checked out.
+        ks = ks.Replace("\r\n", "\n").Replace("\r", "\n");
+
         var config = new InstallerConfig(
             FileName: "ks.cfg",
             Contents: Encoding.UTF8.GetBytes(ks),
@@ -236,6 +246,19 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         var wifiSsid = primaryWifi is not null ? ShellDoubleQuote(primaryWifi.Ssid) : "";
         var wifiPsk  = primaryWifi?.Psk is { Length: > 0 } k ? ShellDoubleQuote(k) : "";
 
+        // Every saved Wi-Fi network (WPA-PSK with a recovered key, or open) as
+        // tab-separated "SSID<TAB>PSK" lines for the %pre auto-connect loop. That
+        // loop brings the radio up, scans, and connects to the first one that is
+        // actually in range — so the netinstall associates automatically instead
+        // of Anaconda falling back to a manual Wi-Fi prompt. Tab-delimited so
+        // SSIDs/PSKs containing spaces survive; the lines live inside a quoted
+        // heredoc in %pre, so no shell escaping is needed here.
+        var wifiList = string.Join("\n",
+            m.WifiNetworks
+                .Where(w => (w.Security == "wpa-psk" && !string.IsNullOrEmpty(w.Psk))
+                            || w.Security == "open")
+                .Select(w => $"{w.Ssid}\t{(w.Security == "open" ? "" : w.Psk)}"));
+
         // Install-source directive for the netinstall. Without this Anaconda has
         // no package repository and stops with "Error setting up repositories"
         // (the stage-2 installer environment is local on OEMDRV, but the RPMs
@@ -262,7 +285,8 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             .Replace("{{FOLDER_MAP}}",        folderMap)
             .Replace("{{BROWSER_MAP}}",       browserMap)
             .Replace("{{WIFI_SSID}}",         wifiSsid)
-            .Replace("{{WIFI_PSK}}",          wifiPsk);
+            .Replace("{{WIFI_PSK}}",          wifiPsk)
+            .Replace("{{WIFI_LIST}}",         wifiList);
     }
 
     /// <summary>
