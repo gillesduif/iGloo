@@ -3,6 +3,7 @@
   "id": "fedora-kde",
   "displayName": "Fedora KDE",
   "description": "Fedora 44 with the KDE Plasma desktop environment. Current upstream kernel and Mesa, signed Secure Boot support out of the box, official Fedora project release. Recommended for users who want a Windows-like desktop on a fast-moving, well-maintained distribution.",
+  "logo": "logo/fedora-logo.png",
   "defaultDesktopEnvironment": "KDE Plasma",
   "installerType": "Anaconda",
 

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gillesduif/iGloo/distros/_schema/distro.schema.json",
+  "title": "iGloo distro manifest",
+  "description": "Schema for distros/<id>/distro.json. Every distribution in the iGloo catalog is described by one of these manifests.",
+  "type": "object",
+  "required": ["id", "displayName", "description", "logo", "iso"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": { "type": "string" },
+    "_comment": { "type": "string" },
+
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Catalog identifier. Must match the folder name under distros/."
+    },
+
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable name shown in the picker, e.g. \"Fedora KDE\"."
+    },
+
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One paragraph: who the distro is for and what makes it distinct."
+    },
+
+    "logo": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\.\\.).*\\.png$",
+      "description": "Relative path (inside this distro's directory) to a PNG logo, at least 1024px on its longest edge. Rendered as the distro's cover in the 3D picker. Must ship with a NOTICE file carrying source URL and trademark attribution. Forward slashes, no absolute paths, no '..'."
+    },
+
+    "defaultDesktopEnvironment": {
+      "type": "string",
+      "description": "Desktop environment installed by default, e.g. \"KDE Plasma\"."
+    },
+
+    "installerType": {
+      "type": "string",
+      "description": "Installer technology, e.g. Anaconda | Ubiquity | Calamares | AutoYaST | Subiquity | Custom."
+    },
+
+    "iso": {
+      "type": "object",
+      "required": ["downloadUrl", "sha256"],
+      "additionalProperties": true,
+      "properties": {
+        "downloadUrl":     { "type": "string", "format": "uri" },
+        "sha256":          { "type": "string", "pattern": "^([A-Fa-f0-9]{64})?$" },
+        "gpgSignatureUrl": { "type": "string", "format": "uri" },
+        "gpgKeyUrl":       { "type": "string", "format": "uri" },
+        "stage2Url":       { "type": "string", "format": "uri" }
+      }
+    },
+
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Capability/audience tags. iGloo's compatibility rules key off some of these (e.g. secure-boot-supported)."
+    },
+
+    "screenshots": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Relative paths to PNG screenshots inside this distro's directory."
+    },
+
+    "minimumRequirements": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "minRamBytes":   { "type": "integer", "minimum": 0 },
+        "minDiskBytes":  { "type": "integer", "minimum": 0 },
+        "requiresUefi":  { "type": "boolean" },
+        "requires64Bit": { "type": "boolean" }
+      }
+    },
+
+    "maintainer": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "github": { "type": "string" },
+        "note":   { "type": "string" }
+      }
+    }
+  }
+}

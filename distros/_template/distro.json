@@ -3,6 +3,7 @@
   "id": "REPLACE_WITH_YOUR_DISTRO_ID",
   "displayName": "Your Distro Name",
   "description": "One paragraph describing the distro. Who it's for, what makes it distinct. Two to four sentences. Shown in Igloo's distro picker.",
+  "logo": "logo/your-distro-logo.png",
   "defaultDesktopEnvironment": "REPLACE: KDE Plasma | GNOME | Cinnamon | XFCE | MATE | LXQt | Budgie | ...",
   "installerType": "REPLACE: Anaconda | Ubiquity | Calamares | AutoYaST | Subiquity | Custom",
 

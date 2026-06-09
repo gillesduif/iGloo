@@ -57,6 +57,10 @@ public sealed class DistroLoader
                 var manifest = JsonSerializer.Deserialize<DistroManifest>(json, JsonOpts);
                 if (manifest is null) continue;
 
+                // Stamp the source directory so relative asset paths (logo, screenshots)
+                // can be resolved by consumers.
+                manifest = manifest with { SourceDirectory = Path.GetFullPath(dir) };
+
                 if (!string.Equals(manifest.Id, name, StringComparison.OrdinalIgnoreCase))
                     _logger.LogWarning("Distro id '{Id}' does not match folder name '{Folder}'",
                         manifest.Id, name);

@@ -14,16 +14,19 @@ distros/your-distro-id/
 ├── agent/                                   # Required. First-boot agent.
 │   ├── first-boot.sh
 │   └── agent.py
+├── logo/                                    # Required. Distro logo + attribution.
+│   ├── your-distro-logo.png
+│   └── NOTICE
 ├── screenshots/                             # Required. PNG screenshots shown in the catalog.
 │   └── *.png
 └── README.md                                # Required. Distro-specific notes.
 ```
 
-## The five pieces
+## The six pieces
 
 ### 1. `distro.json`
 
-Metadata. Identifier, display name, description, ISO download URL, SHA256, hardware tags, screenshots. Validated against `_schema/distro.schema.json` in CI.
+Metadata. Identifier, display name, description, logo, ISO download URL, SHA256, hardware tags, screenshots. Validated against `_schema/distro.schema.json` in CI. Required fields: `id`, `displayName`, `description`, `logo`, `iso`.
 
 The `id` field **must** match the folder name. The folder `distros/fedora-kde/` requires `"id": "fedora-kde"`.
 
@@ -64,7 +67,29 @@ The agent is responsible for:
 
 The agent is idempotent and must not fatally block boot. If something fails, log it and continue — the welcome app surfaces failures to the user later.
 
-### 5. Screenshots
+### 5. The logo (`logo/`)
+
+The `logo` field in `distro.json` points to a PNG inside your distro's directory
+(convention: `logo/your-distro-logo.png`). It is the distro's cover in Igloo's
+3D picker, so quality matters:
+
+- **PNG only.** Igloo is a WPF app and does not render SVG at runtime — rasterize
+  your distro's official vector logo yourself. **At least 1024px** on the longest
+  edge: the image is texture-mapped onto a 3D plane and viewed at an angle, so
+  lower resolutions visibly blur.
+- **Transparent background preferred.** Igloo composes the logo onto its own
+  dark cover tile; a baked-in background ruins the look.
+- **Attribution is mandatory.** Ship a `logo/NOTICE` file with: the source URL
+  the asset was obtained from, and a trademark line naming the trademark holder
+  (e.g. "Fedora and the Fedora logo are trademarks of Red Hat, Inc."). Use the
+  distro's official logo unmodified, per that project's trademark guidelines.
+  See `fedora-kde/logo/NOTICE` for the reference example.
+
+If a manifest has no usable logo, Igloo falls back to a generated placeholder
+tile (the distro's initial on a colored background) — functional, but not what
+you want representing your distro.
+
+### 6. Screenshots
 
 At minimum: one screenshot of the default desktop after install. Ideally also: the app launcher / start menu, the file manager, and one piece of distro-character (a settings panel, software centre, theme picker — whatever's distinctive).
 
