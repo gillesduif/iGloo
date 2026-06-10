@@ -9,9 +9,14 @@
     <Application.Resources>
         <ResourceDictionary>
 
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/IglooTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
             <!-- ── Converters ─────────────────────────────────────────────── -->
             <BooleanToVisibilityConverter x:Key="BoolToVis" />
             <conv:BytesToSizeConverter    x:Key="BytesToSize" />
+            <conv:ProportionalWidthConverter x:Key="ProportionalWidth" />
 
             <!-- ── View-model → view dispatch ─────────────────────────────── -->
             <DataTemplate DataType="{x:Type vm:WelcomeViewModel}">

@@ -1,0 +1,35 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "opensuse",
+  "displayName": "openSUSE Leap",
+  "description": "openSUSE Leap 16.0 with the KDE Plasma desktop. Enterprise-grade engineering from the SUSE world: built from SUSE Linux Enterprise sources, with the YaST/Agama tooling and btrfs snapshots that make rollbacks painless.",
+  "logo": "logo/opensuse-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Agama",
+
+  "iso": {
+    "downloadUrl": "https://download.opensuse.org/distribution/leap/16.0/installer/iso/agama-installer.x86_64-Leap_16.0.iso",
+    "sha256": "58e4dd0677d22805b708ba7201b71daf0f6bca6f8413c5a2010947e86ab686bc",
+    "gpgSignatureUrl": "https://download.opensuse.org/distribution/leap/16.0/installer/iso/agama-installer.x86_64-Leap_16.0.iso.sha256.asc",
+    "gpgKeyUrl": "https://download.opensuse.org/distribution/leap/16.0/repo/oss/repodata/repomd.xml.key"
+  },
+
+  "tags": [
+    "stable-release",
+    "secure-boot-supported",
+    "development"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: the install plugin is not written yet. See distros/README.md to contribute."
+  }
+}

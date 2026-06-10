@@ -34,6 +34,13 @@
       "description": "Relative path (inside this distro's directory) to a PNG logo, at least 1024px on its longest edge. Rendered as the distro's cover in the 3D picker. Must ship with a NOTICE file carrying source URL and trademark attribution. Forward slashes, no absolute paths, no '..'."
     },
 
+    "status": {
+      "type": "string",
+      "enum": ["available", "coming-soon"],
+      "default": "available",
+      "description": "Catalog availability. \"available\" requires a working IDistroPlugin in this directory. \"coming-soon\" entries render in the picker but cannot be installed; use this for catalog entries that do not have a plugin yet."
+    },
+
     "defaultDesktopEnvironment": {
       "type": "string",
       "description": "Desktop environment installed by default, e.g. \"KDE Plasma\"."

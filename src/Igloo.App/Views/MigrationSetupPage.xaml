@@ -6,236 +6,212 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="0,0,8,0">
 
-            <!-- ── Linux Account ─────────────────────────────────────────────── -->
-            <TextBlock Text="Linux account"
-                       FontSize="14" FontWeight="SemiBold"
-                       Margin="0,0,0,14" />
+            <!-- ── Linux account ─────────────────────────────────────────────── -->
+            <TextBlock Text="YOUR LINUX ACCOUNT" Style="{StaticResource Text.Section}" Margin="2,0,0,8" />
+            <Border Style="{StaticResource Card}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="170" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Windows user"
+                               Style="{StaticResource Text.Caption}" FontSize="12" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="0" Grid.Column="1"
+                               Text="{Binding WindowsUsername}"
+                               Foreground="{StaticResource Brush.Text.Primary}" FontSize="13"
+                               VerticalAlignment="Center" />
 
-                <!-- Row 0: Windows user (read-only context) -->
-                <TextBlock Grid.Row="0" Grid.Column="0"
-                           Text="Windows user" Opacity="0.6"
-                           VerticalAlignment="Center" />
-                <TextBlock Grid.Row="0" Grid.Column="1"
-                           Text="{Binding WindowsUsername}"
-                           VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Linux username"
+                               Style="{StaticResource Text.Caption}" FontSize="12"
+                               VerticalAlignment="Center" Margin="0,12,0,0" />
+                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,12,0,0">
+                        <TextBox Text="{Binding LinuxUsername, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="220" />
+                        <TextBlock Text="✓" Foreground="{StaticResource Brush.Success}" FontWeight="Bold"
+                                   Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Visibility="{Binding IsUsernameValid, Converter={StaticResource BoolToVis}}" />
+                        <TextBlock Foreground="{StaticResource Brush.Danger}" FontSize="12"
+                                   Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text"       Value="Must start with a–z, then a–z / 0–9 / _ / -" />
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsUsernameValid}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
 
-                <!-- Row 1: Linux username -->
-                <TextBlock Grid.Row="1" Grid.Column="0"
-                           Text="Linux username" Opacity="0.6"
-                           VerticalAlignment="Center" Margin="0,10,0,0" />
-                <StackPanel Grid.Row="1" Grid.Column="1"
-                            Orientation="Horizontal" Margin="0,10,0,0">
-                    <TextBox Text="{Binding LinuxUsername, UpdateSourceTrigger=PropertyChanged}"
-                             Width="220" />
-                    <!-- Valid indicator -->
-                    <TextBlock Text="✓" Foreground="#2E7D32" FontWeight="SemiBold"
-                               Margin="8,0,0,0" VerticalAlignment="Center"
-                               Visibility="{Binding IsUsernameValid, Converter={StaticResource BoolToVis}}" />
-                    <!-- Invalid indicator -->
-                    <TextBlock Foreground="#C62828" Margin="8,0,0,0" VerticalAlignment="Center">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text"       Value="Must start with a–z, then a–z / 0–9 / _ / -" />
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsUsernameValid}" Value="False">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Password"
+                               Style="{StaticResource Text.Caption}" FontSize="12"
+                               VerticalAlignment="Center" Margin="0,12,0,0" />
+                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,12,0,0">
+                        <PasswordBox x:Name="PasswordBox"
+                                     Width="220" PasswordChanged="OnPasswordChanged" />
+                        <TextBlock Foreground="{StaticResource Brush.Danger}" FontSize="12"
+                                   Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text"       Value="At least 8 characters" />
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPasswordValid}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Confirm password"
+                               Style="{StaticResource Text.Caption}" FontSize="12"
+                               VerticalAlignment="Center" Margin="0,12,0,0" />
+                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,12,0,0">
+                        <PasswordBox x:Name="PasswordConfirmBox"
+                                     Width="220" PasswordChanged="OnPasswordChanged" />
+                        <TextBlock Text="✓" Foreground="{StaticResource Brush.Success}" FontWeight="Bold"
+                                   Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsPasswordValid}" Value="True" />
+                                                <Condition Binding="{Binding IsPasswordMatch}" Value="True" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Foreground="{StaticResource Brush.Danger}" FontSize="12"
+                                   Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text"       Value="Passwords do not match" />
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsPasswordValid}" Value="True" />
+                                                <Condition Binding="{Binding IsPasswordMatch}" Value="False" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ── Files to migrate: chip toggles ────────────────────────────── -->
+            <TextBlock Text="WHAT TRAVELS WITH YOU" Style="{StaticResource Text.Section}" Margin="2,22,0,8" />
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="These folders are copied to a staging area and restored to your Linux home after install."
+                               Style="{StaticResource Text.Body}" Margin="0,0,0,14" />
+                    <WrapPanel>
+                        <CheckBox Content="Documents" Style="{StaticResource CheckBox.Chip}" IsChecked="{Binding IncludeDocuments}" Margin="0,0,8,8" />
+                        <CheckBox Content="Downloads" Style="{StaticResource CheckBox.Chip}" IsChecked="{Binding IncludeDownloads}" Margin="0,0,8,8" />
+                        <CheckBox Content="Pictures"  Style="{StaticResource CheckBox.Chip}" IsChecked="{Binding IncludePictures}"  Margin="0,0,8,8" />
+                        <CheckBox Content="Desktop"   Style="{StaticResource CheckBox.Chip}" IsChecked="{Binding IncludeDesktop}"   Margin="0,0,8,8" />
+                        <CheckBox Content="Music"     Style="{StaticResource CheckBox.Chip}" IsChecked="{Binding IncludeMusic}"     Margin="0,0,8,8" />
+                        <CheckBox Content="Videos"    Style="{StaticResource CheckBox.Chip}" IsChecked="{Binding IncludeVideos}"    Margin="0,0,8,8" />
+                    </WrapPanel>
                 </StackPanel>
+            </Border>
 
-                <!-- Row 2: Password -->
-                <TextBlock Grid.Row="2" Grid.Column="0"
-                           Text="Password" Opacity="0.6"
-                           VerticalAlignment="Center" Margin="0,10,0,0" />
-                <StackPanel Grid.Row="2" Grid.Column="1"
-                            Orientation="Horizontal" Margin="0,10,0,0">
-                    <PasswordBox x:Name="PasswordBox"
-                                 Width="220" PasswordChanged="OnPasswordChanged" />
-                    <!-- Too short indicator -->
-                    <TextBlock Foreground="#C62828" Margin="8,0,0,0" VerticalAlignment="Center">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text"       Value="At least 8 characters" />
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsPasswordValid}" Value="False" />
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </StackPanel>
-
-                <!-- Row 3: Confirm password -->
-                <TextBlock Grid.Row="3" Grid.Column="0"
-                           Text="Confirm password" Opacity="0.6"
-                           VerticalAlignment="Center" Margin="0,10,0,0" />
-                <StackPanel Grid.Row="3" Grid.Column="1"
-                            Orientation="Horizontal" Margin="0,10,0,0">
-                    <PasswordBox x:Name="PasswordConfirmBox"
-                                 Width="220" PasswordChanged="OnPasswordChanged" />
-                    <!-- Match indicator -->
-                    <TextBlock Text="✓" Foreground="#2E7D32" FontWeight="SemiBold"
-                               Margin="8,0,0,0" VerticalAlignment="Center">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsPasswordValid}" Value="True" />
-                                            <Condition Binding="{Binding IsPasswordMatch}" Value="True" />
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                    <!-- Mismatch indicator -->
-                    <TextBlock Foreground="#C62828" Margin="8,0,0,0" VerticalAlignment="Center">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text"       Value="Passwords do not match" />
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding IsPasswordValid}" Value="True" />
-                                            <Condition Binding="{Binding IsPasswordMatch}" Value="False" />
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </StackPanel>
-            </Grid>
-
-            <Separator Margin="0,20,0,20" />
-
-            <!-- ── Files to migrate ──────────────────────────────────────────── -->
-            <TextBlock Text="Files to migrate"
-                       FontSize="14" FontWeight="SemiBold"
-                       Margin="0,0,0,10" />
-            <TextBlock Text="These folders will be copied to the staging area and restored on your Linux desktop after install."
-                       TextWrapping="Wrap" Opacity="0.65" Margin="0,0,0,14" />
-
-            <WrapPanel>
-                <CheckBox Content="Documents" IsChecked="{Binding IncludeDocuments}" Margin="0,0,20,8" />
-                <CheckBox Content="Downloads" IsChecked="{Binding IncludeDownloads}" Margin="0,0,20,8" />
-                <CheckBox Content="Pictures"  IsChecked="{Binding IncludePictures}"  Margin="0,0,20,8" />
-                <CheckBox Content="Desktop"   IsChecked="{Binding IncludeDesktop}"   Margin="0,0,20,8" />
-                <CheckBox Content="Music"     IsChecked="{Binding IncludeMusic}"     Margin="0,0,20,8" />
-                <CheckBox Content="Videos"    IsChecked="{Binding IncludeVideos}"    Margin="0,0,20,8" />
-            </WrapPanel>
-
-            <!-- ── Suggested Linux apps (only shown when matches are found) ──── -->
+            <!-- ── Suggested Linux apps ──────────────────────────────────────── -->
             <StackPanel Visibility="{Binding HasDetectedSuggestions, Converter={StaticResource BoolToVis}}">
-                <Separator Margin="0,20,0,20" />
-
-                <TextBlock Text="Suggested Linux apps"
-                           FontSize="14" FontWeight="SemiBold"
-                           Margin="0,0,0,10" />
-                <TextBlock TextWrapping="Wrap" Opacity="0.65" Margin="0,0,0,14">
-                    These Windows apps were found on your machine. Install their Linux
-                    equivalents on first boot?
-                </TextBlock>
-
-                <ItemsControl ItemsSource="{Binding DetectedSuggestions}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsSelected}" Margin="0,0,0,6">
-                                <CheckBox.Content>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding LinuxAppName}"
-                                                   FontWeight="Medium" />
-                                        <TextBlock Opacity="0.55" Margin="4,0,0,0">
-                                            <Run Text="(replaces " /><Run Text="{Binding WindowsDisplayName, Mode=OneWay}" /><Run Text=")" />
-                                        </TextBlock>
-                                    </StackPanel>
-                                </CheckBox.Content>
-                            </CheckBox>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <TextBlock Text="SUGGESTED LINUX APPS" Style="{StaticResource Text.Section}" Margin="2,22,0,8" />
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="These Windows apps were found on your machine. Install their Linux equivalents on first boot?"
+                                   Style="{StaticResource Text.Body}" Margin="0,0,0,12" />
+                        <ItemsControl ItemsSource="{Binding DetectedSuggestions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsSelected}" Margin="0,0,0,8">
+                                        <CheckBox.Content>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding LinuxAppName}" FontWeight="Medium"
+                                                           Foreground="{StaticResource Brush.Text.Primary}" />
+                                                <TextBlock Foreground="{StaticResource Brush.Text.Tertiary}" Margin="6,0,0,0">
+                                                    <Run Text="replaces " /><Run Text="{Binding WindowsDisplayName, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </CheckBox.Content>
+                                    </CheckBox>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
             </StackPanel>
 
-            <!-- ── Browser profiles (only shown when at least one is detected) ── -->
+            <!-- ── Browser profiles ──────────────────────────────────────────── -->
             <StackPanel Visibility="{Binding HasDetectedBrowsers, Converter={StaticResource BoolToVis}}">
-                <Separator Margin="0,20,0,20" />
-
-                <TextBlock Text="Browser profiles"
-                           FontSize="14" FontWeight="SemiBold"
-                           Margin="0,0,0,10" />
-                <TextBlock Text="Igloo will carry your bookmarks and settings across to the Linux equivalents."
-                           TextWrapping="Wrap" Opacity="0.65" Margin="0,0,0,14" />
-
-                <ItemsControl ItemsSource="{Binding DetectedBrowsers}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <CheckBox Content="{Binding Name}"
-                                      IsChecked="{Binding IsSelected}"
-                                      Margin="0,0,0,6" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <TextBlock Text="BROWSER PROFILES" Style="{StaticResource Text.Section}" Margin="2,22,0,8" />
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Bookmarks and settings are carried across to the Linux equivalents."
+                                   Style="{StaticResource Text.Body}" Margin="0,0,0,12" />
+                        <ItemsControl ItemsSource="{Binding DetectedBrowsers}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Name}"
+                                              IsChecked="{Binding IsSelected}"
+                                              Margin="0,0,0,8" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
             </StackPanel>
-
-            <Separator Margin="0,20,0,20" />
 
             <!-- ── System settings ───────────────────────────────────────────── -->
-            <TextBlock Text="System settings"
-                       FontSize="14" FontWeight="SemiBold"
-                       Margin="0,0,0,14" />
+            <TextBlock Text="SYSTEM SETTINGS" Style="{StaticResource Text.Section}" Margin="2,22,0,8" />
+            <Border Style="{StaticResource Card}" Margin="0,0,0,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="170" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Timezone"
+                               Style="{StaticResource Text.Caption}" FontSize="12" VerticalAlignment="Center" />
+                    <TextBox Grid.Row="0" Grid.Column="1"
+                             Text="{Binding Timezone, UpdateSourceTrigger=PropertyChanged}"
+                             Width="260" HorizontalAlignment="Left" />
 
-                <TextBlock Grid.Row="0" Grid.Column="0"
-                           Text="Timezone" Opacity="0.6"
-                           VerticalAlignment="Center" />
-                <TextBox Grid.Row="0" Grid.Column="1"
-                         Text="{Binding Timezone, UpdateSourceTrigger=PropertyChanged}"
-                         Width="260" HorizontalAlignment="Left" />
-
-                <TextBlock Grid.Row="1" Grid.Column="0"
-                           Text="Keyboard (xkb)" Opacity="0.6"
-                           VerticalAlignment="Center" Margin="0,10,0,0" />
-                <TextBox Grid.Row="1" Grid.Column="1"
-                         Text="{Binding Keymap, UpdateSourceTrigger=PropertyChanged}"
-                         Width="120" HorizontalAlignment="Left" Margin="0,10,0,0" />
-            </Grid>
-
-            <Separator Margin="0,20,0,0" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Keyboard (xkb)"
+                               Style="{StaticResource Text.Caption}" FontSize="12"
+                               VerticalAlignment="Center" Margin="0,12,0,0" />
+                    <TextBox Grid.Row="1" Grid.Column="1"
+                             Text="{Binding Keymap, UpdateSourceTrigger=PropertyChanged}"
+                             Width="120" HorizontalAlignment="Left" Margin="0,12,0,0" />
+                </Grid>
+            </Border>
 
         </StackPanel>
     </ScrollViewer>

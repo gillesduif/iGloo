@@ -61,6 +61,32 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CurrentPage is UsbWriterViewModel && _diskSelection.InstallMode == Igloo.Core.Abstractions.DiskInstallMode.ReplaceDisk
         || CurrentPage is DirectInstallViewModel;
 
+    // ── Step indicator (display only) ────────────────────────────────────────
+    // The two install pages share the final slot, so the user-visible journey is
+    // always 8 steps regardless of which install path is taken.
+
+    public int StepCount => 8;
+
+    public int StepNumber => CurrentPage switch
+    {
+        WelcomeViewModel         => 1,
+        PreflightViewModel       => 2,
+        DistroSelectionViewModel => 3,
+        IsoAcquisitionViewModel  => 4,
+        MigrationSetupViewModel  => 5,
+        DiskSelectionViewModel   => 6,
+        FileStagingViewModel     => 7,
+        DirectInstallViewModel   => 8,
+        UsbWriterViewModel       => 8,
+        _                        => 1,
+    };
+
+    /// <summary>One marker per wizard step; rebuilt on navigation for the indicator dots.</summary>
+    public IReadOnlyList<StepMarker> StepMarkers =>
+        Enumerable.Range(1, StepCount)
+            .Select(n => new StepMarker(n, n < StepNumber, n == StepNumber))
+            .ToList();
+
     // ── Constructor ──────────────────────────────────────────────────────────
 
     public MainWindowViewModel(
@@ -240,5 +266,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(StepDescription));
         OnPropertyChanged(nameof(IsLastStep));
+        OnPropertyChanged(nameof(StepNumber));
+        OnPropertyChanged(nameof(StepMarkers));
     }
 }
+
+/// <summary>A single dot in the wizard's step indicator.</summary>
+public sealed record StepMarker(int Number, bool IsDone, bool IsCurrent);

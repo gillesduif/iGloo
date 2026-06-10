@@ -1,0 +1,33 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "pop-os",
+  "displayName": "Pop!_OS",
+  "description": "Pop!_OS 24.04 LTS with System76's COSMIC desktop. Built by a hardware company for creators and gamers: first-class NVIDIA support, tiling window management out of the box, and an opinionated, keyboard-driven workflow.",
+  "logo": "logo/pop-os-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "COSMIC",
+  "installerType": "Custom",
+
+  "iso": {
+    "downloadUrl": "https://iso.pop-os.org/24.04/amd64/intel/20/pop-os_24.04_amd64_intel_20.iso",
+    "sha256": "a0ef3842ab710db4f4407cf3499560b59dddbbcd59bee17beab7b0e99dc22b4c"
+  },
+
+  "tags": [
+    "gaming",
+    "development",
+    "best-for-new-users"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: the install plugin is not written yet. Note: Pop!_OS does not support Secure Boot; it must be disabled. ISO URL and SHA-256 come from the official build API (api.pop-os.org)."
+  }
+}

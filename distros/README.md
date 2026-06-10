@@ -28,6 +28,11 @@ distros/your-distro-id/
 
 Metadata. Identifier, display name, description, logo, ISO download URL, SHA256, hardware tags, screenshots. Validated against `_schema/distro.schema.json` in CI. Required fields: `id`, `displayName`, `description`, `logo`, `iso`.
 
+The optional `status` field controls availability:
+
+- `"available"` (the default) — the distro has a working `IDistroPlugin` in this directory and can actually be installed. Everything in "The six pieces" below is required.
+- `"coming-soon"` — a catalog-only entry: `distro.json` + `logo/` are enough; the plugin, installer config and agent may be omitted. The distro appears in the picker with a "coming soon" badge but cannot be selected for install. Use this to stake out an entry while the plugin is being written. **Never mark a distro `available` without a plugin that passes the install matrix.**
+
 The `id` field **must** match the folder name. The folder `distros/fedora-kde/` requires `"id": "fedora-kde"`.
 
 ### 2. The plugin class (`YourDistroPlugin.cs`)

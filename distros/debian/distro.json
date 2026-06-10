@@ -1,0 +1,36 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "debian",
+  "displayName": "Debian",
+  "description": "Debian 13 \"Trixie\" with the GNOME desktop. The universal operating system: legendary stability, a vast package archive, and a volunteer project that has been the bedrock of the Linux world for three decades.",
+  "logo": "logo/debian-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "GNOME",
+  "installerType": "Debian-Installer",
+
+  "iso": {
+    "downloadUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-13.5.0-amd64-netinst.iso",
+    "sha256": "95838884f5ea6c82421dfe6baaa5a639dbbe6756c1e380f9fe7a7cb0c1949d2a",
+    "gpgSignatureUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS.sign",
+    "gpgKeyUrl": "https://keyring.debian.org/pks/lookup?op=get&search=0xDA87E80D6294BE9B"
+  },
+
+  "tags": [
+    "stable-release",
+    "free-software-only-by-default",
+    "older-hardware",
+    "secure-boot-supported"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 2147483648,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: the install plugin is not written yet. See distros/README.md to contribute."
+  }
+}

@@ -1,279 +1,356 @@
 <UserControl
     x:Class="Igloo.App.Views.DiskSelectionPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:conv="clr-namespace:Igloo.App.Converters">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <UserControl.Resources>
 
-        <!-- Card style for each disk row -->
+        <!-- Disk card: selection must be impossible to misread — accent ring + glow -->
         <Style x:Key="DiskItemStyle" TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Padding"                    Value="0" />
-            <Setter Property="Margin"                     Value="0,0,0,8" />
-            <Setter Property="FocusVisualStyle"           Value="{x:Null}" />
+            <Setter Property="Padding"          Value="0" />
+            <Setter Property="Margin"           Value="0,0,0,10" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
                         <Border x:Name="Root"
-                                BorderThickness="2" CornerRadius="8" Padding="16,14"
-                                BorderBrush="#E0E0E0" Background="White">
+                                BorderThickness="1.5" CornerRadius="10" Padding="18,14"
+                                BorderBrush="{StaticResource Brush.Surface.Border}"
+                                Background="{StaticResource Brush.Surface}">
                             <ContentPresenter />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Root" Property="BorderBrush" Value="#0078D4" />
-                                <Setter TargetName="Root" Property="Background"  Value="#F0F7FF" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                <Setter TargetName="Root" Property="Background"  Value="#14182E" />
+                                <Setter TargetName="Root" Property="Effect"      Value="{StaticResource Effect.AccentGlow.Soft}" />
                             </Trigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsMouseOver" Value="True" />
                                     <Condition Property="IsSelected"  Value="False" />
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="Root" Property="BorderBrush" Value="#BBBBBB" />
-                                <Setter TargetName="Root" Property="Background"  Value="#FAFAFA" />
+                                <Setter TargetName="Root" Property="BorderBrush" Value="#3A4566" />
                             </MultiTrigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Brush.Accent.Bright}" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
+        <!-- Partition segment inside the proportional strip -->
+        <Style x:Key="PartitionSegment" TargetType="Border">
+            <Setter Property="Background"   Value="#2E3A5C" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Margin"       Value="0,0,1,0" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSystem}" Value="True">
+                    <Setter Property="Background" Value="#3E6B9E" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsBoot}" Value="True">
+                    <Setter Property="Background" Value="#6B5CA8" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
     </UserControl.Resources>
 
-    <StackPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
 
-        <!-- ── Disk list ─────────────────────────────────────────────────── -->
-        <ListBox ItemsSource="{Binding DiskItems}"
-                 SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                 ItemContainerStyle="{StaticResource DiskItemStyle}"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                 BorderThickness="0"
-                 Background="Transparent">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
+            <!-- ── Disk cards ──────────────────────────────────────────────── -->
+            <TextBlock Text="TARGET DISK" Style="{StaticResource Text.Section}" Margin="2,0,0,8" />
+
+            <ListBox ItemsSource="{Binding DiskItems}"
+                     SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                     ItemContainerStyle="{StaticResource DiskItemStyle}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     AutomationProperties.Name="Choose the disk Linux will be installed on"
+                     KeyboardNavigation.DirectionalNavigation="Cycle">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+
+                            <!-- Model + badges + capacity -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Disk.Model}"
+                                               FontSize="14.5" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Text.Primary}" />
+                                    <Border>
+                                        <TextBlock Text="WINDOWS LIVES HERE" FontSize="9.5" FontWeight="Bold"
+                                                   Foreground="{StaticResource Brush.Accent.Bright}" />
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource Pill}">
+                                                <Setter Property="Margin" Value="10,0,0,0" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSystemDisk}" Value="False">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="1" FontSize="12"
+                                           Foreground="{StaticResource Brush.Text.Tertiary}"
+                                           VerticalAlignment="Center">
+                                    <Run Text="{Binding Disk.TotalBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding Disk.PartitionStyle, Mode=OneWay}" />
+                                </TextBlock>
+                            </Grid>
+
+                            <!-- Proportional partition strip: sizes you can SEE -->
+                            <Grid x:Name="Strip" Height="16" Margin="0,10,0,0">
+                                <Border Background="#10162A" CornerRadius="3" />
+                                <ItemsControl ItemsSource="{Binding Disk.Partitions}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource PartitionSegment}">
+                                                <Border.Width>
+                                                    <MultiBinding Converter="{StaticResource ProportionalWidth}">
+                                                        <Binding Path="SizeBytes" />
+                                                        <Binding Path="DataContext.Disk.TotalBytes"
+                                                                 RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                        <Binding Path="ActualWidth" ElementName="Strip" />
+                                                    </MultiBinding>
+                                                </Border.Width>
+                                                <Border.ToolTip>
+                                                    <TextBlock>
+                                                        <Run Text="{Binding FileSystem, Mode=OneWay}" />
+                                                        <Run Text="{Binding Label, Mode=OneWay}" />
+                                                        <Run Text=" — " />
+                                                        <Run Text="{Binding SizeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                </Border.ToolTip>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+
+                            <!-- Legend / free + shrinkable info -->
+                            <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                <TextBlock FontSize="11" Foreground="{StaticResource Brush.Text.Tertiary}">
+                                    <Run Text="{Binding Disk.FreeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" /><Run Text=" free" />
+                                </TextBlock>
+                                <TextBlock FontSize="11" Foreground="{StaticResource Brush.Text.Tertiary}" Margin="14,0,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSystemDisk}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                    <Run Text="up to " /><Run Text="{Binding MaxShrinkableGb, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" GiB can be freed for Linux" />
+                                </TextBlock>
+                            </StackPanel>
+
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- No disks hint -->
+            <TextBlock Margin="2,4,0,16">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DiskItems.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+                No suitable disks found. A disk of at least 20 GB is required.
+            </TextBlock>
+
+            <!-- ── Installation type ──────────────────────────────────────── -->
+            <StackPanel>
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedItem}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+
+                <TextBlock Text="INSTALLATION TYPE" Style="{StaticResource Text.Section}" Margin="2,18,0,8" />
+                <Border Style="{StaticResource Card}">
                     <StackPanel>
 
-                        <!-- Model + Windows badge -->
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Disk.Model}"
-                                       FontSize="15" FontWeight="SemiBold" />
-                            <Border Background="#E3F2FD" CornerRadius="4"
-                                    Padding="6,2" Margin="8,0,0,0"
-                                    VerticalAlignment="Center">
-                                <TextBlock Text="Windows" FontSize="11" Foreground="#1565C0" />
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsSystemDisk}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </StackPanel>
-
-                        <!-- Capacity row -->
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <TextBlock Foreground="#555">
-                                <Run Text="{Binding Disk.TotalBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" />
-                                <Run Text=" total" />
-                            </TextBlock>
-                            <TextBlock Text=" · " Foreground="#999" />
-                            <TextBlock Foreground="#555">
-                                <Run Text="{Binding Disk.FreeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" />
-                                <Run Text=" free" />
-                            </TextBlock>
-                            <TextBlock Text=" · " Foreground="#999" />
-                            <TextBlock Text="{Binding Disk.PartitionStyle}" Foreground="#555" />
-                        </StackPanel>
-
-                        <!-- Dual-boot availability hint (system disk only) -->
-                        <TextBlock Margin="0,6,0,0" FontSize="11" Opacity="0.6">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
+                        <!-- Option 1: Dual boot (when viable) -->
+                        <Border Margin="0,0,0,12">
+                            <Border.Style>
+                                <Style TargetType="Border">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsSystemDisk}" Value="True">
+                                        <DataTrigger Binding="{Binding CanDualBoot}" Value="True">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </TextBlock.Style>
-                            <Run Text="{Binding MaxShrinkableGb, Mode=OneWay}" />
-                            <Run Text=" GiB available for Linux (dual boot)" />
-                        </TextBlock>
-
-                    </StackPanel>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
-
-        <!-- No disks hint -->
-        <TextBlock Opacity="0.5" FontStyle="Italic" TextWrapping="Wrap" Margin="0,4,0,16">
-            <TextBlock.Style>
-                <Style TargetType="TextBlock">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding DiskItems.Count}" Value="0">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </TextBlock.Style>
-            No suitable disks found. A disk of at least 20 GB is required.
-        </TextBlock>
-
-        <!-- ── Installation type ──────────────────────────────────────────── -->
-        <Border Background="#F8F8F8" BorderBrush="#E0E0E0" BorderThickness="1"
-                CornerRadius="8" Padding="20,16" Margin="0,8,0,0">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding SelectedItem}" Value="{x:Null}">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                        <!-- visible whenever a disk is selected -->
-                        <DataTrigger Binding="{Binding CanProceed}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                        <!-- also visible while user is choosing (CanProceed may be false briefly) -->
-                        <DataTrigger Binding="{Binding SelectedItem}" Value="{x:Null}">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <StackPanel>
-
-                <TextBlock Text="Installation type"
-                           FontWeight="SemiBold" FontSize="13" Margin="0,0,0,12" />
-
-                <!-- Option 1: Dual Boot (shown only when viable) -->
-                <Border Margin="0,0,0,8">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding CanDualBoot}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <RadioButton IsChecked="{Binding IsInstallModeDualBoot, Mode=OneWay}"
-                                 Command="{Binding SetDualBootCommand}"
-                                 GroupName="InstallMode">
-                        <StackPanel Margin="4,0,0,0">
-                            <TextBlock FontWeight="SemiBold">
-                                Dual boot - keep Windows, install Linux alongside
-                            </TextBlock>
-                            <TextBlock Opacity="0.65" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap">
-                                The Windows partition will be shrunk to create space for Linux.
-                                You can choose which OS to boot on startup.
-                            </TextBlock>
-                        </StackPanel>
-                    </RadioButton>
-                </Border>
-
-                <!-- Option 2: Replace -->
-                <RadioButton IsChecked="{Binding IsInstallModeReplace, Mode=OneWay}"
-                             Command="{Binding SetReplaceCommand}"
-                             GroupName="InstallMode">
-                    <StackPanel Margin="4,0,0,0">
-                        <TextBlock FontWeight="SemiBold">
-                            Replace Windows - erase disk and install only Linux
-                        </TextBlock>
-                        <TextBlock Opacity="0.65" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap">
-                            All partitions and data on this disk will be destroyed.
-                        </TextBlock>
-                    </StackPanel>
-                </RadioButton>
-
-                <!-- ── Partition size slider (dual boot only) ──────────────── -->
-                <Border Margin="0,16,0,0"
-                        Visibility="{Binding ShowPartitionSizer, Converter={StaticResource BoolToVis}}">
-                    <StackPanel>
-                        <DockPanel LastChildFill="True" Margin="0,0,0,8">
-                            <TextBlock DockPanel.Dock="Left"  Text="Space for Linux" Opacity="0.75" />
-                            <TextBlock DockPanel.Dock="Right" FontWeight="SemiBold" HorizontalAlignment="Right">
-                                <Run Text="{Binding LinuxSizeGb, Mode=OneWay}" />
-                                <Run Text=" GiB" />
-                            </TextBlock>
-                        </DockPanel>
-
-                        <Slider Minimum="25"
-                                Maximum="{Binding MaxShrinkableGb, Mode=OneWay}"
-                                Value="{Binding LinuxSizeGb}"
-                                IsSnapToTickEnabled="True"
-                                TickFrequency="5"
-                                SmallChange="5"
-                                LargeChange="10" />
-
-                        <DockPanel Margin="0,4,0,0">
-                            <TextBlock DockPanel.Dock="Left"
-                                       Text="25 GiB min" FontSize="11" Opacity="0.45" />
-                            <TextBlock DockPanel.Dock="Right" FontSize="11" Opacity="0.45"
-                                       HorizontalAlignment="Right">
-                                <Run Text="{Binding MaxShrinkableGb, Mode=OneWay}" />
-                                <Run Text=" GiB max" />
-                            </TextBlock>
-                        </DockPanel>
-
-                        <!-- Space summary -->
-                        <Border Background="#E8F5E9" BorderBrush="#A5D6A7" BorderThickness="1"
-                                CornerRadius="4" Padding="10,7" Margin="0,12,0,0">
-                            <TextBlock FontSize="12" Foreground="#2E7D32" TextWrapping="Wrap">
-                                <Run Text="Windows keeps " />
-                                <Run Text="{Binding MaxShrinkableGb, Mode=OneWay}" /><!-- computed in code -->
-                                <Run Text=" GiB will be freed. " />
-                                <Run Text="The Windows partition will be shrunk automatically before writing the USB." />
-                            </TextBlock>
+                            </Border.Style>
+                            <RadioButton IsChecked="{Binding IsInstallModeDualBoot, Mode=OneWay}"
+                                         Command="{Binding SetDualBootCommand}"
+                                         GroupName="InstallMode">
+                                <StackPanel Margin="4,0,0,0">
+                                    <TextBlock FontWeight="SemiBold" FontSize="13.5"
+                                               Foreground="{StaticResource Brush.Text.Primary}">
+                                        Dual boot — keep Windows, add Linux alongside
+                                    </TextBlock>
+                                    <TextBlock Style="{StaticResource Text.Caption}" FontSize="12" Margin="0,3,0,0">
+                                        The Windows partition is shrunk to make room. A boot menu lets you choose an OS at startup.
+                                    </TextBlock>
+                                </StackPanel>
+                            </RadioButton>
                         </Border>
+
+                        <!-- Option 2: Replace -->
+                        <RadioButton IsChecked="{Binding IsInstallModeReplace, Mode=OneWay}"
+                                     Command="{Binding SetReplaceCommand}"
+                                     GroupName="InstallMode">
+                            <StackPanel Margin="4,0,0,0">
+                                <TextBlock FontWeight="SemiBold" FontSize="13.5"
+                                           Foreground="{StaticResource Brush.Text.Primary}">
+                                    Replace Windows — erase this disk, Linux only
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource Text.Caption}" FontSize="12" Margin="0,3,0,0">
+                                    Every partition and all data on the selected disk are destroyed.
+                                </TextBlock>
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- ── Dual-boot sizer with live allocation preview ── -->
+                        <Border Margin="0,18,0,0"
+                                Visibility="{Binding ShowPartitionSizer, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                                    <TextBlock DockPanel.Dock="Left" Text="Space for Linux"
+                                               Style="{StaticResource Text.Body}" />
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                               Foreground="{StaticResource Brush.Accent.Bright}"
+                                               FontWeight="SemiBold" FontSize="15">
+                                        <Run Text="{Binding LinuxSizeGb, Mode=OneWay}" /><Run Text=" GiB" />
+                                    </TextBlock>
+                                </DockPanel>
+
+                                <Slider Minimum="25"
+                                        Maximum="{Binding MaxShrinkableGb, Mode=OneWay}"
+                                        Value="{Binding LinuxSizeGb}"
+                                        IsSnapToTickEnabled="True"
+                                        TickFrequency="5"
+                                        SmallChange="5"
+                                        LargeChange="10"
+                                        AutomationProperties.Name="Gigabytes of disk space for Linux" />
+
+                                <DockPanel Margin="0,4,0,12">
+                                    <TextBlock DockPanel.Dock="Left" Text="25 GiB min"
+                                               Style="{StaticResource Text.Caption}" />
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                               Style="{StaticResource Text.Caption}">
+                                        <Run Text="{Binding MaxShrinkableGb, Mode=OneWay}" /><Run Text=" GiB max" />
+                                    </TextBlock>
+                                </DockPanel>
+
+                                <!-- Live "after install" bar: watch Linux carve its space -->
+                                <Grid x:Name="AfterStrip" Height="22">
+                                    <Border Background="#31405E" CornerRadius="3" />
+                                    <Border HorizontalAlignment="Right" CornerRadius="0,3,3,0"
+                                            Background="{StaticResource Brush.Accent.Deep}"
+                                            Effect="{StaticResource Effect.AccentGlow.Soft}">
+                                        <Border.Width>
+                                            <MultiBinding Converter="{StaticResource ProportionalWidth}">
+                                                <Binding Path="LinuxSizeBytes" />
+                                                <Binding Path="SelectedItem.Disk.TotalBytes" />
+                                                <Binding Path="ActualWidth" ElementName="AfterStrip" />
+                                            </MultiBinding>
+                                        </Border.Width>
+                                    </Border>
+                                </Grid>
+                                <DockPanel Margin="0,6,0,0">
+                                    <TextBlock DockPanel.Dock="Left" FontSize="11"
+                                               Foreground="{StaticResource Brush.Text.Tertiary}">
+                                        <Run Text="Windows side keeps ≈ " /><Run Text="{Binding WindowsKeepsGb, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" GiB" />
+                                    </TextBlock>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="11"
+                                               Foreground="{StaticResource Brush.Accent.Bright}">
+                                        <Run Text="Linux " /><Run Text="{Binding LinuxSizeGb, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" GiB" />
+                                    </TextBlock>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Dual boot not available -->
+                        <Border>
+                            <TextBlock FontSize="12" Foreground="{StaticResource Brush.Warning}" TextWrapping="Wrap">
+                                Windows is on this disk but there is not enough shrinkable space (minimum 25 GiB)
+                                for dual boot. Only "Replace" is available. Free up space in Windows first
+                                (Disk Cleanup, uninstall apps) and restart the wizard.
+                            </TextBlock>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Card.Warning}">
+                                    <Setter Property="Padding" Value="12,9" />
+                                    <Setter Property="Margin"  Value="0,14,0,0" />
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding SelectedItem.IsSystemDisk}" Value="True" />
+                                                <Condition Binding="{Binding CanDualBoot}"               Value="False" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+
+                        <!-- Replace = destruction. No ambiguity, no cuteness. -->
+                        <Border Style="{StaticResource Card.Danger}" Padding="14,11" Margin="0,14,0,0"
+                                Visibility="{Binding IsInstallModeReplace, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <Grid Height="22" x:Name="WipeStrip" Margin="0,0,0,9">
+                                    <Border Background="#66D64545" BorderBrush="{StaticResource Brush.Danger}"
+                                            BorderThickness="1" CornerRadius="3" />
+                                    <TextBlock Text="ENTIRE DISK ERASED — LINUX ONLY"
+                                               FontSize="10.5" FontWeight="Bold"
+                                               Foreground="#FFD9D6"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock FontSize="12.5" Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap">
+                                    <Run FontWeight="Bold">⚠  All partitions and data on this disk will be permanently destroyed.</Run>
+                                    <Run> Windows, your files, everything. Make sure your backups are complete before continuing.</Run>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
                 </Border>
-
-                <!-- Dual-boot not available warning -->
-                <Border Background="#FFF8E1" BorderBrush="#F9A825" BorderThickness="1"
-                        CornerRadius="4" Padding="10,7" Margin="0,12,0,0">
-                    <TextBlock FontSize="12" Foreground="#E65100" TextWrapping="Wrap">
-                        Windows is on this disk but there is not enough shrinkable space (minimum 25 GiB needed)
-                        for dual boot. Only "Replace" is available. Free up space on Windows first
-                        (e.g. run Disk Cleanup or uninstall apps) and restart the wizard.
-                    </TextBlock>
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <!-- visible when system disk selected AND dual boot NOT possible -->
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding SelectedItem.IsSystemDisk}" Value="True" />
-                                        <Condition Binding="{Binding CanDualBoot}"               Value="False" />
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </MultiDataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                </Border>
-
-                <!-- Destructive warning for Replace mode -->
-                <Border Background="#FFEBEE" BorderBrush="#EF9A9A" BorderThickness="1"
-                        CornerRadius="4" Padding="10,7" Margin="0,12,0,0"
-                        Visibility="{Binding IsInstallModeReplace, Converter={StaticResource BoolToVis}}">
-                    <TextBlock FontSize="12" Foreground="#B71C1C" TextWrapping="Wrap">
-                        ⚠  All partitions and data on this disk will be permanently destroyed.
-                        Make sure you have backed up everything you need.
-                    </TextBlock>
-                </Border>
-
             </StackPanel>
-        </Border>
 
-    </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
 
 </UserControl>

@@ -1,0 +1,36 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "ubuntu",
+  "displayName": "Ubuntu",
+  "description": "Ubuntu 26.04 LTS with the GNOME desktop. The most widely used Linux desktop: five years of security updates, the largest hardware certification program, and the biggest ecosystem of guides and packaged software.",
+  "logo": "logo/ubuntu-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "GNOME",
+  "installerType": "Subiquity",
+
+  "iso": {
+    "downloadUrl": "https://releases.ubuntu.com/26.04/ubuntu-26.04-desktop-amd64.iso",
+    "sha256": "487f87faaf547ea30e0aba4d5b53346292571256b25333a978db1692bcee9dd2",
+    "gpgSignatureUrl": "https://releases.ubuntu.com/26.04/SHA256SUMS.gpg",
+    "gpgKeyUrl": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x843938DF228D22F7B3742BC0D94AA3F0EFE21092"
+  },
+
+  "tags": [
+    "best-for-new-users",
+    "stable-release",
+    "secure-boot-supported",
+    "wayland-default"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 26843545600,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: the install plugin is not written yet. See distros/README.md to contribute."
+  }
+}

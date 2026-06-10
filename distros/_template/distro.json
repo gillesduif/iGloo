@@ -1,17 +1,18 @@
 {
-  "_comment": "Copy this directory to distros/<your-distro-id>/ and fill in the fields below. The id must match the folder name.",
-  "id": "REPLACE_WITH_YOUR_DISTRO_ID",
+  "_comment": "Copy this directory to distros/<your-distro-id>/ and fill in the fields below. The id must match the folder name (lowercase letters, digits, hyphens). status: keep coming-soon until a working plugin ships in this directory; sha256 must be the real checksum of the ISO (empty only while drafting). gpgSignatureUrl/gpgKeyUrl are optional but strongly recommended.",
+  "id": "your-distro-id",
   "displayName": "Your Distro Name",
   "description": "One paragraph describing the distro. Who it's for, what makes it distinct. Two to four sentences. Shown in Igloo's distro picker.",
   "logo": "logo/your-distro-logo.png",
+  "status": "coming-soon",
   "defaultDesktopEnvironment": "REPLACE: KDE Plasma | GNOME | Cinnamon | XFCE | MATE | LXQt | Budgie | ...",
   "installerType": "REPLACE: Anaconda | Ubiquity | Calamares | AutoYaST | Subiquity | Custom",
 
   "iso": {
-    "downloadUrl": "https://...",
-    "sha256": "REPLACE_WITH_REAL_SHA256",
-    "gpgSignatureUrl": "https://... (optional but strongly recommended)",
-    "gpgKeyUrl": "https://... (optional but strongly recommended)"
+    "downloadUrl": "https://replace-with-the-official-iso-url.example.org/distro.iso",
+    "sha256": "",
+    "gpgSignatureUrl": "https://replace-or-remove.example.org/SHA256SUMS.gpg",
+    "gpgKeyUrl": "https://replace-or-remove.example.org/signing-key.asc"
   },
 
   "tags": [

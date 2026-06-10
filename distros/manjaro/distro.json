@@ -1,0 +1,34 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "manjaro",
+  "displayName": "Manjaro",
+  "description": "Manjaro 26.0 with the KDE Plasma desktop. Arch Linux made approachable: a rolling release with the AUR at your fingertips, tempered by Manjaro's own testing buffer and graphical tooling for kernels and drivers.",
+  "logo": "logo/manjaro-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Calamares",
+
+  "iso": {
+    "downloadUrl": "https://download.manjaro.org/kde/26.0.4/manjaro-kde-26.0.4-260327-linux618.iso",
+    "sha256": "9d9e5f6b1558a8850bf19ca21af9c71cf3810c69a77ab860130281d09f6a33b9",
+    "gpgSignatureUrl": "https://download.manjaro.org/kde/26.0.4/manjaro-kde-26.0.4-260327-linux618.iso.sig"
+  },
+
+  "tags": [
+    "rolling-release",
+    "current-kernel",
+    "gaming"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: the install plugin is not written yet. Note: Manjaro does not ship a signed shim — Secure Boot must be disabled."
+  }
+}

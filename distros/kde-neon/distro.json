@@ -1,0 +1,34 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "kde-neon",
+  "displayName": "KDE neon",
+  "description": "KDE neon User Edition. KDE's own showcase: the very latest Plasma desktop and KDE apps, delivered straight from upstream on a stable Ubuntu LTS core. The fastest way to live on the cutting edge of Plasma.",
+  "logo": "logo/kde-neon-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Calamares",
+
+  "iso": {
+    "downloadUrl": "https://files.kde.org/neon/images/user/20260604-1324/neon-user-20260604-1324.iso",
+    "sha256": "6db3ad272b8205e66a283905d3c231fe00932027ffdc9e743bc2cb425b23d643",
+    "gpgSignatureUrl": "https://files.kde.org/neon/images/user/20260604-1324/neon-user-20260604-1324.iso.sig"
+  },
+
+  "tags": [
+    "current-kernel",
+    "rolling-release",
+    "secure-boot-supported"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: the install plugin is not written yet. neon publishes weekly user images; this entry pins the 2026-06-04 build."
+  }
+}

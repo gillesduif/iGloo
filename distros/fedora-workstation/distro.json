@@ -1,0 +1,36 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "fedora-workstation",
+  "displayName": "Fedora Workstation",
+  "description": "Fedora 44 with the GNOME desktop. The polished flagship of the Fedora project: a current kernel and Mesa, signed Secure Boot support, and a clean GNOME experience that ships new desktop technology first.",
+  "logo": "logo/fedora-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "GNOME",
+  "installerType": "Anaconda",
+
+  "iso": {
+    "downloadUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Workstation/x86_64/iso/Fedora-Workstation-Live-44-1.7.x86_64.iso",
+    "sha256": "1620295f6a00c27c3208f0c00b8ece4eab1ec69b9002152d97488bf26a426ddf",
+    "gpgSignatureUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Workstation/x86_64/iso/Fedora-Workstation-44-1.7-x86_64-CHECKSUM",
+    "gpgKeyUrl": "https://fedoraproject.org/fedora.gpg"
+  },
+
+  "tags": [
+    "current-kernel",
+    "secure-boot-supported",
+    "wayland-default",
+    "free-software-only-by-default"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry. The fedora-kde plugin is the closest starting point for a Workstation plugin — most of it should be reusable."
+  }
+}

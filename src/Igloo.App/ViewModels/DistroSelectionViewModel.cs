@@ -36,8 +36,11 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     /// <summary>The manifest of the currently selected (and compatible) distro; null otherwise.</summary>
     public DistroManifest? SelectedDistro => SelectedItem?.Manifest;
 
-    /// <summary>True when the user has selected a compatible distro — enables "Next".</summary>
-    public bool CanProceed => SelectedItem is { IsCompatible: true };
+    /// <summary>
+    /// True when the user has selected a compatible, installable distro — enables "Next".
+    /// Coming-soon entries (no IDistroPlugin yet) can be browsed but never installed.
+    /// </summary>
+    public bool CanProceed => SelectedItem is { IsCompatible: true, IsComingSoon: false };
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
@@ -73,14 +76,18 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
 
     private static DistroListItem EvaluateItem(DistroManifest m, bool secureBootOn)
     {
+        var comingSoon = !m.IsAvailable;
+
         if (secureBootOn && !HasSecureBootTag(m))
         {
             return new DistroListItem(m,
                 IsCompatible:          false,
-                IncompatibilityReason: "Requires Secure Boot to be disabled");
+                IncompatibilityReason: "Requires Secure Boot to be disabled",
+                IsComingSoon:          comingSoon);
         }
 
-        return new DistroListItem(m, IsCompatible: true, IncompatibilityReason: null);
+        return new DistroListItem(m, IsCompatible: true, IncompatibilityReason: null,
+                                  IsComingSoon: comingSoon);
     }
 
     private static bool HasSecureBootTag(DistroManifest m)
@@ -93,4 +100,5 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
 public sealed record DistroListItem(
     DistroManifest Manifest,
     bool           IsCompatible,
-    string?        IncompatibilityReason);
+    string?        IncompatibilityReason,
+    bool           IsComingSoon = false);

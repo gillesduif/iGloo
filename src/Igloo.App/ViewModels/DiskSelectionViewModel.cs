@@ -43,6 +43,8 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanProceed))]
+    [NotifyPropertyChangedFor(nameof(LinuxSizeBytes))]
+    [NotifyPropertyChangedFor(nameof(WindowsKeepsGb))]
     private int _linuxSizeGb = 50;
 
     // ── Derived ───────────────────────────────────────────────────────────────
@@ -65,6 +67,15 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
 
     public bool CanProceed              => SelectedItem is not null
                                         && (!IsInstallModeDualBoot || LinuxSizeGb >= MinLinuxGb);
+
+    // ── Display-only helpers for the proportional allocation bar ─────────────
+
+    /// <summary>The chosen Linux allocation in bytes (same unit as DiskInfo.TotalBytes).</summary>
+    public long LinuxSizeBytes          => (long)LinuxSizeGb << 30;
+
+    /// <summary>GiB of the disk that remain untouched (Windows + other partitions).</summary>
+    public int  WindowsKeepsGb          => Math.Max(0,
+        (int)((SelectedItem?.Disk.TotalBytes ?? 0) >> 30) - LinuxSizeGb);
 
     // ── Commands ──────────────────────────────────────────────────────────────
 
@@ -103,6 +114,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
         OnPropertyChanged(nameof(CanDualBoot));
         OnPropertyChanged(nameof(MaxShrinkableGb));
         OnPropertyChanged(nameof(ShowPartitionSizer));
+        OnPropertyChanged(nameof(WindowsKeepsGb));
 
         // Re-evaluate default mode for newly selected disk.
         IsInstallModeDualBoot = CanDualBoot;

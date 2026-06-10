@@ -15,6 +15,17 @@ public sealed record DistroManifest
     /// generated placeholder cover instead of failing the catalog load.
     /// </summary>
     [JsonPropertyName("logo")]                    public string? Logo                          { get; init; }
+
+    /// <summary>
+    /// Catalog availability: "available" (default) or "coming-soon". Coming-soon entries
+    /// are shown in the picker but cannot be installed (no plugin yet).
+    /// </summary>
+    [JsonPropertyName("status")]                  public string? Status                        { get; init; }
+
+    /// <summary>True when this distro can actually be installed (has plugin support).</summary>
+    [JsonIgnore]
+    public bool IsAvailable =>
+        string.IsNullOrEmpty(Status) || string.Equals(Status, "available", StringComparison.OrdinalIgnoreCase);
     [JsonPropertyName("defaultDesktopEnvironment")] public string? DefaultDesktopEnvironment  { get; init; }
     [JsonPropertyName("installerType")]           public string? InstallerType                 { get; init; }
     [JsonPropertyName("iso")]                     public required DistroIsoSpec Iso            { get; init; }

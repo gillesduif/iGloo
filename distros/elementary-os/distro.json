@@ -1,0 +1,34 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "elementary-os",
+  "displayName": "elementary OS",
+  "description": "elementary OS 8.1 with the Pantheon desktop. The thoughtful, design-first Linux: a calm macOS-like workflow, a curated pay-what-you-want app store, and strong privacy defaults on an Ubuntu LTS base.",
+  "logo": "logo/elementary-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "Pantheon",
+  "installerType": "Custom",
+
+  "iso": {
+    "downloadUrl": "https://dl.elementary.io/download/MTc4MTA2NzM2Nw==/elementaryos-8.1-stable-amd64.20260219.iso",
+    "sha256": "bda93040d08c05911fb159f8150bf8f4ef2db6567ef6e2acd197cb6f395d3446"
+  },
+
+  "tags": [
+    "best-for-new-users",
+    "beginner-friendly",
+    "stable-release",
+    "secure-boot-supported"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: the install plugin is not written yet. The download URL is the official elementary.io link (its path token is set by their site; refresh from elementary.io if it rotates). SHA-256 is published at https://elementary.io/docs/installation."
+  }
+}

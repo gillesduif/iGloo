@@ -1,0 +1,34 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "zorin-os",
+  "displayName": "Zorin OS",
+  "description": "Zorin OS 18.1 Core. Designed explicitly for people leaving Windows: a layout switcher that mimics the Windows desktop, Windows-app detection that suggests Linux alternatives, and a polished Ubuntu LTS foundation.",
+  "logo": "logo/zorin-os-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "GNOME (Zorin Desktop)",
+  "installerType": "Ubiquity",
+
+  "iso": {
+    "downloadUrl": "https://distro.ibiblio.org/zorinos/18/Zorin-OS-18.1-Core-64-bit.iso",
+    "sha256": "44649b97bd307fc4c8529205d098ebbf98575a1e1ba2ee7d7005b697af1721d5"
+  },
+
+  "tags": [
+    "best-for-windows-switchers",
+    "beginner-friendly",
+    "stable-release",
+    "secure-boot-supported"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: the install plugin is not written yet. Checksums published at https://distro.ibiblio.org/zorinos/18/SHA256SUMS.txt (official mirror)."
+  }
+}

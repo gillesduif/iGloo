@@ -503,6 +503,15 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     private void StartAnimation()
     {
+        // Respect the system reduced-motion preference: snap instead of easing.
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            StopAnimation();
+            _offset = _target;
+            LayoutScene();
+            return;
+        }
+
         if (_animating) return;
         _animating = true;
         _lastRenderTime = TimeSpan.Zero;
