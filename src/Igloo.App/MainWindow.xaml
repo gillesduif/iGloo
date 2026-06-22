@@ -5,38 +5,95 @@
     Title="iGloo"
     MinWidth="720" MinHeight="560"
     Width="860" Height="640"
+    WindowStyle="None"
     Background="{StaticResource Brush.Window}"
     TextElement.Foreground="{StaticResource Brush.Text.Primary}">
 
+    <!--
+      Custom chrome: the OS title bar is replaced by row 0 below, drawn directly on
+      the window gradient (no separate bar color, no seam). WindowChrome keeps all
+      native behaviors - drag, Aero Snap, double-click maximize, resize borders -
+      without hand-rolled mouse handling. The 1px glass edge preserves the DWM
+      shadow and Win11 rounded corners.
+    -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40"
+                      ResizeBorderThickness="6"
+                      GlassFrameThickness="0,0,0,1"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />  <!-- Header   -->
-            <RowDefinition Height="*"    />  <!-- Content  -->
-            <RowDefinition Height="Auto" />  <!-- Footer   -->
+            <RowDefinition Height="40"   />  <!-- Title bar -->
+            <RowDefinition Height="Auto" />  <!-- Header    -->
+            <RowDefinition Height="*"    />  <!-- Content   -->
+            <RowDefinition Height="Auto" />  <!-- Footer    -->
         </Grid.RowDefinitions>
 
-        <!-- ── Header: wordmark · step title · step indicator ──────────────── -->
-        <Grid Grid.Row="0" Margin="36,26,36,0">
+        <!-- ── Title bar ────────────────────────────────────────────────────── -->
+        <Grid Grid.Row="0" Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="iGloo"
-                               FontSize="15" FontWeight="Bold"
-                               Foreground="{StaticResource Brush.Accent.Bright}" />
-                    <TextBlock Text="  LEAVE THE ICE AGE"
-                               FontSize="9" FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Text.Tertiary}"
-                               VerticalAlignment="Center" Margin="2,2,0,0" />
-                </StackPanel>
-                <TextBlock Text="{Binding StepDescription}"
-                           FontSize="26" FontWeight="SemiBold"
-                           Foreground="{StaticResource Brush.Text.Primary}"
-                           Margin="0,6,0,0" />
+            <!-- Brand (same wordmark the header used to carry) -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,0,0">
+                <TextBlock Text="iGloo"
+                           FontSize="14" FontWeight="Bold"
+                           Foreground="{StaticResource Brush.Accent.Bright}" />
+                <TextBlock Text="  LEAVE THE ICE AGE"
+                           FontSize="8.5" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.Text.Tertiary}"
+                           VerticalAlignment="Center" Margin="2,2,0,0" />
             </StackPanel>
+
+            <!-- Caption buttons -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="MinimizeButton"
+                        Style="{StaticResource Button.Caption}"
+                        Content="&#xE921;"
+                        Click="OnMinimizeClick"
+                        WindowChrome.IsHitTestVisibleInChrome="True"
+                        AutomationProperties.Name="Minimize" />
+                <Button x:Name="MaxRestoreButton"
+                        Click="OnMaxRestoreClick"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource Button.Caption}">
+                            <Setter Property="Content" Value="&#xE922;" />
+                            <Setter Property="AutomationProperties.Name" Value="Maximize" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}"
+                                             Value="Maximized">
+                                    <Setter Property="Content" Value="&#xE923;" />
+                                    <Setter Property="AutomationProperties.Name" Value="Restore down" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button x:Name="CloseButton"
+                        Style="{StaticResource Button.Caption.Close}"
+                        Content="&#xE8BB;"
+                        Click="OnCloseClick"
+                        WindowChrome.IsHitTestVisibleInChrome="True"
+                        AutomationProperties.Name="Close" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ── Header: step title · step indicator ─────────────────────────── -->
+        <Grid Grid.Row="1" Margin="36,12,36,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="{Binding StepDescription}"
+                       FontSize="26" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.Text.Primary}" />
 
             <!-- Step indicator: dots with the current one glowing -->
             <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="0,0,0,6">
@@ -81,7 +138,7 @@
 
         <!-- ── Content (wizard step fills this area) ────────────────────────── -->
         <ContentControl x:Name="StepHost"
-                        Grid.Row="1"
+                        Grid.Row="2"
                         Margin="36,18,36,0"
                         Content="{Binding CurrentPage, NotifyOnTargetUpdated=True}"
                         VerticalContentAlignment="Stretch"
@@ -94,7 +151,7 @@
         </ContentControl>
 
         <!-- ── Footer navigation ────────────────────────────────────────────── -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 BorderBrush="{StaticResource Brush.Surface.Border}"
                 BorderThickness="0,1,0,0"
                 Background="#660A0F1E"

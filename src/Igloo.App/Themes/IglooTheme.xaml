@@ -1,5 +1,5 @@
 <!--
-  iGloo theme — the single source of design tokens and control templates.
+  iGloo theme - the single source of design tokens and control templates.
 
   The identity was set by the 3D distro picker: deep near-black-to-blue gradient,
   dramatic light on the focal element, calm secondary text, glow accents. Every
@@ -33,12 +33,12 @@
     <Color x:Key="Color.Text.Secondary">#FFA9B2CE</Color>
     <Color x:Key="Color.Text.Tertiary">#FF6B7694</Color>
 
-    <!-- Accent (glacier blue — the "future" color) -->
+    <!-- Accent (glacier blue - the "future" color) -->
     <Color x:Key="Color.Accent">#FF6C9CFF</Color>
     <Color x:Key="Color.Accent.Bright">#FF8FB5FF</Color>
     <Color x:Key="Color.Accent.Deep">#FF3D6CD6</Color>
 
-    <!-- Semantics — kept saturated and high-contrast on dark; danger stays grave -->
+    <!-- Semantics - kept saturated and high-contrast on dark; danger stays grave -->
     <Color x:Key="Color.Success">#FF5BDB95</Color>
     <Color x:Key="Color.Warning">#FFFFC163</Color>
     <Color x:Key="Color.Danger">#FFFF7B72</Color>
@@ -159,7 +159,7 @@
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         4. BUTTONS — clear primary / secondary / ghost / danger hierarchy
+         4. BUTTONS - clear primary / secondary / ghost / danger hierarchy
          ════════════════════════════════════════════════════════════════════ -->
 
     <!-- Secondary (the implicit default): quiet outlined surface -->
@@ -290,6 +290,66 @@
         <Setter Property="Background"  Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="Foreground"  Value="{StaticResource Brush.Text.Secondary}" />
+    </Style>
+
+    <!-- Caption buttons (custom window chrome). Square hit targets, quiet until
+         hovered; the close button hovers danger-red, consistent with the rest of
+         the app's "destructive = red" rule. -->
+    <Style x:Key="Button.Caption" TargetType="Button">
+        <Setter Property="Width"      Value="46" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+        <Setter Property="FontSize"   Value="10" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root" Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#14FFFFFF" />
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#14FFFFFF" />
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Accent.Bright}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#26FFFFFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Button.Caption.Close" TargetType="Button" BasedOn="{StaticResource Button.Caption}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root" Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource Brush.Danger.Deep}" />
+                            <Setter Property="Foreground" Value="#FFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource Brush.Danger.Deep}" />
+                            <Setter Property="Foreground" Value="#FFFFFF" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#A93838" />
+                            <Setter Property="Foreground" Value="#FFFFFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
@@ -429,7 +489,7 @@
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         6. PROGRESSBAR — thin glowing accent line on a recessed track
+         6. PROGRESSBAR - thin glowing accent line on a recessed track
          ════════════════════════════════════════════════════════════════════ -->
 
     <Style TargetType="ProgressBar">
@@ -663,7 +723,7 @@
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         9. SLIDER — accent thumb with glow, recessed track
+         9. SLIDER - accent thumb with glow, recessed track
          ════════════════════════════════════════════════════════════════════ -->
 
     <Style TargetType="Slider">
