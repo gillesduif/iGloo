@@ -12,7 +12,8 @@
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:b="clr-namespace:Igloo.App.Behaviors">
 
     <!-- ════════════════════════════════════════════════════════════════════
          1. PALETTE
@@ -859,16 +860,35 @@
       with Margin (not Width) so the hit target stays the full bar width while the visible
       thumb looks light. IsHitTestVisible drag state via the Thumb's own IsDragging.
     -->
+    <!-- Idle / hover / drag fills for the pill. The cross-axis gradient (light core,
+         dark edges) gives the thumb a rounded 3D-tube read instead of a flat slab. -->
+    <LinearGradientBrush x:Key="ScrollThumb.Idle" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Offset="0.0" Color="#33405E" />
+        <GradientStop Offset="0.5" Color="#54688F" />
+        <GradientStop Offset="1.0" Color="#33405E" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ScrollThumb.Hover" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Offset="0.0" Color="#46567C" />
+        <GradientStop Offset="0.5" Color="#7588B8" />
+        <GradientStop Offset="1.0" Color="#46567C" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ScrollThumb.Drag" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Offset="0.0" Color="#3D6CD6" />
+        <GradientStop Offset="0.5" Color="#8FB5FF" />
+        <GradientStop Offset="1.0" Color="#3D6CD6" />
+    </LinearGradientBrush>
+
     <ControlTemplate x:Key="ScrollBarThumbTemplate" TargetType="Thumb">
-        <Border x:Name="Pill" Background="#4A5878" CornerRadius="5" Margin="3" SnapsToDevicePixels="True" />
+        <Border x:Name="Pill" Background="{StaticResource ScrollThumb.Idle}"
+                CornerRadius="2" Margin="1" SnapsToDevicePixels="True" />
         <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Pill" Property="Background" Value="#6B7DAE" />
-                <Setter TargetName="Pill" Property="Margin"     Value="2" />
+                <Setter TargetName="Pill" Property="Background" Value="{StaticResource ScrollThumb.Hover}" />
+                <Setter TargetName="Pill" Property="Margin"     Value="0.5" />
             </Trigger>
             <Trigger Property="IsDragging" Value="True">
-                <Setter TargetName="Pill" Property="Background" Value="{StaticResource Brush.Accent}" />
-                <Setter TargetName="Pill" Property="Margin"     Value="2" />
+                <Setter TargetName="Pill" Property="Background" Value="{StaticResource ScrollThumb.Drag}" />
+                <Setter TargetName="Pill" Property="Margin"     Value="0.5" />
             </Trigger>
         </ControlTemplate.Triggers>
     </ControlTemplate>
@@ -879,7 +899,9 @@
 
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Width"      Value="11" />
+        <Setter Property="Width"      Value="5" />
+        <Setter Property="MinWidth"   Value="0" />
+        <Setter Property="MinHeight"  Value="0" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ScrollBar">
@@ -910,7 +932,7 @@
         <Style.Triggers>
             <Trigger Property="Orientation" Value="Horizontal">
                 <Setter Property="Width"  Value="Auto" />
-                <Setter Property="Height" Value="11" />
+                <Setter Property="Height" Value="4" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ScrollBar">
@@ -948,6 +970,57 @@
         <Setter Property="Foreground"      Value="{StaticResource Brush.Text.Primary}" />
     </Style>
 
+    <!--
+      Custom ScrollViewer template. The stock template sizes its scrollbar column to the
+      system metric (~17px) regardless of any Width set on the ScrollBar style, so to get
+      a genuinely slim bar we lay the scrollbars out ourselves with an explicit width.
+      Also flips on smooth eased wheel scrolling for every ScrollViewer in the app.
+    -->
+    <Style TargetType="ScrollViewer">
+        <Setter Property="b:SmoothScroll.IsEnabled" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollViewer">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ScrollContentPresenter Grid.Row="0" Grid.Column="0"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            CanContentScroll="{TemplateBinding CanContentScroll}"
+                            Margin="{TemplateBinding Padding}" />
+
+                        <!-- 5px-wide bars; the thumb pill is inset from these via the
+                             ScrollBar thumb template. -->
+                        <!-- The left/top margins are the breathing gap between the content
+                             and the bar; the Auto column/row collapses to nothing when the
+                             bar is hidden, so no space is wasted then. -->
+                        <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Row="0" Grid.Column="1"
+                            Orientation="Vertical" Width="5" MinWidth="0" Margin="9,0,0,0"
+                            Value="{TemplateBinding VerticalOffset}"
+                            Maximum="{TemplateBinding ScrollableHeight}"
+                            ViewportSize="{TemplateBinding ViewportHeight}"
+                            Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+
+                        <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="1" Grid.Column="0"
+                            Orientation="Horizontal" Height="5" MinHeight="0" Margin="0,9,0,0"
+                            Value="{TemplateBinding HorizontalOffset}"
+                            Maximum="{TemplateBinding ScrollableWidth}"
+                            ViewportSize="{TemplateBinding ViewportWidth}"
+                            Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Read-only mono detail box (error dumps) -->
     <Style x:Key="TextBox.Detail" TargetType="TextBox">
         <Setter Property="Foreground"      Value="{StaticResource Brush.Text.Secondary}" />
@@ -961,5 +1034,60 @@
         <Setter Property="CaretBrush"      Value="{StaticResource Brush.Accent.Bright}" />
         <Setter Property="SelectionBrush"  Value="{StaticResource Brush.Accent.Deep}" />
     </Style>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         11. 3D DEVICE ICONS (isometric, drawn — no raster assets)
+         ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Internal drive / SSD: an isometric box, top face lit, right face shadowed,
+         front face a vertical gradient, with a small accent activity LED. 32x32. -->
+    <DrawingImage x:Key="Icon.Drive3D">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <!-- right (shadow) face -->
+                <GeometryDrawing Brush="#222B43" Geometry="M24,11 L28,7 L28,22 L24,26 Z" />
+                <!-- top (lit) face -->
+                <GeometryDrawing Brush="#4E628C" Geometry="M6,11 L10,7 L28,7 L24,11 Z" />
+                <!-- front face -->
+                <GeometryDrawing Geometry="M6,11 L24,11 L24,26 L6,26 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Offset="0" Color="#3E5176" />
+                            <GradientStop Offset="1" Color="#27314A" />
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                </GeometryDrawing>
+                <!-- activity LED -->
+                <GeometryDrawing Brush="#8FB5FF" Geometry="M9,22.5 L13,22.5 L13,24 L9,24 Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- USB stick: isometric body + metallic connector. 32x32. -->
+    <DrawingImage x:Key="Icon.Usb3D">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <!-- body right (shadow) face -->
+                <GeometryDrawing Brush="#222B43" Geometry="M20,13 L23,10 L23,26 L20,29 Z" />
+                <!-- body top (lit) face -->
+                <GeometryDrawing Brush="#46587E" Geometry="M11,13 L14,10 L23,10 L20,13 Z" />
+                <!-- body front face -->
+                <GeometryDrawing Geometry="M11,13 L20,13 L20,29 L11,29 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Offset="0" Color="#3E5176" />
+                            <GradientStop Offset="1" Color="#27314A" />
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                </GeometryDrawing>
+                <!-- metal connector right face -->
+                <GeometryDrawing Brush="#7C8699" Geometry="M18,6 L20,4 L20,13 L18,15 Z" />
+                <!-- metal connector top face -->
+                <GeometryDrawing Brush="#AEB7C6" Geometry="M13,6 L15,4 L20,4 L18,6 Z" />
+                <!-- metal connector front face -->
+                <GeometryDrawing Brush="#9AA3B4" Geometry="M13,6 L18,6 L18,15 L13,15 Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
 
 </ResourceDictionary>

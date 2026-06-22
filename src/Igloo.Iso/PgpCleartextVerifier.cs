@@ -77,7 +77,7 @@ internal static class PgpCleartextVerifier
                 }
             }
 
-            logger.LogWarning("GPG verification failed — no valid signature matched");
+            logger.LogWarning("GPG verification failed - no valid signature matched");
             return false;
         }
         catch (Exception ex)
@@ -104,7 +104,7 @@ internal static class PgpCleartextVerifier
 
         if (msgStart < 0 || sigStart < 0 || sigEnd < 0) return false;
 
-        // Skip the "Hash: xx" headers after the BEGIN line — look for the first blank line
+        // Skip the "Hash: xx" headers after the BEGIN line - look for the first blank line
         int scan = message.IndexOf('\n', msgStart) + 1;
         while (scan < sigStart)
         {

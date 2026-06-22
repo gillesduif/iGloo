@@ -37,7 +37,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     public DistroManifest? SelectedDistro => SelectedItem?.Manifest;
 
     /// <summary>
-    /// True when the user has selected a compatible, installable distro — enables "Next".
+    /// True when the user has selected a compatible, installable distro - enables "Next".
     /// Coming-soon entries (no IDistroPlugin yet) can be browsed but never installed.
     /// </summary>
     public bool CanProceed => SelectedItem is { IsCompatible: true, IsComingSoon: false };

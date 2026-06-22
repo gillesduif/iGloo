@@ -8,8 +8,8 @@ namespace Igloo.App.ViewModels;
 /// View-model for the Disk Selection wizard step (between Migration Setup and File Staging).
 ///
 /// The user designates the target disk AND chooses the installation type:
-///  • <c>Dual Boot</c> — the Windows partition is shrunk; Linux is installed in the freed space.
-///  • <c>Replace</c>   — the entire disk is erased and Linux is installed alone.
+///  • <c>Dual Boot</c> - the Windows partition is shrunk; Linux is installed in the freed space.
+///  • <c>Replace</c>   - the entire disk is erased and Linux is installed alone.
 ///
 /// For dual boot, the user picks how much space to allocate to Linux via
 /// <see cref="LinuxSizeGb"/>.  The actual partition resize is deferred to the
@@ -34,7 +34,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsInstallModeReplace))]
     private DiskListItem? _selectedItem;
 
-    // Installation mode — stored as a bool for simple two-way radio-button binding.
+    // Installation mode - stored as a bool for simple two-way radio-button binding.
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InstallMode))]
     [NotifyPropertyChangedFor(nameof(IsInstallModeReplace))]

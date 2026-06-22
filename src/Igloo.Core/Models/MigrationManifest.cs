@@ -61,7 +61,7 @@ public sealed record MigrationUser
     /// <summary>
     /// Plaintext password chosen by the user during the migration setup wizard.
     /// Written into the kickstart <c>user --password</c> directive so Anaconda sets
-    /// it directly — no locked account, no SDDM autologin workaround required.
+    /// it directly - no locked account, no SDDM autologin workaround required.
     /// The kickstart file lives on a temporary FAT32 partition that is deleted after
     /// installation, so the brief plaintext exposure is acceptable.
     /// </summary>
@@ -110,9 +110,9 @@ public sealed record BrowserMigration
     [JsonPropertyName("name")] public required string Name { get; init; }
 
     /// <summary>
-    /// Rendering engine: <c>"gecko"</c> (Firefox/Zen/Waterfox — profile folder is
+    /// Rendering engine: <c>"gecko"</c> (Firefox/Zen/Waterfox - profile folder is
     /// OS-portable, saved passwords included via NSS) or <c>"chromium"</c>
-    /// (Chrome/Edge/Brave/… — passwords are DPAPI-bound to the Windows account and
+    /// (Chrome/Edge/Brave/… - passwords are DPAPI-bound to the Windows account and
     /// not portable; Phase 1 records but does not migrate these).
     /// </summary>
     [JsonPropertyName("engine")] public string Engine { get; init; } = "unknown";
@@ -164,9 +164,9 @@ public sealed record WifiNetwork
 
     /// <summary>
     /// Security type, normalised for the agent:
-    /// <c>"wpa-psk"</c> (WPA/WPA2/WPA3 personal — uses <see cref="Psk"/>),
+    /// <c>"wpa-psk"</c> (WPA/WPA2/WPA3 personal - uses <see cref="Psk"/>),
     /// <c>"open"</c>    (no password), or
-    /// <c>"unsupported"</c> (enterprise/802.1X — recorded for reference but not auto-applied).
+    /// <c>"unsupported"</c> (enterprise/802.1X - recorded for reference but not auto-applied).
     /// </summary>
     [JsonPropertyName("security")] public string Security { get; init; } = "wpa-psk";
 

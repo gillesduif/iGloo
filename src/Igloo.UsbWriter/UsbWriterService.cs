@@ -25,17 +25,17 @@ namespace Igloo.UsbWriter;
 /// touching any drive when the calling process is not elevated.
 ///
 /// <b>Cancellation contract:</b>
-///   Phase 1 (raw write)  — cancelable at any 128 KB boundary.
-///   Phase 2 (diskpart)   — <em>atomic</em>; the CancellationToken is checked
+///   Phase 1 (raw write)  - cancelable at any 128 KB boundary.
+///   Phase 2 (diskpart)   - <em>atomic</em>; the CancellationToken is checked
 ///                          <em>before</em> and <em>after</em> but never during the
 ///                          diskpart run.  Cancelling mid-partition creation would leave
 ///                          the partition table in an undefined state.
-///   Phase 3 (file copy)  — cancelable at every file boundary.
+///   Phase 3 (file copy)  - cancelable at every file boundary.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class UsbWriterService : IUsbWriterService
 {
-    // 128 KB — a power-of-two multiple of the 512-byte sector size; good USB throughput.
+    // 128 KB - a power-of-two multiple of the 512-byte sector size; good USB throughput.
     private const int BufferSize = 128 * 1024;
 
     private readonly ILogger<UsbWriterService> _logger;
@@ -106,10 +106,10 @@ public sealed class UsbWriterService : IUsbWriterService
         var heldVolumeHandles = LockAndDismountVolumesOnDisk(drive.DriveIndex);
         try
         {
-            // ── Phase 1: raw ISO write — cancelable ───────────────────────────
+            // ── Phase 1: raw ISO write - cancelable ───────────────────────────
 
             _logger.LogInformation(
-                "Phase 1 — writing ISO {Path} ({Size:N0} bytes) to {Device}",
+                "Phase 1 - writing ISO {Path} ({Size:N0} bytes) to {Device}",
                 isoPath, isoSize, drive.DeviceId);
 
             progress?.Report(new UsbWriteProgress(
@@ -120,13 +120,13 @@ public sealed class UsbWriterService : IUsbWriterService
             // Cancellation point: checked between Phase 1 and Phase 2.
             ct.ThrowIfCancellationRequested();
 
-            // ── GRUB config patch — must run BEFORE EnsureProtectiveMbrAsync ──
+            // ── GRUB config patch - must run BEFORE EnsureProtectiveMbrAsync ──
             // EnsureProtectiveMbrAsync ends with IOCTL_DISK_UPDATE_PROPERTIES, which
             // tells Windows to re-scan the partition table.  Once Windows sees the
             // new partitions it may auto-mount them, after which raw WriteFile calls
             // to \\.\PhysicalDriveN are blocked by the volume manager.
             // Patching here, right after the raw ISO write, means Windows still
-            // has no idea the partition layout has changed — raw writes always succeed.
+            // has no idea the partition layout has changed - raw writes always succeed.
             try
             {
                 await PatchGrubConfigAsync(drive, progress);
@@ -134,11 +134,11 @@ public sealed class UsbWriterService : IUsbWriterService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
-                    "GRUB config patch failed (non-fatal) — boot may require " +
+                    "GRUB config patch failed (non-fatal) - boot may require " +
                     "manual kernel parameters: nomodeset rd.live.check=0");
                 progress?.Report(new UsbWriteProgress(
                     UsbWritePhase.PatchingGrub, 0, 0,
-                    "⚠ GRUB patch failed — you may see a media check error on first boot."));
+                    "⚠ GRUB patch failed - you may see a media check error on first boot."));
             }
 
             // ── MBR → GPT fix (runs before diskpart, no separate UI phase) ──
@@ -149,9 +149,9 @@ public sealed class UsbWriterService : IUsbWriterService
             // the GPT view and diskpart gains room to add the OEMDRV partition.
             await EnsureProtectiveMbrAsync(drive.DeviceId, drive.SizeBytes);
 
-            // ── Phase 2: create OEMDRV partition — atomic (not cancelable) ────
+            // ── Phase 2: create OEMDRV partition - atomic (not cancelable) ────
 
-            _logger.LogInformation("Phase 2 — creating OEMDRV partition on disk {Index}", drive.DriveIndex);
+            _logger.LogInformation("Phase 2 - creating OEMDRV partition on disk {Index}", drive.DriveIndex);
 
             progress?.Report(new UsbWriteProgress(
                 UsbWritePhase.CreatingOemdrv, 0, 0, "Creating OEMDRV partition…"));
@@ -172,10 +172,10 @@ public sealed class UsbWriterService : IUsbWriterService
             // Cancellation point: checked between Phase 2 and Phase 3.
             ct.ThrowIfCancellationRequested();
 
-            // ── Phase 3: copy staging files — cancelable ──────────────────────
+            // ── Phase 3: copy staging files - cancelable ──────────────────────
 
             _logger.LogInformation(
-                "Phase 3 — copying staging directory {Dir} to {Letter}:\\",
+                "Phase 3 - copying staging directory {Dir} to {Letter}:\\",
                 stagingDirectory, driveLetter);
 
             progress?.Report(new UsbWriteProgress(
@@ -184,7 +184,7 @@ public sealed class UsbWriterService : IUsbWriterService
             await CopyStagingFilesAsync(driveLetter, stagingDirectory, stagingSize, progress, ct);
 
             progress?.Report(new UsbWriteProgress(UsbWritePhase.Complete, 0, 0, "USB drive is ready."));
-            _logger.LogInformation("USB write complete — drive {Index} is ready", drive.DriveIndex);
+            _logger.LogInformation("USB write complete - drive {Index} is ready", drive.DriveIndex);
         }
         finally
         {
@@ -205,7 +205,7 @@ public sealed class UsbWriterService : IUsbWriterService
     private static void ValidateFit(UsbDriveInfo drive, long isoSize, int partSizeMb)
     {
         if (drive.SizeBytes <= 0)
-            return; // WMI returned unknown size — skip check, let the write attempt proceed.
+            return; // WMI returned unknown size - skip check, let the write attempt proceed.
 
         var requiredBytes = isoSize + (long)partSizeMb * 1024 * 1024;
         if (drive.SizeBytes >= requiredBytes)
@@ -321,11 +321,11 @@ public sealed class UsbWriterService : IUsbWriterService
         // Consider replacing this diskpart shell-out with the Windows Storage
         // Management API.  Two concrete options:
         //
-        //   a) VDS via COM (IVdsDisk / IVdsAdvancedDisk) — binary interface,
+        //   a) VDS via COM (IVdsDisk / IVdsAdvancedDisk) - binary interface,
         //      proper HRESULTs, no locale dependency.
         //
         //   b) Storage WMI provider (MSFT_Disk.CreatePartition + MSFT_Partition.
-        //      Format + MSFT_Volume.Mount) — same WMI stack we already use for
+        //      Format + MSFT_Volume.Mount) - same WMI stack we already use for
         //      drive enumeration, stable across Windows locales.
         //
         // Why it matters today:
@@ -434,21 +434,21 @@ public sealed class UsbWriterService : IUsbWriterService
 
     /// <summary>
     /// Best-effort: opens the physical disk once and patches every grub.cfg it can
-    /// find via raw sector access — no drive-letter assignment, no diskpart.
+    /// find via raw sector access - no drive-letter assignment, no diskpart.
     ///
     /// <para>Two boot paths are covered:</para>
     /// <list type="bullet">
-    ///   <item><b>UEFI</b> — FAT32 EFI partition:
+    ///   <item><b>UEFI</b> - FAT32 EFI partition:
     ///     <c>EFI/BOOT/grub.cfg</c> and <c>EFI/fedora/grub.cfg</c>.</item>
-    ///   <item><b>BIOS/legacy</b> — ISO9660 data area:
+    ///   <item><b>BIOS/legacy</b> - ISO9660 data area:
     ///     <c>/boot/grub2/grub.cfg</c>.</item>
     /// </list>
     ///
     /// <para>Required because:</para>
     /// <list type="bullet">
-    ///   <item><b>rd.live.check=0</b> — the ISO integrity check fails after our
+    ///   <item><b>rd.live.check=0</b> - the ISO integrity check fails after our
     ///   MBR/GPT modifications (LBA 0 and LBA 1 were rewritten).</item>
-    ///   <item><b>nomodeset</b> — prevents a black screen on VMs where Wayland
+    ///   <item><b>nomodeset</b> - prevents a black screen on VMs where Wayland
     ///   cannot enumerate the virtual GPU on first boot.</item>
     /// </list>
     /// </summary>
@@ -473,10 +473,10 @@ public sealed class UsbWriterService : IUsbWriterService
         {
             var err = Marshal.GetLastWin32Error();
             _logger.LogWarning(
-                "GRUB patch — cannot open {Dev} (Win32 {Err})", drive.DeviceId, err);
+                "GRUB patch - cannot open {Dev} (Win32 {Err})", drive.DeviceId, err);
             progress?.Report(new UsbWriteProgress(
                 UsbWritePhase.PatchingGrub, 0, 0,
-                $"⚠ GRUB patch skipped — drive not accessible (Win32 error {err})."));
+                $"⚠ GRUB patch skipped - drive not accessible (Win32 error {err})."));
             return Task.CompletedTask;
         }
 
@@ -490,12 +490,12 @@ public sealed class UsbWriterService : IUsbWriterService
             if (efiLba > 0)
             {
                 _logger.LogInformation(
-                    "GRUB patch — EFI partition at LBA {L}, patching via raw FAT32", efiLba);
+                    "GRUB patch - EFI partition at LBA {L}, patching via raw FAT32", efiLba);
                 PatchGrubCfgsOnFat32(handle, efiLba, patchedPaths, skippedPaths);
             }
             else
             {
-                _logger.LogWarning("GRUB patch — EFI System Partition not found in GPT");
+                _logger.LogWarning("GRUB patch - EFI System Partition not found in GPT");
                 skippedPaths.Add("EFI/*/grub.cfg (ESP not found)");
             }
 
@@ -507,7 +507,7 @@ public sealed class UsbWriterService : IUsbWriterService
         // Build a human-readable summary for the UI.
         string note = patchedPaths.Count > 0
             ? $"✓ GRUB boot parameters applied ({string.Join(", ", patchedPaths)}).\n" +
-              "nomodeset added; rd.live.check removed — media check will be skipped."
+              "nomodeset added; rd.live.check removed - media check will be skipped."
             : $"⚠ No grub.cfg files were modified ({string.Join("; ", skippedPaths)}).\n" +
               "You may need to remove 'rd.live.check' manually at the GRUB prompt.";
 
@@ -572,7 +572,7 @@ public sealed class UsbWriterService : IUsbWriterService
     /// <summary>
     /// Walks the FAT filesystem on the EFI partition and patches every
     /// <c>grub.cfg</c> found at the known Fedora Live paths.
-    /// Supports FAT12, FAT16, and FAT32 — Fedora's EFI partition is often FAT16
+    /// Supports FAT12, FAT16, and FAT32 - Fedora's EFI partition is often FAT16
     /// (~20 MB image), not FAT32.
     /// Results are appended to <paramref name="patchedPaths"/> / <paramref name="skippedPaths"/>.
     /// </summary>
@@ -703,7 +703,7 @@ public sealed class UsbWriterService : IUsbWriterService
             }
 
             _logger.LogInformation(
-                "FAT: found {Path} — cluster {C}, {S} bytes",
+                "FAT: found {Path} - cluster {C}, {S} bytes",
                 label, fileCluster, fileSize);
 
             var data = FatReadFile(disk, fileCluster, (int)fileSize,
@@ -724,7 +724,7 @@ public sealed class UsbWriterService : IUsbWriterService
                     ? text[..200].Replace("\n", "↵").Replace("\r", "") + "…"
                     : text.Replace("\n", "↵").Replace("\r", "");
                 _logger.LogInformation(
-                    "FAT: {Path} — no linux/linuxefi lines found. Preview: {P}",
+                    "FAT: {Path} - no linux/linuxefi lines found. Preview: {P}",
                     label, preview);
                 skippedPaths.Add($"{label} (no linux lines)");
                 continue;
@@ -792,7 +792,7 @@ public sealed class UsbWriterService : IUsbWriterService
             _logger.LogDebug(
                 "ISO9660: no PVD at block 16 (type={T}, id={Id})",
                 pvd[0], System.Text.Encoding.ASCII.GetString(pvd, 1, 5));
-            return;  // not an ISO9660 volume — silent skip
+            return;  // not an ISO9660 volume - silent skip
         }
 
         // Root Directory Record is embedded in the PVD at offset 156 (34 bytes fixed).
@@ -851,7 +851,7 @@ public sealed class UsbWriterService : IUsbWriterService
                 ? text[..200].Replace("\n", "↵").Replace("\r", "") + "…"
                 : text.Replace("\n", "↵").Replace("\r", "");
             _logger.LogInformation(
-                "ISO9660: /boot/grub2/grub.cfg — no linux/linuxefi lines found. Preview: {P}",
+                "ISO9660: /boot/grub2/grub.cfg - no linux/linuxefi lines found. Preview: {P}",
                 preview);
             skippedPaths.Add("/boot/grub2/grub.cfg (no linux lines)");
             return;
@@ -866,7 +866,7 @@ public sealed class UsbWriterService : IUsbWriterService
         if ((uint)patchedBytes.Length > blocksAllocated * 2048u)
         {
             _logger.LogWarning(
-                "ISO9660: patched grub.cfg ({N} B) exceeds {K}×2048 B — skipping",
+                "ISO9660: patched grub.cfg ({N} B) exceeds {K}×2048 B - skipping",
                 patchedBytes.Length, blocksAllocated);
             skippedPaths.Add("/boot/grub2/grub.cfg (patched content too large)");
             return;
@@ -967,7 +967,7 @@ public sealed class UsbWriterService : IUsbWriterService
                 { off += recLen; continue; }
 
                 var id = System.Text.Encoding.ASCII.GetString(block, off + 33, fileIdLen);
-                // ISO9660 file identifiers carry a version suffix (";1", ";2", …) — strip it.
+                // ISO9660 file identifiers carry a version suffix (";1", ";2", …) - strip it.
                 int semi = id.IndexOf(';');
                 if (semi >= 0) id = id[..semi];
 
@@ -1184,7 +1184,7 @@ public sealed class UsbWriterService : IUsbWriterService
     /// <summary>
     /// Writes <paramref name="content"/> into the file's existing cluster chain.
     /// Returns <see langword="false"/> if the content exceeds the allocated clusters
-    /// (no new clusters are allocated — the patch only adds ~25 bytes/line so this
+    /// (no new clusters are allocated - the patch only adds ~25 bytes/line so this
     /// never triggers in practice).
     /// </summary>
     private bool FatWriteFile(
@@ -1204,7 +1204,7 @@ public sealed class UsbWriterService : IUsbWriterService
         if (content.Length > clusters.Count * clSize)
         {
             _logger.LogWarning(
-                "FAT: patched content ({N} B) exceeds {K}×{CS} B — skipping write",
+                "FAT: patched content ({N} B) exceeds {K}×{CS} B - skipping write",
                 content.Length, clusters.Count, clSize);
             return false;
         }
@@ -1302,7 +1302,7 @@ public sealed class UsbWriterService : IUsbWriterService
 
                 // ── rd.live.check ─────────────────────────────────────────────
                 // Fedora's dracut live module uses `getarg rd.live.check` which
-                // is a PRESENCE check — even `rd.live.check=0` triggers the media
+                // is a PRESENCE check - even `rd.live.check=0` triggers the media
                 // integrity check.  Because we modified LBA 0/1 (MBR/GPT) and the
                 // grub.cfg itself, the check always fails on our USB.
                 // The only reliable fix is to REMOVE the parameter entirely so
@@ -1352,14 +1352,14 @@ public sealed class UsbWriterService : IUsbWriterService
     /// diskpart can create the OEMDRV partition. Does two things in order:
     ///
     /// <list type="number">
-    ///   <item><b>Protective MBR</b> — Fedora Live ISOs embed a hybrid MBR that
+    ///   <item><b>Protective MBR</b> - Fedora Live ISOs embed a hybrid MBR that
     ///   fills all four primary MBR slots for BIOS-boot compatibility while also
     ///   carrying a full GPT at LBA 1.  Windows/diskpart prefers the hybrid MBR
     ///   and reports the disk as "MBR, 4 partitions, no room".  Replacing the
     ///   four MBR entries with a single type-0xEE protective entry makes Windows
     ///   switch to the GPT view.</item>
     ///
-    ///   <item><b>GPT resize</b> — The ISO's GPT header records the disk size as
+    ///   <item><b>GPT resize</b> - The ISO's GPT header records the disk size as
     ///   the ISO file size (~2.3 GB).  <c>LastUsableLBA</c> and
     ///   <c>AlternateLBA</c> point to the end of the ISO, so diskpart sees zero
     ///   free space even on a 115 GB drive.  This step updates both headers (and
@@ -1388,7 +1388,7 @@ public sealed class UsbWriterService : IUsbWriterService
         if (handle.IsInvalid)
         {
             _logger.LogWarning(
-                "Cannot open {Dev} for MBR/GPT fix (Win32 error {Err}) — skipping",
+                "Cannot open {Dev} for MBR/GPT fix (Win32 error {Err}) - skipping",
                 deviceId, Marshal.GetLastWin32Error());
             return;
         }
@@ -1400,7 +1400,7 @@ public sealed class UsbWriterService : IUsbWriterService
             if (!NativeMethods.ReadFile(handle, buf, 1024, out int bytesRead, nint.Zero)
                 || bytesRead < 1024)
             {
-                _logger.LogWarning("Could not read MBR+GPT from {Dev} ({N} bytes read) — skipping", deviceId, bytesRead);
+                _logger.LogWarning("Could not read MBR+GPT from {Dev} ({N} bytes read) - skipping", deviceId, bytesRead);
                 return;
             }
 
@@ -1424,12 +1424,12 @@ public sealed class UsbWriterService : IUsbWriterService
 
             if (alreadyProtective)
             {
-                _logger.LogInformation("Disk {Dev} MBR is already protective — skipping MBR rewrite", deviceId);
+                _logger.LogInformation("Disk {Dev} MBR is already protective - skipping MBR rewrite", deviceId);
             }
             else
             {
                 _logger.LogInformation(
-                    "Hybrid MBR on {Dev} (types {T0:X2}/{T1:X2}/{T2:X2}/{T3:X2}) — rewriting as protective",
+                    "Hybrid MBR on {Dev} (types {T0:X2}/{T1:X2}/{T2:X2}/{T3:X2}) - rewriting as protective",
                     deviceId, buf[450], buf[466], buf[482], buf[498]);
 
                 long diskSectors   = diskSizeBytes > 0 ? diskSizeBytes / 512 : 0L;
@@ -1510,7 +1510,7 @@ public sealed class UsbWriterService : IUsbWriterService
     {
         if (diskSizeBytes <= 0)
         {
-            _logger.LogWarning("TryExtendGpt: disk size unknown — cannot extend GPT");
+            _logger.LogWarning("TryExtendGpt: disk size unknown - cannot extend GPT");
             return false;
         }
 
@@ -1548,7 +1548,7 @@ public sealed class UsbWriterService : IUsbWriterService
         uint computedCrc = GptCrc32(hdr, (int)headerSize);
         if (computedCrc != storedCrc)
         {
-            _logger.LogWarning("TryExtendGpt: primary GPT CRC mismatch (stored {S:X8}, computed {C:X8}) — aborting", storedCrc, computedCrc);
+            _logger.LogWarning("TryExtendGpt: primary GPT CRC mismatch (stored {S:X8}, computed {C:X8}) - aborting", storedCrc, computedCrc);
             return false;
         }
         // Restore the CRC field.
@@ -1559,7 +1559,7 @@ public sealed class UsbWriterService : IUsbWriterService
 
         if (currentAlternate == newAlternateLBA && currentLastUsable == newLastUsableLBA)
         {
-            _logger.LogInformation("TryExtendGpt: GPT already covers the full disk — nothing to do");
+            _logger.LogInformation("TryExtendGpt: GPT already covers the full disk - nothing to do");
             return true;
         }
 
@@ -1628,7 +1628,7 @@ public sealed class UsbWriterService : IUsbWriterService
         }
 
         _logger.LogInformation(
-            "TryExtendGpt: GPT successfully extended — {GB:F1} GB now usable",
+            "TryExtendGpt: GPT successfully extended - {GB:F1} GB now usable",
             (newLastUsableLBA - 34) * 512 / 1073741824.0);
         return true;
     }
@@ -1674,8 +1674,8 @@ public sealed class UsbWriterService : IUsbWriterService
     /// <para>
     /// Windows returns <c>ERROR_ACCESS_DENIED</c> (Win32 error 5) for any raw write to a
     /// physical disk that has at least one mounted volume, even from an elevated process.
-    /// The fix is to open each volume device, issue <c>FSCTL_LOCK_VOLUME</c> (advisory —
-    /// may fail if files are open) and then <c>FSCTL_DISMOUNT_VOLUME</c> (forceful — flushes
+    /// The fix is to open each volume device, issue <c>FSCTL_LOCK_VOLUME</c> (advisory -
+    /// may fail if files are open) and then <c>FSCTL_DISMOUNT_VOLUME</c> (forceful - flushes
     /// and takes the volume offline).  Keeping the returned handles open prevents Windows
     /// from silently re-mounting the volumes during the write; dispose them when done.
     /// </para>
@@ -1712,7 +1712,7 @@ public sealed class UsbWriterService : IUsbWriterService
 
             if (handle.IsInvalid)
             {
-                _logger.LogDebug("Cannot open volume {Vol} — skipping dismount", volumePath);
+                _logger.LogDebug("Cannot open volume {Vol} - skipping dismount", volumePath);
                 handle.Dispose();
                 continue;
             }
@@ -1724,7 +1724,7 @@ public sealed class UsbWriterService : IUsbWriterService
             }
 
             // Lock: advises Windows no new opens are allowed on this volume.
-            // Non-fatal if files are already open — FSCTL_DISMOUNT_VOLUME forces
+            // Non-fatal if files are already open - FSCTL_DISMOUNT_VOLUME forces
             // it offline regardless.
             bool locked = NativeMethods.DeviceIoControl(
                 handle, FSCTL_LOCK_VOLUME,
@@ -1740,7 +1740,7 @@ public sealed class UsbWriterService : IUsbWriterService
             if (dismounted)
             {
                 _logger.LogInformation("Dismounted volume {Vol} on disk {Index}", volumePath, diskIndex);
-                held.Add(handle);   // keep open — releasing re-allows mounting
+                held.Add(handle);   // keep open - releasing re-allows mounting
             }
             else
             {
@@ -1765,10 +1765,10 @@ public sealed class UsbWriterService : IUsbWriterService
     /// <code>
     ///   VOLUME_DISK_EXTENTS:
     ///     offset  0  DWORD  NumberOfDiskExtents  (4 bytes)
-    ///     offset  4  BYTE   _pad[4]              (4 bytes — aligns DISK_EXTENT to 8)
+    ///     offset  4  BYTE   _pad[4]              (4 bytes - aligns DISK_EXTENT to 8)
     ///     offset  8  DISK_EXTENT Extents[N]:     (24 bytes each)
     ///                  +0  DWORD  DiskNumber     (4 bytes)
-    ///                  +4  BYTE   _pad[4]        (4 bytes — aligns LARGE_INTEGER to 8)
+    ///                  +4  BYTE   _pad[4]        (4 bytes - aligns LARGE_INTEGER to 8)
     ///                  +8  INT64  StartingOffset (8 bytes)
     ///                 +16  INT64  ExtentLength   (8 bytes)
     /// </code>

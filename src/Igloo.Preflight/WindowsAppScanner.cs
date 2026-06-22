@@ -123,7 +123,7 @@ public static class WindowsAppScanner
         }
         catch
         {
-            // Registry access can fail in restricted environments — never crash the wizard.
+            // Registry access can fail in restricted environments - never crash the wizard.
             return [];
         }
     }
@@ -134,7 +134,7 @@ public static class WindowsAppScanner
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // HKLM — system-wide installs (64-bit and 32-bit on 64-bit Windows)
+        // HKLM - system-wide installs (64-bit and 32-bit on 64-bit Windows)
         foreach (var path in HklmUninstallPaths)
         {
             try
@@ -156,7 +156,7 @@ public static class WindowsAppScanner
             catch { /* skip inaccessible hive */ }
         }
 
-        // HKCU — per-user installs (Spotify installs here by default)
+        // HKCU - per-user installs (Spotify installs here by default)
         try
         {
             using var root = Registry.CurrentUser.OpenSubKey(HkcuUninstallPath);

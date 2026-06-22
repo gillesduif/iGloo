@@ -223,14 +223,20 @@
                             <Border Style="{StaticResource Card}" Padding="16,12" Margin="0,0,0,8">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Model}" FontWeight="SemiBold" FontSize="13"
-                                                   Foreground="{StaticResource Brush.Text.Primary}" />
-                                        <TextBlock Foreground="{StaticResource Brush.Text.Tertiary}" FontSize="12" Margin="8,1,0,0">
-                                            <Run Text="{Binding TotalBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding PartitionStyle, Mode=OneWay}" />
-                                        </TextBlock>
+                                        <Image Source="{StaticResource Icon.Drive3D}"
+                                               Width="28" Height="28" Margin="0,0,12,0"
+                                               VerticalAlignment="Center"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Model}" FontWeight="SemiBold" FontSize="13"
+                                                       Foreground="{StaticResource Brush.Text.Primary}" />
+                                            <TextBlock Foreground="{StaticResource Brush.Text.Tertiary}" FontSize="12" Margin="0,1,0,0">
+                                                <Run Text="{Binding TotalBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding PartitionStyle, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
                                     </StackPanel>
 
-                                    <ItemsControl ItemsSource="{Binding Partitions}" Margin="2,8,0,0">
+                                    <ItemsControl ItemsSource="{Binding Partitions}" Margin="2,10,0,0">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
@@ -252,7 +258,7 @@
                                                         </TextBlock.Style>
                                                     </TextBlock>
                                                     <TextBlock FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}" Margin="6,0,0,0">
-                                                        <Run Text="—  " /><Run Text="{Binding SizeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" />
+                                                        <Run Text="-  " /><Run Text="{Binding SizeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" />
                                                     </TextBlock>
 
                                                     <Border>

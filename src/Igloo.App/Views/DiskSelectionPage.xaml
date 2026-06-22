@@ -5,7 +5,7 @@
 
     <UserControl.Resources>
 
-        <!-- Disk card: selection must be impossible to misread — accent ring + glow -->
+        <!-- Disk card: selection must be impossible to misread - accent ring + glow -->
         <Style x:Key="DiskItemStyle" TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding"          Value="0" />
@@ -133,7 +133,7 @@
                                                     <TextBlock>
                                                         <Run Text="{Binding FileSystem, Mode=OneWay}" />
                                                         <Run Text="{Binding Label, Mode=OneWay}" />
-                                                        <Run Text=" — " />
+                                                        <Run Text=" - " />
                                                         <Run Text="{Binding SizeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" />
                                                     </TextBlock>
                                                 </Border.ToolTip>
@@ -218,7 +218,7 @@
                                 <StackPanel Margin="4,0,0,0">
                                     <TextBlock FontWeight="SemiBold" FontSize="13.5"
                                                Foreground="{StaticResource Brush.Text.Primary}">
-                                        Dual boot — keep Windows, add Linux alongside
+                                        Dual boot - keep Windows, add Linux alongside
                                     </TextBlock>
                                     <TextBlock Style="{StaticResource Text.Caption}" FontSize="12" Margin="0,3,0,0">
                                         The Windows partition is shrunk to make room. A boot menu lets you choose an OS at startup.
@@ -234,7 +234,7 @@
                             <StackPanel Margin="4,0,0,0">
                                 <TextBlock FontWeight="SemiBold" FontSize="13.5"
                                            Foreground="{StaticResource Brush.Text.Primary}">
-                                    Replace Windows — erase this disk, Linux only
+                                    Replace Windows - erase this disk, Linux only
                                 </TextBlock>
                                 <TextBlock Style="{StaticResource Text.Caption}" FontSize="12" Margin="0,3,0,0">
                                     Every partition and all data on the selected disk are destroyed.
@@ -334,7 +334,7 @@
                                 <Grid Height="22" x:Name="WipeStrip" Margin="0,0,0,9">
                                     <Border Background="#66D64545" BorderBrush="{StaticResource Brush.Danger}"
                                             BorderThickness="1" CornerRadius="3" />
-                                    <TextBlock Text="ENTIRE DISK ERASED — LINUX ONLY"
+                                    <TextBlock Text="ENTIRE DISK ERASED - LINUX ONLY"
                                                FontSize="10.5" FontWeight="Bold"
                                                Foreground="#FFD9D6"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" />

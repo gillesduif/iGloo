@@ -81,7 +81,7 @@
                             iGloo is carving a small temporary partition on your disk, copying the
                             installer image onto it, and configuring a bootloader. No USB drive is
                             needed. After this step you will click
-                            <Run FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}">Reboot to Install</Run> —
+                            <Run FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}">Reboot to Install</Run> -
                             Windows restarts directly into the Linux installer, which installs into
                             the free space created earlier.
                         </TextBlock>

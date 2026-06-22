@@ -9,7 +9,7 @@ namespace Igloo.Preflight;
 /// Shrinks the main Windows NTFS partition on a target disk to create unpartitioned
 /// free space that Anaconda can use for a Linux dual-boot installation.
 ///
-/// Uses <c>ROOT\Microsoft\Windows\Storage</c> WMI — specifically the
+/// Uses <c>ROOT\Microsoft\Windows\Storage</c> WMI - specifically the
 /// <c>MSFT_Partition.GetSupportedSize()</c> and <c>MSFT_Partition.Resize()</c> methods.
 /// These operations require the calling process to be running as Administrator.
 /// </summary>

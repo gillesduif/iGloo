@@ -94,7 +94,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
         // AmbientLight keeps everything readable; the DirectionalLight points straight
         // down the camera axis, so the centered (camera-facing) cover catches it fully
-        // while rotated flanks fall off by the cosine of their angle — the selected
+        // while rotated flanks fall off by the cosine of their angle - the selected
         // distro literally glows brighter than the rest.
         var lights = new Model3DGroup();
         lights.Children.Add(new AmbientLight(Color.FromRgb(0x5C, 0x5E, 0x6A)));
@@ -243,7 +243,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         {
             // External null (initial binding activation, or the previous selection became
             // incompatible): the carousel always keeps a centered cover, so re-assert it
-            // as the selection. Deferred — a write-back during the binding's own value
+            // as the selection. Deferred - a write-back during the binding's own value
             // transfer is swallowed by WPF and would never reach the source.
             Dispatcher.InvokeAsync(() =>
             {
@@ -365,7 +365,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
     private Cover CreateCover(object item)
     {
         // Fog scrim: a background-colored translucent layer over both quads whose opacity
-        // grows with distance from center — flanks sit lower-lit and far covers fade into
+        // grows with distance from center - flanks sit lower-lit and far covers fade into
         // the void. One unfrozen brush per cover; only its Opacity changes per frame.
         var scrim = new SolidColorBrush(BackgroundColor) { Opacity = 0 };
         var scrimMaterial = new DiffuseMaterial(scrim);
@@ -467,7 +467,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     /// <summary>
     /// The mirrored cover with an opacity-gradient fade baked in: near the cover the image
-    /// shows through faintly, further down it dissolves into the background — a specular
+    /// shows through faintly, further down it dissolves into the background - a specular
     /// floor hint, not a mirror.
     /// </summary>
     private static Brush BuildReflectionBrush(ImageSource? source)
@@ -538,7 +538,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         _lastRenderTime = now;
         if (dt <= 0) return;
 
-        // Exponential ease-out toward the target — equivalent feel to a ~330 ms
+        // Exponential ease-out toward the target - equivalent feel to a ~330 ms
         // CubicEase Storyboard, but retargetable every frame without a restart.
         _offset += (_target - _offset) * (1 - Math.Exp(-EaseRate * dt));
 

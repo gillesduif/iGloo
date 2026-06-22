@@ -178,7 +178,7 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     )
 
     # akmods builds the kernel module; wait for it to complete.
-    logger.info("Building NVIDIA kernel module (akmods --force) — may take several minutes")
+    logger.info("Building NVIDIA kernel module (akmods --force) - may take several minutes")
     run_cmd(["akmods", "--force"], timeout=900)
 
     # Installing the NVIDIA driver blacklists nouveau and builds a new kernel
@@ -200,7 +200,7 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
 def ensure_kernel_modules(manifest: dict[str, Any]) -> None:
     """Self-heal an incomplete kernel install.
 
-    A netinstall — or a kernel update pulled mid-install — over a flaky Wi-Fi
+    A netinstall - or a kernel update pulled mid-install - over a flaky Wi-Fi
     link can leave an installed kernel with ``kernel-core`` and
     ``kernel-modules-core`` but WITHOUT ``kernel-modules``: the package that
     ships most drivers (Wi-Fi such as rtw89, USB tethering, many NICs). The
@@ -216,7 +216,7 @@ def ensure_kernel_modules(manifest: dict[str, Any]) -> None:
         if line.strip().startswith("kernel-core-")
     ]
     if not versions:
-        logger.warning("Could not list installed kernels — skipping kernel-modules check")
+        logger.warning("Could not list installed kernels - skipping kernel-modules check")
         return
 
     missing = [
@@ -229,7 +229,7 @@ def ensure_kernel_modules(manifest: dict[str, Any]) -> None:
 
     for kver in missing:
         logger.warning(
-            "kernel-modules-%s is missing (incomplete install) — installing now", kver
+            "kernel-modules-%s is missing (incomplete install) - installing now", kver
         )
         run_cmd(["dnf", "-y", "install", f"kernel-modules-{kver}"], timeout=600)
     logger.info("kernel-modules repaired for: %s", ", ".join(missing))
@@ -419,7 +419,7 @@ def install_welcome_app(manifest: dict[str, Any]) -> None:
     on the user's first login after migration.
 
     The notification uses notify-send (pre-installed with KDE) to pop up a
-    Plasma notification — no custom UI required.
+    Plasma notification - no custom UI required.
     """
     username = manifest.get("user", {}).get("preferredLinuxUsername", "")
     autostart_dir = Path("/etc/xdg/autostart")
@@ -428,7 +428,7 @@ def install_welcome_app(manifest: dict[str, Any]) -> None:
     script_path = Path("/opt/igloo/igloo-welcome.sh")
     script_path.write_text(
         "#!/usr/bin/env bash\n"
-        "# iGloo welcome notification — runs once on first login\n"
+        "# iGloo welcome notification - runs once on first login\n"
         f'DONE_MARKER="$HOME/.igloo-welcome-done"\n'
         '[ -f "$DONE_MARKER" ] && exit 0\n'
         'notify-send \\\n'
@@ -505,7 +505,7 @@ def main() -> int:
         with args.manifest.open(encoding="utf-8") as f:
             manifest: dict[str, Any] = json.load(f)
     except Exception:
-        logger.exception("Failed to load manifest — cannot continue")
+        logger.exception("Failed to load manifest - cannot continue")
         return 1
 
     schema = manifest.get("schemaVersion")
@@ -518,7 +518,7 @@ def main() -> int:
         logger.error("Manifest is for distro %r, not fedora-kde", distro)
         return 3
 
-    # Steps — each is best-effort; a failure is logged and the rest continue.
+    # Steps - each is best-effort; a failure is logged and the rest continue.
     # Order matters: RPM Fusion must be enabled before codecs/GPU drivers;
     # Flathub must be registered before suggested-pkgs; redact runs last.
     steps: list[tuple[str, Any]] = [

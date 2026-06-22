@@ -33,7 +33,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     private readonly string? _stage2Url;
 
     /// <summary>
-    /// Parameterless constructor — reads <c>distro.json</c> from the same directory as this DLL.
+    /// Parameterless constructor - reads <c>distro.json</c> from the same directory as this DLL.
     /// </summary>
     public FedoraKdePlugin()
     {
@@ -162,7 +162,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             // Normalize CRLF → LF so shell scripts and Python files execute
             // correctly on Linux.  Windows git checkouts (text=auto) may add
             // \r\n even for files now covered by *.sh / *.py eol=lf rules in
-            // .gitattributes — normalising here is belt-and-suspenders.
+            // .gitattributes - normalising here is belt-and-suspenders.
             var contents = NormalizeCrLf(File.ReadAllBytes(path));
 
             files.Add(new AgentFile(
@@ -217,7 +217,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
         // Browser map for the %post copy loop: one "source/relative|dest/relative"
         // entry per migratable browser profile. Only Gecko browsers (Firefox / Zen
-        // / Waterfox) carry non-empty paths — their profile roots are OS-portable
+        // / Waterfox) carry non-empty paths - their profile roots are OS-portable
         // and include saved passwords. Chromium browsers were recorded with empty
         // paths (DPAPI-bound passwords, Phase 2) and are skipped here.
         var browserMap = string.Join("\n",
@@ -228,7 +228,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
         // Password: use the user's chosen password (--plaintext).
         // If somehow empty, fall back to a locked account so we don't create
-        // a passwordless account — the first-boot agent should handle recovery.
+        // a passwordless account - the first-boot agent should handle recovery.
         var password       = m.User.LinuxPassword;
         var passwordOption = !string.IsNullOrEmpty(password)
             ? $"--password={password} --plaintext"
@@ -249,7 +249,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         // Every saved Wi-Fi network (WPA-PSK with a recovered key, or open) as
         // tab-separated "SSID<TAB>PSK" lines for the %pre auto-connect loop. That
         // loop brings the radio up, scans, and connects to the first one that is
-        // actually in range — so the netinstall associates automatically instead
+        // actually in range - so the netinstall associates automatically instead
         // of Anaconda falling back to a manual Wi-Fi prompt. Tab-delimited so
         // SSIDs/PSKs containing spaces survive; the lines live inside a quoted
         // heredoc in %pre, so no shell escaping is needed here.
@@ -294,7 +294,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     /// <c>stage2Url</c>.
     ///
     /// Fedora's mirror network is exposed through a metalink service that returns
-    /// the closest, currently-healthy mirror — this is exactly the "Closest
+    /// the closest, currently-healthy mirror - this is exactly the "Closest
     /// mirror" option in Anaconda's GUI, which is the most reliable source.
     /// When the stage2Url points at a versioned release tree
     /// (<c>…/releases/&lt;ver&gt;/Everything/x86_64/os/</c>) we derive that version
@@ -306,7 +306,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     private static string BuildInstallSourceLine(string? stage2Url)
     {
         if (string.IsNullOrWhiteSpace(stage2Url))
-            return "# url: no stage2Url configured in distro.json — Anaconda will prompt for a source";
+            return "# url: no stage2Url configured in distro.json - Anaconda will prompt for a source";
 
         // Extract the Fedora release number from a versioned release tree URL,
         // e.g. https://…/releases/44/Everything/x86_64/os/  →  "44".

@@ -125,7 +125,7 @@ public enum UsbWritePhase { ShrinkingPartition, WritingIso, CreatingOemdrv, Patc
 
 /// <summary>
 /// Installs the Fedora KDE Live ISO directly onto a temporary FAT32 partition
-/// carved from the target disk — no USB drive required.
+/// carved from the target disk - no USB drive required.
 /// Only applicable for <see cref="DiskInstallMode.DualBoot"/>.
 /// </summary>
 public interface IDirectInstallService
@@ -194,7 +194,7 @@ public enum DiskInstallMode
 
 /// <summary>
 /// Queries how much a Windows NTFS partition can be shrunk and performs the resize.
-/// Required for the <see cref="DiskInstallMode.DualBoot"/> path — Linux needs
+/// Required for the <see cref="DiskInstallMode.DualBoot"/> path - Linux needs
 /// unpartitioned free space that Anaconda can claim.
 /// </summary>
 public interface IPartitionResizeService

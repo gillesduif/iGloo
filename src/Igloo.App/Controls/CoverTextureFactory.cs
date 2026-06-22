@@ -128,7 +128,7 @@ public sealed class CoverTextureFactory
             image.BeginInit();
             image.UriSource = new Uri(path, UriKind.Absolute);
             image.CacheOption = BitmapCacheOption.OnLoad;
-            // Decode at the size we will actually draw — keeps low-res covers cheap.
+            // Decode at the size we will actually draw - keeps low-res covers cheap.
             image.DecodePixelWidth = decodePixels;
             image.EndInit();
             image.Freeze();
@@ -140,7 +140,7 @@ public sealed class CoverTextureFactory
         }
     }
 
-    /// <summary>FNV-1a — stable across processes, unlike string.GetHashCode().</summary>
+    /// <summary>FNV-1a - stable across processes, unlike string.GetHashCode().</summary>
     private static uint StableHash(string value)
     {
         unchecked

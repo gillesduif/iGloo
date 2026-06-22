@@ -15,7 +15,7 @@ namespace Igloo.Core.Plugins;
 /// with a public parameterless constructor.
 ///
 /// The DLL is loaded into <see cref="AssemblyLoadContext.Default"/>. Because the host app already
-/// has <c>Igloo.Core.dll</c> loaded, the plugin's reference to it resolves to the same copy —
+/// has <c>Igloo.Core.dll</c> loaded, the plugin's reference to it resolves to the same copy -
 /// no version mismatches or duplicate type registrations.
 /// </summary>
 public sealed class DistroRegistry

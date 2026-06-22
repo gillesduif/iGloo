@@ -192,7 +192,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         try
         {
             await _installer.RegisterBootEntryAsync(progress);
-            _logger.LogInformation("UEFI BootNext registered — initiating reboot");
+            _logger.LogInformation("UEFI BootNext registered - initiating reboot");
 
             // 10-second countdown reboot with a user-visible message.
             Process.Start(new ProcessStartInfo(

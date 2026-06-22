@@ -11,7 +11,7 @@ namespace Igloo.Preflight;
 /// <see cref="WifiNetwork"/> records for the migration manifest.
 ///
 /// We export to XML rather than scraping <c>netsh wlan show profile</c> text
-/// because the text output is fully localized — label strings like "Key Content"
+/// because the text output is fully localized - label strings like "Key Content"
 /// differ per Windows display language and cannot be matched reliably. The XML
 /// profile schema (<c>WLANProfile/v1</c>) is fixed regardless of locale.
 ///
@@ -125,7 +125,7 @@ public static class WindowsWifiScanner
         if (a == "OPEN" || a == "NONE")
             return ("open", null);
 
-        // Personal: WPAPSK, WPA2PSK, WPA3SAE — all use a pre-shared key / passphrase.
+        // Personal: WPAPSK, WPA2PSK, WPA3SAE - all use a pre-shared key / passphrase.
         if (a.Contains("PSK") || a.Contains("SAE"))
         {
             var psk = string.IsNullOrEmpty(keyMaterial) ? null : keyMaterial;
@@ -134,7 +134,7 @@ public static class WindowsWifiScanner
             return ("wpa-psk", psk);
         }
 
-        // Enterprise (802.1X): WPA2, WPA3ENT, etc. — credentials are not a simple
+        // Enterprise (802.1X): WPA2, WPA3ENT, etc. - credentials are not a simple
         // PSK and cannot be auto-applied. Record for reference only.
         return ("unsupported", null);
     }

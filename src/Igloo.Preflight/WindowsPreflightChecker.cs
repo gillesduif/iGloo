@@ -57,7 +57,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
     private bool QueryTpmPresent()
     {
-        // Attempt 1 — Win32_Tpm is the authoritative source but requires elevation
+        // Attempt 1 - Win32_Tpm is the authoritative source but requires elevation
         // on most Windows 11 configurations.
         try
         {
@@ -70,10 +70,10 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Win32_Tpm query inaccessible — trying PnP fallback");
+            _logger.LogDebug(ex, "Win32_Tpm query inaccessible - trying PnP fallback");
         }
 
-        // Attempt 2 — Win32_PnPEntity is readable without elevation.
+        // Attempt 2 - Win32_PnPEntity is readable without elevation.
         // ClassGuid {d94ee5d8-d189-4994-83d2-f68d7d41b0e4} is the Windows
         // "Security Devices" class; TPM chips (1.2 and 2.0) always register here.
         try

@@ -50,7 +50,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         // ── Step 1: Fetch CHECKSUM file, GPG-verify it, parse SHA-256 ────────
         // We do this BEFORE downloading the ISO so we have the authoritative hash
         // ready.  When distro.json ships with an empty sha256, the hash is
-        // auto-resolved from the signed CHECKSUM file — no hardcoded values to
+        // auto-resolved from the signed CHECKSUM file - no hardcoded values to
         // maintain across Fedora releases.
         string? resolvedSha256 = null;
         bool    gpgVerified    = false;
@@ -99,7 +99,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             sha256Verified = string.Equals(computedHash, resolvedSha256, StringComparison.OrdinalIgnoreCase);
             if (!sha256Verified)
             {
-                // Corrupt or tampered — delete so next run re-downloads.
+                // Corrupt or tampered - delete so next run re-downloads.
                 File.Delete(isoPath);
                 throw new InvalidOperationException(
                     $"SHA-256 mismatch for {spec.DistroId}. " +
@@ -266,7 +266,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
-                "GPG key download/verification failed for {DistroId} — SHA-256 will still be checked",
+                "GPG key download/verification failed for {DistroId} - SHA-256 will still be checked",
                 spec.DistroId);
         }
 

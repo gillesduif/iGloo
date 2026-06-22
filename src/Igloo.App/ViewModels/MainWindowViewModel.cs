@@ -37,7 +37,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MigrationSetupViewModel setup  => setup.CanProceed,
         DiskSelectionViewModel disk    => disk.CanProceed,
         FileStagingViewModel fs        => fs.IsComplete && !fs.HasError,
-        DirectInstallViewModel         => false,  // user reboots — no "Next"
+        DirectInstallViewModel         => false,  // user reboots - no "Next"
         UsbWriterViewModel usb         => usb.IsComplete && !usb.HasError,
         _                              => false,
     };
@@ -56,7 +56,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _                        => string.Empty,
     };
 
-    /// <summary>True on the last wizard step — swaps "Next" label to "Finish".</summary>
+    /// <summary>True on the last wizard step - swaps "Next" label to "Finish".</summary>
     public bool IsLastStep =>
         CurrentPage is UsbWriterViewModel && _diskSelection.InstallMode == Igloo.Core.Abstractions.DiskInstallMode.ReplaceDisk
         || CurrentPage is DirectInstallViewModel;
@@ -109,7 +109,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _directInstall   = directInstall;
         _usbWriter       = usbWriter;
 
-        // The step list ends with TWO install pages — only one is ever shown.
+        // The step list ends with TWO install pages - only one is ever shown.
         _steps = [welcome, preflight, distroSelection, isoAcquisition, migrationSetup,
                   diskSelection, fileStaging, directInstall, usbWriter];
         _stepIndex   = 0;
@@ -200,12 +200,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             if (_diskSelection.InstallMode == Igloo.Core.Abstractions.DiskInstallMode.DualBoot)
             {
-                // Skip UsbWriterViewModel — land on DirectInstallViewModel.
+                // Skip UsbWriterViewModel - land on DirectInstallViewModel.
                 _stepIndex = _steps.IndexOf(_directInstall);
             }
             else
             {
-                // Skip DirectInstallViewModel — land on UsbWriterViewModel.
+                // Skip DirectInstallViewModel - land on UsbWriterViewModel.
                 _stepIndex = _steps.IndexOf(_usbWriter);
             }
         }

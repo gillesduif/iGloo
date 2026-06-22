@@ -25,7 +25,7 @@ namespace Igloo.Preflight;
 /// Using the netinstall ISO (not the live ISO) gives full kickstart support:
 /// package selection, dual-boot bootloader config, and unattended installation.
 /// The kickstart's <c>%post</c> enables os-prober so GRUB detects Windows and
-/// adds it to the boot menu — giving end users the OS choice at every startup.
+/// adds it to the boot menu - giving end users the OS choice at every startup.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class DirectInstallService : IDirectInstallService
@@ -53,13 +53,13 @@ public sealed class DirectInstallService : IDirectInstallService
     // Why netinstall ISO (not live ISO)?
     //   The Fedora KDE Desktop Live ISO does NOT support full kickstart:
     //   Anaconda shows "Configuration not supported" and falls back to interactive.
-    //   The netinstall ISO runs Anaconda directly with complete kickstart support —
+    //   The netinstall ISO runs Anaconda directly with complete kickstart support -
     //   package selection, storage layout, bootloader config, %post scripts.
     //   End users get a proper GRUB dual-boot menu on every startup.
     //
     // Why \igloo-boot\ for the EFI binaries?
     //   Windows write-protects \EFI\BOOT\ on FAT32 (UEFI fallback path), even for
-    //   Administrator.  \igloo-boot\ is unprotected — we create it.
+    //   Administrator.  \igloo-boot\ is unprotected - we create it.
     //
     // Why \EFI\fedora\ for grub.cfg?
     //   grubx64.efi has its compiled prefix hard-coded to /EFI/fedora; it always
@@ -142,7 +142,7 @@ public sealed class DirectInstallService : IDirectInstallService
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
         => Task.Run(() => RegisterBootEntry(progress, ct), ct);
 
-    // ── Private — Prepare ─────────────────────────────────────────────────────
+    // ── Private - Prepare ─────────────────────────────────────────────────────
 
     private void Prepare(
         int diskNumber, long linuxSizeBytes, string isoPath, string stagingDirectory,
@@ -171,12 +171,12 @@ public sealed class DirectInstallService : IDirectInstallService
         if (existing is not null)
         {
             // A previous run already created the OEMDRV partition on this disk.
-            // Skip shrink + partition creation and reuse it — just re-copy the files.
+            // Skip shrink + partition creation and reuse it - just re-copy the files.
             driveLetter   = existing.Value.letter;
             _oemDrvLetter = driveLetter;
             _partitionNumber = existing.Value.partitionNumber;
             _logger.LogInformation(
-                "Reusing existing OEMDRV partition {N} at {L}: — skipping shrink and partition creation",
+                "Reusing existing OEMDRV partition {N} at {L}: - skipping shrink and partition creation",
                 _partitionNumber, driveLetter);
             Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Reusing existing installer partition…");
         }
@@ -237,7 +237,7 @@ public sealed class DirectInstallService : IDirectInstallService
                 : 0L;
             if (installImgBytes == 0)
                 _logger.LogWarning(
-                    "images/install.img not found on ISO — " +
+                    "images/install.img not found on ISO - " +
                     "Anaconda will need to download the stage2 payload from the network");
             else
                 _logger.LogInformation(
@@ -263,7 +263,7 @@ public sealed class DirectInstallService : IDirectInstallService
 
         // rescan: tells diskpart to re-read the partition table so it sees the space
         // freed by the WMI resize that just completed.
-        // align=1024: 1 MiB alignment — required for GPT/UEFI disks; align=1 (1 KB)
+        // align=1024: 1 MiB alignment - required for GPT/UEFI disks; align=1 (1 KB)
         // triggers VDS_E_OPERATION_NOT_SUPPORTED_ON_DISK (0x80042554).
         var script = $"""
             rescan
@@ -320,7 +320,7 @@ public sealed class DirectInstallService : IDirectInstallService
             var stdoutTask = p.StandardOutput.ReadToEndAsync();
             var stderrTask = p.StandardError.ReadToEndAsync();
 
-            var exited = p.WaitForExit(60_000); // 60 s — format can be slow
+            var exited = p.WaitForExit(60_000); // 60 s - format can be slow
             var stdout = stdoutTask.GetAwaiter().GetResult();
             var stderr = stderrTask.GetAwaiter().GetResult();
             var combined = string.IsNullOrWhiteSpace(stderr)
@@ -417,7 +417,7 @@ public sealed class DirectInstallService : IDirectInstallService
         throw new InvalidOperationException("No available drive letter for the installer partition.");
     }
 
-    // ── Step 3 — copy ISO with progress ──────────────────────────────────────
+    // ── Step 3 - copy ISO with progress ──────────────────────────────────────
 
     private static void CopyWithProgress(
         string src, string dst, long totalBytes,
@@ -440,7 +440,7 @@ public sealed class DirectInstallService : IDirectInstallService
         }
     }
 
-    // ── Step 4 — copy artefacts ───────────────────────────────────────────────
+    // ── Step 4 - copy artefacts ───────────────────────────────────────────────
 
     private void CopyStagingArtefacts(string stagingDir, string oemDrvRoot, CancellationToken ct)
     {
@@ -473,7 +473,7 @@ public sealed class DirectInstallService : IDirectInstallService
             File.Copy(src, Path.Combine(dstDir, filename), overwrite: true);
     }
 
-    // ── Step 5 — extract kernel + initrd from ISO ────────────────────────────
+    // ── Step 5 - extract kernel + initrd from ISO ────────────────────────────
 
     /// <summary>
     /// Mounts the netinstall ISO and extracts the boot files onto OEMDRV:
@@ -482,7 +482,7 @@ public sealed class DirectInstallService : IDirectInstallService
     ///   <item>initrd → <c>\igloo-boot\initrd</c> (Anaconda installer, ~200–400 MB)</item>
     ///   <item><c>shimx64.efi</c> + <c>grubx64.efi</c> → <c>\igloo-boot\</c></item>
     ///   <item><c>images/install.img</c> → OEMDRV <c>\images\install.img</c> (~870 MiB)
-    ///         — the Anaconda stage2 squashfs, copied locally so the installer
+    ///         - the Anaconda stage2 squashfs, copied locally so the installer
     ///         does not need to download 862 MB from the network during installation.</item>
     /// </list>
     /// Then writes <c>\EFI\fedora\grub.cfg</c> and <c>\EFI\BOOT\grub.cfg</c> that
@@ -514,7 +514,7 @@ public sealed class DirectInstallService : IDirectInstallService
             CopyFileRobust(kernelSrc, Path.Combine(bootDst, KernelFile));
             ct.ThrowIfCancellationRequested();
 
-            // Initrd for netinstall is 200–400 MB — report progress.
+            // Initrd for netinstall is 200–400 MB - report progress.
             _logger.LogInformation("Extracting initrd → {Dst}", Path.Combine(bootDst, InitrdFile));
             CopyWithProgress(initrdSrc, Path.Combine(bootDst, InitrdFile), initrdBytes, prog, ct);
             ct.ThrowIfCancellationRequested();
@@ -528,7 +528,7 @@ public sealed class DirectInstallService : IDirectInstallService
             _logger.LogInformation("shim + grubx64.efi copied to {Dir}", bootDst);
 
             // ── 3. Copy images/install.img (Anaconda stage2 squashfs) ─────────
-            // The Fedora netinstall ISO contains images/install.img — the squashfs
+            // The Fedora netinstall ISO contains images/install.img - the squashfs
             // that holds Anaconda and all installer tools (~870 MiB on Fedora 44).
             // Without inst.stage2= the initrd hangs; with inst.stage2=<network-url>
             // Anaconda downloads 862 MiB at boot time which proved unreliable
@@ -552,7 +552,7 @@ public sealed class DirectInstallService : IDirectInstallService
             else
             {
                 _logger.LogWarning(
-                    "images/install.img not found on ISO — " +
+                    "images/install.img not found on ISO - " +
                     "Anaconda will attempt a network stage2 download, which may be slow or fail");
             }
         }
@@ -597,7 +597,7 @@ public sealed class DirectInstallService : IDirectInstallService
         // (kernelRelPath, initrdRelPath) pairs in preference order.
         var candidates = new (string kernel, string initrd)[]
         {
-            // Fedora 44+ — kernel named "linux", initrd named "initrd" (no extension)
+            // Fedora 44+ - kernel named "linux", initrd named "initrd" (no extension)
             (Path.Combine("boot", "x86_64", "loader", "linux"),
              Path.Combine("boot", "x86_64", "loader", "initrd")),
             // Fedora 40–43
@@ -714,7 +714,7 @@ public sealed class DirectInstallService : IDirectInstallService
     /// Builds the GRUB2 config written to <c>\EFI\fedora\grub.cfg</c> (and
     /// <c>\EFI\BOOT\grub.cfg</c>) on OEMDRV.
     ///
-    /// Boots the netinstall Anaconda kernel directly from FAT32 — no loopback,
+    /// Boots the netinstall Anaconda kernel directly from FAT32 - no loopback,
     /// iso9660, or live-boot dracut parameters.
     ///
     /// <c>inst.stage2=hd:LABEL=OEMDRV:</c> tells Anaconda to load
@@ -750,7 +750,7 @@ public sealed class DirectInstallService : IDirectInstallService
     private string MountIso(string isoPath)
     {
         // Dismount first in case a previous run left the ISO mounted.
-        // Errors are silently ignored — the image may not be mounted at all.
+        // Errors are silently ignored - the image may not be mounted at all.
         DismountIso(isoPath);
         Thread.Sleep(500);
 
@@ -764,7 +764,7 @@ public sealed class DirectInstallService : IDirectInstallService
         var letter = PollForDriveLetter(isoPath, retries: 60);
         if (letter is not null) return letter;
 
-        _logger.LogWarning("ISO did not appear after 30 s — dismounting and retrying once");
+        _logger.LogWarning("ISO did not appear after 30 s - dismounting and retrying once");
 
         // Recovery: dismount, remount, and give it 10 more seconds.
         DismountIso(isoPath);
@@ -848,7 +848,7 @@ public sealed class DirectInstallService : IDirectInstallService
         // Build and write Boot####.
         // efiPath → \igloo-boot\shimx64.efi  (Microsoft-signed shim)
         // Shim loads grubx64.efi from the same directory, which reads
-        // \EFI\fedora\grub.cfg — our direct-FAT32 config written during PrepareAsync.
+        // \EFI\fedora\grub.cfg - our direct-FAT32 config written during PrepareAsync.
         var loadOption = BuildEfiLoadOption(
             _partitionNumber.Value,
             lbaStart, lbaSize, partGuid,
@@ -878,7 +878,7 @@ public sealed class DirectInstallService : IDirectInstallService
         // boot when the Boot#### variable no longer exists.
         PrependBootOrder(idx);
 
-        _logger.LogInformation("BootNext + BootOrder updated — reboot to install");
+        _logger.LogInformation("BootNext + BootOrder updated - reboot to install");
         Report(prog, DirectInstallPhase.Complete, message: "UEFI boot entry registered. Ready to reboot.");
     }
 
@@ -939,12 +939,12 @@ public sealed class DirectInstallService : IDirectInstallService
             };
 
             // AdjustTokenPrivileges returns TRUE even when not all privileges were
-            // assigned — check GetLastError for ERROR_NOT_ALL_ASSIGNED (1300).
+            // assigned - check GetLastError for ERROR_NOT_ALL_ASSIGNED (1300).
             AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
             var adjustErr = Marshal.GetLastWin32Error();
             if (adjustErr != 0)
                 _logger.LogWarning(
-                    "AdjustTokenPrivileges(SeSystemEnvironmentPrivilege) returned error {Err} — " +
+                    "AdjustTokenPrivileges(SeSystemEnvironmentPrivilege) returned error {Err} - " +
                     "UEFI NVRAM write will likely fail. Is the process running as Administrator?",
                     adjustErr);
         }
@@ -972,7 +972,7 @@ public sealed class DirectInstallService : IDirectInstallService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GetPartitionGeometry failed — using zeros (boot may not work)");
+            _logger.LogWarning(ex, "GetPartitionGeometry failed - using zeros (boot may not work)");
             return (0, 0, Guid.Empty);
         }
     }
@@ -985,7 +985,7 @@ public sealed class DirectInstallService : IDirectInstallService
             var read = GetFirmwareEnvironmentVariableW($"Boot{i:X4}", EfiGlobGuid, buf, (uint)buf.Length);
             if (read == 0) return i; // variable doesn't exist → free slot
         }
-        return 0x0090; // fallback — overwrite 0x0090
+        return 0x0090; // fallback - overwrite 0x0090
     }
 
     private static byte[] BuildEfiLoadOption(
@@ -998,7 +998,7 @@ public sealed class DirectInstallService : IDirectInstallService
         // Attributes: LOAD_OPTION_ACTIVE (0x00000001)
         ms.Write(BitConverter.GetBytes((uint)1));
 
-        // FilePathListLength placeholder (2 bytes) — patched below.
+        // FilePathListLength placeholder (2 bytes) - patched below.
         int fplLenOffset = (int)ms.Position;
         ms.Write(BitConverter.GetBytes((ushort)0));
 

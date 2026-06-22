@@ -33,7 +33,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     public bool HasNoFindings => HasReport && !HasFindings;
     public bool HasBlockers => Findings.Any(f => f.Severity == FindingSeverity.Blocker);
 
-    /// <summary>True when the check has completed without blockers — enables "Next" in the wizard.</summary>
+    /// <summary>True when the check has completed without blockers - enables "Next" in the wizard.</summary>
     public bool CanProceed  => HasReport && !HasBlockers;
 
     public string FirmwareDisplay    => Report?.IsUefi == true ? "UEFI" : "Legacy BIOS";
@@ -47,9 +47,9 @@ public sealed partial class PreflightViewModel : ObservableObject
     public string BitLockerDisplay   => Report?.BitLocker switch
     {
         BitLockerState.NotEncrypted          => "Not encrypted",
-        BitLockerState.EncryptedAndUnlocked  => "Encrypted — unlocked",
-        BitLockerState.SuspendedProtection   => "Encrypted — protection suspended",
-        BitLockerState.EncryptedAndLocked    => "Encrypted — locked",
+        BitLockerState.EncryptedAndUnlocked  => "Encrypted - unlocked",
+        BitLockerState.SuspendedProtection   => "Encrypted - protection suspended",
+        BitLockerState.EncryptedAndLocked    => "Encrypted - locked",
         BitLockerState.DecryptionInProgress  => "Decryption in progress…",
         _                                    => "Unknown",
     };
@@ -97,7 +97,7 @@ public sealed partial class PreflightViewModel : ObservableObject
         try
         {
             Report = await _checker.RunAsync(ct);
-            _logger.LogInformation("Pre-flight complete — {Count} finding(s)", Report.Findings.Count);
+            _logger.LogInformation("Pre-flight complete - {Count} finding(s)", Report.Findings.Count);
         }
         catch (OperationCanceledException)
         {
@@ -143,7 +143,7 @@ public sealed partial class PreflightViewModel : ObservableObject
 
             if (proc.ExitCode == 0)
             {
-                BitLockerActionStatus = "Decryption started — re-running system check…";
+                BitLockerActionStatus = "Decryption started - re-running system check…";
                 await Task.Delay(1200);
                 if (!IsRunning)
                     await RunCheckCommand.ExecuteAsync(null);

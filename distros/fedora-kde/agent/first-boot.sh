@@ -27,10 +27,10 @@ log "first-boot agent finished"
 # effect after a clean boot (currently: the NVIDIA proprietary driver, which
 # blacklists nouveau and builds a kernel module loaded on next boot).
 # Because this unit is ordered Before=display-manager.service, rebooting here
-# means the user never sees the broken first session — they boot straight into
+# means the user never sees the broken first session - they boot straight into
 # a working desktop on the new driver.
 if [ -f "$REBOOT_MARKER" ]; then
     rm -f "$REBOOT_MARKER"
-    log "reboot-required marker present — rebooting into a clean session"
+    log "reboot-required marker present - rebooting into a clean session"
     systemctl reboot
 fi

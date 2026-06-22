@@ -5,6 +5,7 @@
     Title="iGloo"
     MinWidth="720" MinHeight="560"
     Width="860" Height="640"
+    WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     Background="{StaticResource Brush.Window}"
     TextElement.Foreground="{StaticResource Brush.Text.Primary}">

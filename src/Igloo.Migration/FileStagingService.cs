@@ -20,8 +20,8 @@ public sealed class FileStagingService : IFileStagingService
     }
 
     // Enumeration options used for both scan and (implicitly) copy phases:
-    //   • IgnoreInaccessible  — silently skip directories we can't enter (no throw).
-    //   • AttributesToSkip    — skip NTFS junction points and symlinks.
+    //   • IgnoreInaccessible  - silently skip directories we can't enter (no throw).
+    //   • AttributesToSkip    - skip NTFS junction points and symlinks.
     //     Windows places junctions like "My Music", "My Pictures", "My Videos" inside
     //     Documents; following them either duplicates data or raises UnauthorizedAccessException.
     //     We do NOT add Hidden/System here so that user dotfiles and hidden config folders
@@ -78,7 +78,7 @@ public sealed class FileStagingService : IFileStagingService
                 jobs.Add((file, destPath));
 
                 try   { totalBytes += new FileInfo(file).Length; }
-                catch { /* file may be locked or gone — size estimate only */ }
+                catch { /* file may be locked or gone - size estimate only */ }
             }
         }
 

@@ -32,7 +32,7 @@
     top-level README that is only relevant in the repository.
 
     NormalizePath resolves the ..\..\distros relative path to a fully-qualified path
-    before passing it to the glob — MSBuild does not expand .. inside Target ItemGroups
+    before passing it to the glob - MSBuild does not expand .. inside Target ItemGroups
     otherwise.
   -->
   <PropertyGroup>
@@ -47,7 +47,7 @@
     <Copy SourceFiles="@(_DistroFiles)" DestinationFiles="@(_DistroFiles->'$(OutputPath)distros\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
-  <!-- Same copy for dotnet publish — $(PublishDir) is the publish output folder. -->
+  <!-- Same copy for dotnet publish - $(PublishDir) is the publish output folder. -->
   <Target Name="CopyDistrosToPublish" AfterTargets="Publish">
     <ItemGroup>
       <_DistroFilesPublish Include="$(_DistrosRoot)\**\*" Exclude="$(_DistrosRoot)\**\*.cs;&#xA;                   $(_DistrosRoot)\**\*.csproj;&#xA;                   $(_DistrosRoot)\**\bin\**;&#xA;                   $(_DistrosRoot)\**\obj\**;&#xA;                   $(_DistrosRoot)\README.md" />

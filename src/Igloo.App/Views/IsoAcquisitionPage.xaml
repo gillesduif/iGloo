@@ -9,7 +9,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ── RUNNING: one fact matters — the hero number ──────────────────── -->
+        <!-- ── RUNNING: one fact matters - the hero number ──────────────────── -->
         <StackPanel Grid.Row="0"
                     Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
                     VerticalAlignment="Center" HorizontalAlignment="Center"
@@ -149,7 +149,7 @@
                         <TextBlock Foreground="{StaticResource Brush.Text.Tertiary}" FontSize="13">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="— Skipped" />
+                                    <Setter Property="Text" Value="- Skipped" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Result.GpgVerified}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />

@@ -48,15 +48,21 @@
                         </ComboBox.Style>
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock>
-                                    <Run Text="{Binding Model, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Primary}" />
-                                    <Run Text="  ·  " Foreground="{StaticResource Brush.Text.Tertiary}" />
-                                    <Run Text="{Binding SizeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}"
-                                         Foreground="{StaticResource Brush.Text.Secondary}" />
-                                    <Run Text="  (Disk " Foreground="{StaticResource Brush.Text.Tertiary}" />
-                                    <Run Text="{Binding DriveIndex, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Tertiary}" />
-                                    <Run Text=")" Foreground="{StaticResource Brush.Text.Tertiary}" />
-                                </TextBlock>
+                                <StackPanel Orientation="Horizontal">
+                                    <Image Source="{StaticResource Icon.Usb3D}"
+                                           Width="22" Height="22" Margin="0,0,10,0"
+                                           VerticalAlignment="Center"
+                                           RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <TextBlock VerticalAlignment="Center">
+                                        <Run Text="{Binding Model, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Primary}" />
+                                        <Run Text="  ·  " Foreground="{StaticResource Brush.Text.Tertiary}" />
+                                        <Run Text="{Binding SizeBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}"
+                                             Foreground="{StaticResource Brush.Text.Secondary}" />
+                                        <Run Text="  (Disk " Foreground="{StaticResource Brush.Text.Tertiary}" />
+                                        <Run Text="{Binding DriveIndex, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                                        <Run Text=")" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                                    </TextBlock>
+                                </StackPanel>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
@@ -224,7 +230,7 @@
 
                         <TextBlock Style="{StaticResource Text.Body}">
                             Boot from this USB drive to start the installation. The kickstart file on the
-                            OEMDRV partition configures the installer automatically — no questions asked.
+                            OEMDRV partition configures the installer automatically - no questions asked.
                         </TextBlock>
 
                         <Border Visibility="{Binding HasGrubPatchNote, Converter={StaticResource BoolToVis}}"
@@ -267,7 +273,7 @@
                         Command="{Binding WriteCancelCommand}"
                         IsEnabled="{Binding IsCancelable}"
                         Style="{StaticResource Button.Ghost}" />
-                <TextBlock Text="Partitioning — please wait, this cannot be interrupted."
+                <TextBlock Text="Partitioning - please wait, this cannot be interrupted."
                            HorizontalAlignment="Center" Margin="0,5,0,0">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">

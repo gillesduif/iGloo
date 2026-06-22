@@ -14,7 +14,7 @@ namespace Igloo.App.ViewModels;
 /// Flow:
 ///   1. On navigation, <see cref="Prepare"/> stores paths from prior steps and
 ///      kicks off <see cref="RefreshDrivesCommand"/> to populate the drive list.
-///   2. The user selects a drive and clicks "Write to USB" — <see cref="WriteCommand"/>.
+///   2. The user selects a drive and clicks "Write to USB" - <see cref="WriteCommand"/>.
 ///   3. Progress (ISO write → OEMDRV creation → file copy) is reported live.
 ///   4. On completion, <see cref="IsComplete"/> is set; the main wizard's
 ///      "Finish" button becomes active.
@@ -263,17 +263,17 @@ public sealed partial class UsbWriterViewModel : ObservableObject
             HasError     = true;
             ErrorMessage = CurrentPhase == UsbWritePhase.WritingIso
                 // Cancelled mid-ISO: the image on the stick is truncated.
-                ? "Write cancelled — the USB drive contains an incomplete installer image " +
+                ? "Write cancelled - the USB drive contains an incomplete installer image " +
                   "and must be re-written before it can be used. " +
                   "Return to this step and run the writer again."
                 // Cancelled after Phase 1 (during file copy): ISO is intact, files incomplete.
-                : "Write cancelled — the installer image is on the drive but the migration " +
+                : "Write cancelled - the installer image is on the drive but the migration " +
                   "files were not fully copied. " +
                   "Return to this step and run the writer again to complete it.";
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogError(ex, "USB write failed — insufficient rights");
+            _logger.LogError(ex, "USB write failed - insufficient rights");
             HasError     = true;
             ErrorMessage = ex.Message;
             ErrorDetail  = BuildErrorDetail(ex);
@@ -291,7 +291,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         }
     }
 
-    /// <summary>Shuts down the application — bound to the "Finish" button shown on completion.</summary>
+    /// <summary>Shuts down the application - bound to the "Finish" button shown on completion.</summary>
     [RelayCommand]
     private static void Finish() => Application.Current.Shutdown();
 

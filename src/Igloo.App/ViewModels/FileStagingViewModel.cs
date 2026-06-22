@@ -15,11 +15,11 @@ namespace Igloo.App.ViewModels;
 /// View-model for the File Staging wizard step.
 ///
 /// Orchestrates four sequential phases:
-///   1. Scanning   — enumerate files in the selected folders.
-///   2. Copying    — stream files to the staging directory with progress.
-///   3. Generating — build the migration manifest, render the kickstart (via the distro plugin),
+///   1. Scanning   - enumerate files in the selected folders.
+///   2. Copying    - stream files to the staging directory with progress.
+///   3. Generating - build the migration manifest, render the kickstart (via the distro plugin),
 ///                   and write the first-boot agent to the staging directory.
-///   4. Complete   — all artefacts are in place; the user can proceed to USB creation (M5).
+///   4. Complete   - all artefacts are in place; the user can proceed to USB creation (M5).
 /// </summary>
 public sealed partial class FileStagingViewModel : ObservableObject
 {
@@ -149,7 +149,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
             Phase = FileStagingPhase.Generating;
             OnPropertyChanged(nameof(PhaseDisplay));
 
-            // Export saved Wi-Fi networks (netsh spawns a process — keep it off
+            // Export saved Wi-Fi networks (netsh spawns a process - keep it off
             // the UI thread). Defensive: the scanner never throws, returns [].
             var wifiNetworks = await Task.Run(WindowsWifiScanner.Scan, ct);
             _logger.LogInformation("Detected {Count} saved Wi-Fi network(s) for migration",
@@ -215,7 +215,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
             else
             {
                 _logger.LogWarning(
-                    "No plugin found for distro '{Id}' — installer config not generated. " +
+                    "No plugin found for distro '{Id}' - installer config not generated. " +
                     "Ensure Igloo.Distro.FedoraKde.dll is present in the distro folder.",
                     _distroId);
             }

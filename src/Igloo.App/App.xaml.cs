@@ -77,7 +77,7 @@ public partial class App : Application
     [SupportedOSPlatform("windows")]
     private static void RegisterServices(IServiceCollection services)
     {
-        // HTTP client used for ISO downloads (large files — no timeout).
+        // HTTP client used for ISO downloads (large files - no timeout).
         services.AddHttpClient("iso", client =>
         {
             client.DefaultRequestHeaders.UserAgent.ParseAdd("iGloo/0.0.1-alpha");
@@ -95,7 +95,7 @@ public partial class App : Application
         services.AddSingleton<DistroLoader>();
         services.AddSingleton<DistroRegistry>();
 
-        // ViewModels — singletons so wizard state is preserved when navigating back
+        // ViewModels - singletons so wizard state is preserved when navigating back
         services.AddSingleton<WelcomeViewModel>();
         services.AddSingleton<PreflightViewModel>();
         services.AddSingleton<DistroSelectionViewModel>();
@@ -137,9 +137,9 @@ public partial class App : Application
             dir = dir.Parent;
         }
 
-        Log.Warning("Distros directory not found — searched from {Base}. " +
+        Log.Warning("Distros directory not found - searched from {Base}. " +
                     "Expected 'distros/' adjacent to the exe or in a parent directory.",
                     AppContext.BaseDirectory);
-        return adjacent; // fallback — produces empty catalog
+        return adjacent; // fallback - produces empty catalog
     }
 }

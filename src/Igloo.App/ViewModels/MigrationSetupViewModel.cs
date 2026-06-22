@@ -169,7 +169,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
             // Path relative to the profile, normalised to forward slashes for the
             // Linux-side %post. Falls back to the leaf name if the folder lives
-            // outside the profile (e.g. redirected to another drive) — the %post
+            // outside the profile (e.g. redirected to another drive) - the %post
             // then logs "not found" rather than copying from a bogus location.
             var rel = Path.GetRelativePath(profile, absolute).Replace('\\', '/');
             if (rel.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(rel))
@@ -195,11 +195,11 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     /// <summary>
     /// Phase 1 browser migration. Maps each selected browser to a
     /// <see cref="BrowserMigration"/>:
-    ///   • Gecko browsers (Firefox / Zen / Waterfox) — the on-disk profile root is
+    ///   • Gecko browsers (Firefox / Zen / Waterfox) - the on-disk profile root is
     ///     OS-portable and includes saved passwords (NSS, not bound to the Windows
     ///     account). Source = the profile root relative to the Windows profile
     ///     (forward slashes); dest = the canonical Linux home location.
-    ///   • Chromium browsers (Chrome / Edge / Brave / Vivaldi / Opera) — passwords
+    ///   • Chromium browsers (Chrome / Edge / Brave / Vivaldi / Opera) - passwords
     ///     are DPAPI-bound to the Windows account and not portable, so these are
     ///     recorded (engine + name) but left with empty paths; the kickstart skips
     ///     them. Real migration is a future phase.
@@ -244,7 +244,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             }
             else
             {
-                // Chromium family — recorded only (Phase 2).
+                // Chromium family - recorded only (Phase 2).
                 result.Add(new BrowserMigration
                 {
                     Name              = b.Name,
@@ -323,7 +323,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     ///   1. Registry <c>HKCU\Keyboard Layout\Preload\1</c> → KLID hex string (e.g. "0000080c")
     ///      This reflects the actual keyboard the user has installed, regardless of the
     ///      Windows display language.
-    ///   2. <see cref="CultureInfo.CurrentUICulture"/> heuristic — fallback only, because
+    ///   2. <see cref="CultureInfo.CurrentUICulture"/> heuristic - fallback only, because
     ///      UI language ≠ keyboard layout (English Windows + Belgian AZERTY is common).
     /// </summary>
     private static string DetectKeymap()
@@ -335,7 +335,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             if (!string.IsNullOrEmpty(klid) && KlidMap.TryGetValue(klid, out var mapped))
                 return mapped;
         }
-        catch { /* registry unavailable — fall through */ }
+        catch { /* registry unavailable - fall through */ }
 
         return CultureToKeymap(CultureInfo.CurrentUICulture.Name);
     }
@@ -350,7 +350,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         // English
         { "409",   "us" },  // English (US)
         { "809",   "gb" },  // English (UK)
-        { "1009",  "ca" },  // English (Canada) — Canadian Multilingual Standard
+        { "1009",  "ca" },  // English (Canada) - Canadian Multilingual Standard
         { "1409",  "us" },  // English (New Zealand)
         { "1809",  "gb" },  // English (Ireland)
 

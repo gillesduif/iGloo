@@ -52,7 +52,7 @@
                          Foreground="{StaticResource Brush.Accent.Bright}" />
                 </TextBlock.Inlines>
             </TextBlock>
-            <TextBlock Text="iGloo installs Linux from Windows — no USB stick, no expertise required. Your files, browsers and apps travel with you."
+            <TextBlock Text="iGloo installs Linux from Windows. You do not need a USB stick and no expertise required. Your files, browsers and apps travel with you."
                        Style="{StaticResource Text.Body}"
                        FontSize="14" TextAlignment="Center" MaxWidth="520"
                        Margin="0,14,0,0" />
@@ -115,7 +115,7 @@
                 <TextBlock Text="⚠" FontSize="16" Foreground="{StaticResource Brush.Warning}"
                            VerticalAlignment="Top" Margin="0,1,12,0" />
                 <TextBlock Style="{StaticResource Text.Body}" MaxWidth="560">
-                    <Run FontWeight="Bold" Foreground="{StaticResource Brush.Warning}">Pre-alpha software.</Run>
+                    <Run FontWeight="Bold" Foreground="{StaticResource Brush.Warning}">Alpha software.</Run>
                     <Run Foreground="{StaticResource Brush.Text.Secondary}">
                         iGloo modifies partition tables and boot configuration.
                         Do not run it on a machine you cannot afford to lose.
