@@ -500,22 +500,34 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ProgressBar">
-                    <Grid x:Name="TemplateRoot" SnapsToDevicePixels="True">
+                    <Grid x:Name="TemplateRoot" SnapsToDevicePixels="True" ClipToBounds="True">
                         <Border Background="{TemplateBinding Background}" CornerRadius="3" />
                         <Border x:Name="PART_Track" CornerRadius="3" />
                         <Border x:Name="PART_Indicator" CornerRadius="3"
                                 HorizontalAlignment="Left"
                                 Background="{TemplateBinding Foreground}"
                                 Effect="{StaticResource Effect.AccentGlow.Soft}" />
-                        <!-- Indeterminate sweep -->
-                        <Border x:Name="Sweep" CornerRadius="3" Width="90"
-                                HorizontalAlignment="Left"
-                                Background="{TemplateBinding Foreground}"
-                                Effect="{StaticResource Effect.AccentGlow.Soft}"
-                                Visibility="Collapsed">
-                            <Border.RenderTransform>
-                                <TranslateTransform x:Name="SweepTransform" />
-                            </Border.RenderTransform>
+                        <!--
+                          Indeterminate sweep. The bright band lives in a full-width brush
+                          whose RelativeTransform works in normalised 0..1 space, so the
+                          sweep spans the whole bar and re-enters from the left at any
+                          width - no hard-coded pixel travel that overshoots wide bars.
+                        -->
+                        <Border x:Name="Sweep" CornerRadius="3" Visibility="Collapsed"
+                                Effect="{StaticResource Effect.AccentGlow.Soft}">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Pad">
+                                    <LinearGradientBrush.RelativeTransform>
+                                        <TranslateTransform x:Name="SweepTransform" X="-1" />
+                                    </LinearGradientBrush.RelativeTransform>
+                                    <GradientStop Offset="0.0"  Color="#008FB5FF" />
+                                    <GradientStop Offset="0.30" Color="#008FB5FF" />
+                                    <GradientStop Offset="0.42" Color="#FF8FB5FF" />
+                                    <GradientStop Offset="0.58" Color="#FF8FB5FF" />
+                                    <GradientStop Offset="0.70" Color="#008FB5FF" />
+                                    <GradientStop Offset="1.0"  Color="#008FB5FF" />
+                                </LinearGradientBrush>
+                            </Border.Background>
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -527,7 +539,7 @@
                                     <Storyboard RepeatBehavior="Forever">
                                         <DoubleAnimation Storyboard.TargetName="SweepTransform"
                                                          Storyboard.TargetProperty="X"
-                                                         From="-90" To="420" Duration="0:0:1.4" />
+                                                         From="-1" To="1" Duration="0:0:1.3" />
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
