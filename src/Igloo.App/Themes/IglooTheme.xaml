@@ -852,9 +852,25 @@
         <Setter Property="Margin"     Value="0,18" />
     </Style>
 
-    <!-- Slim dark scrollbar -->
+    <!--
+      Modern overlay scrollbar. The thumb is a slim translucent pill that thickens and
+      brightens on hover and turns accent while dragging; the track itself stays invisible
+      until the pointer is over the bar, then fades in a faint channel. The pill is inset
+      with Margin (not Width) so the hit target stays the full bar width while the visible
+      thumb looks light. IsHitTestVisible drag state via the Thumb's own IsDragging.
+    -->
     <ControlTemplate x:Key="ScrollBarThumbTemplate" TargetType="Thumb">
-        <Border Background="#3A4566" CornerRadius="4" Margin="1" />
+        <Border x:Name="Pill" Background="#4A5878" CornerRadius="5" Margin="3" SnapsToDevicePixels="True" />
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Pill" Property="Background" Value="#6B7DAE" />
+                <Setter TargetName="Pill" Property="Margin"     Value="2" />
+            </Trigger>
+            <Trigger Property="IsDragging" Value="True">
+                <Setter TargetName="Pill" Property="Background" Value="{StaticResource Brush.Accent}" />
+                <Setter TargetName="Pill" Property="Margin"     Value="2" />
+            </Trigger>
+        </ControlTemplate.Triggers>
     </ControlTemplate>
 
     <ControlTemplate x:Key="ScrollBarPageButtonTemplate" TargetType="RepeatButton">
@@ -863,46 +879,62 @@
 
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Width"      Value="8" />
+        <Setter Property="Width"      Value="11" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ScrollBar">
-                    <Track x:Name="PART_Track" IsDirectionReversed="True">
-                        <Track.DecreaseRepeatButton>
-                            <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False"
-                                          Template="{StaticResource ScrollBarPageButtonTemplate}" />
-                        </Track.DecreaseRepeatButton>
-                        <Track.IncreaseRepeatButton>
-                            <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False"
-                                          Template="{StaticResource ScrollBarPageButtonTemplate}" />
-                        </Track.IncreaseRepeatButton>
-                        <Track.Thumb>
-                            <Thumb Template="{StaticResource ScrollBarThumbTemplate}" />
-                        </Track.Thumb>
-                    </Track>
+                    <Grid>
+                        <Border x:Name="Channel" Background="Transparent" CornerRadius="6" />
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False"
+                                              Template="{StaticResource ScrollBarPageButtonTemplate}" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False"
+                                              Template="{StaticResource ScrollBarPageButtonTemplate}" />
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb MinHeight="28" Template="{StaticResource ScrollBarThumbTemplate}" />
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Channel" Property="Background" Value="#24070B16" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
         <Style.Triggers>
             <Trigger Property="Orientation" Value="Horizontal">
                 <Setter Property="Width"  Value="Auto" />
-                <Setter Property="Height" Value="8" />
+                <Setter Property="Height" Value="11" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ScrollBar">
-                            <Track x:Name="PART_Track" IsDirectionReversed="False">
-                                <Track.DecreaseRepeatButton>
-                                    <RepeatButton Command="ScrollBar.PageLeftCommand" Focusable="False"
-                                                  Template="{StaticResource ScrollBarPageButtonTemplate}" />
-                                </Track.DecreaseRepeatButton>
-                                <Track.IncreaseRepeatButton>
-                                    <RepeatButton Command="ScrollBar.PageRightCommand" Focusable="False"
-                                                  Template="{StaticResource ScrollBarPageButtonTemplate}" />
-                                </Track.IncreaseRepeatButton>
-                                <Track.Thumb>
-                                    <Thumb Template="{StaticResource ScrollBarThumbTemplate}" />
-                                </Track.Thumb>
-                            </Track>
+                            <Grid>
+                                <Border x:Name="Channel" Background="Transparent" CornerRadius="6" />
+                                <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageLeftCommand" Focusable="False"
+                                                      Template="{StaticResource ScrollBarPageButtonTemplate}" />
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageRightCommand" Focusable="False"
+                                                      Template="{StaticResource ScrollBarPageButtonTemplate}" />
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb MinWidth="28" Template="{StaticResource ScrollBarThumbTemplate}" />
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Channel" Property="Background" Value="#24070B16" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
