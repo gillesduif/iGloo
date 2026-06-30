@@ -24,7 +24,8 @@ internal static class PgpCleartextVerifier
     /// is valid for a key present in <paramref name="publicKeyRingBytes"/>.
     /// Never throws; logs warnings on failure.
     /// </summary>
-    internal static bool Verify(byte[] publicKeyRingBytes, string cleartextMessage, ILogger logger)
+    internal static bool Verify(byte[] publicKeyRingBytes, string cleartextMessage, ILogger logger,
+        string? expectedFingerprint = null)
     {
         try
         {
@@ -66,6 +67,10 @@ internal static class PgpCleartextVerifier
                     logger.LogDebug("Key ID {KeyId:X16} not found in key ring", sig.KeyId);
                     continue;
                 }
+
+                // Pinned trust anchor: the signing key must be the one we expect.
+                if (!FingerprintMatches(key, expectedFingerprint, logger))
+                    continue;
 
                 sig.InitVerify(key);
                 sig.Update(bodyBytes);
@@ -128,5 +133,24 @@ internal static class PgpCleartextVerifier
     {
         var lines = body.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
         return string.Join("\r\n", lines.Select(l => l.TrimEnd(' ', '\t')));
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="key"/>'s 160-bit fingerprint equals
+    /// <paramref name="expected"/> (ignoring spaces/colons/case). When no
+    /// fingerprint is pinned this returns true. Pinning the full fingerprint is the
+    /// actual trust anchor: it defeats 64-bit key-ID forgery and a malicious
+    /// keyserver handing back a different key.
+    /// </summary>
+    internal static bool FingerprintMatches(PgpPublicKey key, string? expected, ILogger logger)
+    {
+        if (string.IsNullOrWhiteSpace(expected)) return true;
+        var actual = Convert.ToHexString(key.GetFingerprint());
+        var want   = new string(expected.Where(Uri.IsHexDigit).ToArray());
+        if (string.Equals(actual, want, StringComparison.OrdinalIgnoreCase)) return true;
+        logger.LogWarning(
+            "Signing key fingerprint {Actual} does not match pinned {Want} - rejecting signature",
+            actual, want);
+        return false;
     }
 }

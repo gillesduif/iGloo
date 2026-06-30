@@ -46,7 +46,14 @@ public interface IIsoAcquisitionService
 }
 
 public sealed record IsoSpecification(string DistroId, Uri DownloadUrl, string ExpectedSha256,
-    Uri? GpgSignatureUrl, Uri? GpgKeyUrl);
+    Uri? GpgSignatureUrl, Uri? GpgKeyUrl, Uri? GpgSignedDataUrl = null,
+    byte[]? GpgKeyData = null, string? GpgKeyFingerprint = null);
+// GpgKeyData:        the trusted signing key bundled with the distro (preferred over
+//                    fetching GpgKeyUrl — no untrusted keyserver round-trip).
+// GpgKeyFingerprint: the pinned 160-bit fingerprint; the signing key MUST match it.
+// GpgSignedDataUrl: set for the detached-signature model (Debian/Ubuntu) — it is
+// the plain checksum data file (SHA256SUMS) that GpgSignatureUrl detaches-signs.
+// When null, GpgSignatureUrl is treated as a Fedora-style clear-signed CHECKSUM.
 
 public sealed record IsoAcquisitionResult(string LocalPath, bool Sha256Verified, bool GpgVerified, long SizeBytes);
 
@@ -140,6 +147,7 @@ public interface IDirectInstallService
         long                              linuxSizeBytes,
         string                            isoPath,
         string                            stagingDirectory,
+        InstallerBootSpec                 bootSpec,
         string?                           stage2Url = null,
         IProgress<DirectInstallProgress>? progress  = null,
         CancellationToken                 ct        = default);

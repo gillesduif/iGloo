@@ -1,0 +1,24 @@
+[Unit]
+Description=Igloo first-boot migration agent
+Documentation=https://github.com/gillesduif/iGloo
+After=network-online.target
+Wants=network-online.target
+# Hold the login screen until first-boot setup finishes. The agent performs heavy
+# package operations (drivers, codecs, Flatpaks) that must not race the desktop
+# session — doing so leaves the user on a half-initialised desktop. Ordering
+# before the display manager means setup completes (and, for NVIDIA, the machine
+# reboots) before any graphical session is created.
+Before=display-manager.service
+ConditionPathExists=/var/lib/igloo/manifest.json
+ConditionPathExists=!/var/lib/igloo/.done
+
+[Service]
+Type=oneshot
+ExecStart=/opt/igloo/first-boot.sh
+StandardOutput=append:/var/log/igloo/first-boot.log
+StandardError=append:/var/log/igloo/first-boot.log
+TimeoutStartSec=2400
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

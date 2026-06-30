@@ -1,0 +1,79 @@
+# ============================================================================
+# Igloo preseed template for Linux Mint Cinnamon (Ubiquity / automatic-ubiquity)
+# ----------------------------------------------------------------------------
+# Rendered by the Igloo Windows app and injected into the initrd; the kernel
+# cmdline carries "automatic-ubiquity file=/preseed.cfg". Ubiquity honours most
+# debian-installer keys plus its own ubiquity/* ones. Placeholders use TOKEN.
+#
+# User-file migration runs in the first-boot agent (the live installer has no
+# guaranteed ntfs-3g), reading folder/browser lists from the manifest.
+#
+# STATUS: complete config; partitioning + Ubiquity unattended behaviour are the
+# parts most likely to need on-hardware tuning (Ubiquity is the finickiest of the
+# three to drive unattended).
+# ============================================================================
+
+# ── Localization ────────────────────────────────────────────────────────────
+d-i debian-installer/locale string {{LOCALE}}
+d-i keyboard-configuration/xkb-keymap select {{KEYMAP}}
+d-i console-setup/ask_detect boolean false
+
+# ── Network / clock ─────────────────────────────────────────────────────────
+d-i netcfg/get_hostname string {{HOSTNAME}}
+d-i netcfg/get_domain string local
+d-i time/zone string {{TIMEZONE}}
+d-i clock-setup/utc boolean true
+
+# ── Accounts ────────────────────────────────────────────────────────────────
+d-i passwd/user-fullname string {{FULL_NAME}}
+d-i passwd/username string {{LINUX_USERNAME}}
+d-i passwd/user-password password {{PASSWORD}}
+d-i passwd/user-password-again password {{PASSWORD}}
+d-i user-setup/allow-password-weak boolean true
+d-i user-setup/encrypt-home boolean false
+
+# ── Partitioning ────────────────────────────────────────────────────────────
+# dual-boot → install into the free space Igloo created beside Windows.
+# replace   → use the whole disk.
+# CRITICAL (data-loss): "biggest_free" (install ONLY into the free space, preserving
+# Windows) is honoured ONLY when partman-auto/method is unset. Setting method forces
+# whole-disk mode, which WIPES every partition. Do not add it back.
+d-i partman-auto/init_automatically_partition select biggest_free
+d-i partman-auto/choose_recipe select atomic
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman/default_filesystem string ext4
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+# ── Package selection / extras ──────────────────────────────────────────────
+d-i pkgsel/include string ntfs-3g python3 python3-apt rsync git network-manager
+d-i pkgsel/update-policy select none
+
+# ── Bootloader (os-prober adds Windows to the menu) ─────────────────────────
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean true
+
+# ── Ubiquity behaviour ──────────────────────────────────────────────────────
+ubiquity ubiquity/summary note
+ubiquity ubiquity/reboot boolean true
+ubiquity ubiquity/poweroff boolean false
+
+# ── Bootstrap the Igloo first-boot agent ────────────────────────────────────
+# success_command runs at the end of the install with /target = installed system.
+ubiquity ubiquity/success_command string \
+    mkdir -p /target/opt/igloo /target/var/lib/igloo /target/var/log/igloo ; \
+    mkdir -p /tmp/oemdrv ; \
+    ( mount -t vfat -o ro LABEL=OEMDRV /tmp/oemdrv || mount -t vfat -o ro "$(blkid -L OEMDRV)" /tmp/oemdrv ) ; \
+    cp /tmp/oemdrv/igloo-agent/agent.py      /target/opt/igloo/agent.py ; \
+    cp /tmp/oemdrv/igloo-agent/first-boot.sh /target/opt/igloo/first-boot.sh ; \
+    chmod 0755 /target/opt/igloo/first-boot.sh /target/opt/igloo/agent.py ; \
+    cp /tmp/oemdrv/migration-manifest.json   /target/var/lib/igloo/manifest.json ; \
+    cp /tmp/oemdrv/igloo-agent/igloo-first-boot.service /target/etc/systemd/system/igloo-first-boot.service ; \
+    if lspci 2>/dev/null | grep -qi nvidia ; then \
+        echo 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rd.driver.blacklist=nouveau modprobe.blacklist=nouveau"' >> /target/etc/default/grub ; \
+        chroot /target update-grub ; \
+    fi ; \
+    chroot /target systemctl enable igloo-first-boot.service ; \
+    umount /tmp/oemdrv || true

@@ -1,0 +1,55 @@
+#cloud-config
+# ============================================================================
+# Igloo autoinstall (subiquity / cloud-init) for Ubuntu.
+# Rendered by the Igloo Windows app and placed on the CIDATA-labelled volume so
+# cloud-init's NoCloud datasource picks it up; the kernel cmdline carries
+# `autoinstall`. Placeholders use TOKEN (single-line values only here).
+#
+# Password: subiquity's identity.password must be a crypt hash, which Igloo
+# cannot produce on Windows. A published example hash is used as a placeholder
+# and the real password is set by a late-command (chpasswd) before first boot.
+#
+# STATUS: complete config; the dual-boot storage block is the part most likely
+# to need a subiquity-version tweak — validate on hardware (see UbuntuPlugin).
+# ============================================================================
+autoinstall:
+  version: 1
+  locale: {{LOCALE}}
+  keyboard:
+    layout: {{KEYMAP}}
+  timezone: {{TIMEZONE}}
+
+  identity:
+    hostname: {{HOSTNAME}}
+    realname: "{{FULL_NAME}}"
+    username: {{LINUX_USERNAME}}
+    # Placeholder hash (password "ubuntu"); overridden by the chpasswd
+    # late-command below before the first boot, so it is never usable.
+    password: "$6$exDY1mhS4KUYCE/2$zmn9ToZwTKLhCw.b4/b.ZRTIZM30JZ4QrOQ2aOXJ8yk96xpcCof0kxKwuX1kqLG/ygOhC38NSqGDFoeOhd5Y0"
+
+{{STORAGE}}
+
+  # The agent installs the NVIDIA driver via ubuntu-drivers on first boot.
+  drivers:
+    install: false
+
+  packages:
+    - ntfs-3g
+    - python3
+    - rsync
+    - network-manager
+
+  late-commands:
+    # Set the real user password (plaintext from the manifest).
+    - "echo '{{LINUX_USERNAME}}:{{PASSWORD}}' | curtin in-target -- chpasswd"
+    - "curtin in-target -- usermod -aG sudo {{LINUX_USERNAME}}"
+    # Bootstrap the Igloo first-boot agent into the installed system.
+    - "mkdir -p /target/opt/igloo /target/var/lib/igloo /target/var/log/igloo"
+    - "mkdir -p /tmp/oemdrv && ( mount -t vfat -o ro LABEL=CIDATA /tmp/oemdrv || mount -t vfat -o ro \"$(blkid -L CIDATA)\" /tmp/oemdrv )"
+    - "cp /tmp/oemdrv/igloo-agent/agent.py /target/opt/igloo/agent.py"
+    - "cp /tmp/oemdrv/igloo-agent/first-boot.sh /target/opt/igloo/first-boot.sh"
+    - "cp /tmp/oemdrv/migration-manifest.json /target/var/lib/igloo/manifest.json"
+    - "cp /tmp/oemdrv/igloo-agent/igloo-first-boot.service /target/etc/systemd/system/igloo-first-boot.service"
+    - "chmod 0755 /target/opt/igloo/first-boot.sh /target/opt/igloo/agent.py"
+    - "curtin in-target -- systemctl enable igloo-first-boot.service"
+    - "umount /tmp/oemdrv || true"

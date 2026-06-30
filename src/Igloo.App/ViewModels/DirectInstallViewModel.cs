@@ -4,6 +4,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Igloo.Core.Abstractions;
+using Igloo.Core.Plugins;
 using Microsoft.Extensions.Logging;
 
 namespace Igloo.App.ViewModels;
@@ -21,6 +22,7 @@ namespace Igloo.App.ViewModels;
 public sealed partial class DirectInstallViewModel : ObservableObject
 {
     private readonly IDirectInstallService              _installer;
+    private readonly DistroRegistry                     _registry;
     private readonly ILogger<DirectInstallViewModel>    _logger;
 
     private int     _diskNumber;
@@ -28,6 +30,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     private string? _isoPath;
     private string? _stagingDirectory;
     private string? _stage2Url;
+    private string? _distroId;
 
     // ── Observable state ──────────────────────────────────────────────────────
 
@@ -71,9 +74,11 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
     public DirectInstallViewModel(
         IDirectInstallService           installer,
+        DistroRegistry                  registry,
         ILogger<DirectInstallViewModel> logger)
     {
         _installer = installer;
+        _registry  = registry;
         _logger    = logger;
     }
 
@@ -88,12 +93,14 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         FileStagingResult    stagingResult,
         DiskInfo             targetDisk,
         int                  linuxSizeGb,
+        string               distroId,
         string?              stage2Url = null)
     {
         _isoPath          = isoResult.LocalPath;
         _stagingDirectory = stagingResult.StagingDirectory;
         _linuxSizeBytes   = (long)linuxSizeGb * 1024 * 1024 * 1024;
         _stage2Url        = stage2Url;
+        _distroId         = distroId;
 
         // Extract disk number from DeviceId e.g. "\\.\PHYSICALDRIVE2" → 2
         const string prefix = "\\\\.\\PHYSICALDRIVE";
@@ -147,10 +154,16 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
         try
         {
+            if (_distroId is null || !_registry.TryGet(_distroId, out var plugin))
+                throw new InvalidOperationException(
+                    $"No installer plugin is loaded for distro '{_distroId}'. " +
+                    "Ensure the distro's Igloo.Distro.*.dll is present in its distros/ folder.");
+            var bootSpec = plugin.GetInstallerBootSpec();
+
             await _installer.PrepareAsync(
                 _diskNumber, _linuxSizeBytes,
                 _isoPath, _stagingDirectory,
-                _stage2Url,
+                bootSpec, _stage2Url,
                 progress, ct);
 
             IsComplete = true;
@@ -197,7 +210,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
             // 10-second countdown reboot with a user-visible message.
             Process.Start(new ProcessStartInfo(
                 "shutdown.exe",
-                "/r /t 10 /c \"Igloo is restarting to install Fedora KDE. " +
+                "/r /t 10 /c \"iGloo is restarting to install Linux. " +
                 "Save any open work now.\"")
             {
                 UseShellExecute = false,

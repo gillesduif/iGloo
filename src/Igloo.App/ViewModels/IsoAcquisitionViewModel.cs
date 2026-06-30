@@ -71,12 +71,35 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     /// </summary>
     public void Prepare(DistroManifest distro)
     {
+        // Load the bundled, trusted signing key (if the distro ships one). Preferred
+        // over fetching from a keyserver: the trust anchor ships with the app.
+        byte[]? keyData = null;
+        if (distro.Iso.GpgKeyFile is { Length: > 0 } keyFile &&
+            distro.SourceDirectory is { Length: > 0 } srcDir)
+        {
+            var keyPath = System.IO.Path.Combine(srcDir, keyFile);
+            try
+            {
+                if (System.IO.File.Exists(keyPath))
+                    keyData = System.IO.File.ReadAllBytes(keyPath);
+                else
+                    _logger.LogWarning("Bundled signing key not found at {Path}", keyPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not read bundled signing key {Path}", keyPath);
+            }
+        }
+
         _spec = new IsoSpecification(
             distro.Id,
             new Uri(distro.Iso.DownloadUrl),
             distro.Iso.Sha256,
-            distro.Iso.GpgSignatureUrl is not null ? new Uri(distro.Iso.GpgSignatureUrl) : null,
-            distro.Iso.GpgKeyUrl       is not null ? new Uri(distro.Iso.GpgKeyUrl)       : null);
+            distro.Iso.GpgSignatureUrl  is not null ? new Uri(distro.Iso.GpgSignatureUrl)  : null,
+            distro.Iso.GpgKeyUrl        is not null ? new Uri(distro.Iso.GpgKeyUrl)        : null,
+            distro.Iso.GpgSignedDataUrl is not null ? new Uri(distro.Iso.GpgSignedDataUrl) : null,
+            keyData,
+            distro.Iso.GpgKeyFingerprint);
 
         IsComplete     = false;
         HasError       = false;

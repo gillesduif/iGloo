@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Igloo.Core.Models;
 
 namespace Igloo.App.ViewModels;
 
@@ -19,6 +20,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly FileStagingViewModel     _fileStaging;
     private readonly DirectInstallViewModel   _directInstall;
     private readonly UsbWriterViewModel       _usbWriter;
+
+    // Captured the moment the user advances past distro selection. Downstream steps
+    // (ISO download, staging, install) must NOT read DistroSelection.SelectedDistro
+    // live: it is SelectedItem?.Manifest, and WPF resets the bound SelectedItem to
+    // null whenever the list is rebuilt — which NRE'd fs.Prepare on distro.Id.
+    private DistroManifest? _selectedDistro;
+
     private int _stepIndex;
 
     [ObservableProperty]
@@ -193,6 +201,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
+        // Lock in the chosen distro before advancing. CanGoNext gates the distro
+        // step on a valid selection, so this captures the user's pick the moment
+        // they leave it — and keeps it even if the list later rebuilds.
+        if (_distroSelection.SelectedDistro is { } picked)
+            _selectedDistro = picked;
+
         _stepIndex++;
 
         // ── Branch: after FileStagingViewModel, jump to the right install step ──
@@ -223,7 +237,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 break;
 
             case IsoAcquisitionViewModel acq when !acq.IsRunning && !acq.IsComplete:
-                acq.Prepare(_distroSelection.SelectedDistro!);
+                acq.Prepare(_selectedDistro!);
                 await acq.AcquireCommand.ExecuteAsync(null);
                 break;
 
@@ -233,7 +247,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
             case FileStagingViewModel fs when !fs.IsRunning && !fs.IsComplete:
                 fs.Prepare(_migrationSetup, _preflight.Report!,
-                    _distroSelection.SelectedDistro!,
+                    _selectedDistro!,
                     _diskSelection.SelectedDisk,
                     _diskSelection.InstallMode,
                     _diskSelection.LinuxSizeGb);
@@ -244,7 +258,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 di.Prepare(_isoAcquisition.Result!, _fileStaging.Result!,
                     _diskSelection.SelectedDisk!,
                     _diskSelection.LinuxSizeGb,
-                    _distroSelection.SelectedDistro?.Iso.Stage2Url);
+                    _selectedDistro!.Id,
+                    _selectedDistro?.Iso.Stage2Url);
                 await di.InstallCommand.ExecuteAsync(null);
                 break;
 

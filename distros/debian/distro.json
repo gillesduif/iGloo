@@ -4,15 +4,16 @@
   "displayName": "Debian",
   "description": "Debian 13 \"Trixie\" with the GNOME desktop. The universal operating system: legendary stability, a vast package archive, and a volunteer project that has been the bedrock of the Linux world for three decades.",
   "logo": "logo/debian-logo.png",
-  "status": "coming-soon",
+  "status": "available",
   "defaultDesktopEnvironment": "GNOME",
-  "installerType": "Debian-Installer",
+  "installerType": "DebianInstaller",
 
   "iso": {
     "downloadUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-13.5.0-amd64-netinst.iso",
     "sha256": "95838884f5ea6c82421dfe6baaa5a639dbbe6756c1e380f9fe7a7cb0c1949d2a",
+    "gpgSignedDataUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS",
     "gpgSignatureUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS.sign",
-    "gpgKeyUrl": "https://keyring.debian.org/pks/lookup?op=get&search=0xDA87E80D6294BE9B"
+    "gpgKeyUrl": "https://keyring.debian.org/pks/lookup?op=get&options=mr&search=0xDA87E80D6294BE9B"
   },
 
   "tags": [
@@ -31,6 +32,6 @@
 
   "maintainer": {
     "github": "gillesduif",
-    "note": "Catalog-only entry: the install plugin is not written yet. See distros/README.md to contribute."
+    "note": "Debian-installer (preseed) plugin. Reference implementation for the Debian-family installers (Ubuntu, Linux Mint derive from it)."
   }
 }

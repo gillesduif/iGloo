@@ -4,15 +4,16 @@
   "displayName": "Linux Mint",
   "description": "Linux Mint 22.3 with the Cinnamon desktop. The classic recommendation for Windows switchers: a familiar taskbar-and-menu layout, conservative updates on an Ubuntu LTS base, and multimedia support that works out of the box.",
   "logo": "logo/linuxmint-logo.png",
-  "status": "coming-soon",
+  "status": "available",
   "defaultDesktopEnvironment": "Cinnamon",
   "installerType": "Ubiquity",
 
   "iso": {
     "downloadUrl": "https://mirrors.kernel.org/linuxmint/stable/22.3/linuxmint-22.3-cinnamon-64bit.iso",
     "sha256": "a081ab202cfda17f6924128dbd2de8b63518ac0531bcfe3f1a1b88097c459bd4",
+    "gpgSignedDataUrl": "https://mirrors.kernel.org/linuxmint/stable/22.3/sha256sum.txt",
     "gpgSignatureUrl": "https://mirrors.kernel.org/linuxmint/stable/22.3/sha256sum.txt.gpg",
-    "gpgKeyUrl": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x27DEB15644C6B3CF3BD7D291300F846BA25BAE09"
+    "gpgKeyUrl": "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x27DEB15644C6B3CF3BD7D291300F846BA25BAE09"
   },
 
   "tags": [
@@ -32,6 +33,6 @@
 
   "maintainer": {
     "github": "gillesduif",
-    "note": "Catalog-only entry: the install plugin is not written yet. Want Mint in iGloo sooner? See distros/README.md."
+    "note": "Ubiquity (automatic-ubiquity preseed) plugin on the Ubuntu LTS base. Shares the Debian-family first-boot agent."
   }
 }

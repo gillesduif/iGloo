@@ -57,6 +57,27 @@ public sealed record DistroIsoSpec
     [JsonPropertyName("gpgKeyUrl")]       public string? GpgKeyUrl              { get; init; }
 
     /// <summary>
+    /// Detached-signature model only (Debian / Ubuntu): URL of the plain checksum
+    /// data file (<c>SHA256SUMS</c>) that <see cref="GpgSignatureUrl"/> signs. When
+    /// null, <see cref="GpgSignatureUrl"/> is a Fedora-style clear-signed CHECKSUM.
+    /// </summary>
+    [JsonPropertyName("gpgSignedDataUrl")] public string? GpgSignedDataUrl       { get; init; }
+
+    /// <summary>
+    /// Path (relative to the distro folder) of the bundled, trusted signing key —
+    /// e.g. <c>keys/debian-cd.asc</c>. Preferred over <see cref="GpgKeyUrl"/>: the
+    /// trust anchor ships with the app instead of being fetched from a keyserver.
+    /// </summary>
+    [JsonPropertyName("gpgKeyFile")]        public string? GpgKeyFile            { get; init; }
+
+    /// <summary>
+    /// Pinned full 160-bit fingerprint of the signing key (spaces/colons ignored).
+    /// When set, the key that signs the checksum file MUST match it, defeating
+    /// 64-bit key-ID forgery and a malicious keyserver. Establish it out-of-band.
+    /// </summary>
+    [JsonPropertyName("gpgKeyFingerprint")] public string? GpgKeyFingerprint     { get; init; }
+
+    /// <summary>
     /// URL of the Anaconda stage-2 OS tree (e.g. the Fedora mirror's <c>/os/</c> path).
     /// Required for netinstall: without it Anaconda cannot locate the installer payload.
     /// Format: <c>https://…/os/</c> (directory, trailing slash).

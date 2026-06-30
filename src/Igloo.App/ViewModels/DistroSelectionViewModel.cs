@@ -58,14 +58,28 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     /// <see cref="DistroItems"/>. Called by <c>MainWindowViewModel</c> every time the user
     /// navigates to this step so the list always reflects the current hardware state.
     /// </summary>
+    private bool  _built;
+    private bool  _lastSecureBootOn;
+
     public void RefreshCompatibility(PreflightReport? report)
     {
         var secureBootOn = report?.SecureBootEnabled ?? false;
-        var previousId   = SelectedItem?.Manifest.Id;
+
+        // Only rebuild the list when something that affects it actually changed.
+        // Rebuilding reassigns DistroItems, which makes WPF's bound ListBox reset
+        // its SelectedItem to null (the old item is gone from the new list) — so an
+        // unconditional rebuild on every visit silently drops the user's selection
+        // when they navigate back to this step, NRE-ing downstream (distro.Id).
+        if (_built && secureBootOn == _lastSecureBootOn)
+            return;
+
+        var previousId = SelectedItem?.Manifest.Id;
 
         DistroItems = _loader.LoadedDistros
             .Select(m => EvaluateItem(m, secureBootOn))
             .ToList();
+        _built            = true;
+        _lastSecureBootOn = secureBootOn;
 
         // Restore the previous selection if it is still compatible.
         var restored = DistroItems.FirstOrDefault(i => i.Manifest.Id == previousId);

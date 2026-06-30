@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Igloo.Distro.Ubuntu</RootNamespace>
+    <AssemblyName>Igloo.Distro.Ubuntu</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Igloo.Core\Igloo.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="autoinstall\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\_debian-family\agent\**\*"
+             Link="agent\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="distro.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="CopyPluginToDistroRoot" AfterTargets="Build">
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"
+          DestinationFolder="$(MSBuildProjectDirectory)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

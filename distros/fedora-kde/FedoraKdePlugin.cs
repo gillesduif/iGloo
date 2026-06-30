@@ -172,6 +172,31 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         }
     }
 
+    public InstallerBootSpec GetInstallerBootSpec() => new()
+    {
+        MenuTitle     = "Install Fedora KDE (Igloo)",
+        // Anaconda reads ks.cfg from the OEMDRV label and loads its stage-2
+        // (install.img) locally so no 862 MiB network download is needed at boot.
+        KernelCmdline = "inst.stage2=hd:LABEL={LABEL}: inst.ks=hd:LABEL={LABEL}:/ks.cfg inst.geoloc=0",
+        KernelIsoPaths =
+        [
+            "boot/x86_64/loader/linux",   // Fedora 44+
+            "images/pxeboot/vmlinuz",     // Fedora 40–43
+            "isolinux/vmlinuz",           // Fedora ≤39
+        ],
+        InitrdIsoPaths =
+        [
+            "boot/x86_64/loader/initrd",
+            "images/pxeboot/initrd.img",
+            "isolinux/initrd.img",
+        ],
+        ExtraIsoFiles =
+        [
+            // Anaconda stage-2 squashfs — copied to OEMDRV so inst.stage2=hd:LABEL= works offline.
+            new IsoFileStage("images/install.img", "images/install.img", Required: false),
+        ],
+    };
+
     /// <summary>
     /// Replaces every bare CR or CRLF sequence with a single LF.
     /// Returns the original array if no CR bytes are present (fast path).

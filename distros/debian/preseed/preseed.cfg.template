@@ -1,0 +1,128 @@
+# ============================================================================
+# Igloo preseed template for Debian (debian-installer)
+# ----------------------------------------------------------------------------
+# Rendered at runtime by the Igloo Windows-side app. Placeholders (written
+# WITHOUT braces in this comment on purpose — the renderer does a literal
+# replace of each "TOKEN" and a multi-line value injected into a comment
+# would break it; see the Fedora kickstart for the cautionary tale):
+#   LOCALE            e.g. en_US.UTF-8
+#   KEYMAP            console/X keymap, e.g. be, us, de
+#   TIMEZONE          IANA tz, e.g. Europe/Brussels
+#   HOSTNAME          <linux-username>-pc
+#   LINUX_USERNAME    the user's chosen Linux login name
+#   FULL_NAME         display name (falls back to username)
+#   PASSWORD          plaintext password for the new user
+#   WINDOWS_USERNAME  Windows login name (the first-boot agent uses it to find the
+#                     user's home on the NTFS partition for file migration)
+#   INSTALL_MODE      "replace" → wipe disk; "dual-boot" → use free space
+#
+# IMPORTANT: the user-file migration (Documents, Downloads, browser profiles) is
+# NOT done here. debian-installer runs in a busybox environment without ntfs-3g,
+# so the Igloo first-boot agent performs the NTFS copy on the installed system
+# (which has full tooling) by reading the folder/browser lists straight from the
+# migration manifest. The preseed only installs the OS + bootstraps the agent.
+#
+# STATUS: scaffolding — the preseed delivery + partitioning need real-ISO
+# validation on hardware, exactly as the Fedora path did.
+# ============================================================================
+
+# ── Localization ────────────────────────────────────────────────────────────
+d-i debian-installer/locale string {{LOCALE}}
+d-i keyboard-configuration/xkb-keymap select {{KEYMAP}}
+d-i console-setup/ask_detect boolean false
+
+# ── Network ─────────────────────────────────────────────────────────────────
+d-i netcfg/choose_interface select auto
+d-i netcfg/get_hostname string {{HOSTNAME}}
+d-i netcfg/get_domain string local
+d-i netcfg/hostname string {{HOSTNAME}}
+# Allow non-free firmware to load (Wi-Fi/GPU firmware on real hardware).
+d-i hw-detect/load_firmware boolean true
+
+# ── Mirror / apt ────────────────────────────────────────────────────────────
+d-i mirror/country string manual
+d-i mirror/http/hostname string deb.debian.org
+d-i mirror/http/directory string /debian
+d-i mirror/http/proxy string
+d-i apt-setup/non-free-firmware boolean true
+d-i apt-setup/non-free boolean true
+d-i apt-setup/contrib boolean true
+
+# ── Clock / timezone ────────────────────────────────────────────────────────
+d-i clock-setup/utc boolean true
+d-i time/zone string {{TIMEZONE}}
+d-i clock-setup/ntp boolean true
+
+# ── Accounts ────────────────────────────────────────────────────────────────
+# Lock the root account; the new user gets sudo via the "sudo" group.
+d-i passwd/root-login boolean false
+d-i passwd/user-fullname string {{FULL_NAME}}
+d-i passwd/username string {{LINUX_USERNAME}}
+d-i passwd/user-password password {{PASSWORD}}
+d-i passwd/user-password-again password {{PASSWORD}}
+d-i user-setup/allow-password-weak boolean true
+d-i user-setup/encrypt-home boolean false
+
+# ── Partitioning ────────────────────────────────────────────────────────────
+# Igloo already shrank Windows before boot, leaving unallocated free space.
+# dual-boot → install into the biggest free region, preserving Windows + ESP.
+# replace   → use the whole disk.
+# NOTE: this is the part most likely to need tuning per machine; validate the
+# recipe on hardware before trusting it unattended.
+# CRITICAL (data-loss): do NOT set partman-auto/method or partman-auto/disk here.
+# "biggest_free" — install ONLY into the unallocated space Igloo carved out,
+# preserving Windows + ESP + OEMDRV — is honoured ONLY when partman-auto/method is
+# unset. Setting method (or disk) forces whole-disk mode, which WIPES every
+# partition. That is exactly what destroyed Windows in early testing.
+d-i partman-auto/init_automatically_partition select biggest_free
+d-i partman-auto/choose_recipe select atomic
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-md/device_remove_md boolean true
+d-i partman/default_filesystem string ext4
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+# ── Base + desktop ──────────────────────────────────────────────────────────
+d-i base-installer/install-recommends boolean true
+tasksel tasksel/first multiselect standard, gnome-desktop
+# ntfs-3g so the first-boot agent can read the Windows partition; the rest is
+# pulled by the desktop task. python3 runs the agent; rsync speeds file copies.
+d-i pkgsel/include string ntfs-3g python3 python3-apt rsync git network-manager
+d-i pkgsel/upgrade select full-upgrade
+popularity-contest popularity-contest/participate boolean false
+
+# ── Bootloader ──────────────────────────────────────────────────────────────
+# os-prober adds the Windows entry so dual-boot users get a menu every startup.
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean true
+d-i grub-installer/bootdev string default
+
+# ── Finish ──────────────────────────────────────────────────────────────────
+d-i finish-install/reboot_in_progress note
+
+# ── Bootstrap the Igloo first-boot agent ────────────────────────────────────
+# Runs in the installer (busybox) environment; /target is the new system.
+# Mounts OEMDRV (FAT32), copies the agent + manifest + systemd unit into the
+# installed system, blacklists nouveau for a clean first boot on NVIDIA, and
+# enables the one-shot first-boot service. The agent itself (on first boot)
+# installs drivers, sets up Flatpak, writes Wi-Fi keyfiles, and migrates the
+# user's files from the Windows NTFS partition.
+d-i preseed/late_command string \
+    in-target mkdir -p /opt/igloo /var/lib/igloo /var/log/igloo ; \
+    mkdir -p /tmp/oemdrv ; \
+    for d in /dev/nvme*n*p* /dev/sd*[0-9]* /dev/vd*[0-9]* /dev/mmcblk*p* ; do mount -o ro "$d" /tmp/oemdrv 2>/dev/null && [ -d /tmp/oemdrv/igloo-agent ] && { echo "igloo: OEMDRV found on $d" >&2 ; break ; } ; umount /tmp/oemdrv 2>/dev/null ; done ; \
+    cp /tmp/oemdrv/igloo-agent/agent.py      /target/opt/igloo/agent.py ; \
+    cp /tmp/oemdrv/igloo-agent/first-boot.sh /target/opt/igloo/first-boot.sh ; \
+    chmod 0755 /target/opt/igloo/first-boot.sh /target/opt/igloo/agent.py ; \
+    cp /tmp/oemdrv/migration-manifest.json   /target/var/lib/igloo/manifest.json ; \
+    cp /tmp/oemdrv/igloo-agent/igloo-first-boot.service /target/etc/systemd/system/igloo-first-boot.service ; \
+    if grep -qi nvidia /proc/bus/pci/devices 2>/dev/null || lspci 2>/dev/null | grep -qi nvidia ; then \
+        echo 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rd.driver.blacklist=nouveau modprobe.blacklist=nouveau"' >> /target/etc/default/grub ; \
+    fi ; \
+    echo 'GRUB_DISABLE_OS_PROBER=false' >> /target/etc/default/grub ; \
+    in-target apt-get install -y os-prober ; \
+    in-target update-grub ; \
+    in-target systemctl enable igloo-first-boot.service ; \
+    umount /tmp/oemdrv || true

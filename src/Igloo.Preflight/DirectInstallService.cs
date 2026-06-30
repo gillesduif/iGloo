@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Management;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
@@ -76,6 +78,11 @@ public sealed class DirectInstallService : IDirectInstallService
     private int?   _diskNumber;
     private uint?  _partitionNumber;
 
+    // The selected distro's boot recipe (kernel/initrd paths, cmdline, volume
+    // label, config-delivery). Set at the start of Prepare; read by the boot
+    // helpers so the same pipeline drives Anaconda, debian-installer, subiquity, …
+    private InstallerBootSpec _bootSpec = null!;
+
     private readonly IPartitionResizeService          _resizer;
     private readonly ILogger<DirectInstallService>    _logger;
 
@@ -134,9 +141,10 @@ public sealed class DirectInstallService : IDirectInstallService
 
     public Task PrepareAsync(
         int diskNumber, long linuxSizeBytes, string isoPath, string stagingDirectory,
+        InstallerBootSpec bootSpec,
         string? stage2Url = null,
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
-        => Task.Run(() => Prepare(diskNumber, linuxSizeBytes, isoPath, stagingDirectory, stage2Url, progress, ct), ct);
+        => Task.Run(() => Prepare(diskNumber, linuxSizeBytes, isoPath, stagingDirectory, bootSpec, stage2Url, progress, ct), ct);
 
     public Task RegisterBootEntryAsync(
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
@@ -146,9 +154,11 @@ public sealed class DirectInstallService : IDirectInstallService
 
     private void Prepare(
         int diskNumber, long linuxSizeBytes, string isoPath, string stagingDirectory,
-        string? stage2Url, IProgress<DirectInstallProgress>? prog, CancellationToken ct)
+        InstallerBootSpec bootSpec, string? stage2Url,
+        IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         _diskNumber = diskNumber;
+        _bootSpec   = bootSpec;
 
         // ── Step 1: Measure ISO content to size the OEMDRV partition ─────────
         // Mount the ISO just long enough to stat kernel + initrd + install.img sizes.
@@ -164,7 +174,10 @@ public sealed class DirectInstallService : IDirectInstallService
         ct.ThrowIfCancellationRequested();
 
         // ── Step 2: Shrink Windows partition (skip if OEMDRV already exists) ──
-        long oemDrvBytes = RoundUpMiB(extractedBytes + PartitionOverheadBytes);
+        // Distros whose installer loop-mounts the whole ISO (Debian iso-scan,
+        // Ubuntu/Mint casper) need room for the ISO on the partition too.
+        long fullIsoBytes = _bootSpec.CopyFullIsoToVolume ? new FileInfo(isoPath).Length : 0;
+        long oemDrvBytes  = RoundUpMiB(extractedBytes + fullIsoBytes + PartitionOverheadBytes);
         char driveLetter;
 
         var existing = FindExistingOemDrv(diskNumber);
@@ -206,8 +219,18 @@ public sealed class DirectInstallService : IDirectInstallService
         //           images/install.img   (Anaconda stage2, ~870 MiB)
         // Writes:   EFI/fedora/grub.cfg  (points Anaconda at inst.ks=hd:LABEL=OEMDRV:/ks.cfg)
         Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Extracting boot files from ISO…");
-        ConfigureBootFiles(isoPath, driveLetter, initrdBytes, installImgBytes, prog, ct);
+        ConfigureBootFiles(isoPath, driveLetter, stagingDirectory, initrdBytes, installImgBytes, prog, ct);
         ct.ThrowIfCancellationRequested();
+
+        // ── Step 4b: Copy the whole ISO onto OEMDRV (iso-scan / casper need it) ──
+        if (_bootSpec.CopyFullIsoToVolume && _bootSpec.IsoVolumeFileName is { } isoName)
+        {
+            var isoDst = Path.Combine($"{driveLetter}:\\", isoName);
+            Report(prog, DirectInstallPhase.CopyingIso, message: "Copying installer ISO…");
+            CopyWithProgress(isoPath, isoDst, new FileInfo(isoPath).Length, prog, ct);
+            ct.ThrowIfCancellationRequested();
+            _logger.LogInformation("Full ISO copied to {Dst}", isoDst);
+        }
 
         // ── Step 5: Copy staging artefacts (ks.cfg, manifest, agent) ─────────
         Report(prog, DirectInstallPhase.CopyingFiles, message: "Copying migration files…");
@@ -231,19 +254,25 @@ public sealed class DirectInstallService : IDirectInstallService
             var isoRoot = $"{mountedLetter}:\\";
             var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot);
 
-            var installImgSrc  = Path.Combine(isoRoot, "images", "install.img");
-            long installImgBytes = File.Exists(installImgSrc)
-                ? new FileInfo(installImgSrc).Length
-                : 0L;
-            if (installImgBytes == 0)
-                _logger.LogWarning(
-                    "images/install.img not found on ISO - " +
-                    "Anaconda will need to download the stage2 payload from the network");
-            else
-                _logger.LogInformation(
-                    "ISO images/install.img: {MiB} MiB", installImgBytes / MiB);
+            // Sum the distro's declared extra ISO files (e.g. Anaconda's
+            // images/install.img stage-2 squashfs). Empty for d-i / subiquity.
+            long extraBytes = 0;
+            foreach (var f in _bootSpec.ExtraIsoFiles)
+            {
+                var src = Path.Combine(isoRoot, f.IsoRelativePath.Replace('/', '\\'));
+                if (File.Exists(src))
+                {
+                    var len = new FileInfo(src).Length;
+                    extraBytes += len;
+                    _logger.LogInformation("ISO extra {Path}: {MiB} MiB", f.IsoRelativePath, len / MiB);
+                }
+                else if (f.Required)
+                {
+                    _logger.LogWarning("Required ISO file {Path} not found on ISO", f.IsoRelativePath);
+                }
+            }
 
-            return (new FileInfo(kernelSrc).Length, new FileInfo(initrdSrc).Length, installImgBytes);
+            return (new FileInfo(kernelSrc).Length, new FileInfo(initrdSrc).Length, extraBytes);
         }
         finally
         {
@@ -269,7 +298,7 @@ public sealed class DirectInstallService : IDirectInstallService
             rescan
             select disk {diskNumber}
             create partition primary size={sizeMiB} align=1024
-            format fs=fat32 label=OEMDRV quick
+            format fs=fat32 label={_bootSpec.VolumeLabel} quick
             assign letter={letter}
             exit
             """;
@@ -385,7 +414,7 @@ public sealed class DirectInstallService : IDirectInstallService
                 if (!di.IsReady) continue;
                 try
                 {
-                    if (!string.Equals(di.VolumeLabel, "OEMDRV", StringComparison.OrdinalIgnoreCase))
+                    if (!string.Equals(di.VolumeLabel, _bootSpec.VolumeLabel, StringComparison.OrdinalIgnoreCase))
                         continue;
                 }
                 catch { continue; }
@@ -440,14 +469,48 @@ public sealed class DirectInstallService : IDirectInstallService
         }
     }
 
+    /// <summary>
+    /// Downloads <paramref name="url"/> to <paramref name="destPath"/> with progress.
+    /// Used for installer kernel/initrd that don't live on the ISO (Debian hd-media,
+    /// which runs iso-scan). A short-lived HttpClient is fine for these one-off fetches.
+    /// </summary>
+    private static void DownloadTo(Uri url, string destPath,
+        IProgress<DirectInstallProgress>? prog, CancellationToken ct)
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(20) };
+        using var resp = http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct)
+                             .GetAwaiter().GetResult();
+        resp.EnsureSuccessStatusCode();
+        long total = resp.Content.Headers.ContentLength ?? 0;
+
+        using var src = resp.Content.ReadAsStream();
+        using var dst = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20);
+        var  buf  = new byte[1 << 20];
+        long done = 0;
+        int  read;
+        while ((read = src.Read(buf, 0, buf.Length)) > 0)
+        {
+            ct.ThrowIfCancellationRequested();
+            dst.Write(buf, 0, read);
+            done += read;
+            prog?.Report(new DirectInstallProgress(DirectInstallPhase.CopyingIso, done, total));
+        }
+    }
+
     // ── Step 4 - copy artefacts ───────────────────────────────────────────────
 
     private void CopyStagingArtefacts(string stagingDir, string oemDrvRoot, CancellationToken ct)
     {
-        // Copy ks.cfg
-        CopyIfExists(stagingDir, oemDrvRoot, "ks.cfg");
-        // Copy migration manifest
-        CopyIfExists(stagingDir, oemDrvRoot, "migration-manifest.json");
+        // Copy every top-level staging file to the volume root: the rendered
+        // installer config (ks.cfg / preseed.cfg / user-data + meta-data — name
+        // varies per distro) and migration-manifest.json. Ubuntu's subiquity reads
+        // user-data/meta-data straight from this (CIDATA-labelled) volume, so a
+        // distro-agnostic copy is required, not a hardcoded "ks.cfg".
+        foreach (var f in Directory.EnumerateFiles(stagingDir))
+        {
+            ct.ThrowIfCancellationRequested();
+            File.Copy(f, Path.Combine(oemDrvRoot, Path.GetFileName(f)), overwrite: true);
+        }
         // Copy igloo-agent directory
         var agentSrc = Path.Combine(stagingDir, "igloo-agent");
         var agentDst = Path.Combine(oemDrvRoot, "igloo-agent");
@@ -464,13 +527,6 @@ public sealed class DirectInstallService : IDirectInstallService
         // Note: user files (staging/files/) are intentionally NOT copied here.
         // The kickstart %post will mount the Windows NTFS partition and copy directly.
         _logger.LogInformation("Staging artefacts copied to {Root}", oemDrvRoot);
-    }
-
-    private static void CopyIfExists(string srcDir, string dstDir, string filename)
-    {
-        var src = Path.Combine(srcDir, filename);
-        if (File.Exists(src))
-            File.Copy(src, Path.Combine(dstDir, filename), overwrite: true);
     }
 
     // ── Step 5 - extract kernel + initrd from ISO ────────────────────────────
@@ -490,7 +546,7 @@ public sealed class DirectInstallService : IDirectInstallService
     /// <c>inst.ks=hd:LABEL=OEMDRV:/ks.cfg</c> for unattended dual-boot install.
     /// </summary>
     private void ConfigureBootFiles(
-        string isoPath, char oemDrvLetter, long initrdBytes, long installImgBytes,
+        string isoPath, char oemDrvLetter, string stagingDirectory, long initrdBytes, long installImgBytes,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         var oemDrvRoot = $"{oemDrvLetter}:\\";
@@ -506,18 +562,44 @@ public sealed class DirectInstallService : IDirectInstallService
             var isoRoot = $"{mountedLetter}:\\";
 
             // ── 1. Extract kernel + initrd ─────────────────────────────────────
-            var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot);
-            _logger.LogInformation("ISO kernel: {K}", kernelSrc);
-            _logger.LogInformation("ISO initrd: {I}", initrdSrc);
-
-            _logger.LogInformation("Extracting kernel → {Dst}", Path.Combine(bootDst, KernelFile));
-            CopyFileRobust(kernelSrc, Path.Combine(bootDst, KernelFile));
+            var kernelDst = Path.Combine(bootDst, KernelFile);
+            var initrdDst = Path.Combine(bootDst, InitrdFile);
+            if (_bootSpec.KernelUrl is { } kernelUrl && _bootSpec.InitrdUrl is { } initrdUrl)
+            {
+                // Download the installer kernel+initrd (e.g. Debian hd-media, which
+                // runs iso-scan) rather than extracting the ISO's cdrom-detect initrd.
+                _logger.LogInformation("Downloading installer kernel from {Url}", kernelUrl);
+                DownloadTo(kernelUrl, kernelDst, prog, ct);
+                _logger.LogInformation("Downloading installer initrd from {Url}", initrdUrl);
+                DownloadTo(initrdUrl, initrdDst, prog, ct);
+            }
+            else
+            {
+                var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot);
+                _logger.LogInformation("ISO kernel: {K}  initrd: {I}", kernelSrc, initrdSrc);
+                CopyFileRobust(kernelSrc, kernelDst);
+                ct.ThrowIfCancellationRequested();
+                CopyWithProgress(initrdSrc, initrdDst, initrdBytes, prog, ct);
+            }
             ct.ThrowIfCancellationRequested();
 
-            // Initrd for netinstall is 200–400 MB - report progress.
-            _logger.LogInformation("Extracting initrd → {Dst}", Path.Combine(bootDst, InitrdFile));
-            CopyWithProgress(initrdSrc, Path.Combine(bootDst, InitrdFile), initrdBytes, prog, ct);
-            ct.ThrowIfCancellationRequested();
+            // Inject the rendered installer config into the initrd (preseed
+            // delivery) when the distro uses that method - the standard
+            // fully-unattended path for debian-installer / Ubiquity.
+            if (_bootSpec.ConfigDelivery == ConfigDelivery.InjectIntoInitrd
+                && _bootSpec.InitrdConfigPath is { } injPath)
+            {
+                var cfgSrc = Path.Combine(stagingDirectory, injPath);
+                if (File.Exists(cfgSrc))
+                {
+                    AppendFileToInitrd(Path.Combine(bootDst, InitrdFile), injPath, File.ReadAllBytes(cfgSrc));
+                    _logger.LogInformation("Injected {Cfg} into initrd for unattended install", injPath);
+                }
+                else
+                {
+                    _logger.LogWarning("Config {Cfg} not found in staging for initrd injection", cfgSrc);
+                }
+            }
 
             // ── 2. Copy shim + GRUB EFI binaries ──────────────────────────────
             var (shimSrc, grubSrc) = FindEfiFiles(isoRoot);
@@ -534,26 +616,23 @@ public sealed class DirectInstallService : IDirectInstallService
             // Anaconda downloads 862 MiB at boot time which proved unreliable
             // (connection drops, VM power-off at 99%). Copying to OEMDRV and using
             // inst.stage2=hd:LABEL=OEMDRV: is always fast and works offline.
-            var installImgSrc = Path.Combine(isoRoot, "images", "install.img");
-            if (File.Exists(installImgSrc))
+            foreach (var f in _bootSpec.ExtraIsoFiles)
             {
-                var installImgDstDir = Path.Combine(oemDrvRoot, "images");
-                var installImgDst    = Path.Combine(installImgDstDir, "install.img");
-                Directory.CreateDirectory(installImgDstDir);
-                _logger.LogInformation(
-                    "Copying images/install.img ({MiB} MiB) → {Dst}",
-                    installImgBytes / MiB, installImgDst);
+                var src = Path.Combine(isoRoot, f.IsoRelativePath.Replace('/', '\\'));
+                if (!File.Exists(src))
+                {
+                    if (f.Required)
+                        _logger.LogWarning("Required ISO file {Path} not found - install may fail", f.IsoRelativePath);
+                    continue;
+                }
+                var dst = Path.Combine(oemDrvRoot, f.OemDrvRelativePath.Replace('/', '\\'));
+                Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+                var len = new FileInfo(src).Length;
                 Report(prog, DirectInstallPhase.ConfiguringGrub,
-                    message: $"Copying installer payload ({installImgBytes / MiB} MiB)…");
-                CopyWithProgress(installImgSrc, installImgDst, installImgBytes, prog, ct);
+                    message: $"Copying installer payload ({len / MiB} MiB)...");
+                CopyWithProgress(src, dst, len, prog, ct);
                 ct.ThrowIfCancellationRequested();
-                _logger.LogInformation("images/install.img copied to OEMDRV");
-            }
-            else
-            {
-                _logger.LogWarning(
-                    "images/install.img not found on ISO - " +
-                    "Anaconda will attempt a network stage2 download, which may be slow or fail");
+                _logger.LogInformation("Copied {Src} to OEMDRV {Dst}", f.IsoRelativePath, f.OemDrvRelativePath);
             }
         }
         finally
@@ -569,8 +648,11 @@ public sealed class DirectInstallService : IDirectInstallService
         //   • EFI/BOOT/grubx64.efi   → prefix /EFI/BOOT    → looks for /EFI/BOOT/grub.cfg
         // Because we don't know at runtime which binary we got (and they can differ
         // even across minor Fedora releases), we write grub.cfg to BOTH locations.
+        // grubx64.efi's compiled-in prefix differs per distro (/EFI/fedora,
+        // /EFI/debian, /EFI/ubuntu, or /EFI/BOOT). We don't know which binary the
+        // ISO shipped, so write grub.cfg to all of them.
         var grubCfgContent = BuildGrubConfig();
-        foreach (var cfgDir in new[] { GrubCfgDir, @"EFI\BOOT" })
+        foreach (var cfgDir in new[] { @"EFI\BOOT", @"EFI\fedora", @"EFI\debian", @"EFI\ubuntu" })
         {
             var dir  = Path.Combine(oemDrvRoot, cfgDir);
             var path = Path.Combine(dir, "grub.cfg");
@@ -594,28 +676,16 @@ public sealed class DirectInstallService : IDirectInstallService
     /// </summary>
     private string FindKernelFiles(string isoRoot, out string initrdPath)
     {
-        // (kernelRelPath, initrdRelPath) pairs in preference order.
-        var candidates = new (string kernel, string initrd)[]
+        // Try the distro's declared kernel/initrd locations (from the boot spec),
+        // pairing any existing kernel with any existing initrd.
+        foreach (var k in _bootSpec.KernelIsoPaths)
         {
-            // Fedora 44+ - kernel named "linux", initrd named "initrd" (no extension)
-            (Path.Combine("boot", "x86_64", "loader", "linux"),
-             Path.Combine("boot", "x86_64", "loader", "initrd")),
-            // Fedora 40–43
-            (Path.Combine("images", "pxeboot", "vmlinuz"),
-             Path.Combine("images", "pxeboot", "initrd.img")),
-            // Fedora ≤39 / other distributions
-            (Path.Combine("isolinux", "vmlinuz"),
-             Path.Combine("isolinux", "initrd.img")),
-        };
-
-        foreach (var (k, i) in candidates)
-        {
-            var kFull = Path.Combine(isoRoot, k);
-            var iFull = Path.Combine(isoRoot, i);
-            if (File.Exists(kFull) && File.Exists(iFull))
+            var kFull = Path.Combine(isoRoot, k.Replace('/', '\\'));
+            if (!File.Exists(kFull)) continue;
+            foreach (var i in _bootSpec.InitrdIsoPaths)
             {
-                initrdPath = iFull;
-                return kFull;
+                var iFull = Path.Combine(isoRoot, i.Replace('/', '\\'));
+                if (File.Exists(iFull)) { initrdPath = iFull; return kFull; }
             }
         }
 
@@ -670,9 +740,11 @@ public sealed class DirectInstallService : IDirectInstallService
         // ── Shim candidates (in priority order) ─────────────────────────────
         string[] shimCandidates =
         [
-            Path.Combine(isoRoot, "EFI", "fedora", "shimx64.efi"),   // live/full ISO
+            Path.Combine(isoRoot, "EFI", "fedora", "shimx64.efi"),   // Fedora live/full ISO
+            Path.Combine(isoRoot, "EFI", "debian", "shimx64.efi"),   // Debian
+            Path.Combine(isoRoot, "EFI", "ubuntu", "shimx64.efi"),   // Ubuntu / Mint
             Path.Combine(isoRoot, "EFI", "BOOT",   "shimx64.efi"),   // some ISOs
-            Path.Combine(isoRoot, "EFI", "BOOT",   "BOOTX64.EFI"),   // netinstall fallback name
+            Path.Combine(isoRoot, "EFI", "BOOT",   "BOOTX64.EFI"),   // UEFI fallback name (most netinst/live)
         ];
 
         var shimPath = shimCandidates.FirstOrDefault(File.Exists)
@@ -683,7 +755,9 @@ public sealed class DirectInstallService : IDirectInstallService
         // ── GRUB candidates ──────────────────────────────────────────────────
         string[] grubCandidates =
         [
-            Path.Combine(isoRoot, "EFI", "fedora", "grubx64.efi"),   // preferred (compiled prefix)
+            Path.Combine(isoRoot, "EFI", "fedora", "grubx64.efi"),   // Fedora
+            Path.Combine(isoRoot, "EFI", "debian", "grubx64.efi"),   // Debian
+            Path.Combine(isoRoot, "EFI", "ubuntu", "grubx64.efi"),   // Ubuntu / Mint
             Path.Combine(isoRoot, "EFI", "BOOT",   "grubx64.efi"),   // fallback
         ];
 
@@ -710,6 +784,70 @@ public sealed class DirectInstallService : IDirectInstallService
         fsIn.CopyTo(fsOut);
     }
 
+    // ── initrd config injection ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Appends <paramref name="fileData"/> as a single-file gzipped cpio (newc)
+    /// member to <paramref name="initrdPath"/>. The Linux initramfs loader
+    /// concatenates gzip streams, so the file appears at
+    /// /<paramref name="nameInInitrd"/> in the initramfs root. This is the
+    /// standard fully-unattended preseed delivery for debian-installer / Ubiquity
+    /// (referenced by the kernel cmdline as <c>preseed/file=/preseed.cfg</c>).
+    /// </summary>
+    private static void AppendFileToInitrd(string initrdPath, string nameInInitrd, byte[] fileData)
+    {
+        var cpio = BuildNewcCpio(nameInInitrd.TrimStart('/'), fileData);
+        using var gzBuf = new MemoryStream();
+        using (var gz = new GZipStream(gzBuf, CompressionLevel.Optimal, leaveOpen: true))
+            gz.Write(cpio, 0, cpio.Length);
+        var gzBytes = gzBuf.ToArray();
+        using var fs = new FileStream(initrdPath, FileMode.Append, FileAccess.Write);
+        fs.Write(gzBytes, 0, gzBytes.Length);
+    }
+
+    /// <summary>Builds a cpio "newc" archive containing one regular file + the trailer.</summary>
+    private static byte[] BuildNewcCpio(string name, byte[] data)
+    {
+        using var ms = new MemoryStream();
+        WriteCpioEntry(ms, name,         data,                mode: 0x81A4, nlink: 1); // 0100644
+        WriteCpioEntry(ms, "TRAILER!!!", Array.Empty<byte>(), mode: 0,      nlink: 1);
+        return ms.ToArray();
+    }
+
+    private static void WriteCpioEntry(MemoryStream ms, string name, byte[] data, uint mode, uint nlink)
+    {
+        static string H(uint v) => v.ToString("X8");
+        var  nameBytes = Encoding.ASCII.GetBytes(name);
+        uint namesize  = (uint)nameBytes.Length + 1; // include trailing NUL
+
+        // newc header: 6-byte magic + 13 × 8-hex fields = 110 bytes.
+        var header =
+            "070701"               // magic
+            + H(0)                 // ino
+            + H(mode)              // mode
+            + H(0) + H(0)          // uid, gid
+            + H(nlink)             // nlink
+            + H(0)                 // mtime
+            + H((uint)data.Length) // filesize
+            + H(0) + H(0)          // devmajor, devminor
+            + H(0) + H(0)          // rdevmajor, rdevminor
+            + H(namesize)          // namesize
+            + H(0);                // check
+
+        ms.Write(Encoding.ASCII.GetBytes(header));
+        ms.Write(nameBytes);
+        ms.WriteByte(0);
+        Pad4(ms);          // pad header+name to a 4-byte boundary
+        ms.Write(data);
+        Pad4(ms);          // pad file data to a 4-byte boundary
+    }
+
+    private static void Pad4(MemoryStream ms)
+    {
+        int pad = (int)((4 - (ms.Length & 3)) & 3);
+        for (int i = 0; i < pad; i++) ms.WriteByte(0);
+    }
+
     /// <summary>
     /// Builds the GRUB2 config written to <c>\EFI\fedora\grub.cfg</c> (and
     /// <c>\EFI\BOOT\grub.cfg</c>) on OEMDRV.
@@ -727,20 +865,22 @@ public sealed class DirectInstallService : IDirectInstallService
     /// installs packages from the internet, giving full kickstart support including
     /// the dual-boot bootloader setup.
     /// </summary>
-    private static string BuildGrubConfig()
+    private string BuildGrubConfig()
     {
+        var label   = _bootSpec.VolumeLabel;
+        var cmdline = _bootSpec.KernelCmdline.Replace("{LABEL}", label);
         return $$"""
             insmod part_gpt
             insmod fat
             insmod linux
 
-            search --no-floppy --set=root --label OEMDRV
+            search --no-floppy --set=root --label {{label}}
 
             set default=0
             set timeout=5
 
-            menuentry "Install Fedora KDE (Igloo)" {
-                linux  ($root)/{{BootDir}}/{{KernelFile}} inst.stage2=hd:LABEL=OEMDRV: inst.ks=hd:LABEL=OEMDRV:/ks.cfg inst.geoloc=0
+            menuentry "{{_bootSpec.MenuTitle}}" {
+                linux  ($root)/{{BootDir}}/{{KernelFile}} {{cmdline}}
                 initrd ($root)/{{BootDir}}/{{InitrdFile}}
             }
             """;

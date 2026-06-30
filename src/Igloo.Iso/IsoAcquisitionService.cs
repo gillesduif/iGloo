@@ -241,6 +241,12 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     {
         using var client = _httpFactory.CreateClient("iso");
 
+        // Debian/Ubuntu use a detached signature (SHA256SUMS + SHA256SUMS.sign);
+        // Fedora uses a single clear-signed CHECKSUM. Branch on which model the
+        // distro declared so GPG is verified, never silently skipped.
+        if (spec.GpgSignedDataUrl is not null)
+            return await FetchAndVerifyDetachedAsync(spec, client, ct);
+
         // ── Step A: Download CHECKSUM file (required for SHA-256 resolution) ──
         string? checksumContent = null;
         try
@@ -258,9 +264,8 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         bool gpgVerified = false;
         try
         {
-            _logger.LogInformation("Fetching GPG key from {Url}", spec.GpgKeyUrl);
-            var keyBytes = await client.GetByteArrayAsync(spec.GpgKeyUrl!, ct);
-            gpgVerified = PgpCleartextVerifier.Verify(keyBytes, checksumContent, _logger);
+            var keyBytes = await GetSigningKeyAsync(spec, client, ct);
+            gpgVerified = PgpCleartextVerifier.Verify(keyBytes, checksumContent, _logger, spec.GpgKeyFingerprint);
             _logger.LogInformation("GPG verification result for {DistroId}: {Result}", spec.DistroId, gpgVerified);
         }
         catch (Exception ex)
@@ -274,25 +279,95 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     }
 
     /// <summary>
-    /// Parses a SHA-256 hash for <paramref name="isoFileName"/> from a Fedora-style
-    /// GPG cleartext-signed CHECKSUM file.
-    /// Expected line format: <c>SHA256 (filename.iso) = abcdef0123…</c>
+    /// Debian/Ubuntu model: a plain checksum data file (SHA256SUMS) plus a detached
+    /// signature file (SHA256SUMS.sign / .gpg). Verifies the detached signature over
+    /// the raw data bytes, then returns the data text for SHA-256 resolution.
+    /// </summary>
+    private async Task<(string? content, bool verified)> FetchAndVerifyDetachedAsync(
+        IsoSpecification spec, HttpClient client, CancellationToken ct)
+    {
+        byte[] dataBytes;
+        string dataText;
+        try
+        {
+            _logger.LogInformation("Fetching checksum data from {Url}", spec.GpgSignedDataUrl);
+            dataBytes = await client.GetByteArrayAsync(spec.GpgSignedDataUrl!, ct);
+            dataText  = System.Text.Encoding.UTF8.GetString(dataBytes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SHA256SUMS download failed for {DistroId}", spec.DistroId);
+            return (null, false);
+        }
+
+        bool gpgVerified = false;
+        try
+        {
+            _logger.LogInformation("Fetching detached signature from {Url}", spec.GpgSignatureUrl);
+            var sigBytes = await client.GetByteArrayAsync(spec.GpgSignatureUrl!, ct);
+            var keyBytes = await GetSigningKeyAsync(spec, client, ct);
+            gpgVerified  = PgpDetachedVerifier.Verify(keyBytes, dataBytes, sigBytes, _logger, spec.GpgKeyFingerprint);
+            _logger.LogInformation("Detached GPG verification result for {DistroId}: {Result}", spec.DistroId, gpgVerified);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Detached GPG download/verification failed for {DistroId} - SHA-256 will still be checked",
+                spec.DistroId);
+        }
+
+        return (dataText, gpgVerified);
+    }
+
+    /// <summary>
+    /// Returns the signing-key bytes: the key bundled with the distro if present,
+    /// otherwise fetched from the key URL. A bundled key avoids an untrusted
+    /// keyserver round-trip; either source is still subject to the fingerprint pin.
+    /// </summary>
+    private async Task<byte[]> GetSigningKeyAsync(IsoSpecification spec, HttpClient client, CancellationToken ct)
+    {
+        if (spec.GpgKeyData is { Length: > 0 } bundled)
+        {
+            _logger.LogInformation("Using bundled signing key for {DistroId}", spec.DistroId);
+            return bundled;
+        }
+        _logger.LogInformation("Fetching GPG key from {Url}", spec.GpgKeyUrl);
+        return await client.GetByteArrayAsync(spec.GpgKeyUrl!, ct);
+    }
+
+    /// <summary>
+    /// Parses a SHA-256 hash for <paramref name="isoFileName"/> from a checksum file.
+    /// Handles both layouts:
+    /// <list type="bullet">
+    ///   <item>Fedora "BSD" style: <c>SHA256 (filename.iso) = abcdef0123…</c></item>
+    ///   <item>Debian/Ubuntu coreutils style: <c>abcdef0123…  filename.iso</c></item>
+    /// </list>
     /// </summary>
     private static string? ParseSha256FromChecksum(string checksumContent, string isoFileName)
     {
+        static bool IsSha256(string s) => s.Length == 64 && s.All(Uri.IsHexDigit);
+
         foreach (var line in checksumContent.Split('\n'))
         {
             var trimmed = line.Trim();
+            if (trimmed.Length == 0 ||
+                !trimmed.Contains(isoFileName, StringComparison.OrdinalIgnoreCase))
+                continue;
 
-            if (!trimmed.StartsWith("SHA256", StringComparison.OrdinalIgnoreCase)) continue;
-            if (!trimmed.Contains(isoFileName, StringComparison.OrdinalIgnoreCase)) continue;
+            // Fedora "BSD" style:  SHA256 (filename.iso) = <hash>
+            if (trimmed.StartsWith("SHA256", StringComparison.OrdinalIgnoreCase))
+            {
+                var eqIdx = trimmed.LastIndexOf('=');
+                if (eqIdx >= 0)
+                {
+                    var hash = trimmed[(eqIdx + 1)..].Trim();
+                    if (IsSha256(hash)) return hash.ToLowerInvariant();
+                }
+            }
 
-            var eqIdx = trimmed.LastIndexOf('=');
-            if (eqIdx < 0) continue;
-
-            var hash = trimmed[(eqIdx + 1)..].Trim();
-            if (hash.Length == 64 && hash.All(c => Uri.IsHexDigit(c)))
-                return hash.ToLowerInvariant();
+            // Debian/Ubuntu coreutils style:  <hash>  filename.iso
+            var firstToken = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
+            if (IsSha256(firstToken)) return firstToken.ToLowerInvariant();
         }
 
         return null;
