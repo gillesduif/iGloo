@@ -121,13 +121,21 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         HasError     = false;
         ErrorMessage = null;
 
-        var progress = new Progress<IsoAcquisitionProgress>(p =>
+        var uiProgress = new Progress<IsoAcquisitionProgress>(p =>
         {
             Phase          = p.Phase;
             BytesCompleted = p.BytesCompleted;
             BytesTotal     = p.BytesTotal;
             OnPropertyChanged(nameof(PhaseDisplay));
         });
+        // The service reports per 80 KB buffer (hundreds/sec on a fast line);
+        // throttle before the UI thread sees it. Phase changes and the final
+        // byte always pass through so the bar never sticks below 100%.
+        var progress = new Igloo.Core.Services.ThrottledProgress<IsoAcquisitionProgress>(
+            uiProgress,
+            forceWhen: (cur, prev) => prev is null
+                || cur.Phase != prev.Phase
+                || (cur.BytesTotal is { } total && cur.BytesCompleted >= total));
 
         try
         {

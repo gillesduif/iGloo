@@ -93,10 +93,18 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
     public InstallerBootSpec GetInstallerBootSpec() => new()
     {
         MenuTitle = "Install Linux Mint (Igloo)",
-        KernelCmdline = "automatic-ubiquity noprompt file=/preseed.cfg boot=casper ---",
+        // Mint is a casper live ISO. casper's initrd already has iso-scan (no
+        // hd-media download needed, unlike Debian's netinst): it loop-mounts the
+        // whole ISO from the OEMDRV partition (iso-scan/filename) and copies it to
+        // RAM so the partitioner can repartition the same disk (copy_iso_to_ram).
+        KernelCmdline =
+            "automatic-ubiquity noprompt file=/preseed.cfg boot=casper " +
+            "iso-scan/filename=/mint.iso iso-scan/copy_iso_to_ram=true ---",
         KernelIsoPaths = ["casper/vmlinuz"],
         InitrdIsoPaths = ["casper/initrd.lz", "casper/initrd"],
         ExtraIsoFiles  = Array.Empty<IsoFileStage>(),
+        CopyFullIsoToVolume = true,        // casper loop-mounts the whole ISO
+        IsoVolumeFileName   = "mint.iso",
         // Fully-unattended Ubiquity reads the preseed from the initrd (file=/preseed.cfg).
         ConfigDelivery   = ConfigDelivery.InjectIntoInitrd,
         InitrdConfigPath = "preseed.cfg",

@@ -12,6 +12,7 @@
     "sha256": "",
     "gpgSignatureUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/iso/Fedora-Everything-44-1.7-x86_64-CHECKSUM",
     "gpgKeyUrl": "https://fedoraproject.org/fedora.gpg",
+    "gpgKeyFingerprint": "36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6",
     "stage2Url": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/os/"
   },
 

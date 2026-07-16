@@ -13,7 +13,8 @@
     "sha256": "a081ab202cfda17f6924128dbd2de8b63518ac0531bcfe3f1a1b88097c459bd4",
     "gpgSignedDataUrl": "https://mirrors.kernel.org/linuxmint/stable/22.3/sha256sum.txt",
     "gpgSignatureUrl": "https://mirrors.kernel.org/linuxmint/stable/22.3/sha256sum.txt.gpg",
-    "gpgKeyUrl": "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x27DEB15644C6B3CF3BD7D291300F846BA25BAE09"
+    "gpgKeyUrl": "https://keys.openpgp.org/vks/v1/by-fingerprint/27DEB15644C6B3CF3BD7D291300F846BA25BAE09",
+    "gpgKeyFingerprint": "27DEB15644C6B3CF3BD7D291300F846BA25BAE09"
   },
 
   "tags": [

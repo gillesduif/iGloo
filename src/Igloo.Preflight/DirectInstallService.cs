@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO.Compression;
 using System.Management;
 using System.Net.Http;
@@ -39,6 +40,12 @@ public sealed class DirectInstallService : IDirectInstallService
     // Covers: EFI binaries (~3 MB), grub.cfg, kickstart, agent payload, FAT32
     // filesystem metadata, and 512 MiB headroom so FAT32 is never full-to-the-brim.
     private const long   PartitionOverheadBytes = 512L * MiB;
+    // FAT32 cannot store a single file ≥ 4 GiB. An ISO at/above this goes on its
+    // own NTFS partition instead of the FAT32 seed partition (Ubuntu desktop is
+    // ~6 GB; Mint/Debian/Fedora artefacts stay under the limit).
+    private const long   Fat32MaxFileBytes = 4L * 1024 * 1024 * 1024;
+    private const long   IsoPartitionOverheadBytes = 256L * MiB;
+    private const string IsoPartitionLabel = "IGLOOISO";
 
     // Boot chain:
     //
@@ -75,6 +82,7 @@ public sealed class DirectInstallService : IDirectInstallService
 
     // Stored by PrepareAsync, consumed by RegisterBootEntryAsync.
     private char?  _oemDrvLetter;
+    private char?  _isoPartitionLetter;   // separate NTFS partition for a >4 GiB ISO
     private int?   _diskNumber;
     private uint?  _partitionNumber;
 
@@ -175,9 +183,17 @@ public sealed class DirectInstallService : IDirectInstallService
 
         // ── Step 2: Shrink Windows partition (skip if OEMDRV already exists) ──
         // Distros whose installer loop-mounts the whole ISO (Debian iso-scan,
-        // Ubuntu/Mint casper) need room for the ISO on the partition too.
-        long fullIsoBytes = _bootSpec.CopyFullIsoToVolume ? new FileInfo(isoPath).Length : 0;
-        long oemDrvBytes  = RoundUpMiB(extractedBytes + fullIsoBytes + PartitionOverheadBytes);
+        // Ubuntu/Mint casper) need room for the ISO too. But the seed/boot
+        // partition MUST be FAT32 (UEFI firmware only boots FAT), and FAT32 cannot
+        // hold a file ≥ 4 GiB. So an oversized ISO (Ubuntu desktop ~6 GB) goes on
+        // a SEPARATE NTFS partition; casper's iso-scan finds the .iso on any
+        // partition it can mount. Small ISOs (Mint, Debian hd-media) stay on the
+        // single FAT32 partition exactly as before — no behaviour change for them.
+        long fullIsoBytes      = _bootSpec.CopyFullIsoToVolume ? new FileInfo(isoPath).Length : 0;
+        bool isoOnOwnPartition = _bootSpec.CopyFullIsoToVolume && fullIsoBytes >= Fat32MaxFileBytes;
+        long fat32IsoBytes     = (_bootSpec.CopyFullIsoToVolume && !isoOnOwnPartition) ? fullIsoBytes : 0;
+        long oemDrvBytes       = RoundUpMiB(extractedBytes + fat32IsoBytes + PartitionOverheadBytes);
+        long isoPartBytes      = isoOnOwnPartition ? RoundUpMiB(fullIsoBytes + IsoPartitionOverheadBytes) : 0;
         char driveLetter;
 
         var existing = FindExistingOemDrv(diskNumber);
@@ -192,6 +208,15 @@ public sealed class DirectInstallService : IDirectInstallService
                 "Reusing existing OEMDRV partition {N} at {L}: - skipping shrink and partition creation",
                 _partitionNumber, driveLetter);
             Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Reusing existing installer partition…");
+
+            // Ensure the NTFS ISO partition exists too: reuse it, or carve it from
+            // the free space the original shrink already set aside for it.
+            if (isoOnOwnPartition)
+                _isoPartitionLetter = FindExistingIsoPartition(diskNumber)
+                                      ?? CreateIsoPartition(diskNumber, isoPartBytes, ct);
+
+            if (_bootSpec.PreCreateRootPartition)
+                EnsureRootPartition(diskNumber, ct);
         }
         else
         {
@@ -199,18 +224,34 @@ public sealed class DirectInstallService : IDirectInstallService
             _logger.LogInformation("Direct install: shrinking disk {Disk} by {GiB} GiB",
                 diskNumber, linuxSizeBytes / MiB / 1024);
 
-            long totalShrink = linuxSizeBytes + oemDrvBytes;
+            long totalShrink = linuxSizeBytes + oemDrvBytes + isoPartBytes;
 
             var shrinkProg = new Progress<string>(msg =>
                 Report(prog, DirectInstallPhase.ShrinkingPartition, message: msg));
             _resizer.ShrinkAsync(diskNumber, totalShrink, shrinkProg, ct).GetAwaiter().GetResult();
             ct.ThrowIfCancellationRequested();
 
-            // ── Step 3: Create FAT32 OEMDRV partition ────────────────────────
+            // ── Step 3: Create FAT32 OEMDRV partition (boot + seed) ──────────
             Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating installer partition…");
             driveLetter   = CreateOemDrvPartition(diskNumber, oemDrvBytes, ct);
             _oemDrvLetter = driveLetter;
             ct.ThrowIfCancellationRequested();
+
+            // ── Step 3b: Create NTFS ISO partition for a >4 GiB ISO ──────────
+            if (isoOnOwnPartition)
+            {
+                Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating ISO partition…");
+                _isoPartitionLetter = CreateIsoPartition(diskNumber, isoPartBytes, ct);
+                ct.ThrowIfCancellationRequested();
+            }
+
+            // ── Step 3c: Pre-create the Linux root partition (subiquity path) ──
+            if (_bootSpec.PreCreateRootPartition)
+            {
+                Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating Linux partition…");
+                EnsureRootPartition(diskNumber, ct);
+                ct.ThrowIfCancellationRequested();
+            }
         }
 
         // ── Step 4: Extract boot content from ISO onto OEMDRV ─────────────────
@@ -222,10 +263,13 @@ public sealed class DirectInstallService : IDirectInstallService
         ConfigureBootFiles(isoPath, driveLetter, stagingDirectory, initrdBytes, installImgBytes, prog, ct);
         ct.ThrowIfCancellationRequested();
 
-        // ── Step 4b: Copy the whole ISO onto OEMDRV (iso-scan / casper need it) ──
+        // ── Step 4b: Copy the whole ISO (iso-scan / casper need it) ──────────
+        // Small ISOs land on the FAT32 seed partition; an oversized ISO lands on
+        // its dedicated NTFS partition (see Step 3b). iso-scan finds it either way.
         if (_bootSpec.CopyFullIsoToVolume && _bootSpec.IsoVolumeFileName is { } isoName)
         {
-            var isoDst = Path.Combine($"{driveLetter}:\\", isoName);
+            char isoVolLetter = isoOnOwnPartition ? _isoPartitionLetter!.Value : driveLetter;
+            var  isoDst       = Path.Combine($"{isoVolLetter}:\\", isoName);
             Report(prog, DirectInstallPhase.CopyingIso, message: "Copying installer ISO…");
             CopyWithProgress(isoPath, isoDst, new FileInfo(isoPath).Length, prog, ct);
             ct.ThrowIfCancellationRequested();
@@ -446,6 +490,81 @@ public sealed class DirectInstallService : IDirectInstallService
         throw new InvalidOperationException("No available drive letter for the installer partition.");
     }
 
+    /// <summary>
+    /// Creates a dedicated NTFS partition to hold an ISO too large for FAT32
+    /// (≥ 4 GiB, e.g. Ubuntu desktop). casper's iso-scan locates the .iso on any
+    /// mountable partition, so this need not (and cannot) be FAT32. It is carved
+    /// from the free space left after the FAT32 seed partition; the remainder
+    /// stays free for the Linux install. The partition number is intentionally NOT
+    /// recorded — UEFI still boots from the FAT32 seed partition, not this one.
+    /// </summary>
+    private char CreateIsoPartition(int diskNumber, long sizeBytes, CancellationToken ct)
+    {
+        long sizeMiB = RoundUpMiB(sizeBytes) / MiB;
+        var  letter  = FindAvailableDriveLetter();
+
+        _logger.LogInformation("Creating {MiB} MiB NTFS ISO partition (letter {L}:) on disk {D}",
+            sizeMiB, letter, diskNumber);
+
+        var script = $"""
+            rescan
+            select disk {diskNumber}
+            create partition primary size={sizeMiB} align=1024
+            format fs=ntfs label={IsoPartitionLabel} quick
+            assign letter={letter}
+            exit
+            """;
+        var output = RunDiskpart(script);
+        _logger.LogInformation("diskpart output:\n{Output}", output);
+
+        // NTFS quick-format can take a little longer than FAT32 to surface.
+        var root = $"{letter}:\\";
+        for (var i = 0; i < 60; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (Directory.Exists(root)) break;
+            Thread.Sleep(500);
+        }
+        if (!Directory.Exists(root))
+            throw new InvalidOperationException($"ISO partition drive {letter}: did not appear after creation.");
+
+        _logger.LogInformation("NTFS ISO partition ready at {L}:", letter);
+        return letter;
+    }
+
+    /// <summary>
+    /// Finds a mounted volume labelled <see cref="IsoPartitionLabel"/> on
+    /// <paramref name="diskNumber"/> (the standalone ISO partition from a prior
+    /// run). Returns its drive letter, or <see langword="null"/> if absent.
+    /// </summary>
+    private char? FindExistingIsoPartition(int diskNumber)
+    {
+        try
+        {
+            foreach (var di in DriveInfo.GetDrives())
+            {
+                if (!di.IsReady) continue;
+                try
+                {
+                    if (!string.Equals(di.VolumeLabel, IsoPartitionLabel, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                }
+                catch { continue; }
+
+                var letter = char.ToUpper(di.Name[0]);
+                if (FindPartitionByLetter(diskNumber, letter) == 0) continue; // not on this disk
+
+                _logger.LogInformation("Reusing existing NTFS ISO partition at {L}:", letter);
+                return letter;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "FindExistingIsoPartition scan failed (non-fatal)");
+        }
+        return null;
+    }
+
     // ── Step 3 - copy ISO with progress ──────────────────────────────────────
 
     private static void CopyWithProgress(
@@ -509,7 +628,13 @@ public sealed class DirectInstallService : IDirectInstallService
         foreach (var f in Directory.EnumerateFiles(stagingDir))
         {
             ct.ThrowIfCancellationRequested();
-            File.Copy(f, Path.Combine(oemDrvRoot, Path.GetFileName(f)), overwrite: true);
+            var dst = Path.Combine(oemDrvRoot, Path.GetFileName(f));
+            // A rendered installer config may carry install-geometry tokens that can
+            // only be resolved now the disk is partitioned (Ubuntu's subiquity needs
+            // the free-gap offset/size explicitly). Substitute for that file; copy
+            // everything else byte-for-byte.
+            if (!TryCopyWithGeometry(f, dst))
+                File.Copy(f, dst, overwrite: true);
         }
         // Copy igloo-agent directory
         var agentSrc = Path.Combine(stagingDir, "igloo-agent");
@@ -527,6 +652,227 @@ public sealed class DirectInstallService : IDirectInstallService
         // Note: user files (staging/files/) are intentionally NOT copied here.
         // The kickstart %post will mount the Windows NTFS partition and copy directly.
         _logger.LogInformation("Staging artefacts copied to {Root}", oemDrvRoot);
+    }
+
+    /// <summary>
+    /// If <paramref name="src"/> is a small text config carrying install-geometry
+    /// tokens, resolves them against the just-partitioned disk and writes the result
+    /// to <paramref name="dst"/> (returning true). Otherwise returns false so the
+    /// caller copies the file verbatim. UTF-8 without BOM and the original LF line
+    /// endings are preserved (subiquity/cloud-init reject a BOM).
+    /// </summary>
+    private bool TryCopyWithGeometry(string src, string dst)
+    {
+        var info = new FileInfo(src);
+        if (info.Length is 0 or > 512 * 1024) return false;   // configs are tiny
+        string text;
+        try { text = File.ReadAllText(src); }
+        catch { return false; }
+        // Any igloo geometry token ({{IGLOO_STORAGE_PARTITIONS}}, historic
+        // {{IGLOO_ROOT_*}}, …) — prefix match so the guard can never silently
+        // diverge from the template again: an unsubstituted token means user-data
+        // ships as broken YAML and cloud-init quietly ignores the whole autoinstall.
+        if (!text.Contains("{{IGLOO_", StringComparison.Ordinal)) return false;
+
+        var resolved = SubstituteGeometryTokens(text);
+        File.WriteAllText(dst, resolved, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        _logger.LogInformation("Wrote {Dst} with resolved install geometry", dst);
+        return true;
+    }
+
+    /// <summary>
+    /// Replaces <c>{{IGLOO_STORAGE_PARTITIONS}}</c> with the complete curtin
+    /// partition list for the freshly partitioned disk. Only Ubuntu's subiquity
+    /// config uses this; every other distro's config lacks the token and this is
+    /// never called for it. Throws if any <c>{{IGLOO_*}}</c> token survives:
+    /// shipping an unsubstituted token means cloud-init silently discards the
+    /// whole autoinstall (broken YAML) and the installer turns interactive.
+    /// </summary>
+    private string SubstituteGeometryTokens(string content)
+    {
+        if (_diskNumber is not int disk)
+            throw new InvalidOperationException("Disk number unknown; cannot resolve install geometry.");
+
+        var block    = BuildStoragePartitionList(disk);
+        var resolved = content.Replace("{{IGLOO_STORAGE_PARTITIONS}}", block);
+        if (resolved.Contains("{{IGLOO_", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "Installer config still contains an unresolved {{IGLOO_*}} token after " +
+                "substitution — template and DirectInstallService are out of sync.");
+        return resolved;
+    }
+
+    private const string EspGptType     = "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}";
+    private const string LinuxFsGptType = "{0fc63daf-8483-4772-8e79-3d69d8477de4}";
+
+    /// <summary>
+    /// Creates the Linux root partition from Windows when the boot spec asks for
+    /// it (<see cref="InstallerBootSpec.PreCreateRootPartition"/>): one partition
+    /// filling the remaining free region (the gap the shrink left for Linux),
+    /// GPT-typed "Linux filesystem", unformatted — the installer formats it.
+    /// Idempotent: an existing Linux-filesystem partition on the disk is reused.
+    /// </summary>
+    private void EnsureRootPartition(int diskNumber, CancellationToken ct)
+    {
+        using (var searcher = new ManagementObjectSearcher(StorageNs,
+            $"SELECT GptType FROM MSFT_Partition WHERE DiskNumber = {diskNumber}"))
+        using (var results = searcher.Get())
+            foreach (ManagementBaseObject p in results)
+                if (string.Equals(p["GptType"]?.ToString(), LinuxFsGptType, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Linux root partition already present on disk {D} - reusing", diskNumber);
+                    return;
+                }
+
+        _logger.LogInformation("Creating Linux root partition on disk {D} (fills remaining free space)", diskNumber);
+        // No size argument: diskpart fills the largest free region, which is the
+        // space the shrink reserved for Linux (seed + ISO partitions are already
+        // carved out of their share). No format, no drive letter — Linux-side.
+        var script = $"""
+            rescan
+            select disk {diskNumber}
+            create partition primary align=1024
+            set id={LinuxFsGptType.Trim('{', '}')}
+            exit
+            """;
+        var output = RunDiskpart(script);
+        _logger.LogInformation("diskpart output:\n{Output}", output);
+        ct.ThrowIfCancellationRequested();
+    }
+
+    /// <summary>
+    /// Emits the complete curtin partition list for the target disk: every existing
+    /// partition with <c>preserve: true</c> and its REAL number/offset/size, plus the
+    /// new root partition placed in the largest free gap.
+    ///
+    /// Completeness is a DATA-SAFETY requirement, not cosmetics: curtin storage v2
+    /// treats the config as the disk's authoritative final state and DELETES any
+    /// partition not declared — an early config that listed only the ESP made curtin
+    /// start wiping the undeclared partitions (Windows included; only a busy-device
+    /// error stopped it). Explicit offset/size everywhere also satisfies subiquity's
+    /// assign_omitted_offsets, which crashes on any partition whose size is unknown.
+    /// </summary>
+    private string BuildStoragePartitionList(int diskNumber)
+    {
+        var parts = new List<(uint number, long off, long size, string gptType, string guid)>();
+        using (var searcher = new ManagementObjectSearcher(StorageNs,
+            $"SELECT PartitionNumber, Offset, Size, GptType, Guid FROM MSFT_Partition WHERE DiskNumber = {diskNumber}"))
+        using (var results = searcher.Get())
+            foreach (ManagementBaseObject p in results)
+                parts.Add((Convert.ToUInt32(p["PartitionNumber"]),
+                           Convert.ToInt64(p["Offset"]),
+                           Convert.ToInt64(p["Size"]),
+                           p["GptType"]?.ToString() ?? string.Empty,
+                           p["Guid"]?.ToString() ?? string.Empty));
+
+        if (parts.Count == 0)
+            throw new InvalidOperationException($"No partitions found on disk {diskNumber}.");
+        parts.Sort((a, b) => a.off.CompareTo(b.off));
+
+        // partition_type + uuid are NOT optional fidelity: curtin REWRITES the
+        // whole GPT when it adds a partition, from exactly what the config
+        // declares. Declaring only number/offset/size made it stamp every
+        // preserved partition as "Linux filesystem" with fresh PARTUUIDs —
+        // Windows/MSR/recovery types clobbered and UEFI boot entries (which
+        // reference PARTUUIDs) dangling. Feed back the real GUIDs so the
+        // rewritten table is byte-faithful for everything we preserve.
+        // EVERY partition is preserved — including root, which Igloo pre-created
+        // from Windows (see EnsureRootPartition). curtin therefore has NOTHING to
+        // add and performs no partition-table write at all: no disklabel rewrite,
+        // no renumbering, no partprobe — the failure modes that killed every
+        // "let curtin create root" attempt while live media occupied this disk.
+        // Root is recognised by its GPT type and only gets wipe+format actions.
+        bool sawEsp = false, sawRoot = false;
+        var lines = new List<string>();
+        foreach (var (number, off, size, gptType, guid) in parts)
+        {
+            bool isEsp  = string.Equals(gptType, EspGptType,     StringComparison.OrdinalIgnoreCase);
+            bool isRoot = string.Equals(gptType, LinuxFsGptType, StringComparison.OrdinalIgnoreCase);
+            var  id     = isEsp ? "esp" : isRoot ? "root" : $"part{number}";
+            var  extra  = isEsp  ? ", grub_device: true"
+                        : isRoot ? ", wipe: superblock" : "";
+            var  ptype = gptType.Trim('{', '}');
+            var  puuid = guid.Trim('{', '}');
+            if (ptype.Length > 0) extra += $", partition_type: {ptype}";
+            if (puuid.Length > 0) extra += $", uuid: {puuid}";
+            sawEsp  |= isEsp;
+            sawRoot |= isRoot;
+            lines.Add(FormattableString.Invariant(
+                $"      - {{type: partition, id: {id}, device: disk0, number: {number}, offset: {off}, size: {size}, preserve: true{extra}}}"));
+        }
+        if (!sawEsp)
+            throw new InvalidOperationException(
+                $"No EFI System Partition (GPT type {EspGptType}) found on disk {diskNumber}.");
+        if (!sawRoot)
+            throw new InvalidOperationException(
+                $"No pre-created Linux root partition (GPT type {LinuxFsGptType}) found on disk {diskNumber} — " +
+                "EnsureRootPartition should have created it before config substitution.");
+
+        _logger.LogInformation(
+            "Storage config: {Count} partition(s), all preserved (root pre-created; no table changes for curtin)",
+            parts.Count);
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// Finds the largest unallocated byte range on <paramref name="diskNumber"/>,
+    /// returned as an MiB-aligned (offset, size).
+    ///
+    /// Ubuntu's subiquity autoinstall cannot locate free space on its own, and after
+    /// a Windows shrink the free region is usually a GAP IN THE MIDDLE of the disk —
+    /// Windows keeps its Recovery partition at the very end, so shrinking C: opens a
+    /// hole between it and the tail. We enumerate every partition (offset+size),
+    /// scan the gaps between them plus the tail, and return the biggest. A 1 MiB
+    /// margin is trimmed so the new partition never abuts the next one or the GPT
+    /// backup header.
+    /// </summary>
+    private (long offset, long size) FindLargestFreeGap(int diskNumber)
+    {
+        var parts = new List<(long off, long size)>();
+        using (var searcher = new ManagementObjectSearcher(StorageNs,
+            $"SELECT Offset, Size FROM MSFT_Partition WHERE DiskNumber = {diskNumber}"))
+        using (var results = searcher.Get())
+            foreach (ManagementBaseObject p in results)
+                parts.Add((Convert.ToInt64(p["Offset"]), Convert.ToInt64(p["Size"])));
+
+        parts.Sort((a, b) => a.off.CompareTo(b.off));
+
+        long diskSize   = GetDiskSize(diskNumber);
+        long bestOffset = 0, bestSize = 0;
+        long cursor     = MiB; // reserve the first MiB (primary GPT + alignment)
+
+        void Consider(long gapStart, long gapEnd)
+        {
+            long offset = RoundUpMiB(gapStart);
+            long end    = gapEnd / MiB * MiB;   // align the usable end down to MiB
+            long size   = end - offset - MiB;   // 1 MiB clearance from the next region
+            if (size > bestSize) { bestSize = size; bestOffset = offset; }
+        }
+
+        foreach (var (off, size) in parts)
+        {
+            if (off > cursor) Consider(cursor, off);
+            cursor = Math.Max(cursor, off + size);
+        }
+        Consider(cursor, diskSize - MiB); // tail gap (leave 1 MiB for the backup GPT)
+
+        if (bestSize <= 0)
+            throw new InvalidOperationException(
+                $"No usable free space found on disk {diskNumber} for the Linux root partition.");
+
+        _logger.LogInformation("Largest free gap on disk {Disk}: offset {Off}, size {Size} bytes",
+            diskNumber, bestOffset, bestSize);
+        return (bestOffset, bestSize);
+    }
+
+    private long GetDiskSize(int diskNumber)
+    {
+        using var searcher = new ManagementObjectSearcher(StorageNs,
+            $"SELECT Size FROM MSFT_Disk WHERE Number = {diskNumber}");
+        using var results = searcher.Get();
+        foreach (ManagementBaseObject d in results)
+            return Convert.ToInt64(d["Size"]);
+        throw new InvalidOperationException($"Could not read the size of disk {diskNumber}.");
     }
 
     // ── Step 5 - extract kernel + initrd from ISO ────────────────────────────
@@ -652,7 +998,9 @@ public sealed class DirectInstallService : IDirectInstallService
         // /EFI/debian, /EFI/ubuntu, or /EFI/BOOT). We don't know which binary the
         // ISO shipped, so write grub.cfg to all of them.
         var grubCfgContent = BuildGrubConfig();
-        foreach (var cfgDir in new[] { @"EFI\BOOT", @"EFI\fedora", @"EFI\debian", @"EFI\ubuntu" })
+        // EFI/<vendor> covers Fedora/Debian/Ubuntu grubx64 prefixes; boot/grub covers
+        // Ubuntu/Mint casper grub, whose compiled prefix is /boot/grub.
+        foreach (var cfgDir in new[] { @"EFI\BOOT", @"EFI\fedora", @"EFI\debian", @"EFI\ubuntu", @"boot\grub" })
         {
             var dir  = Path.Combine(oemDrvRoot, cfgDir);
             var path = Path.Combine(dir, "grub.cfg");

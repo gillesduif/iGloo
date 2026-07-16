@@ -1,6 +1,9 @@
 using System.IO;
 using System.Runtime.Versioning;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Threading;
 using Igloo.App.ViewModels;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Plugins;
@@ -29,10 +32,25 @@ public partial class App : Application
 
         _host = BuildHost();
 
+        // Log unhandled exceptions so any crash leaves a diagnosable record — but
+        // do NOT swallow them, and do NOT force software rendering. An earlier
+        // attempt to "survive" WPF render faults that way masked nothing and made
+        // the whole UI run on the CPU (slideshow-slow on real GPUs). Reverted:
+        // fail loudly, keep hardware acceleration, fix the actual root cause.
         DispatcherUnhandledException += (_, args) =>
-        {
             Log.Fatal(args.Exception, "Unhandled dispatcher exception");
+
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            Log.Fatal(args.ExceptionObject as Exception,
+                "Unhandled AppDomain exception (terminating: {IsTerminating})", args.IsTerminating);
             Log.CloseAndFlush();
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Log.Error(args.Exception, "Unobserved task exception");
+            args.SetObserved();
         };
 
         await _host.StartAsync();

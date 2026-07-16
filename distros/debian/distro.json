@@ -13,7 +13,8 @@
     "sha256": "95838884f5ea6c82421dfe6baaa5a639dbbe6756c1e380f9fe7a7cb0c1949d2a",
     "gpgSignedDataUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS",
     "gpgSignatureUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS.sign",
-    "gpgKeyUrl": "https://keyring.debian.org/pks/lookup?op=get&options=mr&search=0xDA87E80D6294BE9B"
+    "gpgKeyUrl": "https://keyring.debian.org/pks/lookup?op=get&options=mr&search=0xDF9B9C49EAA9298432589D76DA87E80D6294BE9B",
+    "gpgKeyFingerprint": "DF9B9C49EAA9298432589D76DA87E80D6294BE9B"
   },
 
   "tags": [

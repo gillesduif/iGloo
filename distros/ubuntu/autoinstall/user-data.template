@@ -27,6 +27,48 @@ autoinstall:
     # late-command below before the first boot, so it is never usable.
     password: "$6$exDY1mhS4KUYCE/2$zmn9ToZwTKLhCw.b4/b.ZRTIZM30JZ4QrOQ2aOXJ8yk96xpcCof0kxKwuX1kqLG/ygOhC38NSqGDFoeOhd5Y0"
 
+  # Release the Igloo ISO partition before storage runs. The kernel cmdline
+  # boots with 'toram' (live medium copied to RAM), but casper is known to leak
+  # the ISO loop device and the /isodevice mount (LP #684280 / #1829639); while
+  # they linger, the target disk has a busy partition and curtin's partprobe
+  # fails with EBUSY, aborting the install. Both commands are no-ops when
+  # nothing is leaked; '|| true' keeps them from failing the autoinstall.
+  early-commands:
+    # Release every holder of the target disk, then PROVE it is released by
+    # running partprobe ourselves — retrying the cleanup until it succeeds.
+    # curtin's block-meta v2 rewrites the partition table unconditionally (even
+    # for an all-preserved config) and then runs partprobe, which fails if ANY
+    # partition on the disk is held: the ISO loop device, ntfs-3g's userspace
+    # daemon (survives lazy unmounts), desktop automounts (udisks), … These die
+    # asynchronously, so one-shot kills are a race — the verify loop is not.
+    # NOTE: payloads MUST be single-quoted. subiquity runs each entry through an
+    # outer shell; inside double quotes that outer shell expands $vars to empty
+    # BEFORE our script executes — which silently disabled an earlier version of
+    # this guard (its "[ -n $d ] || exit 0" always exited). Single quotes reach
+    # the inner shell verbatim.
+    # MASK udisks2, don't just stop it: it is D-Bus activated, so the desktop
+    # session restarts it on demand and re-automounts the seed/ISO partitions —
+    # our own (successful) partprobe below fires the udev events that trigger
+    # exactly that. Masking makes the activation fail; the target disk stays
+    # unclaimed all the way to curtin.
+    # cloud-init's later stages (cloud-config/cloud-final) re-mount the CIDATA
+    # seed mid-install — the autoinstall is already extracted by now, so they are
+    # masked too. gvfs volume monitors automount independently of udisks: killed.
+    # pkill matches the PROCESS NAME only — never `pkill -f` here: -f matches
+    # full command lines, and this command's own cmdline contains the target
+    # string, so -f made pkill SIGTERM its own shell and the whole autoinstall
+    # aborted with AutoinstallUserSuppliedCmdError.
+    - sh -c 'systemctl mask --runtime udisks2 2>/dev/null; systemctl stop udisks2 2>/dev/null; systemctl stop --no-block cloud-config.service cloud-final.service 2>/dev/null; systemctl mask --runtime cloud-config.service cloud-final.service 2>/dev/null; pkill -9 gvfs-udisks2 2>/dev/null; true'
+    - sh -c 'umount /isodevice 2>/dev/null || umount -l /isodevice 2>/dev/null; true'
+    - sh -c 'd=$(lsblk -rno PKNAME /dev/disk/by-label/CIDATA 2>/dev/null); [ -n "$d" ] || d=$(lsblk -rno PKNAME /dev/disk/by-label/IGLOOISO 2>/dev/null); [ -n "$d" ] || { echo igloo-no-target-disk; exit 0; }; i=0; while [ $i -lt 20 ]; do if partprobe "/dev/$d" 2>/dev/null; then echo igloo-disk-released; exit 0; fi; systemctl stop udisks2 2>/dev/null; pkill -9 mount.ntfs 2>/dev/null; umount -A -l /dev/disk/by-label/CIDATA 2>/dev/null; umount -A -l /dev/disk/by-label/IGLOOISO 2>/dev/null; losetup -ln -O NAME,BACK-FILE 2>/dev/null | grep ubuntu.iso | cut -d" " -f1 | xargs -r -n1 losetup -d 2>/dev/null; losetup -D 2>/dev/null; sleep 3; i=$((i+1)); done; echo igloo-disk-still-busy; echo igloo-holder-dump-begin; losetup -a 2>&1; findmnt -rn 2>&1 | grep "$d"; for p in /dev/$d*; do echo "$p"; fuser -vm "$p" 2>&1; done; echo igloo-holder-dump-end; true'
+    # Watchdog: keep the seed/ISO partitions unclaimed for the next 30 minutes
+    # (the window until curtin partitioning). Belt-and-braces on top of the
+    # udisks2 mask: whatever re-mounts or re-opens them gets evicted within 3 s.
+    # The \$ escapes survive the intermediate shell so the loop runs verbatim.
+    # It also RECORDS every holder it finds (fuser dump) before evicting it, so
+    # a failing run leaves the culprit's name in /var/log/igloo-watchdog.log.
+    - sh -c 'nohup sh -c "i=0; while [ \$i -lt 600 ]; do if fuser -m /dev/disk/by-label/CIDATA /dev/disk/by-label/IGLOOISO >/dev/null 2>&1; then date; fuser -vm /dev/disk/by-label/CIDATA /dev/disk/by-label/IGLOOISO 2>&1; fi; pkill -9 mount.ntfs; umount -A -l /dev/disk/by-label/CIDATA; umount -A -l /dev/disk/by-label/IGLOOISO; losetup -D; sleep 3; i=\$((i+1)); done" >/var/log/igloo-watchdog.log 2>&1 & true'
+
 {{STORAGE}}
 
   # The agent installs the NVIDIA driver via ubuntu-drivers on first boot.
@@ -43,13 +85,57 @@ autoinstall:
     # Set the real user password (plaintext from the manifest).
     - "echo '{{LINUX_USERNAME}}:{{PASSWORD}}' | curtin in-target -- chpasswd"
     - "curtin in-target -- usermod -aG sudo {{LINUX_USERNAME}}"
-    # Bootstrap the Igloo first-boot agent into the installed system.
-    - "mkdir -p /target/opt/igloo /target/var/lib/igloo /target/var/log/igloo"
-    - "mkdir -p /tmp/oemdrv && ( mount -t vfat -o ro LABEL=CIDATA /tmp/oemdrv || mount -t vfat -o ro \"$(blkid -L CIDATA)\" /tmp/oemdrv )"
-    - "cp /tmp/oemdrv/igloo-agent/agent.py /target/opt/igloo/agent.py"
-    - "cp /tmp/oemdrv/igloo-agent/first-boot.sh /target/opt/igloo/first-boot.sh"
-    - "cp /tmp/oemdrv/migration-manifest.json /target/var/lib/igloo/manifest.json"
-    - "cp /tmp/oemdrv/igloo-agent/igloo-first-boot.service /target/etc/systemd/system/igloo-first-boot.service"
-    - "chmod 0755 /target/opt/igloo/first-boot.sh /target/opt/igloo/agent.py"
-    - "curtin in-target -- systemctl enable igloo-first-boot.service"
-    - "umount /tmp/oemdrv || true"
+    # TWO-PHASE BOOTSTRAP (same rule as Mint, proven there the hard way):
+    # installer late-hooks run against the LIVE kernel, whose modules may not
+    # match /target — on Mint that made mounting the vfat seed volume outright
+    # impossible at install time. So nothing is read from the seed volume here.
+    # This step only WRITES a self-contained bootstrap script + oneshot service
+    # into /target (echo/cat/ln only, nothing environment-sensitive). On the
+    # first boot of the *installed* system — running its own kernel, where vfat
+    # works — the service mounts the CIDATA seed, copies the agent + manifest,
+    # and hands over to first-boot.sh (before the display manager starts).
+    # Both phases log to disk (igloo-install.log / igloo/bootstrap.log).
+    - |
+      exec > /target/var/log/igloo-install.log 2>&1
+      set -x
+      mkdir -p /target/opt/igloo /target/var/lib/igloo /target/var/log/igloo /target/etc/systemd/system/multi-user.target.wants
+      cat > /target/opt/igloo/igloo-bootstrap.sh <<'EOSH'
+      #!/bin/sh
+      mkdir -p /opt/igloo /var/lib/igloo /var/log/igloo /run/igloo-seed
+      exec >> /var/log/igloo/bootstrap.log 2>&1 ; set -x
+      modprobe vfat 2>/dev/null || true
+      for d in /dev/disk/by-label/CIDATA /dev/nvme*n*p* /dev/sd*[0-9]* /dev/vd*[0-9]* /dev/mmcblk*p* ; do
+        umount /run/igloo-seed 2>/dev/null
+        mount -t vfat -o ro "$d" /run/igloo-seed 2>/dev/null && [ -d /run/igloo-seed/igloo-agent ] && { echo "igloo: seed on $d" ; break ; }
+      done
+      cp /run/igloo-seed/igloo-agent/agent.py      /opt/igloo/agent.py
+      cp /run/igloo-seed/igloo-agent/first-boot.sh /opt/igloo/first-boot.sh
+      cp /run/igloo-seed/migration-manifest.json   /var/lib/igloo/manifest.json
+      chmod 0755 /opt/igloo/agent.py /opt/igloo/first-boot.sh
+      umount /run/igloo-seed 2>/dev/null || true
+      exec /opt/igloo/first-boot.sh
+      EOSH
+      chmod 0755 /target/opt/igloo/igloo-bootstrap.sh
+      cat > /target/etc/systemd/system/igloo-bootstrap.service <<'EOUNIT'
+      [Unit]
+      Description=Igloo first-boot bootstrap
+      After=network-online.target local-fs.target
+      Wants=network-online.target
+      Before=display-manager.service
+      ConditionPathExists=!/var/lib/igloo/.done
+
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/igloo/igloo-bootstrap.sh
+      RemainAfterExit=yes
+      TimeoutStartSec=2400
+
+      [Install]
+      WantedBy=multi-user.target
+      EOUNIT
+      ln -sf /etc/systemd/system/igloo-bootstrap.service /target/etc/systemd/system/multi-user.target.wants/igloo-bootstrap.service
+      if lspci 2>/dev/null | grep -qi nvidia ; then
+        echo 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rd.driver.blacklist=nouveau modprobe.blacklist=nouveau"' >> /target/etc/default/grub
+        curtin in-target -- update-grub
+      fi
+      echo "igloo: install-time bootstrap written"

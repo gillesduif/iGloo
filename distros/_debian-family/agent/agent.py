@@ -130,7 +130,11 @@ def install_codecs(manifest: dict[str, Any]) -> None:
     if not manifest.get("hardware", {}).get("needsNonFreeCodecs", True):
         logger.info("Codecs: needsNonFreeCodecs=false, skipping")
         return
-    if is_ubuntu_like():
+    if distro_id() == "linuxmint":
+        # Mint ships its own codec metapackage — exactly what its first-run
+        # "Install Multimedia Codecs" applet installs.
+        apt(["install", "mint-meta-codecs"], timeout=900, check=False)
+    elif is_ubuntu_like():
         # EULA-bearing packages need this debconf pre-answer to stay unattended.
         run_cmd(["bash", "-c",
                  "echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula "
@@ -326,6 +330,51 @@ def set_user_password(manifest: dict[str, Any]) -> None:
         logger.error("chpasswd failed for %r: %s", username, (proc.stderr or "").strip())
 
 
+def set_keyboard(manifest: dict[str, Any]) -> None:
+    """Apply the user's keyboard layout from the manifest.
+
+    The preseed sets keyboard-configuration keys, but Ubiquity (Mint) and the
+    casper live session don't reliably honour them, so the installed desktop can
+    end up on the default (US) layout.
+
+    `localectl set-x11-keymap` is a NO-OP on the entire Debian family: localed
+    replies "Setting X11 and console keymaps is not supported in Debian" because
+    Debian's keyboard-configuration package owns the config. The authoritative
+    file is /etc/default/keyboard — the greeter and every new X/Wayland session
+    read it. It is rewritten here, then dpkg-reconfigure/setupcon apply it to
+    the console without waiting for a reboot.
+    """
+    keymap = (manifest.get("user", {}).get("keymap") or "").strip()
+    if not keymap:
+        logger.info("No keymap in manifest - skipping keyboard set")
+        return
+
+    kb_file = Path("/etc/default/keyboard")
+    settings = {"XKBMODEL": "pc105", "XKBLAYOUT": keymap,
+                "XKBVARIANT": "", "XKBOPTIONS": "", "BACKSPACE": "guess"}
+    try:
+        if kb_file.exists():
+            for line in kb_file.read_text().splitlines():
+                key, sep, val = line.partition("=")
+                key = key.strip()
+                # keep whatever model/options the installer chose; force the layout
+                if sep and key in settings and key not in ("XKBLAYOUT", "XKBVARIANT"):
+                    settings[key] = val.strip().strip('"')
+        kb_file.write_text(
+            "# KEYBOARD CONFIGURATION FILE\n"
+            "# Consult the keyboard(5) manual page.\n\n"
+            + "".join(f'{k}="{v}"\n' for k, v in settings.items()))
+        logger.info("Wrote %s with XKBLAYOUT=%r", kb_file, keymap)
+    except OSError as exc:
+        logger.warning("Could not write %s: %s", kb_file, exc)
+        return
+
+    run_cmd(["dpkg-reconfigure", "-f", "noninteractive", "keyboard-configuration"],
+            check=False)
+    run_cmd(["setupcon", "--save"], check=False)
+    logger.info("Keyboard layout set to %r", keymap)
+
+
 def _nm_keyfile(ssid: str, security: str, psk: str | None, hidden: bool) -> str:
     lines = ["[connection]", f"id={ssid}", f"uuid={uuid.uuid4()}", "type=wifi",
              "autoconnect=true", "", "[wifi]", "mode=infrastructure", f"ssid={ssid}"]
@@ -453,6 +502,7 @@ def main() -> int:
     # Order: refresh apt → drivers/codecs/firmware → flatpak → files → wifi → redact.
     steps: list[tuple[str, Any]] = [
         ("set-password",    lambda: set_user_password(manifest)),
+        ("set-keyboard",    lambda: set_keyboard(manifest)),
         ("apt-update",      lambda: apt_update(manifest)),
         ("gpu-drivers",     lambda: install_gpu_drivers(manifest)),
         ("codecs",          lambda: install_codecs(manifest)),

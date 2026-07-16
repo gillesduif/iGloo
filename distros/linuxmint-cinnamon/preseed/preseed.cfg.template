@@ -16,6 +16,10 @@
 # ── Localization ────────────────────────────────────────────────────────────
 d-i debian-installer/locale string {{LOCALE}}
 d-i keyboard-configuration/xkb-keymap select {{KEYMAP}}
+# Ubiquity's keyboard page reads layoutcode, NOT xkb-keymap (d-i only). Without
+# it automatic mode stops and asks. variantcode empty = base layout.
+d-i keyboard-configuration/layoutcode select {{KEYMAP}}
+d-i keyboard-configuration/variantcode string
 d-i console-setup/ask_detect boolean false
 
 # ── Network / clock ─────────────────────────────────────────────────────────
@@ -59,21 +63,54 @@ d-i grub-installer/with_other_os boolean true
 ubiquity ubiquity/summary note
 ubiquity ubiquity/reboot boolean true
 ubiquity ubiquity/poweroff boolean false
+# Mint 21+ added a "Multimedia codecs" page; without this preseed automatic mode
+# stops and asks. true = install mint-meta-codecs during the install itself
+# (the first-boot agent's codecs step then becomes a no-op safety net).
+ubiquity ubiquity/use_nonfree boolean true
 
 # ── Bootstrap the Igloo first-boot agent ────────────────────────────────────
-# success_command runs at the end of the install with /target = installed system.
+# success_command runs at the end of the install with /target = installed system,
+# but in a chroot whose RUNNING kernel (the live/casper kernel) does NOT match
+# /target's installed-kernel modules — so `modprobe vfat` fails and the OEMDRV
+# (FAT32) cannot be mounted here AT ALL. (NTFS works because ntfs3 is built into
+# the kernel; vfat is a module that can't be loaded against the wrong modules dir.)
+#
+# Therefore we do NOT read the OEMDRV at install time. success_command only WRITES
+# a self-contained bootstrap script + oneshot service into /target (no mount
+# needed). On the first boot of the *installed* system — where the running kernel
+# matches its own modules and vfat mounts fine — that service mounts the OEMDRV,
+# copies agent.py + the manifest in, and runs the agent (before the display
+# manager). The script is written line-by-line with echo because the preseed
+# value is one backslash-joined line and cannot contain a heredoc.
 ubiquity ubiquity/success_command string \
-    mkdir -p /target/opt/igloo /target/var/lib/igloo /target/var/log/igloo ; \
-    mkdir -p /tmp/oemdrv ; \
-    ( mount -t vfat -o ro LABEL=OEMDRV /tmp/oemdrv || mount -t vfat -o ro "$(blkid -L OEMDRV)" /tmp/oemdrv ) ; \
-    cp /tmp/oemdrv/igloo-agent/agent.py      /target/opt/igloo/agent.py ; \
-    cp /tmp/oemdrv/igloo-agent/first-boot.sh /target/opt/igloo/first-boot.sh ; \
-    chmod 0755 /target/opt/igloo/first-boot.sh /target/opt/igloo/agent.py ; \
-    cp /tmp/oemdrv/migration-manifest.json   /target/var/lib/igloo/manifest.json ; \
-    cp /tmp/oemdrv/igloo-agent/igloo-first-boot.service /target/etc/systemd/system/igloo-first-boot.service ; \
-    if lspci 2>/dev/null | grep -qi nvidia ; then \
-        echo 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX rd.driver.blacklist=nouveau modprobe.blacklist=nouveau"' >> /target/etc/default/grub ; \
-        chroot /target update-grub ; \
-    fi ; \
-    chroot /target systemctl enable igloo-first-boot.service ; \
-    umount /tmp/oemdrv || true
+    exec > /target/var/log/igloo-install.log 2>&1 ; set -x ; \
+    mkdir -p /target/opt/igloo /target/var/lib/igloo /target/var/log/igloo /target/etc/systemd/system/multi-user.target.wants ; \
+    echo "#!/bin/sh"                                                                       >  /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "mkdir -p /opt/igloo /var/lib/igloo /var/log/igloo /run/igloo-seed"               >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "exec >> /var/log/igloo/bootstrap.log 2>&1 ; set -x"                              >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "modprobe vfat 2>/dev/null || true"                                               >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "for d in /dev/disk/by-label/OEMDRV /dev/nvme*n*p* /dev/sd*[0-9]* /dev/vd*[0-9]* /dev/mmcblk*p* ; do umount /run/igloo-seed 2>/dev/null ; mount -t vfat -o ro \"\$d\" /run/igloo-seed 2>/dev/null && [ -d /run/igloo-seed/igloo-agent ] && { echo \"igloo: seed on \$d\" ; break ; } ; done" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/agent.py      /opt/igloo/agent.py"                >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/first-boot.sh /opt/igloo/first-boot.sh"           >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/migration-manifest.json   /var/lib/igloo/manifest.json"       >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "chmod 0755 /opt/igloo/agent.py /opt/igloo/first-boot.sh"                          >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "umount /run/igloo-seed 2>/dev/null || true"                                      >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "exec /opt/igloo/first-boot.sh"                                                   >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    chmod 0755 /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "[Unit]"                                          >  /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "Description=Igloo first-boot bootstrap"          >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "After=network-online.target local-fs.target"    >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "Wants=network-online.target"                    >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "Before=display-manager.service"                 >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "ConditionPathExists=!/var/lib/igloo/.done"      >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo ""                                               >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "[Service]"                                      >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "Type=oneshot"                                   >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "ExecStart=/opt/igloo/igloo-bootstrap.sh"        >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "RemainAfterExit=yes"                            >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "TimeoutStartSec=2400"                           >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo ""                                               >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "[Install]"                                      >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    echo "WantedBy=multi-user.target"                     >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    ln -sf /etc/systemd/system/igloo-bootstrap.service /target/etc/systemd/system/multi-user.target.wants/igloo-bootstrap.service ; \
+    echo "igloo: install-time bootstrap written"

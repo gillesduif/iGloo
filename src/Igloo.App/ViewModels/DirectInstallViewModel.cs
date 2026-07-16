@@ -134,7 +134,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         BytesTotal   = 0;
         PhaseDisplay = "Preparing…";
 
-        var progress = new Progress<DirectInstallProgress>(p =>
+        var uiProgress = new Progress<DirectInstallProgress>(p =>
         {
             CurrentPhase = p.Phase;
             BytesWritten = p.BytesWritten;
@@ -151,6 +151,14 @@ public sealed partial class DirectInstallViewModel : ObservableObject
                 _                                      => string.Empty,
             };
         });
+        // The full-ISO staging copy reports per buffer; throttle before the UI
+        // thread sees it (phase changes and completion always pass through).
+        var progress = new Igloo.Core.Services.ThrottledProgress<DirectInstallProgress>(
+            uiProgress,
+            forceWhen: (cur, prev) => prev is null
+                || cur.Phase != prev.Phase
+                || cur.Message != prev.Message
+                || (cur.BytesTotal > 0 && cur.BytesWritten >= cur.BytesTotal));
 
         try
         {

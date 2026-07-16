@@ -23,6 +23,28 @@ Behaviour:
 A **wrong** fingerprint can never make verification accept a bad key — it only
 rejects. So pinning fails closed.
 
+**Enforcement (2026-07):** ISO acquisition is fail-closed. When a distro declares
+GPG (signature URL + key source), a failed signature ABORTS the install — it never
+degrades to a warning. A SHA-256 must be available (manifest pin or signed checksum
+file) or acquisition aborts; if both exist they must agree. All artefact URLs must
+be HTTPS. Current pins (validated live against the shipping verifiers):
+
+| distro | pinned fingerprint | cross-checked against |
+|---|---|---|
+| fedora-kde / fedora-workstation (F44) | `36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6` | fedoraproject.org/security |
+| debian | `DF9B9C49EAA9298432589D76DA87E80D6294BE9B` | debian.org/CD/verify |
+| ubuntu | `843938DF228D22F7B3742BC0D94AA3F0EFE21092` | ubuntu.com (key URL carries the full fp) |
+| linuxmint-cinnamon | `27DEB15644C6B3CF3BD7D291300F846BA25BAE09` | linuxmint.com/verify.php |
+
+> **Mint keyserver gotcha — do not "fix" back:** Mint's `gpgKeyUrl` uses
+> `keys.openpgp.org/vks/v1/by-fingerprint/…`, NOT `keyserver.ubuntu.com`. The SKS
+> keyserver attaches every third-party certification ever made on the key, and one
+> of those is an OpenPGP v5 signature packet that BouncyCastle 2.3.1 cannot parse
+> (`UnsupportedPacketVersionException`) — key parsing dies and verification fails.
+> keys.openpgp.org serves the key with self-signatures only, which parses cleanly.
+> The Fedora releases also rotate signing keys: bump `gpgKeyFingerprint` together
+> with the release URLs (the pin is per-release).
+
 ## How to establish the anchor (do this on a trusted machine with `gpg`)
 
 ### Debian

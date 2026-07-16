@@ -151,6 +151,20 @@ public sealed record InstallerBootSpec
 
     /// <summary>Download URL for the initrd (see <see cref="KernelUrl"/>). The config is still injected into it.</summary>
     public Uri? InitrdUrl { get; init; }
+
+    /// <summary>
+    /// When true, Igloo pre-creates the Linux root partition from Windows
+    /// (diskpart, GPT type "Linux filesystem") so the installer only ever REUSES
+    /// existing partitions. Required for subiquity/curtin: asking curtin to ADD a
+    /// partition makes it rewrite the entire GPT (new disklabel GUID, renumbered
+    /// entries) and then reload the kernel's partition table — impossible while
+    /// the live-media partitions on this same disk are in use. With nothing to
+    /// add, curtin writes no table at all and only formats the pre-made root.
+    /// Installers with native free-space logic (Anaconda, partman biggest_free)
+    /// MUST keep this false — they claim the gap themselves, and a pre-made
+    /// partition would defeat their free-space selection.
+    /// </summary>
+    public bool PreCreateRootPartition { get; init; }
 }
 
 /// <summary>How the unattended installer config reaches the installer at boot.</summary>

@@ -54,7 +54,11 @@
 graphical
 
 lang {{LOCALE}}
-keyboard --vckeymap={{KEYMAP}} --xlayouts='{{XLAYOUT}}'
+# Only the XKB layout is given; Anaconda derives a matching virtual-console
+# keymap from it. Do NOT add --vckeymap={{KEYMAP}}: vconsole names differ from
+# XKB names (e.g. Belgian is xkb "be" but vconsole "be-latin1"), so feeding the
+# XKB name to --vckeymap makes Anaconda reject the layout for any non-US keyboard.
+keyboard --xlayouts='{{XLAYOUT}}'
 timezone {{TIMEZONE}} --utc
 
 network --bootproto=dhcp --device=link --activate --hostname={{HOSTNAME}}

@@ -4,7 +4,7 @@
   "displayName": "Ubuntu",
   "description": "Ubuntu 26.04 LTS with the GNOME desktop. The most widely used Linux desktop: five years of security updates, the largest hardware certification program, and the biggest ecosystem of guides and packaged software.",
   "logo": "logo/ubuntu-logo.png",
-  "status": "available",
+  "status": "in-development",
   "defaultDesktopEnvironment": "GNOME",
   "installerType": "Subiquity",
 
@@ -13,7 +13,8 @@
     "sha256": "487f87faaf547ea30e0aba4d5b53346292571256b25333a978db1692bcee9dd2",
     "gpgSignedDataUrl": "https://releases.ubuntu.com/26.04/SHA256SUMS",
     "gpgSignatureUrl": "https://releases.ubuntu.com/26.04/SHA256SUMS.gpg",
-    "gpgKeyUrl": "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x843938DF228D22F7B3742BC0D94AA3F0EFE21092"
+    "gpgKeyUrl": "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x843938DF228D22F7B3742BC0D94AA3F0EFE21092",
+    "gpgKeyFingerprint": "843938DF228D22F7B3742BC0D94AA3F0EFE21092"
   },
 
   "tags": [

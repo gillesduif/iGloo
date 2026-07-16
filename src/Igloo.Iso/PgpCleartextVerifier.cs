@@ -69,7 +69,7 @@ internal static class PgpCleartextVerifier
                 }
 
                 // Pinned trust anchor: the signing key must be the one we expect.
-                if (!FingerprintMatches(key, expectedFingerprint, logger))
+                if (!PinAccepts(keyRing, key, expectedFingerprint, logger))
                     continue;
 
                 sig.InitVerify(key);
@@ -136,21 +136,44 @@ internal static class PgpCleartextVerifier
     }
 
     /// <summary>
-    /// Returns true when <paramref name="key"/>'s 160-bit fingerprint equals
-    /// <paramref name="expected"/> (ignoring spaces/colons/case). When no
-    /// fingerprint is pinned this returns true. Pinning the full fingerprint is the
-    /// actual trust anchor: it defeats 64-bit key-ID forgery and a malicious
-    /// keyserver handing back a different key.
+    /// Pinned-fingerprint trust anchor. Returns true when the 160-bit fingerprint of
+    /// <paramref name="signingKey"/> — or, because distros routinely sign with a
+    /// subkey, of the PRIMARY key of the ring that contains it — equals
+    /// <paramref name="expected"/> (ignoring spaces/colons/case). Pinning the full
+    /// fingerprint defeats 64-bit key-ID forgery and a malicious keyserver handing
+    /// back a different key; the 64-bit key ID alone is spoofable.
+    /// When no fingerprint is pinned this returns true but logs a warning: the
+    /// signature then only proves "signed by whatever key the key URL served".
     /// </summary>
-    internal static bool FingerprintMatches(PgpPublicKey key, string? expected, ILogger logger)
+    internal static bool PinAccepts(
+        PgpPublicKeyRingBundle bundle, PgpPublicKey signingKey, string? expected, ILogger logger)
     {
-        if (string.IsNullOrWhiteSpace(expected)) return true;
-        var actual = Convert.ToHexString(key.GetFingerprint());
-        var want   = new string(expected.Where(Uri.IsHexDigit).ToArray());
-        if (string.Equals(actual, want, StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.IsNullOrWhiteSpace(expected))
+        {
+            logger.LogWarning(
+                "No signing-key fingerprint pinned - signature only proves possession of the fetched key");
+            return true;
+        }
+
+        var want = new string(expected.Where(Uri.IsHexDigit).ToArray());
+
+        static bool Matches(PgpPublicKey k, string want) =>
+            string.Equals(Convert.ToHexString(k.GetFingerprint()), want, StringComparison.OrdinalIgnoreCase);
+
+        if (Matches(signingKey, want)) return true;
+
+        // Subkey case: the checksum may be signed by a subkey whose fingerprint
+        // differs from the published (primary) one. Accept iff the primary key of
+        // the ring holding the signing key carries the pinned fingerprint.
+        var primary = bundle.GetPublicKeyRing(signingKey.KeyId)?
+            .GetPublicKeys().OfType<PgpPublicKey>().FirstOrDefault(k => k.IsMasterKey);
+        if (primary is not null && Matches(primary, want)) return true;
+
         logger.LogWarning(
-            "Signing key fingerprint {Actual} does not match pinned {Want} - rejecting signature",
-            actual, want);
+            "Signing key fingerprint {Actual} (primary {Primary}) does not match pinned {Want} - rejecting signature",
+            Convert.ToHexString(signingKey.GetFingerprint()),
+            primary is not null ? Convert.ToHexString(primary.GetFingerprint()) : "n/a",
+            want);
         return false;
     }
 }

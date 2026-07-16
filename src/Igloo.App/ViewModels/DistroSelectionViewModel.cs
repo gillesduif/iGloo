@@ -16,6 +16,11 @@ namespace Igloo.App.ViewModels;
 /// Current compatibility rules
 /// ───────────────────────────
 /// • Secure Boot ON  → distro must declare the <c>secure-boot-supported</c> tag.
+/// • Plugin findings → each distro plugin's <c>CheckCompatibility</c> runs against
+///   the preflight report; any <c>Blocker</c> finding (BitLocker locked, RAM below
+///   the distro's install floor, …) makes the distro unselectable with the reason
+///   shown in the catalog. This is where those checks are ENFORCED — nothing else
+///   calls them.
 /// </summary>
 public sealed partial class DistroSelectionViewModel : ObservableObject
 {
@@ -44,12 +49,18 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
-    public DistroSelectionViewModel(DistroLoader loader)
+    public DistroSelectionViewModel(DistroLoader loader, DistroRegistry registry,
+        Microsoft.Extensions.Logging.ILogger<DistroSelectionViewModel> logger)
     {
-        _loader = loader;
+        _loader   = loader;
+        _registry = registry;
+        _logger   = logger;
         // Initial population with no preflight data (no constraints yet).
         RefreshCompatibility(null);
     }
+
+    private readonly DistroRegistry _registry;
+    private readonly Microsoft.Extensions.Logging.ILogger<DistroSelectionViewModel> _logger;
 
     // ── API ──────────────────────────────────────────────────────────────────
 
@@ -61,6 +72,8 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     private bool  _built;
     private bool  _lastSecureBootOn;
 
+    private PreflightReport? _lastReport;
+
     public void RefreshCompatibility(PreflightReport? report)
     {
         var secureBootOn = report?.SecureBootEnabled ?? false;
@@ -70,16 +83,19 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         // its SelectedItem to null (the old item is gone from the new list) — so an
         // unconditional rebuild on every visit silently drops the user's selection
         // when they navigate back to this step, NRE-ing downstream (distro.Id).
-        if (_built && secureBootOn == _lastSecureBootOn)
+        // A new preflight report MUST rebuild: the plugins' hardware findings
+        // (RAM floors, BitLocker, …) are evaluated against it.
+        if (_built && secureBootOn == _lastSecureBootOn && ReferenceEquals(report, _lastReport))
             return;
 
         var previousId = SelectedItem?.Manifest.Id;
 
         DistroItems = _loader.LoadedDistros
-            .Select(m => EvaluateItem(m, secureBootOn))
+            .Select(m => EvaluateItem(m, secureBootOn, report))
             .ToList();
         _built            = true;
         _lastSecureBootOn = secureBootOn;
+        _lastReport       = report;
 
         // Restore the previous selection if it is still compatible.
         var restored = DistroItems.FirstOrDefault(i => i.Manifest.Id == previousId);
@@ -88,7 +104,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static DistroListItem EvaluateItem(DistroManifest m, bool secureBootOn)
+    private DistroListItem EvaluateItem(DistroManifest m, bool secureBootOn, PreflightReport? report)
     {
         var comingSoon = !m.IsAvailable;
 
@@ -98,6 +114,35 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                 IsCompatible:          false,
                 IncompatibilityReason: "Requires Secure Boot to be disabled",
                 IsComingSoon:          comingSoon);
+        }
+
+        // Plugin-declared hardware requirements (BitLocker state, distro-specific
+        // RAM floors such as Ubuntu's in-memory installer, …). A Blocker finding
+        // makes the distro unselectable, with the reason shown in the catalog.
+        // This call is the ONLY place plugin CheckCompatibility is enforced —
+        // before it was wired up, a machine below Ubuntu's RAM floor sailed into
+        // an install that could only fail after repartitioning had begun.
+        if (report is not null && _registry.TryGet(m.Id, out var plugin))
+        {
+            try
+            {
+                var blocker = plugin.CheckCompatibility(report)
+                    .FirstOrDefault(f => f.Severity == FindingSeverity.Blocker);
+                if (blocker is not null)
+                {
+                    var reason = string.IsNullOrWhiteSpace(blocker.Remediation)
+                        ? blocker.Message
+                        : $"{blocker.Message} {blocker.Remediation}";
+                    return new DistroListItem(m, IsCompatible: false,
+                        IncompatibilityReason: reason, IsComingSoon: comingSoon);
+                }
+            }
+            catch (Exception ex)
+            {
+                // A buggy plugin must not take down the catalog; fail open with a log.
+                Microsoft.Extensions.Logging.LoggerExtensions.LogWarning(
+                    _logger, ex, "CheckCompatibility failed for {DistroId}", m.Id);
+            }
         }
 
         return new DistroListItem(m, IsCompatible: true, IncompatibilityReason: null,

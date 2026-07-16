@@ -54,7 +54,7 @@ internal static class PgpDetachedVerifier
                 }
 
                 // Pinned trust anchor: the signing key must be the one we expect.
-                if (!PgpCleartextVerifier.FingerprintMatches(key, expectedFingerprint, logger))
+                if (!PgpCleartextVerifier.PinAccepts(keyRing, key, expectedFingerprint, logger))
                     continue;
 
                 sig.InitVerify(key);

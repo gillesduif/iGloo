@@ -47,11 +47,27 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
         Directory.CreateDirectory(distroDir);
 
+        // ── Step 0: Transport policy ──────────────────────────────────────────
+        // Every artefact URL must be HTTPS. TLS is the outer layer; GPG + SHA-256
+        // are the inner layers - none of them is optional when declared.
+        RequireHttps(spec);
+
         // ── Step 1: Fetch CHECKSUM file, GPG-verify it, parse SHA-256 ────────
-        // We do this BEFORE downloading the ISO so we have the authoritative hash
-        // ready.  When distro.json ships with an empty sha256, the hash is
-        // auto-resolved from the signed CHECKSUM file - no hardcoded values to
-        // maintain across Fedora releases.
+        // Done BEFORE downloading the ISO: a verification failure must abort the
+        // acquisition before pulling gigabytes, and the authoritative hash must be
+        // known up front. When distro.json ships with an empty sha256, the hash is
+        // auto-resolved from the GPG-signed CHECKSUM file - no hardcoded values to
+        // maintain across releases.
+        //
+        // FAIL-CLOSED POLICY (do not weaken):
+        //  * GPG declared (signature URL + key source) → the signature MUST verify,
+        //    or acquisition throws. A failed/unavailable signature never degrades
+        //    into a warning.
+        //  * A SHA-256 for the ISO MUST be available from the manifest or the
+        //    signed checksum file, or acquisition throws - an unverifiable image
+        //    is never installed.
+        //  * If the manifest hash and the signed checksum hash BOTH exist they must
+        //    agree, or acquisition throws (either one was tampered with).
         string? resolvedSha256 = null;
         bool    gpgVerified    = false;
 
@@ -60,63 +76,94 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         if (hasHardcodedHash)
             resolvedSha256 = spec.ExpectedSha256;
 
-        if (spec.GpgSignatureUrl is not null && spec.GpgKeyUrl is not null)
+        bool gpgDeclared = spec.GpgSignatureUrl is not null
+                        && (spec.GpgKeyData is { Length: > 0 } || spec.GpgKeyUrl is not null);
+
+        if (gpgDeclared)
         {
             progress?.Report(new IsoAcquisitionProgress(
                 IsoAcquisitionPhase.VerifyingGpg, 0, null, "Fetching & verifying CHECKSUM file…"));
 
             var (checksumContent, gpgOk) = await FetchAndVerifyChecksumAsync(spec, ct);
-            gpgVerified = gpgOk;
+            if (!gpgOk)
+                throw new InvalidOperationException(
+                    $"GPG verification failed for {spec.DistroId}: the checksum file could not be " +
+                    "authenticated against the distribution's signing key. Refusing to continue - " +
+                    "this can mean a network problem or a tampered mirror. Check your connection and retry.");
+            gpgVerified = true;
 
-            // Auto-resolve SHA-256 from the signed CHECKSUM file when no
-            // hardcoded hash is present in the plugin manifest.
-            if (resolvedSha256 is null && checksumContent is not null)
+            var signedHash = checksumContent is not null
+                ? ParseSha256FromChecksum(checksumContent, fileName)
+                : null;
+
+            if (signedHash is not null && resolvedSha256 is not null &&
+                !string.Equals(signedHash, resolvedSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"Checksum conflict for {spec.DistroId}: the manifest pins SHA-256 " +
+                    $"{resolvedSha256[..16]}… but the GPG-signed checksum file says {signedHash[..16]}…. " +
+                    "One of them is wrong or tampered with. Refusing to continue.");
+
+            if (resolvedSha256 is null && signedHash is not null)
             {
-                resolvedSha256 = ParseSha256FromChecksum(checksumContent, fileName);
-                if (resolvedSha256 is not null)
-                    _logger.LogInformation(
-                        "SHA-256 auto-resolved from CHECKSUM file: {Hash}…", resolvedSha256[..16]);
-                else
-                    _logger.LogWarning(
-                        "SHA-256 for {File} not found in CHECKSUM file", fileName);
+                resolvedSha256 = signedHash;
+                _logger.LogInformation(
+                    "SHA-256 auto-resolved from signed CHECKSUM file: {Hash}…", resolvedSha256[..16]);
             }
+        }
+        else if (spec.GpgSignatureUrl is not null || spec.GpgSignedDataUrl is not null)
+        {
+            // Signature URL without any key source: we could download the signature
+            // but have nothing trusted to verify it against.
+            _logger.LogWarning(
+                "GPG signature declared for {DistroId} but no key source (bundled key or key URL) - " +
+                "signature cannot be verified; relying on the pinned SHA-256", spec.DistroId);
         }
         else
         {
-            _logger.LogWarning("GPG check skipped: no signature URL for {DistroId}", spec.DistroId);
+            _logger.LogWarning("No GPG signature declared for {DistroId}; relying on the pinned SHA-256", spec.DistroId);
         }
+
+        if (resolvedSha256 is null)
+            throw new InvalidOperationException(
+                $"No SHA-256 hash available for {spec.DistroId} (none pinned in the manifest and none " +
+                "resolvable from a signed checksum file). Refusing to download an unverifiable image.");
 
         // ── Step 2: Download ISO (resumable) ──────────────────────────────────
         _logger.LogInformation("Acquiring ISO for {DistroId} from {Url}", spec.DistroId, spec.DownloadUrl);
         await DownloadWithResumeAsync(spec.DownloadUrl, isoPath, partialPath, progress, ct);
 
-        // ── Step 3: Verify SHA-256 ────────────────────────────────────────────
-        bool   sha256Verified = false;
-        string computedHash   = await ComputeSha256Async(isoPath, progress, ct);
+        // ── Step 3: Verify SHA-256 (mandatory - resolvedSha256 is never null here) ──
+        string computedHash = await ComputeSha256Async(isoPath, progress, ct);
 
-        if (resolvedSha256 is not null)
+        if (!string.Equals(computedHash, resolvedSha256, StringComparison.OrdinalIgnoreCase))
         {
-            sha256Verified = string.Equals(computedHash, resolvedSha256, StringComparison.OrdinalIgnoreCase);
-            if (!sha256Verified)
-            {
-                // Corrupt or tampered - delete so next run re-downloads.
-                File.Delete(isoPath);
-                throw new InvalidOperationException(
-                    $"SHA-256 mismatch for {spec.DistroId}. " +
-                    $"Expected {resolvedSha256[..16]}…, computed {computedHash[..16]}…");
-            }
-            _logger.LogInformation("SHA-256 OK: {Hash}", computedHash);
+            // Corrupt or tampered - delete so next run re-downloads.
+            File.Delete(isoPath);
+            throw new InvalidOperationException(
+                $"SHA-256 mismatch for {spec.DistroId}. " +
+                $"Expected {resolvedSha256[..16]}…, computed {computedHash[..16]}…");
         }
-        else
-        {
-            _logger.LogWarning(
-                "SHA-256 check skipped: no expected hash available for {DistroId}", spec.DistroId);
-        }
+        _logger.LogInformation("SHA-256 OK: {Hash}", computedHash);
 
         // ── Done ─────────────────────────────────────────────────────────────
         progress?.Report(new IsoAcquisitionProgress(IsoAcquisitionPhase.Complete, 0, null, null));
 
-        return new IsoAcquisitionResult(isoPath, sha256Verified, gpgVerified, new FileInfo(isoPath).Length);
+        return new IsoAcquisitionResult(isoPath, Sha256Verified: true, gpgVerified, new FileInfo(isoPath).Length);
+    }
+
+    /// <summary>
+    /// Rejects any non-HTTPS artefact URL. TLS alone is not the trust anchor
+    /// (GPG + SHA-256 are), but allowing plain HTTP would hand an on-path attacker
+    /// the checksum, signature AND key in one go.
+    /// </summary>
+    private static void RequireHttps(IsoSpecification spec)
+    {
+        foreach (var url in new[] { spec.DownloadUrl, spec.GpgSignatureUrl, spec.GpgKeyUrl, spec.GpgSignedDataUrl })
+        {
+            if (url is not null && !string.Equals(url.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"Insecure URL rejected: {url}. All ISO, checksum, signature and key URLs must use HTTPS.");
+        }
     }
 
     // ── Download ──────────────────────────────────────────────────────────────
@@ -231,10 +278,10 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     // ── GPG + CHECKSUM ────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Downloads the CHECKSUM file and (separately) GPG-verifies it.
-    /// The two steps are independent: a GPG failure never suppresses the
-    /// CHECKSUM content, so SHA-256 can still be resolved even when GPG
-    /// verification fails or the key ring cannot be parsed.
+    /// Downloads the CHECKSUM file and (separately) GPG-verifies it. Failures are
+    /// reported through the returned <c>verified</c> flag - the caller enforces the
+    /// fail-closed policy (this method stays exception-free so logs capture the
+    /// specific failure before the caller aborts).
     /// </summary>
     private async Task<(string? content, bool verified)> FetchAndVerifyChecksumAsync(
         IsoSpecification spec, CancellationToken ct)
@@ -260,7 +307,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             return (null, false);
         }
 
-        // ── Step B: GPG verification (best-effort; never blocks SHA-256 use) ──
+        // ── Step B: GPG verification (result enforced fail-closed by the caller) ──
         bool gpgVerified = false;
         try
         {
@@ -270,9 +317,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
-                "GPG key download/verification failed for {DistroId} - SHA-256 will still be checked",
-                spec.DistroId);
+            _logger.LogWarning(ex, "GPG key download/verification failed for {DistroId}", spec.DistroId);
         }
 
         return (checksumContent, gpgVerified);
@@ -311,9 +356,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
-                "Detached GPG download/verification failed for {DistroId} - SHA-256 will still be checked",
-                spec.DistroId);
+            _logger.LogWarning(ex, "Detached GPG download/verification failed for {DistroId}", spec.DistroId);
         }
 
         return (dataText, gpgVerified);
