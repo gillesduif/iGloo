@@ -1,75 +1,254 @@
-# Architecture
+# iGloo Architecture
 
-## End-to-end flow
+iGloo is a **two-half system**: a Windows-side *preparer* (the wizard you run) and a
+Linux-side *committer* (the distro's own installer plus iGloo's first-boot agent),
+communicating exclusively through files staged on dedicated partitions. This split is
+forced by a fundamental constraint: destructive disk work cannot be done from the
+running Windows system it targets — so **Windows stages, Linux commits**.
 
-1. **Igloo.exe launches** on Windows. UAC elevates immediately.
-2. **Plugin discovery.** `Igloo.Core.Plugins.DistroRegistry` scans the `distros/` directory next to the executable and loads each distro plugin into its own AssemblyLoadContext.
-3. **Pre-flight check** (`Igloo.Preflight`). Reports BitLocker, Secure Boot, UEFI/BIOS, TPM, disks, GPU. Surfaces blockers and warnings.
-4. **Distro selection.** User picks from the catalog. Each plugin's `CheckCompatibility(report)` is called to add distro-specific findings (e.g. NVIDIA on Fedora requires RPM Fusion).
-5. **ISO acquisition** (`Igloo.Iso`). Resumable download, SHA256 verification, GPG verification against the distro's pinned key.
-6. **Migration scope.** User picks folders to migrate, browser profiles, suggested apps to auto-install.
-7. **Pre-destructive backup.** Partition table, BCD, EFI System Partition contents.
-8. **Partition prep.** Non-destructive NTFS shrink. **The most likely step to fail** — see below.
-9. **Staging.** Selected files copied to staging on the new free space. `migration-manifest.json` generated.
-10. **Installer config rendering.** The chosen plugin's `RenderInstallerConfigAsync(manifest)` produces the kickstart / preseed / Calamares config.
-11. **Agent payload rendering.** The plugin's `GetAgentPayloadAsync()` produces the first-boot agent files.
-12. **OEMDRV volume creation.** Small FAT32 volume labelled `OEMDRV`, contains the rendered installer config, the agent payload, and the manifest.
-13. **Boot manager entry.** Windows Boot Manager gets a "boot once" entry pointing at the downloaded ISO. A failure does not trap the user in a boot loop.
-14. **Reboot.** Installer auto-discovers the OEMDRV volume, runs unattended.
-15. **First boot.** The systemd unit the installer dropped runs the agent. The agent applies the manifest, enables extra repos, installs codecs/drivers, copies user files, imports browsers, installs suggested apps.
-16. **Welcome.** A welcome app launches on first graphical login.
+This document is the map. For the *why* behind individual decisions, see
+[`decisions/`](decisions/); for the research-grade treatment, see the
+[white paper](whitepaper/igloo-whitepaper.md).
 
-## The dangerous steps
+## 1. System context
 
-Three steps can brick the machine. They get disproportionate engineering attention.
+```mermaid
+flowchart LR
+    U(["User<br>(no Linux knowledge)"]) --> APP
 
-### Step 8 — Partition shrink
-NTFS shrink from a running system can fail in ways that leave the filesystem inconsistent. We use Windows' own `Resize-Partition` (via `MSFT_Partition` WMI) rather than rolling our own. If shrink fails or the target size isn't achievable due to unmovable files, we abort with a clear message and do not proceed. **We do not attempt to move unmovable files** — that's how Paragon and AOMEI break filesystems.
+    subgraph WIN["Windows machine (the target)"]
+        APP["iGloo.exe<br>wizard + preparer"]
+        DISK[("Target disk<br>Windows + free space")]
+        APP -->|"shrink, stage, boot entry"| DISK
+    end
 
-### Step 13 — Boot manager modification
-A wrong BCD edit can leave the machine unbootable. Mitigations:
-- Full BCD export to backup before any modification.
-- New entry added as "boot once" (`/bootsequence`, not `/default`).
-- Rescue USB generation is offered before this step so the user has a recovery path.
+    MIRROR["Distro mirrors<br>(HTTPS)"] -->|"ISO + checksums + GPG signatures"| APP
+    DISK -->|"reboot into staged installer"| INST["Unattended Linux installer<br>(Anaconda / d-i / Ubiquity / subiquity)"]
+    INST --> OS["Installed Linux<br>+ iGloo first-boot agent"]
+    OS -->|"drivers, codecs, files, Wi-Fi, apps"| U
+```
 
-### Step 14 — Reboot into the installer
-If the installer fails partway through, the machine is in a half-installed state. Our installer config deliberately doesn't touch the Windows partitions (only the new free space), so the worst case is Windows still boots. The installer's logs are written to the OEMDRV volume during `%post` so they're recoverable from Windows after a failed install.
+Trust boundaries: everything downloaded is verified (TLS + SHA-256 + GPG against a
+**pinned full fingerprint**, §7) before a single byte of it is executed or staged.
 
-## Plugin architecture
+## 2. Components
 
-Distro support is a plugin model. Igloo.Core defines `IDistroPlugin`; each distro lives in its own folder under `distros/` with its own assembly. The core never references concrete distros.
+```mermaid
+flowchart TD
+    subgraph APP["src/Igloo.App — WPF wizard"]
+        VM["ViewModels<br>(one per wizard step)"]
+        THEME["Dark theme + Cover Flow catalog"]
+    end
 
-Three reasons:
-- **Zero-code distro additions.** A community contributor adds Mint or Zorin without touching `src/`.
-- **Per-distro versioning.** Fedora plugin and Mint plugin can release independently.
-- **Isolation.** A buggy plugin can't break other distros or the core — each loads into a separate AssemblyLoadContext.
+    subgraph CORE["src/Igloo.Core"]
+        IDP["IDistroPlugin +<br>InstallerBootSpec"]
+        REG["DistroRegistry / DistroLoader<br>(plugin discovery, isolated load contexts)"]
+        MAN["MigrationManifest<br>(the single source of truth)"]
+        THR["ThrottledProgress"]
+    end
 
-The `_template/` folder is the documentation-by-example for contributors.
+    subgraph SVC["Service projects"]
+        PRE["src/Igloo.Preflight<br>hardware detection · partitioning ·<br>DirectInstallService (no-USB pipeline)"]
+        ISO["src/Igloo.Iso<br>resumable download · SHA-256 ·<br>PGP verify (pinned fingerprints)"]
+        MIG["src/Igloo.Migration<br>user-file staging"]
+        USB["src/Igloo.UsbWriter<br>fallback USB path"]
+    end
 
-## Milestones
+    subgraph PLUG["distros/ — one folder per distro"]
+        FED["fedora-kde<br>Anaconda / kickstart"]
+        DEB["debian<br>d-i / preseed"]
+        MINT["linuxmint-cinnamon<br>Ubiquity / preseed"]
+        UBU["ubuntu (in development)<br>subiquity / autoinstall"]
+        FAM["_debian-family<br>shared first-boot agent (Python)"]
+    end
 
-| ID | Scope | Status |
-|----|-------|--------|
-| M1 | Skeleton + plugin architecture + manifest contract | **DONE (this commit)** |
-| M2 | Pre-flight detection working on real Windows machines | Next |
-| M3 | ISO acquisition end-to-end (download, SHA256, GPG) | After M2 |
-| M4 | Staging + manifest generation + plugin invocation | After M3 |
-| M5 | First-boot agent for Fedora KDE end-to-end (VM-tested) | Parallel to M3/M4 |
-| M6 | OEMDRV volume creation + boot manager entry | After M4 + M5 |
-| M7 | Closed beta on real hardware (UEFI/BIOS × SB on/off × BitLocker × GPU vendors) | After M6 |
-| M8 | v1.0 public release, Fedora KDE only | After M7 |
-| M9 | Second distro (Linux Mint) to validate the plugin abstractions | After M8 |
+    APP --> CORE
+    APP --> SVC
+    SVC --> CORE
+    REG --> PLUG
+    DEB -.uses.-> FAM
+    MINT -.uses.-> FAM
+    UBU -.uses.-> FAM
+```
 
-## Why this two-half architecture
+Rules of the dependency graph:
 
-Two halves (Windows-side preparer, Linux-side committer) talking through a staging volume is the only design that handles the fundamental constraint: **we cannot do all the destructive work from a running Windows system.** Partition operations, filesystem creation, and bootloader installation require the target regions to be either unmounted or accessed from a different OS entirely. So Windows stages; Linux commits.
+- **Core never references a concrete distro.** Plugins are discovered at runtime from
+  `distros/` and loaded into isolated `AssemblyLoadContext`s.
+- **Plugins never touch the disk.** They *declare* (boot spec) and *render* (config,
+  agent payload); all disk work happens in `DirectInstallService`, identically for
+  every distro.
+- The **manifest** (`migration-manifest.json`) is written once by the wizard and read
+  by everything downstream — installer configs are rendered from it on Windows, and
+  the first-boot agent applies it on Linux.
 
-The alternative — driving everything from a WinPE-style preboot environment — is what commercial tools attempt, and it's what breaks them when firmware or driver quirks intervene. Anaconda already knows how to install Fedora. We don't need to reinvent that.
+## 3. The wizard (happy path with its safety gates)
+
+```mermaid
+flowchart TD
+    A["1 · Welcome"] --> B["2 · Preflight<br>UEFI · BitLocker · disks · GPU · RAM"]
+    B -->|"blocker found"| BX(["STOP — reason + remedy shown"])
+    B --> C["3 · Distro catalog"]
+    C -->|"plugin CheckCompatibility<br>blocker (e.g. RAM floor)"| CX(["distro greyed out<br>with the reason"])
+    C --> D["4 · ISO download<br>SHA-256 + GPG (pinned)"]
+    D -->|"verification fails"| DX(["STOP — never installs<br>an unverified image"])
+    D --> E["5 · Migration setup<br>folders · browser · apps · account"]
+    E --> F["6 · Disk selection<br>dual-boot size / replace"]
+    F --> G["7 · File staging +<br>installer config rendering"]
+    G --> H["8 · Direct install<br>partition · stage · BootNext"]
+    H --> I(["Reboot into unattended installer"])
+```
+
+## 4. The no-USB direct-install pipeline
+
+What `DirectInstallService` does between "Install" and the reboot:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant W as Wizard
+    participant D as DirectInstallService
+    participant P as Plugin
+    participant DSK as Target disk
+    participant FW as UEFI firmware
+
+    W->>P: GetInstallerBootSpec()
+    P-->>W: declarative boot spec (cmdline, paths, delivery)
+    W->>D: Prepare(disk, size, iso, staging, bootSpec)
+    D->>DSK: shrink Windows (Resize-Partition via WMI)
+    D->>DSK: create FAT32 seed partition (OEMDRV / CIDATA)
+    alt ISO ≥ 4 GiB (FAT32 file limit)
+        D->>DSK: create NTFS ISO partition (IGLOOISO)
+    end
+    alt subiquity distro
+        D->>DSK: pre-create Linux root partition (installer must never add one)
+    end
+    D->>DSK: extract or download kernel + initrd
+    D->>DSK: inject rendered config into initrd (gzip-appended cpio) or copy to seed
+    D->>DSK: copy full ISO (iso-scan / casper distros)
+    D->>DSK: write grub.cfg to every prefix the distro's GRUB searches
+    D->>DSK: copy manifest + agent payload
+    D->>FW: register one-shot BootNext entry
+    Note over FW: If anything fails to boot,<br>the NEXT reboot lands back in Windows.
+    W->>FW: reboot
+```
+
+Resulting disk layout (dual-boot, large-ISO case):
+
+| # | Partition | FS | Owner | Fate after install |
+|---|---|---|---|---|
+| 1 | EFI System Partition | FAT32 | shared | reused by GRUB — never reformatted |
+| 2 | MSR | — | Windows | untouched |
+| 3 | Windows C: | NTFS | Windows | untouched (read-only source for file migration) |
+| 4 | Recovery | NTFS | Windows | untouched |
+| 5 | Seed — `OEMDRV`/`CIDATA` | FAT32 | iGloo | read at install + first boot; deletable afterwards |
+| 6 | `IGLOOISO` (only if ISO ≥ 4 GiB) | NTFS | iGloo | consumed at install; deletable afterwards |
+| 7 | Linux root | ext4 | Linux | the new OS |
+
+## 5. Two-phase first-boot bootstrap (the pattern Mint proved)
+
+Installer late-hooks run in a **hostile environment**: busybox tooling, no udev
+labels, and a live kernel whose modules don't match `/target` — on Mint that made
+mounting the FAT32 seed *impossible at install time*. The rule that came out of it:
+
+> **Never do environment-sensitive work in an installer hook. Write a bootstrap;
+> let the installed system do the work on its own first boot.**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant IH as Installer late-hook<br>(hostile — wrong modules, busybox)
+    participant T as /target (installed system)
+    participant FB as First boot (real OS)
+    participant A as iGloo agent
+
+    IH->>T: write igloo-bootstrap.sh (echo only — nothing that can fail)
+    IH->>T: write + enable oneshot unit (Before=display-manager)
+    Note over IH: no mounts, no label lookups,<br>no module-dependent syscalls
+    FB->>FB: mount seed partition (vfat works — own kernel!)
+    FB->>T: copy agent.py + manifest from seed
+    FB->>A: exec agent (before any login screen)
+    A->>A: password · keyboard · drivers (NVIDIA) · codecs ·<br>os-prober/GRUB · Flathub · file migration (ntfs-3g) ·<br>Wi-Fi keyfiles · redact secrets · mark .done
+```
+
+## 6. One pipeline, four installer stacks
+
+The entire per-distro boot delta fits in one declarative record
+([`InstallerBootSpec`](../src/Igloo.Core/Abstractions/IDistroPlugin.cs)); the
+pipeline never branches on distro identity, only on spec fields:
+
+| | Fedora KDE | Debian 13 | Mint Cinnamon | Ubuntu *(in dev)* |
+|---|---|---|---|---|
+| Installer | Anaconda | debian-installer | Ubiquity (casper) | subiquity (casper) |
+| Config format | kickstart | preseed | preseed | cloud-init autoinstall |
+| Config delivery | seed volume (`OEMDRV`) | injected into initrd | injected into initrd | seed volume (`CIDATA`) |
+| Boot payload | kernel+initrd+stage2 from ISO | **hd-media** kernel/initrd (downloaded) + full ISO | kernel/initrd + full ISO | kernel/initrd + full ISO (NTFS) + `toram` |
+| Free-space strategy | guarded `clearpart` + `%pre` | `biggest_free` (method **unset**!) | `biggest_free` (method **unset**!) | all-preserved table; root **pre-created by iGloo** |
+| Agent hand-off | `%post` | busybox partition scan | two-phase bootstrap | two-phase bootstrap |
+
+Hard-won, non-obvious rules encoded in the code and templates (violating any of
+these caused a real failure — see the white paper's field-notes section):
+
+1. Installer "easy" partitioning presets (`partman-auto/method`, subiquity
+   `layout:`) mean **whole-disk wipe**, never dual-boot.
+2. curtin storage v2 configs are **authoritative**: any partition not declared is
+   *deleted*; preserved entries need real `number/offset/size/partition_type/uuid`
+   or the GPT rewrite clobbers Windows' identity.
+3. FAT32 cannot hold a file ≥ 4 GiB → oversized ISOs get their own NTFS partition.
+4. Each signed GRUB searches a compiled-in prefix (`/EFI/fedora`, `/EFI/debian`,
+   `/boot/grub`…) → write `grub.cfg` to *all* candidate prefixes.
+5. Subiquity early-command payloads must be single-quoted (double quotes are
+   pre-expanded by an outer shell) and must never `pkill -f` (self-match).
+
+## 7. Security model
+
+```mermaid
+flowchart LR
+    URL["HTTPS-only URLs<br>(HTTP rejected outright)"] --> DL["Resumable download"]
+    DL --> SHA["SHA-256<br>(pinned or from signed checksum file)"]
+    KEY["Signing key<br>bundled with app, else fetched"] --> FPR{"full 160-bit<br>fingerprint match?"}
+    FPR -->|no| STOP1(["ABORT"])
+    FPR -->|yes| GPG["GPG verify checksum file<br>(cleartext or detached)"]
+    SHA --> OK{"all checks pass?"}
+    GPG --> OK
+    OK -->|no| STOP2(["ABORT — never degrade<br>to a warning"])
+    OK -->|yes| USE["Stage for install"]
+```
+
+- **Fail-closed:** a declared signature that cannot be verified is an error, never a
+  warning. No SHA-256 available → no download.
+- **Fingerprints, not key IDs:** 64-bit key IDs are forgeable on keyservers; iGloo
+  pins the full fingerprint and prefers keys bundled with the app.
+- **Secrets hygiene:** the manifest's password is used once (chpasswd) and then
+  redacted on disk; Wi-Fi keyfiles land `0600 root:root`.
+
+## 8. Failure containment (the "worst case is Windows still boots" invariant)
+
+| Threat | Containment |
+|---|---|
+| Installer never boots | `BootNext` is one-shot: next reboot lands in Windows |
+| Installer crashes mid-run | Config only ever targets the freed space / pre-made partitions; Windows partitions are declared preserved everywhere |
+| Windows-side crash mid-wizard | Each step is resumable; partitions are labelled and re-detected (`FindExistingOemDrv`) |
+| Silent config corruption | Fail-loud guard: unsubstituted `{{IGLOO_*}}` tokens abort on Windows, *before* reboot |
+| Unattended step fails invisibly | Every phase writes a persistent trace (`/var/log/igloo*`, watchdog logs name the holders) |
+| Bad shrink | Windows' own `Resize-Partition`; no custom NTFS logic, no unmovable-file tricks |
+
+## 9. Adding a distro (contributor path)
+
+1. Copy [`distros/_template/`](../distros/_template/); fill `distro.json`
+   (ISO URL, SHA-256/signature URLs, **GPG key + full fingerprint**, tags).
+2. Implement `IDistroPlugin`: compatibility findings, config rendering from the
+   manifest, agent payload (reuse `_debian-family` for apt distros), and the
+   `InstallerBootSpec`.
+3. Study the matrix in §6 first — the pitfalls per installer stack are already
+   solved once; don't rediscover them.
+4. Validate in a VM: unattended install, **Windows survives**, agent log clean.
+
+Full guide: [`distros/README.md`](../distros/README.md).
 
 ## See also
 
-- `decisions/001-language-and-ui.md` — C# / .NET 8 / WinUI 3 / unpackaged
-- `decisions/002-fedora-as-reference.md` — Fedora KDE as the reference plugin
-- `decisions/003-runtime-injection.md` — runtime kickstart injection over remastered ISO
-- `decisions/004-plugin-architecture.md` — distro support as a plugin model
-- `decisions/005-license-gpl2.md` — GPL-2.0-only, matching Linux and Git
+- [`decisions/`](decisions/) — ADRs (plugin model, GPL-2.0, runtime injection, …)
+- [`../distros/ubuntu/STATUS.md`](../distros/ubuntu/STATUS.md) — the Ubuntu engineering dossier
+- [`whitepaper/igloo-whitepaper.md`](whitepaper/igloo-whitepaper.md) — research-grade write-up
+- [`guide/`](guide/) — visual walkthrough (shot list, beta)
