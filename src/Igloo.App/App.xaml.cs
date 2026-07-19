@@ -104,6 +104,7 @@ public partial class App : Application
 
         // Core services
         services.AddSingleton<IPreflightChecker, WindowsPreflightChecker>();
+        services.AddSingleton<ILinuxRemovalService, LinuxRemovalService>();
         services.AddSingleton<IPartitionResizeService, PartitionResizeService>();
         services.AddSingleton<IDirectInstallService, DirectInstallService>();
         services.AddSingleton<IIsoAcquisitionService, IsoAcquisitionService>();

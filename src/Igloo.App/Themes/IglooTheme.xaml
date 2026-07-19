@@ -24,20 +24,22 @@
     <Color x:Key="Color.Bg.Mid">#FF0A1126</Color>
     <Color x:Key="Color.Bg.Bottom">#FF070B16</Color>
 
-    <!-- Surfaces (cards sit slightly above the backdrop) -->
-    <Color x:Key="Color.Surface">#FF101626</Color>
-    <Color x:Key="Color.Surface.High">#FF161D31</Color>
-    <Color x:Key="Color.Surface.Border">#FF232C45</Color>
+    <!-- Surfaces: NEUTRAL Win11 greys — the old navy-tinted surfaces are what
+         kept legacy controls (scrollbar thumbs, pills, journey nodes) looking
+         blue. Neutral surface, semantic-only color (charter). -->
+    <Color x:Key="Color.Surface">#FF272727</Color>
+    <Color x:Key="Color.Surface.High">#FF2F2F2F</Color>
+    <Color x:Key="Color.Surface.Border">#FF3D3D3D</Color>
 
     <!-- Text -->
-    <Color x:Key="Color.Text.Primary">#FFF2F5FF</Color>
-    <Color x:Key="Color.Text.Secondary">#FFA9B2CE</Color>
-    <Color x:Key="Color.Text.Tertiary">#FF6B7694</Color>
+    <Color x:Key="Color.Text.Primary">#FFFFFFFF</Color>
+    <Color x:Key="Color.Text.Secondary">#FFC8C8C8</Color>
+    <Color x:Key="Color.Text.Tertiary">#FF9A9CA1</Color>
 
-    <!-- Accent (glacier blue - the "future" color) -->
-    <Color x:Key="Color.Accent">#FF6C9CFF</Color>
-    <Color x:Key="Color.Accent.Bright">#FF8FB5FF</Color>
-    <Color x:Key="Color.Accent.Deep">#FF3D6CD6</Color>
+    <!-- Accent: the Windows 11 dark-mode accent family -->
+    <Color x:Key="Color.Accent">#FF4CC2FF</Color>
+    <Color x:Key="Color.Accent.Bright">#FF5FCBFF</Color>
+    <Color x:Key="Color.Accent.Deep">#FF3DAEE8</Color>
 
     <!-- Semantics - kept saturated and high-contrast on dark; danger stays grave -->
     <Color x:Key="Color.Success">#FF5BDB95</Color>
@@ -54,7 +56,7 @@
     <SolidColorBrush x:Key="Brush.Accent"           Color="{StaticResource Color.Accent}" />
     <SolidColorBrush x:Key="Brush.Accent.Bright"    Color="{StaticResource Color.Accent.Bright}" />
     <SolidColorBrush x:Key="Brush.Accent.Deep"      Color="{StaticResource Color.Accent.Deep}" />
-    <SolidColorBrush x:Key="Brush.Accent.Faint"     Color="#286C9CFF" />
+    <SolidColorBrush x:Key="Brush.Accent.Faint"     Color="#294CC2FF" />
     <SolidColorBrush x:Key="Brush.Success"          Color="{StaticResource Color.Success}" />
     <SolidColorBrush x:Key="Brush.Success.Faint"    Color="#1F5BDB95" />
     <SolidColorBrush x:Key="Brush.Warning"          Color="{StaticResource Color.Warning}" />
@@ -64,11 +66,9 @@
     <SolidColorBrush x:Key="Brush.Danger.Faint"     Color="#2BFF7B72" />
 
     <!-- Window backdrop: the journey gradient -->
-    <LinearGradientBrush x:Key="Brush.Window" StartPoint="0,0" EndPoint="0,1">
-        <GradientStop Color="{StaticResource Color.Bg.Top}"    Offset="0" />
-        <GradientStop Color="{StaticResource Color.Bg.Mid}"    Offset="0.55" />
-        <GradientStop Color="{StaticResource Color.Bg.Bottom}" Offset="1" />
-    </LinearGradientBrush>
+    <!-- Win11 window background: solid mica-like dark (charter: no gradients;
+         layers + strokes carry depth, not the backdrop). -->
+    <SolidColorBrush x:Key="Brush.Window" Color="#FF1C1C24" />
 
     <!-- Glow effects (focal emphasis; used sparingly) -->
     <DropShadowEffect x:Key="Effect.AccentGlow"  Color="{StaticResource Color.Accent}" BlurRadius="18" ShadowDepth="0" Opacity="0.55" />
@@ -85,8 +85,9 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
     </Style>
 
+    <!-- Win11 type ramp: Title 28 · Subtitle 20 · Body 14 · Caption 12 -->
     <Style x:Key="Text.Title" TargetType="TextBlock">
-        <Setter Property="FontSize"   Value="22" />
+        <Setter Property="FontSize"   Value="20" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
     </Style>
@@ -95,19 +96,19 @@
     <Style x:Key="Text.Section" TargetType="TextBlock">
         <Setter Property="FontSize"   Value="11.5" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
         <Setter Property="Opacity"    Value="0.9" />
     </Style>
 
     <Style x:Key="Text.Body" TargetType="TextBlock">
-        <Setter Property="FontSize"     Value="13" />
+        <Setter Property="FontSize"     Value="14" />
         <Setter Property="Foreground"   Value="{StaticResource Brush.Text.Secondary}" />
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="LineHeight"   Value="20" />
+        <Setter Property="LineHeight"   Value="21" />
     </Style>
 
     <Style x:Key="Text.Caption" TargetType="TextBlock">
-        <Setter Property="FontSize"   Value="11" />
+        <Setter Property="FontSize"   Value="12" />
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Tertiary}" />
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
@@ -126,32 +127,71 @@
          3. SURFACES (cards)
          ════════════════════════════════════════════════════════════════════ -->
 
+    <!-- ── Windows 11 design tokens (see docs/design/win11-redesign.md) ──────
+         Solid layered fills + 1px strokes carry depth. No gradients, no glow,
+         no drop shadows on controls: hierarchy comes from typography/spacing.
+         (Brush.Glass.* keys kept as aliases so existing references keep
+         compiling; they now resolve to the flat Win11 values.) -->
+    <SolidColorBrush x:Key="Brush.Layer.Card"      Color="#0DFFFFFF" />
+    <SolidColorBrush x:Key="Brush.Layer.CardHover" Color="#15FFFFFF" />
+    <SolidColorBrush x:Key="Brush.Layer.CardPress" Color="#08FFFFFF" />
+    <SolidColorBrush x:Key="Brush.Stroke.Card"     Color="#17FFFFFF" />
+    <SolidColorBrush x:Key="Brush.Stroke.Strong"   Color="#8AFFFFFF" />
+    <SolidColorBrush x:Key="Brush.AccentW11"          Color="#4CC2FF" />
+    <SolidColorBrush x:Key="Brush.AccentW11.Hover"    Color="#5FCBFF" />
+    <SolidColorBrush x:Key="Brush.AccentW11.Pressed"  Color="#3DAEE8" />
+    <SolidColorBrush x:Key="Brush.OnAccent"        Color="#053345" />
+
+    <!-- Win11-style focus ring: light 2px rounded ring, offset from the control.
+         Applied app-wide; never suppress focus visuals (accessibility charter). -->
+    <Style x:Key="FocusVisual.Win11">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-3" RadiusX="7" RadiusY="7"
+                               Stroke="#E6FFFFFF" StrokeThickness="2" Fill="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Legacy aliases (glass era) → flat Win11 values -->
+    <SolidColorBrush x:Key="Brush.Glass.Fill"   Color="#0DFFFFFF" />
+    <SolidColorBrush x:Key="Brush.Glass.Border" Color="#17FFFFFF" />
+    <DropShadowEffect x:Key="Effect.Glass.Shadow" BlurRadius="0" ShadowDepth="0"
+                      Direction="270" Color="#00000000" Opacity="0" />
+
+    <!-- Win11 cards: solid layer fill + 1px stroke, radius 8, no effects.
+         Depth comes from the stroke; hierarchy from typography — not boxes.
+         Tinted variants keep a NEUTRAL fill and mark meaning with a subtle
+         semantic stroke + a 3px left rule (InfoBar idiom): color = meaning,
+         never decoration. -->
     <Style x:Key="Card" TargetType="Border">
-        <Setter Property="Background"      Value="{StaticResource Brush.Surface}" />
-        <Setter Property="BorderBrush"     Value="{StaticResource Brush.Surface.Border}" />
+        <Setter Property="Background"      Value="{StaticResource Brush.Layer.Card}" />
+        <Setter Property="BorderBrush"     Value="{StaticResource Brush.Stroke.Card}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius"    Value="10" />
-        <Setter Property="Padding"         Value="20,16" />
+        <Setter Property="CornerRadius"    Value="8" />
+        <Setter Property="Padding"         Value="16,12" />
     </Style>
 
     <Style x:Key="Card.Accent" TargetType="Border" BasedOn="{StaticResource Card}">
-        <Setter Property="BorderBrush" Value="#553D6CD6" />
-        <Setter Property="Background"  Value="#14182E" />
+        <Setter Property="BorderBrush"     Value="#3D4CC2FF" />
+        <Setter Property="BorderThickness" Value="3,1,1,1" />
     </Style>
 
     <Style x:Key="Card.Success" TargetType="Border" BasedOn="{StaticResource Card}">
-        <Setter Property="Background"  Value="{StaticResource Brush.Success.Faint}" />
-        <Setter Property="BorderBrush" Value="#665BDB95" />
+        <Setter Property="BorderBrush"     Value="#3D5BDB95" />
+        <Setter Property="BorderThickness" Value="3,1,1,1" />
     </Style>
 
     <Style x:Key="Card.Warning" TargetType="Border" BasedOn="{StaticResource Card}">
-        <Setter Property="Background"  Value="{StaticResource Brush.Warning.Faint}" />
-        <Setter Property="BorderBrush" Value="#88FFC163" />
+        <Setter Property="BorderBrush"     Value="#52FFC163" />
+        <Setter Property="BorderThickness" Value="3,1,1,1" />
     </Style>
 
     <Style x:Key="Card.Danger" TargetType="Border" BasedOn="{StaticResource Card}">
-        <Setter Property="Background"  Value="{StaticResource Brush.Danger.Faint}" />
-        <Setter Property="BorderBrush" Value="#99FF7B72" />
+        <Setter Property="BorderBrush"     Value="#52FF7B72" />
+        <Setter Property="BorderThickness" Value="3,1,1,1" />
     </Style>
 
     <!-- Severity pill (small label chip) -->
@@ -166,16 +206,19 @@
          4. BUTTONS - clear primary / secondary / ghost / danger hierarchy
          ════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Secondary (the implicit default): quiet outlined surface -->
+    <!-- Standard button (Win11): solid subtle fill, 1px stroke, radius 4,
+         32px min height. States shift the FILL one layer — no effects, no
+         gradients. Focus = the shared designed ring (never suppressed). -->
     <Style TargetType="Button">
         <Setter Property="Foreground"      Value="{StaticResource Brush.Text.Primary}" />
-        <Setter Property="Background"      Value="{StaticResource Brush.Surface.High}" />
-        <Setter Property="BorderBrush"     Value="{StaticResource Brush.Surface.Border}" />
+        <Setter Property="Background"      Value="{StaticResource Brush.Layer.Card}" />
+        <Setter Property="BorderBrush"     Value="{StaticResource Brush.Stroke.Card}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding"         Value="16,7" />
+        <Setter Property="Padding"         Value="14,5" />
+        <Setter Property="MinHeight"       Value="32" />
         <Setter Property="FontSize"        Value="13" />
         <Setter Property="Cursor"          Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Win11}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -183,23 +226,18 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="8"
+                            CornerRadius="4"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                           RecognizesAccessKey="True" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
-                            <Setter TargetName="Root" Property="Effect" Value="{StaticResource Effect.AccentGlow.Soft}" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Brush.Accent.Bright}" />
-                            <Setter TargetName="Root" Property="Effect" Value="{StaticResource Effect.AccentGlow.Soft}" />
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource Brush.Layer.CardHover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="#0C1120" />
-                            <Setter TargetName="Root" Property="Effect" Value="{x:Null}" />
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource Brush.Layer.CardPress}" />
+                            <Setter Property="Opacity" Value="0.9" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.38" />
@@ -210,13 +248,15 @@
         </Setter>
     </Style>
 
-    <!-- Primary: the one glowing action per screen -->
+    <!-- Primary (accent) button: the one filled-accent action per screen.
+         Dark text on the light accent fill (Win11 dark-mode idiom); states
+         are fill shifts, not glows. -->
     <Style x:Key="Button.Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-        <Setter Property="Background"  Value="{StaticResource Brush.Accent.Deep}" />
-        <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
-        <Setter Property="Foreground"  Value="#FFFFFF" />
+        <Setter Property="Background"  Value="{StaticResource Brush.AccentW11}" />
+        <Setter Property="BorderBrush" Value="#26FFFFFF" />
+        <Setter Property="Foreground"  Value="{StaticResource Brush.OnAccent}" />
         <Setter Property="FontWeight"  Value="SemiBold" />
-        <Setter Property="Padding"     Value="20,8" />
+        <Setter Property="Padding"     Value="20,5" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -224,23 +264,17 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="8"
+                            CornerRadius="4"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                           RecognizesAccessKey="True" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="#4D7CE0" />
-                            <Setter TargetName="Root" Property="Effect" Value="{StaticResource Effect.AccentGlow}" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="#FFFFFF" />
-                            <Setter TargetName="Root" Property="Effect" Value="{StaticResource Effect.AccentGlow}" />
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource Brush.AccentW11.Hover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="#2F55AC" />
-                            <Setter TargetName="Root" Property="Effect" Value="{x:Null}" />
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource Brush.AccentW11.Pressed}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.35" />
@@ -262,7 +296,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="8"
+                            CornerRadius="4"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
                                           RecognizesAccessKey="True" />
@@ -270,15 +304,9 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Root" Property="Background" Value="#E25555" />
-                            <Setter TargetName="Root" Property="Effect" Value="{StaticResource Effect.DangerGlow}" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="#FFFFFF" />
-                            <Setter TargetName="Root" Property="Effect" Value="{StaticResource Effect.DangerGlow}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Root" Property="Background" Value="#A93838" />
-                            <Setter TargetName="Root" Property="Effect" Value="{x:Null}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.35" />
@@ -496,66 +524,7 @@
          6. PROGRESSBAR - thin glowing accent line on a recessed track
          ════════════════════════════════════════════════════════════════════ -->
 
-    <Style TargetType="ProgressBar">
-        <Setter Property="Height"     Value="6" />
-        <Setter Property="Background" Value="#1A2138" />
-        <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ProgressBar">
-                    <Grid x:Name="TemplateRoot" SnapsToDevicePixels="True" ClipToBounds="True">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="3" />
-                        <Border x:Name="PART_Track" CornerRadius="3" />
-                        <Border x:Name="PART_Indicator" CornerRadius="3"
-                                HorizontalAlignment="Left"
-                                Background="{TemplateBinding Foreground}"
-                                Effect="{StaticResource Effect.AccentGlow.Soft}" />
-                        <!--
-                          Indeterminate sweep. The bright band lives in a full-width brush
-                          whose RelativeTransform works in normalised 0..1 space, so the
-                          sweep spans the whole bar and re-enters from the left at any
-                          width - no hard-coded pixel travel that overshoots wide bars.
-                        -->
-                        <Border x:Name="Sweep" CornerRadius="3" Visibility="Collapsed"
-                                Effect="{StaticResource Effect.AccentGlow.Soft}">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Pad">
-                                    <LinearGradientBrush.RelativeTransform>
-                                        <TranslateTransform x:Name="SweepTransform" X="-1" />
-                                    </LinearGradientBrush.RelativeTransform>
-                                    <GradientStop Offset="0.0"  Color="#008FB5FF" />
-                                    <GradientStop Offset="0.30" Color="#008FB5FF" />
-                                    <GradientStop Offset="0.42" Color="#FF8FB5FF" />
-                                    <GradientStop Offset="0.58" Color="#FF8FB5FF" />
-                                    <GradientStop Offset="0.70" Color="#008FB5FF" />
-                                    <GradientStop Offset="1.0"  Color="#008FB5FF" />
-                                </LinearGradientBrush>
-                            </Border.Background>
-                        </Border>
-                    </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsIndeterminate" Value="True">
-                            <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed" />
-                            <Setter TargetName="Sweep" Property="Visibility" Value="Visible" />
-                            <Trigger.EnterActions>
-                                <BeginStoryboard x:Name="SweepStoryboard">
-                                    <Storyboard RepeatBehavior="Forever">
-                                        <DoubleAnimation Storyboard.TargetName="SweepTransform"
-                                                         Storyboard.TargetProperty="X"
-                                                         From="-1" To="1" Duration="0:0:1.3" />
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.EnterActions>
-                            <Trigger.ExitActions>
-                                <StopStoryboard BeginStoryboardName="SweepStoryboard" />
-                            </Trigger.ExitActions>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
+    <!-- ProgressBar: custom template removed; native .NET 9 Fluent control applies -->
 
     <!-- ════════════════════════════════════════════════════════════════════
          7. TEXT INPUT (TextBox / PasswordBox)
@@ -563,33 +532,43 @@
 
     <Style TargetType="TextBox">
         <Setter Property="Foreground"      Value="{StaticResource Brush.Text.Primary}" />
-        <Setter Property="CaretBrush"      Value="{StaticResource Brush.Accent.Bright}" />
+        <Setter Property="CaretBrush"      Value="{StaticResource Brush.AccentW11}" />
         <Setter Property="SelectionBrush"  Value="{StaticResource Brush.Accent.Deep}" />
-        <Setter Property="Background"      Value="{StaticResource Brush.Surface.High}" />
-        <Setter Property="BorderBrush"     Value="{StaticResource Brush.Surface.Border}" />
-        <Setter Property="BorderThickness" Value="1.5" />
-        <Setter Property="Padding"         Value="10,6" />
+        <Setter Property="Background"      Value="#0FFFFFFF" />
+        <Setter Property="BorderBrush"     Value="{StaticResource Brush.Glass.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding"         Value="10,4" />
         <Setter Property="FontSize"        Value="13" />
+        <Setter Property="MinHeight"       Value="32" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
-                    <Border x:Name="Root"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="8">
-                        <ScrollViewer x:Name="PART_ContentHost"
-                                      Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="Center" />
-                    </Border>
+                    <Grid>
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center" />
+                        </Border>
+                        <!-- WinUI underline: lighter than the side strokes at rest,
+                             a 2px accent line while editing (WPF Gallery idiom). -->
+                        <Border x:Name="Underline"
+                                Height="1" VerticalAlignment="Bottom"
+                                Margin="1,0,1,1" CornerRadius="0,0,3,3"
+                                Background="#66FFFFFF" IsHitTestVisible="False" />
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                            <Setter TargetName="Root" Property="Background" Value="#15FFFFFF" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Brush.Accent.Bright}" />
-                            <Setter TargetName="Root" Property="Effect" Value="{StaticResource Effect.AccentGlow.Soft}" />
+                            <Setter TargetName="Root" Property="Background" Value="#B31E1E1E" />
+                            <Setter TargetName="Underline" Property="Background" Value="{StaticResource Brush.AccentW11}" />
+                            <Setter TargetName="Underline" Property="Height" Value="2" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.38" />
@@ -602,33 +581,43 @@
 
     <Style TargetType="PasswordBox">
         <Setter Property="Foreground"      Value="{StaticResource Brush.Text.Primary}" />
-        <Setter Property="CaretBrush"      Value="{StaticResource Brush.Accent.Bright}" />
+        <Setter Property="CaretBrush"      Value="{StaticResource Brush.AccentW11}" />
         <Setter Property="SelectionBrush"  Value="{StaticResource Brush.Accent.Deep}" />
-        <Setter Property="Background"      Value="{StaticResource Brush.Surface.High}" />
-        <Setter Property="BorderBrush"     Value="{StaticResource Brush.Surface.Border}" />
-        <Setter Property="BorderThickness" Value="1.5" />
-        <Setter Property="Padding"         Value="10,6" />
+        <Setter Property="Background"      Value="#0FFFFFFF" />
+        <Setter Property="BorderBrush"     Value="{StaticResource Brush.Glass.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding"         Value="10,4" />
         <Setter Property="FontSize"        Value="13" />
+        <Setter Property="MinHeight"       Value="32" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="PasswordBox">
-                    <Border x:Name="Root"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="8">
-                        <ScrollViewer x:Name="PART_ContentHost"
-                                      Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="Center" />
-                    </Border>
+                    <Grid>
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center" />
+                        </Border>
+                        <!-- WinUI underline: lighter than the side strokes at rest,
+                             a 2px accent line while editing (WPF Gallery idiom). -->
+                        <Border x:Name="Underline"
+                                Height="1" VerticalAlignment="Bottom"
+                                Margin="1,0,1,1" CornerRadius="0,0,3,3"
+                                Background="#66FFFFFF" IsHitTestVisible="False" />
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                            <Setter TargetName="Root" Property="Background" Value="#15FFFFFF" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource Brush.Accent.Bright}" />
-                            <Setter TargetName="Root" Property="Effect" Value="{StaticResource Effect.AccentGlow.Soft}" />
+                            <Setter TargetName="Root" Property="Background" Value="#B31E1E1E" />
+                            <Setter TargetName="Underline" Property="Background" Value="{StaticResource Brush.AccentW11}" />
+                            <Setter TargetName="Underline" Property="Height" Value="2" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.38" />
@@ -683,7 +672,7 @@
                                       Focusable="False" ClickMode="Press">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
-                                    <Border x:Name="Root" CornerRadius="8" BorderThickness="1.5"
+                                    <Border x:Name="Root" CornerRadius="4" BorderThickness="1.5"
                                             Background="{StaticResource Brush.Surface.High}"
                                             BorderBrush="{StaticResource Brush.Surface.Border}">
                                         <Path Data="M 0,0 L 4.5,5 L 9,0"
@@ -716,7 +705,7 @@
                                PopupAnimation="Fade" StaysOpen="False">
                             <Border Background="{StaticResource Brush.Surface.High}"
                                     BorderBrush="{StaticResource Brush.Surface.Border}"
-                                    BorderThickness="1" CornerRadius="8" Margin="0,4,0,0"
+                                    BorderThickness="1" CornerRadius="4" Margin="0,4,0,0"
                                     MinWidth="{TemplateBinding ActualWidth}"
                                     MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -863,166 +852,9 @@
       with Margin (not Width) so the hit target stays the full bar width while the visible
       thumb looks light. IsHitTestVisible drag state via the Thumb's own IsDragging.
     -->
-    <!-- Idle / hover / drag fills for the pill. The cross-axis gradient (light core,
-         dark edges) gives the thumb a rounded 3D-tube read instead of a flat slab. -->
-    <LinearGradientBrush x:Key="ScrollThumb.Idle" StartPoint="0,0" EndPoint="1,0">
-        <GradientStop Offset="0.0" Color="#33405E" />
-        <GradientStop Offset="0.5" Color="#54688F" />
-        <GradientStop Offset="1.0" Color="#33405E" />
-    </LinearGradientBrush>
-    <LinearGradientBrush x:Key="ScrollThumb.Hover" StartPoint="0,0" EndPoint="1,0">
-        <GradientStop Offset="0.0" Color="#46567C" />
-        <GradientStop Offset="0.5" Color="#7588B8" />
-        <GradientStop Offset="1.0" Color="#46567C" />
-    </LinearGradientBrush>
-    <LinearGradientBrush x:Key="ScrollThumb.Drag" StartPoint="0,0" EndPoint="1,0">
-        <GradientStop Offset="0.0" Color="#3D6CD6" />
-        <GradientStop Offset="0.5" Color="#8FB5FF" />
-        <GradientStop Offset="1.0" Color="#3D6CD6" />
-    </LinearGradientBrush>
-
-    <ControlTemplate x:Key="ScrollBarThumbTemplate" TargetType="Thumb">
-        <Border x:Name="Pill" Background="{StaticResource ScrollThumb.Idle}"
-                CornerRadius="2" Margin="1" SnapsToDevicePixels="True" />
-        <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Pill" Property="Background" Value="{StaticResource ScrollThumb.Hover}" />
-                <Setter TargetName="Pill" Property="Margin"     Value="0.5" />
-            </Trigger>
-            <Trigger Property="IsDragging" Value="True">
-                <Setter TargetName="Pill" Property="Background" Value="{StaticResource ScrollThumb.Drag}" />
-                <Setter TargetName="Pill" Property="Margin"     Value="0.5" />
-            </Trigger>
-        </ControlTemplate.Triggers>
-    </ControlTemplate>
-
-    <ControlTemplate x:Key="ScrollBarPageButtonTemplate" TargetType="RepeatButton">
-        <Border Background="Transparent" />
-    </ControlTemplate>
-
-    <Style TargetType="ScrollBar">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Width"      Value="5" />
-        <Setter Property="MinWidth"   Value="0" />
-        <Setter Property="MinHeight"  Value="0" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ScrollBar">
-                    <Grid>
-                        <Border x:Name="Channel" Background="Transparent" CornerRadius="6" />
-                        <Track x:Name="PART_Track" IsDirectionReversed="True">
-                            <Track.DecreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False"
-                                              Template="{StaticResource ScrollBarPageButtonTemplate}" />
-                            </Track.DecreaseRepeatButton>
-                            <Track.IncreaseRepeatButton>
-                                <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False"
-                                              Template="{StaticResource ScrollBarPageButtonTemplate}" />
-                            </Track.IncreaseRepeatButton>
-                            <Track.Thumb>
-                                <Thumb MinHeight="28" Template="{StaticResource ScrollBarThumbTemplate}" />
-                            </Track.Thumb>
-                        </Track>
-                    </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Channel" Property="Background" Value="#24070B16" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-        <Style.Triggers>
-            <Trigger Property="Orientation" Value="Horizontal">
-                <Setter Property="Width"  Value="Auto" />
-                <Setter Property="Height" Value="4" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ScrollBar">
-                            <Grid>
-                                <Border x:Name="Channel" Background="Transparent" CornerRadius="6" />
-                                <Track x:Name="PART_Track" IsDirectionReversed="False">
-                                    <Track.DecreaseRepeatButton>
-                                        <RepeatButton Command="ScrollBar.PageLeftCommand" Focusable="False"
-                                                      Template="{StaticResource ScrollBarPageButtonTemplate}" />
-                                    </Track.DecreaseRepeatButton>
-                                    <Track.IncreaseRepeatButton>
-                                        <RepeatButton Command="ScrollBar.PageRightCommand" Focusable="False"
-                                                      Template="{StaticResource ScrollBarPageButtonTemplate}" />
-                                    </Track.IncreaseRepeatButton>
-                                    <Track.Thumb>
-                                        <Thumb MinWidth="28" Template="{StaticResource ScrollBarThumbTemplate}" />
-                                    </Track.Thumb>
-                                </Track>
-                            </Grid>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Channel" Property="Background" Value="#24070B16" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Trigger>
-        </Style.Triggers>
-    </Style>
-
-    <Style TargetType="ListBox">
-        <Setter Property="Background"      Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Foreground"      Value="{StaticResource Brush.Text.Primary}" />
-    </Style>
-
-    <!--
-      Custom ScrollViewer template. The stock template sizes its scrollbar column to the
-      system metric (~17px) regardless of any Width set on the ScrollBar style, so to get
-      a genuinely slim bar we lay the scrollbars out ourselves with an explicit width.
-      Also flips on smooth eased wheel scrolling for every ScrollViewer in the app.
-    -->
-    <Style TargetType="ScrollViewer">
-        <Setter Property="b:SmoothScroll.IsEnabled" Value="True" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ScrollViewer">
-                    <Grid Background="{TemplateBinding Background}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <ScrollContentPresenter Grid.Row="0" Grid.Column="0"
-                            Content="{TemplateBinding Content}"
-                            ContentTemplate="{TemplateBinding ContentTemplate}"
-                            CanContentScroll="{TemplateBinding CanContentScroll}"
-                            Margin="{TemplateBinding Padding}" />
-
-                        <!-- 5px-wide bars; the thumb pill is inset from these via the
-                             ScrollBar thumb template. -->
-                        <!-- The left/top margins are the breathing gap between the content
-                             and the bar; the Auto column/row collapses to nothing when the
-                             bar is hidden, so no space is wasted then. -->
-                        <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Row="0" Grid.Column="1"
-                            Orientation="Vertical" Width="5" MinWidth="0" Margin="9,0,0,0"
-                            Value="{TemplateBinding VerticalOffset}"
-                            Maximum="{TemplateBinding ScrollableHeight}"
-                            ViewportSize="{TemplateBinding ViewportHeight}"
-                            Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
-
-                        <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="1" Grid.Column="0"
-                            Orientation="Horizontal" Height="5" MinHeight="0" Margin="0,9,0,0"
-                            Value="{TemplateBinding HorizontalOffset}"
-                            Maximum="{TemplateBinding ScrollableWidth}"
-                            ViewportSize="{TemplateBinding ViewportWidth}"
-                            Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
-                    </Grid>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
+    <!-- Native Win11 scrollbar colors: neutral translucent greys (the system
+         thumb), no blue tint, no gradient tube — flat like the OS. -->
+    <!-- ScrollBar/ScrollViewer: custom templates removed; native Fluent scrollbars apply -->
 
     <!-- Read-only mono detail box (error dumps) -->
     <Style x:Key="TextBox.Detail" TargetType="TextBox">

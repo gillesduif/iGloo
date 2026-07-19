@@ -4,28 +4,80 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="clr-namespace:Igloo.App.Controls">
 
-    <!-- The stage: deep dark gradient, near-black into deep blue, that the 3D
-         carousel's depth fog dissolves into. -->
-    <Border CornerRadius="14" ClipToBounds="True">
-        <Border.Background>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#FF02040A" Offset="0" />
-                <GradientStop Color="#FF0B1330" Offset="0.62" />
-                <GradientStop Color="#FF070B16" Offset="1" />
-            </LinearGradientBrush>
-        </Border.Background>
+    <!-- The stage: transparent — the carousel sits directly on the window's
+         mica backdrop so the picker belongs to the same material as the shell. -->
+    <Border CornerRadius="14" ClipToBounds="True" Background="Transparent">
 
         <Grid>
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
+            <!-- Category chips: filter the carousel by desktop environment.
+                 Categories derive from the catalog (All / GNOME / KDE / …). -->
+            <ListBox Grid.Row="0"
+                     ItemsSource="{Binding Categories}"
+                     SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                     Margin="0,18,0,0" HorizontalAlignment="Center"
+                     Background="Transparent" BorderThickness="0"
+                     FocusVisualStyle="{StaticResource FocusVisual.Win11}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     KeyboardNavigation.DirectionalNavigation="Cycle"
+                     AutomationProperties.Name="Filter by desktop environment">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Margin" Value="4,0" />
+                        <Setter Property="Padding" Value="0" />
+                        <!-- Designed Win11 focus ring (accessibility charter). -->
+                        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Win11}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <!-- Win11 pill chip: quiet by default, layer fill on
+                                         hover, accent fill when selected. Flat — no
+                                         gradients, no shadows (charter). -->
+                                    <Border x:Name="Chip" CornerRadius="14" Padding="14,5"
+                                            BorderThickness="1"
+                                            Background="Transparent"
+                                            BorderBrush="{StaticResource Brush.Stroke.Card}">
+                                        <TextBlock Text="{Binding}" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Brush.Text.Secondary}"
+                                                   x:Name="ChipText" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Chip" Property="Background" Value="{StaticResource Brush.Layer.CardHover}" />
+                                            <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Chip" Property="Background" Value="{StaticResource Brush.AccentW11}" />
+                                            <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource Brush.AccentW11}" />
+                                            <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource Brush.OnAccent}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+
             <!-- 3D Cover Flow. Enter / clicking the centered cover proceeds via the
                  wizard's NextCommand, gated by the view-model's CanProceed. -->
+            <!-- No perimeter focus ring on the stage: focus is conveyed by the
+                 centered, lit cover itself — a ring around a full-bleed 3D
+                 control reads as a rendering artifact, not an affordance. -->
             <controls:CoverFlow3DControl
                 x:Name="CoverFlow"
-                Grid.Row="0" Grid.RowSpan="2"
+                Grid.Row="1" Grid.RowSpan="2"
+                FocusVisualStyle="{x:Null}"
                 ItemsSource="{Binding DistroItems}"
                 SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                 CanConfirm="{Binding CanProceed}"
@@ -33,53 +85,87 @@
                 AutomationProperties.Name="Choose your Linux distribution" />
 
             <!-- 2D caption overlay: crisp text is never texture-mapped onto 3D planes. -->
-            <StackPanel Grid.Row="1"
+            <!-- Fixed-height caption box: title/description sit at a CONSTANT
+                 position; optional extras (coming-soon, incompatibility) fill
+                 the reserved space below instead of pushing the block around. -->
+            <StackPanel Grid.Row="2"
                         IsHitTestVisible="False"
-                        Margin="48,0,48,18"
-                        HorizontalAlignment="Center">
+                        Margin="48,0,48,8"
+                        Height="148"
+                        VerticalAlignment="Bottom">
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <TextBlock Text="{Binding SelectedItem.Manifest.DisplayName}"
+                <!-- Star | Auto | Star: the TITLE is dead-centered under the cover;
+                     the badge and DE label hang off to the right without shifting it. -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding SelectedItem.Manifest.DisplayName}"
                                FontSize="24" FontWeight="SemiBold"
                                Foreground="#F2F5FF" />
-                    <!-- Coming-soon badge: subtle, but unambiguous -->
-                    <Border CornerRadius="4" Padding="8,2" Margin="12,0,0,6"
-                            Background="#26FFC163" BorderBrush="#66FFC163" BorderThickness="1"
-                            VerticalAlignment="Bottom">
-                        <TextBlock Text="COMING SOON" FontSize="10" FontWeight="Bold"
-                                   Foreground="#FFC163" />
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedItem.IsComingSoon}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                    </Border>
-                    <TextBlock Text="{Binding SelectedItem.Manifest.DefaultDesktopEnvironment}"
-                               FontSize="14" Foreground="#7E8AAE"
-                               Margin="12,0,0,3" VerticalAlignment="Bottom">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedItem.Manifest.DefaultDesktopEnvironment}"
-                                                 Value="{x:Null}">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </StackPanel>
 
-                <!-- One-line description, ellipsized -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Left">
+                        <!-- Recommendation badge: the Welcome quiz's pick -->
+                        <Border CornerRadius="4" Padding="8,2" Margin="12,0,0,6"
+                                Background="#264CC2FF" BorderBrush="#664CC2FF" BorderThickness="1"
+                                VerticalAlignment="Bottom">
+                            <TextBlock Text="RECOMMENDED" FontSize="10" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.AccentW11}" />
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedItem.IsRecommended}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                        <!-- Coming-soon badge: subtle, but unambiguous -->
+                        <Border CornerRadius="4" Padding="8,2" Margin="12,0,0,6"
+                                Background="#26FFC163" BorderBrush="#66FFC163" BorderThickness="1"
+                                VerticalAlignment="Bottom">
+                            <TextBlock Text="COMING SOON" FontSize="10" FontWeight="Bold"
+                                       Foreground="#FFC163" />
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedItem.IsComingSoon}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                        <TextBlock Text="{Binding SelectedItem.Manifest.DefaultDesktopEnvironment}"
+                                   FontSize="14" Foreground="#7E8AAE"
+                                   Margin="12,0,0,3" VerticalAlignment="Bottom">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedItem.Manifest.DefaultDesktopEnvironment}"
+                                                     Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Description: up to three lines within the fixed caption box;
+                     ellipsis only past that. -->
                 <TextBlock Text="{Binding SelectedItem.Manifest.Description}"
-                           FontSize="13" Foreground="#9AA4C4"
-                           Margin="0,6,0,0" MaxWidth="560"
-                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                           FontSize="13" Foreground="#FFC7C7C9"
+                           Margin="0,6,0,0" MaxWidth="640" MaxHeight="57"
+                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                            HorizontalAlignment="Center" TextAlignment="Center" />
 
                 <!-- Incompatibility chip (replaces the confirm hint when shown) -->
@@ -121,7 +207,7 @@
                 </TextBlock>
 
                 <TextBlock Text="←  →  browse   ·   Enter or click the cover to continue"
-                           FontSize="11" Foreground="#55617F"
+                           FontSize="11" Foreground="#FF8A8A8A"
                            Margin="0,10,0,0" HorizontalAlignment="Center">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">

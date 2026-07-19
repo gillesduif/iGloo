@@ -6,8 +6,13 @@
       net8.0-windows10.0.19041.0 matches Igloo.Preflight (System.Management) and keeps
       the Windows 10 2004+ API surface consistent across all projects in the solution.
     -->
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <!-- net9: unlocks WPF's official Fluent (Win11) theme — native control
+         styling, hover states and scrollbars from the WPF team itself.
+         Libraries stay net8; a net9 app references them fine. -->
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <!-- WPF0001: ThemeMode is marked experimental in .NET 9 — deliberate use. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <RootNamespace>Igloo.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWPF>true</UseWPF>
@@ -21,6 +26,9 @@
 
   <ItemGroup>
     <Content Include="iGloo.ico" />
+    <!-- Microsoft Fluent 3D icons (fluentui-emoji, MIT) — the Settings-style
+         3D illustrative icons; embedded so pack URIs work from any location. -->
+    <Resource Include="Assets\Fluent3D\*.png" />
   </ItemGroup>
 
   <!--

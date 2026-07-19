@@ -70,13 +70,20 @@ public sealed partial class PreflightViewModel : ObservableObject
     public IReadOnlyList<DiskInfo>        Disks    => Report?.Disks    ?? Array.Empty<DiskInfo>();
     public IReadOnlyList<PreflightFinding> Findings => Report?.Findings ?? Array.Empty<PreflightFinding>();
 
+    /// <summary>Presentation model for the Disk Management-style partition bars.</summary>
+    public IReadOnlyList<DiskView> DiskViews => BuildDiskViews();
+
     // ── Constructor ─────────────────────────────────────────────────────────
 
-    public PreflightViewModel(IPreflightChecker checker, ILogger<PreflightViewModel> logger)
+    public PreflightViewModel(IPreflightChecker checker, ILinuxRemovalService linuxRemoval,
+        ILogger<PreflightViewModel> logger)
     {
-        _checker = checker;
-        _logger  = logger;
+        _checker      = checker;
+        _linuxRemoval = linuxRemoval;
+        _logger       = logger;
     }
+
+    private readonly ILinuxRemovalService _linuxRemoval;
 
     // ── Action-status banners (shown after one-click fixes) ──────────────────
 
@@ -85,6 +92,93 @@ public sealed partial class PreflightViewModel : ObservableObject
     private string? _bitLockerActionStatus;
 
     public bool HasBitLockerActionStatus => BitLockerActionStatus is not null;
+
+    // ── Existing Linux installations (detect + remove) ───────────────────────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLinuxActionStatus))]
+    private string? _linuxActionStatus;
+
+    public bool HasLinuxActionStatus => LinuxActionStatus is not null;
+
+    /// <summary>Selectable wrappers around the report's detected installations.</summary>
+    public IReadOnlyList<LinuxInstallItem> LinuxInstalls { get; private set; } = [];
+
+    public bool HasLinux         => LinuxInstalls.Count > 0;
+    public bool HasSingleLinux   => LinuxInstalls.Count == 1;   // one install → single-OS layout
+    public bool HasMultipleLinux => LinuxInstalls.Count > 1;    // several → multiple-choice layout
+    public LinuxInstallItem? SingleLinux => LinuxInstalls.Count == 1 ? LinuxInstalls[0] : null;
+
+    public bool HasSeedLeftovers => (Report?.SeedLeftovers.Count ?? 0) > 0;
+
+    /// <summary>Leftover seed partitions without any Linux install → own small card.</summary>
+    public bool ShowLeftoversOnlyCard => !HasLinux && HasSeedLeftovers;
+
+    public string SeedLeftoverSummary => Report is null
+        ? string.Empty
+        : string.Join(" · ", Report.SeedLeftovers.Select(
+            s => $"{s.Partition.Label} ({FormatBytes(s.Partition.SizeBytes)})"));
+
+    public bool CanRemoveSelected => LinuxInstalls.Any(i => i.IsSelected);
+
+    private void OnLinuxSelectionChanged()
+    {
+        OnPropertyChanged(nameof(CanRemoveSelected));
+        RemoveSelectedLinuxCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand]
+    private Task RemoveLinuxAsync()
+        => RemoveLinuxCoreAsync([.. LinuxInstalls.Select(i => i.Installation)]);
+
+    [RelayCommand(CanExecute = nameof(CanRemoveSelected))]
+    private Task RemoveSelectedLinuxAsync()
+        => RemoveLinuxCoreAsync([.. LinuxInstalls.Where(i => i.IsSelected).Select(i => i.Installation)]);
+
+    [RelayCommand]
+    private Task RemoveSeedLeftoversAsync() => RemoveLinuxCoreAsync([]);
+
+    private async Task RemoveLinuxCoreAsync(IReadOnlyList<LinuxInstallation> targets)
+    {
+        var leftovers = Report?.SeedLeftovers ?? [];
+        if (targets.Count == 0 && leftovers.Count == 0) return;
+
+        // Only when the last Linux goes may the service clear ALL Linux boot entries.
+        var removingAllLinux = targets.Count > 0 && targets.Count == LinuxInstalls.Count;
+
+        var lines = targets
+            .Select(t => $"•  {t.DisplayName} — {FormatBytes(t.TotalBytes)} on {t.DiskModel} " +
+                         $"({t.Partitions.Count} partition{(t.Partitions.Count == 1 ? "" : "s")})")
+            .Concat(leftovers.Select(s =>
+                $"•  iGloo installer partition {s.Partition.Label} — " +
+                $"{FormatBytes(s.Partition.SizeBytes)} on {s.DiskModel}"))
+            .ToList();
+
+        var confirm = MessageBox.Show(
+            "This will permanently delete:\n\n" + string.Join("\n", lines) + "\n\n" +
+            "All data on these partitions is destroyed. This cannot be undone.\n" +
+            "The freed space stays unallocated - Windows Disk Management can extend C: into it.",
+            targets.Count > 0 ? "Remove Linux from this PC?" : "Remove iGloo leftovers?",
+            MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.OK) return;
+
+        try
+        {
+            LinuxActionStatus = "Removing…";
+            var progress = new Progress<string>(s => LinuxActionStatus = s);
+            await _linuxRemoval.RemoveAsync(targets, leftovers, removingAllLinux, progress);
+
+            LinuxActionStatus = "Removal complete - re-running system check…";
+            if (!IsRunning)
+                await RunCheckCommand.ExecuteAsync(null);
+            LinuxActionStatus = null;   // the refreshed report speaks for itself
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Linux removal failed");
+            LinuxActionStatus = $"Removal failed: {ex.Message}";
+        }
+    }
 
     // ── Commands ─────────────────────────────────────────────────────────────
 
@@ -220,10 +314,119 @@ public sealed partial class PreflightViewModel : ObservableObject
             : Path.Combine(winRoot, "System32", exeName);
     }
 
+    // ── Partition-bar presentation model ─────────────────────────────────────
+
+    /// <summary>
+    /// Gaps below this size are alignment noise (the ~1 MiB GPT lead-in, sector
+    /// padding) and are not rendered as unallocated segments.
+    /// </summary>
+    private const long UnallocatedThresholdBytes = 32L * 1024 * 1024;
+
+    private IReadOnlyList<DiskView> BuildDiskViews()
+    {
+        if (Report is null) return [];
+
+        var views = new List<DiskView>();
+        foreach (var disk in Report.Disks)
+        {
+            var parts = disk.Partitions
+                .Where(p => p.SizeBytes > 0)
+                .OrderBy(p => p.OffsetBytes >= 0 ? p.OffsetBytes : long.MaxValue)
+                .ToList();
+            // Without offsets we can still size segments correctly; only the
+            // unallocated gaps lose their true position (they collapse to a tail).
+            var haveOffsets = parts.Count > 0 && parts.All(p => p.OffsetBytes >= 0);
+
+            var segments = new List<PartitionSegment>();
+            long cursor = 0;
+            foreach (var p in parts)
+            {
+                if (haveOffsets && p.OffsetBytes - cursor >= UnallocatedThresholdBytes)
+                    segments.Add(PartitionSegment.Unallocated(p.OffsetBytes - cursor));
+
+                var (kind, name) = ClassifyPartition(p);
+                var fsKnown = p.FileSystem is not (null or "" or "Unknown");
+                var detail = fsKnown && !string.Equals(name, p.FileSystem, StringComparison.OrdinalIgnoreCase)
+                    ? $"{p.FileSystem} · {FormatBytes(p.SizeBytes)}"
+                    : FormatBytes(p.SizeBytes);
+
+                segments.Add(new PartitionSegment(
+                    name, detail, p.SizeBytes, kind, p.IsSystem, p.IsBoot, IsUnallocated: false));
+
+                cursor = haveOffsets ? Math.Max(cursor, p.OffsetBytes + p.SizeBytes)
+                                     : cursor + p.SizeBytes;
+            }
+
+            if (disk.TotalBytes - cursor >= UnallocatedThresholdBytes)
+                segments.Add(PartitionSegment.Unallocated(disk.TotalBytes - cursor));
+
+            views.Add(new DiskView(disk.Model, disk.TotalBytes, disk.PartitionStyle, segments));
+        }
+        return views;
+    }
+
+    /// <summary>
+    /// Names label-less service partitions by their GPT type GUID (the reason
+    /// Disk Management can say "EFI system partition" where a raw volume listing
+    /// says "Unknown"), then falls back to label / filesystem / flags.
+    /// </summary>
+    private static (string Kind, string Name) ClassifyPartition(PartitionInfo p)
+    {
+        var gpt = p.GptType?.Trim('{', '}').ToLowerInvariant();
+        switch (gpt)
+        {
+            case "c12a7328-f81f-11d2-ba4b-00a0c93ec93b": return ("Efi", "EFI system");
+            case "e3c9e316-0b5c-4db8-817d-f92df00215ae": return ("Msr", "Microsoft Reserved");
+            case "de94bba4-06d1-4d40-a16a-bfd50179d6ac": return ("Recovery", "Recovery");
+            case "0fc63daf-8483-4772-8e79-3d69d8477de4":                       // Linux filesystem
+            case "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f":                       // Linux swap
+            case "e6d6d379-f507-44c2-a23c-238f2a3df928":                       // Linux LVM
+            case "933ac7e1-2eb4-4f13-b844-0e14e2aef915": return ("Linux", p.Label ?? "Linux");  // /home
+        }
+
+        // iGloo's own transient install partitions (kickstart seed, staged ISO).
+        if (p.Label is "OEMDRV" or "CIDATA" or "IGLOOISO")
+            return ("Seed", $"{p.Label} (iGloo)");
+
+        if (p.IsBoot)
+            return ("Windows", p.Label ?? "Windows");
+
+        if (p.FileSystem is not (null or "" or "Unknown"))
+            return ("Data", p.Label ?? p.FileSystem);
+
+        if (p.IsSystem)
+            return ("Efi", p.Label ?? "System");
+
+        return ("Unknown", p.Label ?? "Partition");
+    }
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        >= 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024 * 1024):N1} GB",
+        >= 1024L * 1024        => $"{bytes / (1024.0 * 1024):N0} MB",
+        _                      => $"{bytes / 1024.0:N0} KB",
+    };
+
     // ── Property-change hooks ────────────────────────────────────────────────
 
     partial void OnReportChanged(PreflightReport? value)
     {
+        LinuxInstalls = value?.LinuxInstallations
+            .Select(li => new LinuxInstallItem(
+                li, li.DisplayName, $"{FormatBytes(li.TotalBytes)} · {li.DiskModel}",
+                OnLinuxSelectionChanged))
+            .ToList() ?? [];
+        OnPropertyChanged(nameof(LinuxInstalls));
+        OnPropertyChanged(nameof(HasLinux));
+        OnPropertyChanged(nameof(HasSingleLinux));
+        OnPropertyChanged(nameof(HasMultipleLinux));
+        OnPropertyChanged(nameof(SingleLinux));
+        OnPropertyChanged(nameof(HasSeedLeftovers));
+        OnPropertyChanged(nameof(ShowLeftoversOnlyCard));
+        OnPropertyChanged(nameof(SeedLeftoverSummary));
+        OnPropertyChanged(nameof(CanRemoveSelected));
+        RemoveSelectedLinuxCommand.NotifyCanExecuteChanged();
+
         // Fire all display properties that depend on Report in one pass.
         OnPropertyChanged(nameof(HasReport));
         OnPropertyChanged(nameof(HasFindings));
@@ -240,6 +443,60 @@ public sealed partial class PreflightViewModel : ObservableObject
         OnPropertyChanged(nameof(RamDisplay));
         OnPropertyChanged(nameof(GpuDisplay));
         OnPropertyChanged(nameof(Disks));
+        OnPropertyChanged(nameof(DiskViews));
         OnPropertyChanged(nameof(Findings));
     }
+}
+
+/// <summary>One disk in the STORAGE section: header facts plus its partition bar.</summary>
+public sealed record DiskView(string Model, long TotalBytes, string PartitionStyle,
+    IReadOnlyList<PartitionSegment> Segments);
+
+/// <summary>
+/// One segment of a disk's partition bar (a partition, or an unallocated gap).
+/// <see cref="Kind"/> keys the fill color (see <c>PartitionKindToBrushConverter</c>);
+/// <see cref="SizeBytes"/> doubles as the segment's proportional layout weight.
+/// </summary>
+public sealed record PartitionSegment(string Name, string Detail, long SizeBytes,
+    string Kind, bool IsSystem, bool IsBoot, bool IsUnallocated)
+{
+    public double Weight => SizeBytes;
+
+    public static PartitionSegment Unallocated(long sizeBytes) => new(
+        "Unallocated", FormatBytesStatic(sizeBytes), sizeBytes,
+        Kind: "Free", IsSystem: false, IsBoot: false, IsUnallocated: true);
+
+    private static string FormatBytesStatic(long bytes) => bytes switch
+    {
+        >= 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024 * 1024):N1} GB",
+        >= 1024L * 1024        => $"{bytes / (1024.0 * 1024):N0} MB",
+        _                      => $"{bytes / 1024.0:N0} KB",
+    };
+}
+
+/// <summary>
+/// One detected Linux installation in the removal UI. <see cref="IsSelected"/>
+/// backs the checkbox in the multiple-installations layout.
+/// </summary>
+public sealed partial class LinuxInstallItem : ObservableObject
+{
+    private readonly Action _selectionChanged;
+
+    public LinuxInstallItem(LinuxInstallation installation, string title, string detail,
+        Action selectionChanged)
+    {
+        Installation      = installation;
+        Title             = title;
+        Detail            = detail;
+        _selectionChanged = selectionChanged;
+    }
+
+    public LinuxInstallation Installation { get; }
+    public string Title  { get; }
+    public string Detail { get; }
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    partial void OnIsSelectedChanged(bool value) => _selectionChanged();
 }

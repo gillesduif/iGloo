@@ -5,7 +5,7 @@
   "description": "Zorin OS 18.1 Core. Designed explicitly for people leaving Windows: a layout switcher that mimics the Windows desktop, Windows-app detection that suggests Linux alternatives, and a polished Ubuntu LTS foundation.",
   "logo": "logo/zorin-os-logo.png",
   "status": "coming-soon",
-  "defaultDesktopEnvironment": "GNOME (Zorin Desktop)",
+  "defaultDesktopEnvironment": "GNOME",
   "installerType": "Ubiquity",
 
   "iso": {

@@ -1,0 +1,32 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "bazzite",
+  "displayName": "Bazzite",
+  "description": "Bazzite 42 with the KDE Plasma desktop. The gaming distribution: a Fedora Atomic image with GPU drivers, Steam and HDR support baked in, near-unbreakable image-based updates, and an optional Steam Deck-style console mode.",
+  "logo": "logo/bazzite-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Anaconda",
+
+  "iso": {
+    "downloadUrl": "https://bazzite.gg/",
+    "sha256": ""
+  },
+
+  "tags": [
+    "gaming",
+    "beginner-friendly"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 8589934592,
+    "minDiskBytes": 68719476736,
+    "requiresUefi": true,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: no install plugin yet. downloadUrl points at the official download portal; pin a direct ISO URL and SHA-256 checksum when the plugin is written. Secure Boot needs the Universal Blue signing key enrolled, hence no secure-boot-supported tag."
+  }
+}

@@ -29,6 +29,12 @@ public sealed partial class MainWindow : Window
         // painting yet (e.g. the first frame of startup), so nothing flashes white.
         ChromeInterop.EnableDarkTitleBar(hwnd);
 
+        // Real Win11 Mica: DWM draws the desktop-tinted backdrop; our window goes
+        // transparent so it shows through, with app layers painted on top. On
+        // Windows 10 the call fails and the solid XAML background stays.
+        if (ChromeInterop.TryEnableMicaBackdrop(hwnd))
+            Background = Brushes.Transparent;
+
         // Hook the window proc for the messages WindowChrome leaves to us.
         HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
     }

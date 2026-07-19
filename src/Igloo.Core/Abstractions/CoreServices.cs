@@ -17,13 +17,58 @@ public sealed record PreflightReport
     public required string GpuVendor { get; init; }
     public required long TotalRamBytes { get; init; }
     public required IReadOnlyList<PreflightFinding> Findings { get; init; }
+
+    /// <summary>Existing Linux installations found on this machine (empty when none).</summary>
+    public IReadOnlyList<LinuxInstallation> LinuxInstallations { get; init; } = [];
+
+    /// <summary>
+    /// Leftover iGloo installer partitions (OEMDRV/CIDATA/IGLOOISO) from installs
+    /// that predate the agent-side cleanup step. Safe to delete from Windows.
+    /// </summary>
+    public IReadOnlyList<SeedLeftover> SeedLeftovers { get; init; } = [];
+}
+
+/// <summary>
+/// One detected Linux installation: a contiguous run of Linux-typed GPT partitions
+/// on a single disk. Known limitation: two distros installed in adjacent
+/// partitions merge into one group — indistinguishable without mounting them.
+/// </summary>
+/// <param name="FirmwareEntryIndex">The UEFI Boot#### index of this install's boot
+/// entry when it could be paired unambiguously; null otherwise.</param>
+public sealed record LinuxInstallation(
+    string DisplayName,
+    uint DiskNumber,
+    string DiskModel,
+    IReadOnlyList<PartitionInfo> Partitions,
+    long TotalBytes,
+    ushort? FirmwareEntryIndex);
+
+/// <summary>A leftover iGloo seed partition (matched by exact label) awaiting cleanup.</summary>
+public sealed record SeedLeftover(uint DiskNumber, string DiskModel, PartitionInfo Partition);
+
+public interface ILinuxRemovalService
+{
+    /// <summary>
+    /// Deletes the given installations' partitions, iGloo's stale boot entries and
+    /// (optionally) leftover seed partitions. <paramref name="removingAllLinux"/>
+    /// additionally clears every Linux-classified UEFI boot entry — only safe when
+    /// no Linux partitions remain anywhere afterwards.
+    /// </summary>
+    Task RemoveAsync(IReadOnlyList<LinuxInstallation> installations,
+        IReadOnlyList<SeedLeftover> seedLeftovers, bool removingAllLinux,
+        IProgress<string>? progress = null, CancellationToken ct = default);
 }
 
 public sealed record DiskInfo(string DeviceId, string Model, long TotalBytes, long FreeBytes,
     string PartitionStyle, IReadOnlyList<PartitionInfo> Partitions);
 
+// OffsetBytes: byte position of the partition on the disk, -1 when the provider
+//              could not supply it. Lets the UI render partitions (and the gaps
+//              between them) at their true positions, Disk Management-style.
+// GptType:     the GPT partition-type GUID (braced string), null on MBR disks.
+//              Identifies label-less service partitions (EFI, MSR, recovery, Linux).
 public sealed record PartitionInfo(int Index, string FileSystem, long SizeBytes, string? Label,
-    bool IsSystem, bool IsBoot, long ShrinkableBytes = 0);
+    bool IsSystem, bool IsBoot, long ShrinkableBytes = 0, long OffsetBytes = -1, string? GptType = null);
 
 public enum BitLockerState
 {

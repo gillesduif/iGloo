@@ -75,7 +75,7 @@
 
             <TextBlock Text="Every byte is verified against the distro's published checksum before use."
                        Style="{StaticResource Text.Caption}"
-                       HorizontalAlignment="Center" Margin="0,18,0,0" />
+                       HorizontalAlignment="Center" Margin="0,18,0,0" Foreground="#FF9A9CA1" />
 
         </StackPanel>
 
@@ -180,7 +180,7 @@
                 Command="{Binding AcquireCancelCommand}"
                 Style="{StaticResource Button.Ghost}"
                 Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
-                HorizontalAlignment="Center" Margin="0,16,0,0" />
+                HorizontalAlignment="Center" Margin="0,16,0,0" Foreground="#FF8A8A8A" />
 
     </Grid>
 </UserControl>

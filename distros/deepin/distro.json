@@ -1,0 +1,32 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "deepin",
+  "displayName": "deepin",
+  "description": "deepin 25 with the Deepin Desktop Environment (DDE), the foundation of UOS. China's flagship consumer Linux: a fully self-developed desktop with polished animations, an integrated app store, and its own built-in AI assistant.",
+  "logo": "logo/deepin-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "DDE",
+  "installerType": "Custom",
+
+  "iso": {
+    "downloadUrl": "https://www.deepin.org/en/download/",
+    "sha256": ""
+  },
+
+  "tags": [
+    "beginner-friendly",
+    "stable-release"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 68719476736,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: no install plugin yet. downloadUrl points at the official download portal; pin a direct ISO URL and SHA-256 checksum when the plugin is written. Official logo asset still to be shipped (see logo/NOTICE)."
+  }
+}

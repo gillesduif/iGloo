@@ -19,4 +19,6 @@ public sealed partial class MigrationSetupPage : UserControl
         if (DataContext is MigrationSetupViewModel vm)
             vm.SetPasswords(PasswordBox.Password, PasswordConfirmBox.Password);
     }
+
+
 }

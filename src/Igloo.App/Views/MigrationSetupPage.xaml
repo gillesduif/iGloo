@@ -7,7 +7,7 @@
         <StackPanel Margin="0,0,8,0">
 
             <!-- ── Linux account ─────────────────────────────────────────────── -->
-            <TextBlock Text="YOUR LINUX ACCOUNT" Style="{StaticResource Text.Section}" Margin="2,0,0,8" />
+            <TextBlock Text="LINUX ACCOUNT" Style="{StaticResource Text.Section}" Margin="2,0,0,4" Foreground="White" />
             <Border Style="{StaticResource Card}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -121,7 +121,7 @@
             </Border>
 
             <!-- ── Files to migrate: chip toggles ────────────────────────────── -->
-            <TextBlock Text="WHAT TRAVELS WITH YOU" Style="{StaticResource Text.Section}" Margin="2,22,0,8" />
+            <TextBlock Text="FILE TRANSFER" Style="{StaticResource Text.Section}" Margin="2,22,0,8" Foreground="White" />
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Text="These folders are copied to a staging area and restored to your Linux home after install."
@@ -139,7 +139,7 @@
 
             <!-- ── Suggested Linux apps ──────────────────────────────────────── -->
             <StackPanel Visibility="{Binding HasDetectedSuggestions, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="SUGGESTED LINUX APPS" Style="{StaticResource Text.Section}" Margin="2,22,0,8" />
+                <TextBlock Text="SUGGESTED LINUX APPS" Style="{StaticResource Text.Section}" Margin="2,22,0,8" Foreground="White" />
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="These Windows apps were found on your machine. Install their Linux equivalents on first boot?"
@@ -150,9 +150,9 @@
                                     <CheckBox IsChecked="{Binding IsSelected}" Margin="0,0,0,8">
                                         <CheckBox.Content>
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding LinuxAppName}" FontWeight="Medium"
-                                                           Foreground="{StaticResource Brush.Text.Primary}" />
-                                                <TextBlock Foreground="{StaticResource Brush.Text.Tertiary}" Margin="6,0,0,0">
+                                                <TextBlock Text           ="{Binding LinuxAppName}" FontWeight="Medium"
+                                                           Foreground     ="{StaticResource Brush.Text.Primary}" />
+                                                <TextBlock Foreground     ="{StaticResource Brush.Text.Tertiary}" Margin="6,0,0,0">
                                                     <Run Text="replaces " /><Run Text="{Binding WindowsDisplayName, Mode=OneWay}" />
                                                 </TextBlock>
                                             </StackPanel>
@@ -167,7 +167,7 @@
 
             <!-- ── Browser profiles ──────────────────────────────────────────── -->
             <StackPanel Visibility="{Binding HasDetectedBrowsers, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="BROWSER PROFILES" Style="{StaticResource Text.Section}" Margin="2,22,0,8" />
+                <TextBlock Text="BROWSER PROFILES" Style="{StaticResource Text.Section}" Margin="2,22,0,8" Foreground="White" />
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Bookmarks and settings are carried across to the Linux equivalents."
@@ -186,7 +186,7 @@
             </StackPanel>
 
             <!-- ── System settings ───────────────────────────────────────────── -->
-            <TextBlock Text="SYSTEM SETTINGS" Style="{StaticResource Text.Section}" Margin="2,22,0,8" />
+            <TextBlock Text="SYSTEM SETTINGS" Style="{StaticResource Text.Section}" Margin="2,22,0,8" Foreground="White" />
             <Border Style="{StaticResource Card}" Margin="0,0,0,4">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -202,9 +202,9 @@
                                Style="{StaticResource Text.Caption}" FontSize="12" VerticalAlignment="Center" />
                     <TextBox Grid.Row="0" Grid.Column="1"
                              Text="{Binding Timezone, UpdateSourceTrigger=PropertyChanged}"
-                             Width="260" HorizontalAlignment="Left" />
+                             Width="260" HorizontalAlignment="Left" Height="30" VerticalAlignment="Top" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Keyboard (xkb)"
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Keyboard"
                                Style="{StaticResource Text.Caption}" FontSize="12"
                                VerticalAlignment="Center" Margin="0,12,0,0" />
                     <TextBox Grid.Row="1" Grid.Column="1"

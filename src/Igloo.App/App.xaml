@@ -4,7 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="clr-namespace:Igloo.App.ViewModels"
     xmlns:views="clr-namespace:Igloo.App.Views"
-    xmlns:conv="clr-namespace:Igloo.App.Converters">
+    xmlns:conv="clr-namespace:Igloo.App.Converters"
+    ThemeMode="Dark">
 
     <Application.Resources>
         <ResourceDictionary>

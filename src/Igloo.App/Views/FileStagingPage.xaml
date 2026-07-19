@@ -162,7 +162,7 @@
                 Command="{Binding StageCancelCommand}"
                 Style="{StaticResource Button.Ghost}"
                 Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
-                HorizontalAlignment="Center" Margin="0,16,0,0" />
+                HorizontalAlignment="Center" Margin="0,16,0,0" Foreground="#FF8A8A8A" />
 
     </Grid>
 </UserControl>

@@ -12,6 +12,7 @@ namespace Igloo.App.ViewModels;
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly List<object>             _steps;
+    private readonly WelcomeViewModel         _welcome;
     private readonly PreflightViewModel       _preflight;
     private readonly DistroSelectionViewModel _distroSelection;
     private readonly IsoAcquisitionViewModel  _isoAcquisition;
@@ -89,10 +90,25 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _                        => 1,
     };
 
-    /// <summary>One marker per wizard step; rebuilt on navigation for the indicator dots.</summary>
+    /// <summary>Rail label + Fluent (Segoe MDL2) glyph per step, so the left
+    /// navigation names every step and gives it a recognisable icon.</summary>
+    private static readonly (string Title, string Glyph)[] StepTitles =
+    [
+        ("Welcome", ""),  // Home
+        ("System check", ""),  // Diagnostic
+        ("Distribution", ""),  // All apps
+        ("Download", ""),  // Download
+        ("Your setup", ""),  // Settings
+        ("Disk", ""),  // Hard drive
+        ("Staging", ""),  // Copy
+        ("Install", ""),  // Play / go
+    ];
+
+    /// <summary>One marker per wizard step; rebuilt on navigation for the left rail.</summary>
     public IReadOnlyList<StepMarker> StepMarkers =>
         Enumerable.Range(1, StepCount)
-            .Select(n => new StepMarker(n, n < StepNumber, n == StepNumber))
+            .Select(n => new StepMarker(n, StepTitles[n - 1].Title, StepTitles[n - 1].Glyph,
+                                        n < StepNumber, n == StepNumber))
             .ToList();
 
     // ── Constructor ──────────────────────────────────────────────────────────
@@ -108,6 +124,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         DirectInstallViewModel   directInstall,
         UsbWriterViewModel       usbWriter)
     {
+        _welcome         = welcome;
         _preflight       = preflight;
         _distroSelection = distroSelection;
         _isoAcquisition  = isoAcquisition;
@@ -233,6 +250,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 break;
 
             case DistroSelectionViewModel ds:
+                ds.SetRecommendation(_welcome.RecommendedDistroIds);
                 ds.RefreshCompatibility(_preflight.Report);
                 break;
 
@@ -286,5 +304,5 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 }
 
-/// <summary>A single dot in the wizard's step indicator.</summary>
-public sealed record StepMarker(int Number, bool IsDone, bool IsCurrent);
+/// <summary>A single entry in the wizard's step rail.</summary>
+public sealed record StepMarker(int Number, string Title, string Glyph, bool IsDone, bool IsCurrent);

@@ -26,6 +26,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         var gpuVendor = QueryGpuVendor();
         var totalRam = QueryTotalRam();
         var findings = BuildFindings(isUefi, secureBoot, tpmPresent, bitLocker, totalRam);
+        var (linuxInstalls, seedLeftovers) = BuildLinuxInventory(disks);
 
         return new PreflightReport
         {
@@ -37,8 +38,118 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             GpuVendor = gpuVendor,
             TotalRamBytes = totalRam,
             Findings = findings,
+            LinuxInstallations = linuxInstalls,
+            SeedLeftovers = seedLeftovers,
         };
     }
+
+    // ── Linux inventory ──────────────────────────────────────────────────────
+
+    /// <summary>GPT type GUIDs that mark a partition as belonging to a Linux install.</summary>
+    private static readonly HashSet<string> LinuxGptTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "{0fc63daf-8483-4772-8e79-3d69d8477de4}", // Linux filesystem
+        "{0657fd6d-a4ab-43c4-84e5-0933c84b4f4f}", // Linux swap
+        "{e6d6d379-f507-44c2-a23c-238f2a3df928}", // Linux LVM
+        "{933ac7e1-2eb4-4f13-b844-0e14e2aef915}", // /home
+        "{bc13c2ff-59e6-4262-a352-b275fd6f7172}", // extended boot (XBOOTLDR)
+        "{ca7d7ccb-63ed-4c53-861c-1742536059cc}", // LUKS
+        "{4f68bce3-e8cd-4db1-96e7-fbcaf984b709}", // root, x86-64 (discoverable-partitions spec)
+    };
+
+    private static readonly string[] SeedLabels = ["OEMDRV", "CIDATA", "IGLOOISO"];
+
+    /// <summary>
+    /// Groups each disk's contiguous run of Linux-typed partitions into one
+    /// installation and collects leftover iGloo seed partitions. Names come from
+    /// the machine's UEFI boot entries when they can be paired unambiguously:
+    /// with exactly one install (or equal counts, paired in order) the loader's
+    /// own description ("ubuntu", "Fedora") is used; otherwise a generic name.
+    /// </summary>
+    private (IReadOnlyList<LinuxInstallation>, IReadOnlyList<SeedLeftover>)
+        BuildLinuxInventory(IReadOnlyList<DiskInfo> disks)
+    {
+        var groups = new List<(uint DiskNumber, string Model, List<PartitionInfo> Parts)>();
+        var leftovers = new List<SeedLeftover>();
+
+        foreach (var disk in disks)
+        {
+            if (!TryParseDiskNumber(disk.DeviceId, out var diskNumber)) continue;
+
+            List<PartitionInfo>? run = null;
+            foreach (var p in disk.Partitions.OrderBy(p => p.OffsetBytes))
+            {
+                if (SeedLabels.Contains(p.Label ?? "", StringComparer.OrdinalIgnoreCase))
+                {
+                    leftovers.Add(new SeedLeftover(diskNumber, disk.Model, p));
+                    continue;   // a seed partition between Linux partitions doesn't split the run
+                }
+
+                if (p.GptType is not null && LinuxGptTypes.Contains(p.GptType))
+                {
+                    if (run is null)
+                    {
+                        run = [];
+                        groups.Add((diskNumber, disk.Model, run));
+                    }
+                    run.Add(p);
+                }
+                else
+                {
+                    run = null; // non-Linux partition ends the contiguous run
+                }
+            }
+        }
+
+        if (groups.Count == 0) return ([], leftovers);
+
+        // Best-effort naming from UEFI boot entries (empty list on any failure).
+        var linuxEntries = EfiBootEntries.Enumerate(_logger)
+            .Where(e => EfiBootEntries.IsLinuxDescription(e.Description))
+            .ToList();
+
+        var installs = new List<LinuxInstallation>();
+        for (var i = 0; i < groups.Count; i++)
+        {
+            var (diskNumber, model, parts) = groups[i];
+            string name;
+            ushort? entryIndex = null;
+
+            if (groups.Count == linuxEntries.Count && linuxEntries.Count > 0)
+            {
+                name = Prettify(linuxEntries[i].Description);
+                entryIndex = linuxEntries[i].Index;
+            }
+            else if (groups.Count == 1 && linuxEntries.Count > 0)
+            {
+                name = Prettify(linuxEntries[0].Description);
+                entryIndex = linuxEntries.Count == 1 ? linuxEntries[0].Index : null;
+            }
+            else
+            {
+                name = "Linux installation";
+            }
+
+            installs.Add(new LinuxInstallation(
+                name, diskNumber, model, parts, parts.Sum(p => p.SizeBytes), entryIndex));
+        }
+
+        return (installs, leftovers);
+    }
+
+    private static bool TryParseDiskNumber(string deviceId, out uint number)
+    {
+        const string marker = "PHYSICALDRIVE";
+        var at = deviceId.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        number = 0;
+        return at >= 0 && uint.TryParse(deviceId[(at + marker.Length)..], out number);
+    }
+
+    /// <summary>"ubuntu" → "Ubuntu"; already-capitalized descriptions pass through.</summary>
+    private static string Prettify(string description) =>
+        description.Length > 0 && char.IsLower(description[0])
+            ? char.ToUpperInvariant(description[0]) + description[1..]
+            : description;
 
     // Presence of this registry key is the reliable UEFI indicator on Windows 10+.
     private static bool QueryIsUefi()
@@ -164,13 +275,15 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         {
             using var searcher = new ManagementObjectSearcher(
                 @"root\Microsoft\Windows\Storage",
-                $"SELECT PartitionNumber, Size, IsSystem, IsBoot, DriveLetter " +
+                $"SELECT PartitionNumber, Size, Offset, GptType, IsSystem, IsBoot, DriveLetter " +
                 $"FROM MSFT_Partition WHERE DiskNumber = {diskNumber}");
             using var results = searcher.Get();
             foreach (ManagementBaseObject p in results)
             {
                 var index = Convert.ToInt32(p["PartitionNumber"]);
                 var size = Convert.ToInt64(p["Size"]);
+                var offset = p["Offset"] is null ? -1L : Convert.ToInt64(p["Offset"]);
+                var gptType = (p["GptType"] as string)?.Trim();
                 var isSystem = p["IsSystem"] is bool bs && bs;
                 var isBoot = p["IsBoot"] is bool bb && bb;
 
@@ -185,14 +298,16 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
                 var (fs, label) = QueryVolumeInfo(dl);
                 var shrinkable  = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index, p) : 0L;
-                partitions.Add(new PartitionInfo(index, fs, size, label, isSystem, isBoot, shrinkable));
+                partitions.Add(new PartitionInfo(index, fs, size, label, isSystem, isBoot, shrinkable,
+                                                 offset, gptType));
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "MSFT_Partition query failed for disk {DiskNumber}", diskNumber);
         }
-        return partitions;
+        // Disk order, not enumeration order: WMI returns partitions in arbitrary sequence.
+        return partitions.OrderBy(p => p.OffsetBytes >= 0 ? p.OffsetBytes : long.MaxValue).ToList();
     }
 
     /// <summary>

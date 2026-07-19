@@ -489,6 +489,74 @@ def configure_logging(log_dir: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+IGLOO_SEED_LABELS = ("OEMDRV", "CIDATA", "IGLOOISO")
+
+
+def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
+    """Remove Igloo's temporary installer artifacts from the machine.
+
+    Once this agent has run, the staging partition(s) — OEMDRV with the
+    kickstart, agent payload and Anaconda stage2 — serve no further purpose.
+    Leaving them wastes space and confuses users ("what is this OEMDRV
+    drive?"), so the FINAL agent step deletes them, along with Igloo's
+    now-dangling one-shot UEFI boot entry.
+
+    Safety rules (BR-01/BR-03, docs/business/business-rules.md):
+      * delete ONLY by exact filesystem-label match on Igloo's staging labels —
+        never by partition number, position, or size;
+      * the partition must sit on the same physical disk as the Linux root;
+      * every action is best-effort and logged — any doubt leaves the partition
+        in place, never a broken disk.
+    The freed space is intentionally left unallocated: it borders the Windows
+    partition, so Windows' own Disk Management can extend C: into it.
+    """
+    src = run_cmd(["findmnt", "-rno", "SOURCE", "/"], check=False)
+    root_dev = (src.stdout or "").strip()
+    disk = ""
+    if root_dev.startswith("/dev/"):
+        r = run_cmd(["lsblk", "-rno", "PKNAME", root_dev], check=False)
+        out = (r.stdout or "").strip()
+        disk = out.splitlines()[0].strip() if out else ""
+    if not disk:
+        logger.warning("Could not resolve the root disk - skipping partition cleanup")
+        return
+
+    for label in IGLOO_SEED_LABELS:
+        by_label = Path("/dev/disk/by-label") / label
+        if not by_label.exists():
+            continue
+        part_dev = os.path.realpath(by_label)
+        r = run_cmd(["lsblk", "-rno", "PKNAME", part_dev], check=False)
+        parent = (r.stdout or "").strip()
+        if parent != disk:
+            logger.warning("%s lives on /dev/%s, not root disk /dev/%s - leaving it alone",
+                           label, parent, disk)
+            continue
+        r = run_cmd(["lsblk", "-rno", "PARTN", part_dev], check=False)
+        partn = (r.stdout or "").strip()
+        if not partn.isdigit():
+            m = re.search(r"(\d+)$", part_dev)
+            partn = m.group(1) if m else ""
+        if not partn:
+            logger.warning("Could not determine partition number of %s - skipped", part_dev)
+            continue
+        run_cmd(["umount", "-A", "-l", part_dev], check=False)
+        run_cmd(["sfdisk", "--delete", f"/dev/{disk}", partn], check=False)
+        logger.info("Deleted installer partition %s (%s = partition %s on /dev/%s)",
+                    label, part_dev, partn, disk)
+
+    # Igloo's one-shot UEFI entry ("Install … (Igloo)") now points at nothing.
+    # efibootmgr -B also removes it from BootOrder. Only entries containing
+    # "Igloo" are touched — the distro's entry and Windows Boot Manager never are.
+    r = run_cmd(["efibootmgr"], check=False)
+    for line in (r.stdout or "").splitlines():
+        m = re.match(r"^Boot([0-9A-Fa-f]{4})\*?\s+(.*)$", line.strip())
+        if m and "Igloo" in m.group(2):
+            run_cmd(["efibootmgr", "-b", m.group(1), "-B"], check=False)
+            logger.info("Removed stale UEFI boot entry Boot%s (%s)", m.group(1), m.group(2))
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -531,6 +599,7 @@ def main() -> int:
         ("wifi",            lambda: migrate_wifi(manifest)),
         ("welcome-app",     lambda: install_welcome_app(manifest)),
         ("redact-manifest", lambda: redact_manifest(manifest)),
+        ("cleanup-seed",    lambda: cleanup_installer_partitions(manifest)),
     ]
 
     failures: list[str] = []

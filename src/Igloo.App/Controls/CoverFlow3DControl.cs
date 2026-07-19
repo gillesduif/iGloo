@@ -4,6 +4,7 @@ using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
 
@@ -56,7 +57,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
     /// (unflipped) cover brush appears vertically mirrored.
     /// </summary>
     private static readonly MeshGeometry3D ReflectionMesh = BuildQuad(
-        new Point3D(-1, -3.08, 0), new Point3D(1, -3.08, 0), new Point3D(1, -1.08, 0), new Point3D(-1, -1.08, 0),
+        new Point3D(-1, -2.92, 0), new Point3D(1, -2.92, 0), new Point3D(1, -0.92, 0), new Point3D(-1, -0.92, 0),
         new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(0, 1));
 
     // ── Visual tree ──────────────────────────────────────────────────────────
@@ -211,10 +212,11 @@ public sealed class CoverFlow3DControl : FrameworkElement
     {
         _items = ItemsSource?.Cast<object>().ToList() ?? [];
 
-        // Keep the bound SelectedItem when it survives the refresh; otherwise center
-        // the first cover (the carousel always has a center).
+        // Keep the bound SelectedItem when it survives the refresh; otherwise open
+        // on the middle of the shelf — starting at the far-left cover wastes half
+        // the carousel and reads as an empty stage.
         var index = SelectedItem is { } current ? _items.IndexOf(current) : -1;
-        if (index < 0 && _items.Count > 0) index = 0;
+        if (index < 0 && _items.Count > 0) index = _items.Count / 2;
 
         _syncingSelection = true;
         try
@@ -228,6 +230,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         }
 
         BuildScene();
+        _lastDepthCenter = int.MinValue;   // force a depth re-sort for the new scene
 
         // New scene: snap into place, no cross-refresh animation.
         _target = _offset = Math.Max(index, 0);
@@ -332,10 +335,10 @@ public sealed class CoverFlow3DControl : FrameworkElement
             command.Execute(null);
     }
 
+    // No perimeter ring: the centered, lit cover IS the focus affordance for
+    // this full-bleed control; a frame around the stage reads as an artifact.
     private void UpdateFocusRing() =>
-        _focusRing.BorderBrush = IsKeyboardFocused
-            ? new SolidColorBrush(Color.FromArgb(0x80, 0x6C, 0x9C, 0xFF))
-            : Brushes.Transparent;
+        _focusRing.BorderBrush = Brushes.Transparent;
 
     // ── Scene construction ───────────────────────────────────────────────────
 
@@ -364,11 +367,10 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     private Cover CreateCover(object item)
     {
-        // Fog scrim: a background-colored translucent layer over both quads whose opacity
-        // grows with distance from center - flanks sit lower-lit and far covers fade into
-        // the void. One unfrozen brush per cover; only its Opacity changes per frame.
-        var scrim = new SolidColorBrush(BackgroundColor) { Opacity = 0 };
-        var scrimMaterial = new DiffuseMaterial(scrim);
+        // Depth fog is applied by fading the cover's OWN brushes (opacity), never
+        // by painting a dark layer over the quad: an overlay scrim covers the full
+        // square and shows as a dark slab wherever the texture is transparent —
+        // which frameless (logo-only) covers are everywhere outside the artwork.
 
         // Emissive boost on/near the center cover, on top of the directional key light.
         var emissiveBrush = new ImageBrush { Opacity = 0 };
@@ -377,18 +379,18 @@ public sealed class CoverFlow3DControl : FrameworkElement
         var frontMaterial = new MaterialGroup();
         frontMaterial.Children.Add(frontDiffuse);
         frontMaterial.Children.Add(new EmissiveMaterial(emissiveBrush));
-        frontMaterial.Children.Add(scrimMaterial);
 
         var reflectionDiffuse = new DiffuseMaterial();
         var reflectionMaterial = new MaterialGroup();
         reflectionMaterial.Children.Add(reflectionDiffuse);
-        reflectionMaterial.Children.Add(scrimMaterial);
 
         var frontModel      = new GeometryModel3D(FrontMesh, frontMaterial);
         var reflectionModel = new GeometryModel3D(ReflectionMesh, reflectionMaterial);
 
         var rotation    = new AxisAngleRotation3D(new Vector3D(0, 1, 0), 0);
-        var translation = new TranslateTransform3D();
+        // Constant lift: raises the whole ensemble (cover + reflection) in the
+        // frame, closing the dead space between the category chips and the art.
+        var translation = new TranslateTransform3D { OffsetY = 0.42 };
         var scale       = new ScaleTransform3D(1, 1, 1);
         var transform   = new Transform3DGroup();
         transform.Children.Add(scale);
@@ -406,7 +408,6 @@ public sealed class CoverFlow3DControl : FrameworkElement
             Rotation          = rotation,
             Translation       = translation,
             Scale             = scale,
-            Scrim             = scrim,
             EmissiveBrush     = emissiveBrush,
             FrontModel        = frontModel,
             ReflectionModel   = reflectionModel,
@@ -438,22 +439,26 @@ public sealed class CoverFlow3DControl : FrameworkElement
     {
         var source = CoverImageResolver?.Invoke(cover.Item, pixels);
 
-        Brush front;
-        if (source is not null)
-        {
-            var imageBrush = new ImageBrush(source);
-            imageBrush.Freeze();
-            front = imageBrush;
-        }
-        else
-        {
-            front = FallbackFrontBrush;
-        }
+        // Front and reflection brushes stay UNFROZEN: the render loop fades their
+        // Opacity per frame (that IS the depth fog — see LayoutScene).
+        Brush front = source is not null ? new ImageBrush(source) : FallbackFrontBrush.Clone();
+        var reflection = BuildReflectionBrush(source);
 
+        cover.FrontBrush               = front;
+        cover.ReflectionBrush          = reflection;
         cover.FrontDiffuse.Brush       = front;
-        cover.ReflectionDiffuse.Brush  = BuildReflectionBrush(source);
+        cover.ReflectionDiffuse.Brush  = reflection;
         cover.EmissiveBrush.ImageSource = source;
         cover.TexturePixels            = pixels;
+        ApplyFog(cover);   // re-apply the cover's current fog to the fresh brushes
+    }
+
+    /// <summary>Depth fog = fading the cover's own brushes; no overlay layers.</summary>
+    private static void ApplyFog(Cover cover)
+    {
+        var visibility = 1 - cover.Fog;
+        if (!cover.FrontBrush.IsFrozen)      cover.FrontBrush.Opacity      = visibility;
+        if (!cover.ReflectionBrush.IsFrozen) cover.ReflectionBrush.Opacity = visibility;
     }
 
     private static readonly Brush FallbackFrontBrush = CreateFallbackFrontBrush();
@@ -480,23 +485,40 @@ public sealed class CoverFlow3DControl : FrameworkElement
         else
             group.Children.Add(new GeometryDrawing(FallbackFrontBrush, null, new RectangleGeometry(bounds)));
 
-        // Brush-space y=0 is the far end of the reflection (v=0 on the mesh).
-        var fade = new LinearGradientBrush
+        // True alpha fade (no background-colored plate, so it works over ANY
+        // backdrop incl. mica): fully transparent at the far end, a faint
+        // specular hint near the cover. Brush-space y=0 is the far end.
+        //
+        // PERFORMANCE: the fade is BAKED ONCE into a bitmap here. An unfrozen
+        // DrawingBrush with an OpacityMask would be re-realized every frame the
+        // fog animates — that cost a visible frame-rate hit. A plain ImageBrush
+        // over a frozen pre-faded bitmap animates Opacity for near-free.
+        group.OpacityMask = new LinearGradientBrush
         {
             StartPoint = new Point(0, 0),
             EndPoint   = new Point(0, 1),
             GradientStops =
             {
-                new GradientStop(Color.FromArgb(0xFF, BackgroundColor.R, BackgroundColor.G, BackgroundColor.B), 0.0),
-                new GradientStop(Color.FromArgb(0xFF, BackgroundColor.R, BackgroundColor.G, BackgroundColor.B), 0.55),
-                new GradientStop(Color.FromArgb(0xB4, BackgroundColor.R, BackgroundColor.G, BackgroundColor.B), 1.0),
+                new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.0),
+                new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.45),
+                new GradientStop(Color.FromArgb(0x4D, 0xFF, 0xFF, 0xFF), 1.0),
             },
         };
-        group.Children.Add(new GeometryDrawing(fade, null, new RectangleGeometry(bounds)));
 
-        var brush = new DrawingBrush(group) { Stretch = Stretch.Fill };
-        brush.Freeze();
-        return brush;
+        const int bake = 256;
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+            dc.DrawDrawing(new DrawingGroup
+            {
+                Children    = { group },
+                Transform   = new ScaleTransform(bake, bake),
+            });
+        var baked = new RenderTargetBitmap(bake, bake, 96, 96, PixelFormats.Pbgra32);
+        baked.Render(visual);
+        baked.Freeze();
+
+        // Unfrozen ImageBrush: the render loop fades Opacity per frame (depth fog).
+        return new ImageBrush(baked) { Stretch = Stretch.Fill };
     }
 
     // ── Animation ────────────────────────────────────────────────────────────
@@ -551,9 +573,35 @@ public sealed class CoverFlow3DControl : FrameworkElement
         LayoutScene();
     }
 
+    /// <summary>
+    /// Transparent 3D quads render in CHILD ORDER and z-write their full square,
+    /// so covers must be added back-to-front around the current center. With a
+    /// fixed order the right flank draws near-to-far: the near quad's depth
+    /// writes cull everything behind it inside its square, which shows up as a
+    /// dark "plate" of raw background around frameless logos. Re-sorting when
+    /// the center changes keeps both flanks compositing correctly.
+    /// </summary>
+    private int _lastDepthCenter = int.MinValue;
+
+    private void ReorderForDepth(int center)
+    {
+        _lastDepthCenter = center;
+
+        _viewport.Children.Clear();
+        _viewport.Children.Add(_lightsVisual);
+        foreach (var i in Enumerable.Range(0, _covers.Count)
+                     .OrderByDescending(i => Math.Abs(i - center))
+                     .ThenBy(i => i))
+            _viewport.Children.Add(_covers[i].Visual);
+    }
+
     /// <summary>Positions every cover (and the camera) for the current flow offset.</summary>
     private void LayoutScene()
     {
+        var depthCenter = (int)Math.Round(_offset);
+        if (depthCenter != _lastDepthCenter)
+            ReorderForDepth(depthCenter);
+
         for (var i = 0; i < _covers.Count; i++)
         {
             var cover = _covers[i];
@@ -571,8 +619,17 @@ public sealed class CoverFlow3DControl : FrameworkElement
             cover.Scale.ScaleX = scale;
             cover.Scale.ScaleY = scale;
 
-            cover.Scrim.Opacity         = Math.Min(0.26 * t + 0.11 * extra, 0.88);
-            cover.EmissiveBrush.Opacity = 0.24 * (1 - t);
+            // Only touch brushes whose fog actually changed: a static scene then
+            // costs zero brush invalidations per frame.
+            var fog = Math.Min(0.26 * t + 0.11 * extra, 0.88);
+            if (Math.Abs(fog - cover.Fog) > 0.002)
+            {
+                cover.Fog = fog;
+                ApplyFog(cover);
+            }
+            var emissive = 0.24 * (1 - t);
+            if (Math.Abs(emissive - cover.EmissiveBrush.Opacity) > 0.002)
+                cover.EmissiveBrush.Opacity = emissive;
         }
 
         // Camera dolly: ease back proportionally to transition speed so the whole scene
@@ -607,13 +664,18 @@ public sealed class CoverFlow3DControl : FrameworkElement
         public required AxisAngleRotation3D  Rotation;
         public required TranslateTransform3D Translation;
         public required ScaleTransform3D     Scale;
-        public required SolidColorBrush      Scrim;
         public required ImageBrush           EmissiveBrush;
         public required GeometryModel3D      FrontModel;
         public required GeometryModel3D      ReflectionModel;
         public required DiffuseMaterial      FrontDiffuse;
         public required DiffuseMaterial      ReflectionDiffuse;
         public int TexturePixels;
+
+        // Depth-fog state: 0 = centered/fully visible … 0.88 = far flank. Applied
+        // by fading FrontBrush/ReflectionBrush opacity (never an overlay layer).
+        public double Fog;
+        public Brush  FrontBrush      = Brushes.Transparent;
+        public Brush  ReflectionBrush = Brushes.Transparent;
     }
 
     // ── UI Automation ────────────────────────────────────────────────────────

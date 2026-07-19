@@ -44,16 +44,19 @@ public sealed class CoverTextureFactory
             var logo = TryLoadLogo(logoPath, pixels);
             if (logo is not null)
             {
-                DrawTile(dc, pixels, Color.FromRgb(0x23, 0x2A, 0x3E), Color.FromRgb(0x12, 0x16, 0x23));
+                // Frameless: logo art only, on a transparent texture. The 3D
+                // pipeline supports this — depth fog fades brush opacity and the
+                // reflection uses an alpha mask, so no layer paints the quad.
                 DrawLogo(dc, logo, pixels);
             }
             else
             {
+                // No logo asset: the colored tile IS the artwork — keep it.
                 var hue = StableHash(hashKey) % 360;
                 DrawTile(dc, pixels, FromHsv(hue, 0.50, 0.46), FromHsv(hue, 0.62, 0.20));
                 DrawInitial(dc, displayName, pixels);
+                DrawSheenAndBorder(dc, pixels);
             }
-            DrawSheenAndBorder(dc, pixels);
         }
 
         var bitmap = new RenderTargetBitmap(pixels, pixels, 96, 96, PixelFormats.Pbgra32);
@@ -74,12 +77,13 @@ public sealed class CoverTextureFactory
 
     private static void DrawLogo(DrawingContext dc, BitmapSource logo, int pixels)
     {
-        // Center the logo in a 68% inset box, preserving aspect ratio.
-        var box = pixels * 0.68;
+        // Frameless: the logo owns an 82% box, aspect preserved, lifted 5%
+        // above center so the artwork clears the caption overlay below.
+        var box = pixels * 0.82;
         var scale = Math.Min(box / logo.PixelWidth, box / logo.PixelHeight);
         var w = logo.PixelWidth * scale;
         var h = logo.PixelHeight * scale;
-        dc.DrawImage(logo, new Rect((pixels - w) / 2, (pixels - h) / 2, w, h));
+        dc.DrawImage(logo, new Rect((pixels - w) / 2, (pixels - h) / 2 - pixels * 0.05, w, h));
     }
 
     private static void DrawInitial(DrawingContext dc, string displayName, int pixels)

@@ -49,6 +49,28 @@ internal static class ChromeInterop
             DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_PRE_20H1, ref enabled, sizeof(int));
     }
 
+    // ── Mica backdrop (the real thing, not a painted imitation) ──────────────
+
+    private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;    // Win11 22H2+
+    private const int DWMWA_MICA_EFFECT         = 1029;  // Win11 21H2 (undocumented)
+    private const int DWMSBT_MAINWINDOW         = 2;     // Mica
+
+    /// <summary>
+    /// Asks DWM to render the system Mica backdrop behind this window — the same
+    /// desktop-tinted material Settings and other first-party Win11 apps use.
+    /// The caller must make the window background transparent so it shows
+    /// through. Returns false on Windows 10 (caller keeps a solid fallback).
+    /// </summary>
+    public static bool TryEnableMicaBackdrop(IntPtr hwnd)
+    {
+        int type = DWMSBT_MAINWINDOW;
+        if (DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref type, sizeof(int)) == 0)
+            return true;
+
+        int on = 1;   // 21H2 fallback flag
+        return DwmSetWindowAttribute(hwnd, DWMWA_MICA_EFFECT, ref on, sizeof(int)) == 0;
+    }
+
     // ── Maximize bounds (the classic WindowStyle=None bug) ────────────────────
 
     /// <summary>

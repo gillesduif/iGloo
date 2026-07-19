@@ -73,10 +73,45 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     private bool  _lastSecureBootOn;
 
     private PreflightReport? _lastReport;
+    private string           _lastCategory = AllCategory;
+    private IReadOnlyList<string> _recommendedIds = [];
+
+    /// <summary>The quiz-driven filter chip, shown only when recommendations exist.</summary>
+    public const string RecommendedCategory = "Recommended";
+
+    /// <summary>
+    /// Sets the Welcome quiz's ranked recommendations. Called by the wizard
+    /// before <see cref="RefreshCompatibility"/> on every navigation here.
+    /// Changed answers invalidate the built list (badges move) and activate the
+    /// Recommended chip, so the shelf opens showing only the matches — the
+    /// choice-paralysis payoff. "All" is one click away.
+    /// </summary>
+    public void SetRecommendation(IReadOnlyList<string> distroIds)
+    {
+        if (_recommendedIds.SequenceEqual(distroIds, StringComparer.OrdinalIgnoreCase)) return;
+        _recommendedIds = distroIds;
+        _built = false;
+        if (distroIds.Count > 0)
+            SelectedCategory = RecommendedCategory;   // triggers a rebuild via its change hook
+    }
+
+    /// <summary>Category filter for the picker. "All" plus each desktop
+    /// environment present in the catalog (GNOME, KDE, Cinnamon, …).</summary>
+    public const string AllCategory = "All";
+
+    [ObservableProperty]
+    private IReadOnlyList<string> _categories = [AllCategory];
+
+    [ObservableProperty]
+    private string _selectedCategory = AllCategory;
+
+    partial void OnSelectedCategoryChanged(string value) =>
+        RefreshCompatibility(_lastReport);
 
     public void RefreshCompatibility(PreflightReport? report)
     {
         var secureBootOn = report?.SecureBootEnabled ?? false;
+        var category     = SelectedCategory ?? AllCategory;
 
         // Only rebuild the list when something that affects it actually changed.
         // Rebuilding reassigns DistroItems, which makes WPF's bound ListBox reset
@@ -84,22 +119,55 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         // unconditional rebuild on every visit silently drops the user's selection
         // when they navigate back to this step, NRE-ing downstream (distro.Id).
         // A new preflight report MUST rebuild: the plugins' hardware findings
-        // (RAM floors, BitLocker, …) are evaluated against it.
-        if (_built && secureBootOn == _lastSecureBootOn && ReferenceEquals(report, _lastReport))
+        // (RAM floors, BitLocker, …) are evaluated against it. A category switch
+        // must rebuild too — it changes which distros are visible.
+        if (_built && secureBootOn == _lastSecureBootOn && ReferenceEquals(report, _lastReport)
+                   && string.Equals(category, _lastCategory, StringComparison.OrdinalIgnoreCase))
             return;
 
         var previousId = SelectedItem?.Manifest.Id;
 
+        // Categories always reflect the FULL catalog (never the filtered view),
+        // so a chip can't disappear while it is active. The Recommended chip
+        // leads (right after All) and only exists once the quiz was answered.
+        var head = new List<string> { AllCategory };
+        if (_recommendedIds.Count > 0) head.Add(RecommendedCategory);
+        Categories = head
+            .Concat(_loader.LoadedDistros
+                .Select(m => m.DefaultDesktopEnvironment)
+                .Where(de => !string.IsNullOrWhiteSpace(de))
+                .Select(de => de!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(de => de, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
         DistroItems = _loader.LoadedDistros
-            .Select(m => EvaluateItem(m, secureBootOn, report))
+            .Where(m => string.Equals(category, AllCategory, StringComparison.OrdinalIgnoreCase)
+                     || (string.Equals(category, RecommendedCategory, StringComparison.OrdinalIgnoreCase)
+                         && _recommendedIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
+                     || string.Equals(m.DefaultDesktopEnvironment?.Trim(), category,
+                                      StringComparison.OrdinalIgnoreCase))
+            .Select(m => EvaluateItem(m, secureBootOn, report) with
+            {
+                IsRecommended = _recommendedIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase),
+            })
             .ToList();
         _built            = true;
         _lastSecureBootOn = secureBootOn;
         _lastReport       = report;
+        _lastCategory     = category;
 
-        // Restore the previous selection if it is still compatible.
-        var restored = DistroItems.FirstOrDefault(i => i.Manifest.Id == previousId);
-        SelectedItem = restored is { IsCompatible: true } ? restored : null;
+        // Selection preference: the user's previous pick, else the TOP-ranked
+        // recommendation (the carousel opens centered on the selection), else
+        // null (the carousel centers the middle of the shelf).
+        var restored    = DistroItems.FirstOrDefault(i => i.Manifest.Id == previousId);
+        var recommended = _recommendedIds
+            .Select(id => DistroItems.FirstOrDefault(
+                i => string.Equals(i.Manifest.Id, id, StringComparison.OrdinalIgnoreCase)))
+            .FirstOrDefault(i => i is not null);
+        SelectedItem = restored is { IsCompatible: true } ? restored
+                     : recommended is { IsCompatible: true } ? recommended
+                     : null;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -160,4 +228,5 @@ public sealed record DistroListItem(
     DistroManifest Manifest,
     bool           IsCompatible,
     string?        IncompatibilityReason,
-    bool           IsComingSoon = false);
+    bool           IsComingSoon = false,
+    bool           IsRecommended = false);
