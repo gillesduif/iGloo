@@ -33,6 +33,9 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     [ObservableProperty] private string?                _errorMessage;
     [ObservableProperty] private IsoAcquisitionResult? _result;
 
+    /// <summary>The distro being acquired — the page shows its logo on the receipt.</summary>
+    [ObservableProperty] private DistroManifest?        _distro;
+
     // ── Derived ──────────────────────────────────────────────────────────────
 
     public double ProgressPercent =>
@@ -71,6 +74,8 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     /// </summary>
     public void Prepare(DistroManifest distro)
     {
+        Distro = distro;
+
         // Load the bundled, trusted signing key (if the distro ships one). Preferred
         // over fetching from a keyserver: the trust anchor ships with the app.
         byte[]? keyData = null;

@@ -31,7 +31,13 @@ public static class DistroRecommender
     {
         //                       every gaming work tinker | winlike modern | stable cutting
         ["bazzite"]            = new(1,    2,    0,   1,     0,      2,      1,     2),
+        ["cachyos"]            = new(0,    2,    0,   2,     1,      1,      0,     2),
+        ["endeavouros"]        = new(0,    1,    0,   2,     1,      1,      0,     2),
+        ["garuda"]             = new(0,    2,    0,   2,     1,      2,      0,     2),
+        ["linux-lite"]         = new(2,    0,    1,   0,     2,      0,      2,     0),
         ["linuxmint-cinnamon"] = new(2,    1,    1,   0,     2,      0,      2,     0),
+        ["mx-linux"]           = new(2,    0,    1,   1,     1,      0,      2,     0),
+        ["nobara"]             = new(1,    2,    0,   1,     1,      1,      1,     2),
         ["zorin-os"]           = new(2,    1,    1,   0,     2,      1,      1,     0),
         ["ubuntu"]             = new(2,    1,    2,   1,     0,      1,      1,     1),
         ["debian"]             = new(1,    0,    1,   2,     0,      0,      2,     0),

@@ -1,0 +1,31 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "endeavouros",
+  "displayName": "EndeavourOS",
+  "description": "EndeavourOS with the KDE Plasma desktop. Arch Linux with a friendly on-ramp: a graphical installer and a famously helpful community on top of a pure, terminal-centric Arch base that you fully control.",
+  "logo": "logo/endeavouros-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Calamares",
+
+  "iso": {
+    "downloadUrl": "https://endeavouros.com/",
+    "sha256": ""
+  },
+
+  "tags": [
+    "advanced-users"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: no install plugin yet. downloadUrl points at the official site (mirrors listed there); pin a direct ISO URL and SHA-256 checksum when the plugin is written."
+  }
+}

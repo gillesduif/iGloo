@@ -1,0 +1,31 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "nobara",
+  "displayName": "Nobara",
+  "description": "Nobara 43 with the KDE Plasma desktop. Fedora tuned for gaming by GloriousEggroll of Proton-GE fame: NVIDIA driver images, WINE dependencies, OBS and codec fixes preinstalled - no terminal wrestling required.",
+  "logo": "logo/nobara-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Calamares",
+
+  "iso": {
+    "downloadUrl": "https://nobaraproject.org/download-nobara/",
+    "sha256": ""
+  },
+
+  "tags": [
+    "gaming"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 8589934592,
+    "minDiskBytes": 68719476736,
+    "requiresUefi": true,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: no install plugin yet. downloadUrl points at the official download portal; pin a direct ISO URL and SHA-256 checksum when the plugin is written."
+  }
+}

@@ -157,7 +157,7 @@ public sealed partial class PreflightViewModel : ObservableObject
         var confirm = MessageBox.Show(
             "This will permanently delete:\n\n" + string.Join("\n", lines) + "\n\n" +
             "All data on these partitions is destroyed. This cannot be undone.\n" +
-            "The freed space stays unallocated - Windows Disk Management can extend C: into it.",
+            "Freed space next to your Windows partition is added back to it automatically.",
             targets.Count > 0 ? "Remove Linux from this PC?" : "Remove iGloo leftovers?",
             MessageBoxButton.OKCancel, MessageBoxImage.Warning);
         if (confirm != MessageBoxResult.OK) return;

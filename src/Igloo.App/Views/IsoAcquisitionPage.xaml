@@ -15,6 +15,61 @@
                     VerticalAlignment="Center" HorizontalAlignment="Center"
                     Width="460">
 
+            <!-- Safety shield with an orbiting verification ring: a faint full
+                 track (Win11 progress-ring reference), a soft sweep and a bright
+                 accent comet circling the static shield. Runs only while
+                 IsRunning. Dash units are multiples of the 3px stroke:
+                 circumference ≈ 96.3 units, so dash+gap always sum to that. -->
+            <Grid Width="96" Height="96" HorizontalAlignment="Center" Margin="0,0,0,20">
+
+                <!-- Static track -->
+                <Ellipse Margin="2" Stroke="#12FFFFFF" StrokeThickness="3" />
+
+                <!-- Rotating layer: soft tail + bright comet -->
+                <Grid RenderTransformOrigin="0.5,0.5">
+                    <Grid.RenderTransform>
+                        <RotateTransform />
+                    </Grid.RenderTransform>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard x:Name="ShieldOrbit">
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation
+                                                    Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                    From="0" To="360" Duration="0:0:2.6" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <RemoveStoryboard BeginStoryboardName="ShieldOrbit" />
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+
+                    <!-- Soft sweep trailing the comet (static -46° phase offset) -->
+                    <Ellipse Margin="2" Stroke="#2E4CC2FF" StrokeThickness="3"
+                             StrokeDashArray="34 62.3" StrokeDashCap="Round"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform Angle="-46" />
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+
+                    <!-- Bright comet head -->
+                    <Ellipse Margin="2" Stroke="{StaticResource Brush.AccentW11}" StrokeThickness="3"
+                             StrokeDashArray="20 76.3" StrokeDashCap="Round" />
+                </Grid>
+
+                <Image Source="/Assets/Fluent3D/shield.png" Width="56" Height="56"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+            </Grid>
+
             <TextBlock Text="{Binding PhaseDisplay}"
                        FontSize="13" FontWeight="SemiBold"
                        Foreground="{StaticResource Brush.Accent}"
@@ -92,11 +147,43 @@
             </StackPanel>
         </Border>
 
-        <!-- ── COMPLETE: the verification receipt ───────────────────────────── -->
-        <Border Grid.Row="0"
-                Visibility="{Binding IsComplete, Converter={StaticResource BoolToVis}}"
-                Style="{StaticResource Card}" Padding="26,22"
-                VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="480">
+        <!-- ── COMPLETE: hero logo above the verification receipt — the logo
+             fills the vertical emptiness and answers "ready for WHAT?". ─────── -->
+        <StackPanel Grid.Row="0"
+                    Visibility="{Binding IsComplete, Converter={StaticResource BoolToVis}}"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+
+            <Image Source="{Binding Distro.LogoAbsolutePath}"
+                   MaxHeight="150" MaxWidth="460" Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
+
+            <!-- Reflection, Cover Flow-style: the same art flipped, fading out
+                 fast (same alpha ramp as the picker's baked reflection). The
+                 clipping border shows only the first 64px of the mirror. -->
+            <Border Height="104" ClipToBounds="True" Margin="0,3,0,20">
+                <Image Source="{Binding Distro.LogoAbsolutePath}"
+                       MaxHeight="150" MaxWidth="460" Stretch="Uniform"
+                       HorizontalAlignment="Center" VerticalAlignment="Top"
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       RenderTransformOrigin="0.5,0.5">
+                    <Image.RenderTransform>
+                        <ScaleTransform ScaleY="-1" />
+                    </Image.RenderTransform>
+                    <!-- Mask flips along with the content: offset 1 is the
+                         visible top of the mirror; the fade runs two thirds of
+                         the way down so the glare's length matches the logo. -->
+                    <Image.OpacityMask>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Offset="0"    Color="#00FFFFFF" />
+                            <GradientStop Offset="0.32" Color="#00FFFFFF" />
+                            <GradientStop Offset="1"    Color="#52FFFFFF" />
+                        </LinearGradientBrush>
+                    </Image.OpacityMask>
+                </Image>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Padding="26,22" MinWidth="480">
             <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
                     <Border Width="34" Height="34" CornerRadius="17"
@@ -172,7 +259,8 @@
                                Style="{StaticResource Text.Mono}" />
                 </Grid>
             </StackPanel>
-        </Border>
+            </Border>
+        </StackPanel>
 
         <!-- ── Cancel (running only) ────────────────────────────────────────── -->
         <Button Grid.Row="1"

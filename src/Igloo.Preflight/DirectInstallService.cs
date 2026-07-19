@@ -8,6 +8,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 
 namespace Igloo.Preflight;
 
@@ -1366,8 +1367,39 @@ public sealed class DirectInstallService : IDirectInstallService
         // boot when the Boot#### variable no longer exists.
         PrependBootOrder(idx);
 
+        // Dual-boot clock fix: Linux keeps the hardware clock in UTC (the
+        // technically correct default); Windows assumes local time. Left alone,
+        // every switch between the two skews the Windows clock by the timezone
+        // offset. RealTimeIsUniversal makes Windows read the RTC as UTC too, so
+        // both systems agree. Non-fatal: a clock quirk must never abort an
+        // install this close to the finish line.
+        SetRtcUniversalTime();
+
         _logger.LogInformation("BootNext + BootOrder updated - reboot to install");
         Report(prog, DirectInstallPhase.Complete, message: "UEFI boot entry registered. Ready to reboot.");
+    }
+
+    /// <summary>
+    /// Sets HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation\
+    /// RealTimeIsUniversal = 1 (QWORD — the variant that works reliably on
+    /// x64 Windows 10/11). LinuxRemovalService removes the value again when the
+    /// last Linux installation is deleted, restoring stock Windows behavior.
+    /// </summary>
+    private void SetRtcUniversalTime()
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.CreateSubKey(
+                @"SYSTEM\CurrentControlSet\Control\TimeZoneInformation");
+            key.SetValue("RealTimeIsUniversal", 1L, RegistryValueKind.QWord);
+            _logger.LogInformation("RealTimeIsUniversal=1 - Windows now reads the RTC as UTC");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Could not set RealTimeIsUniversal (non-fatal) - the Windows clock " +
+                "will drift by the timezone offset after switching from Linux");
+        }
     }
 
     private void PrependBootOrder(ushort idx)

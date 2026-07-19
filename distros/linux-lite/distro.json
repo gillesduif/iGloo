@@ -1,0 +1,33 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "linux-lite",
+  "displayName": "Linux Lite",
+  "description": "Linux Lite 7 with the Xfce desktop. Built explicitly for Windows refugees on modest hardware: a familiar layout, the essentials preinstalled, and a dependable Ubuntu LTS base that stays out of your way.",
+  "logo": "logo/linux-lite-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "Xfce",
+  "installerType": "Ubiquity",
+
+  "iso": {
+    "downloadUrl": "https://www.linuxliteos.com/download.php",
+    "sha256": ""
+  },
+
+  "tags": [
+    "best-for-windows-switchers",
+    "beginner-friendly",
+    "stable-release"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 2147483648,
+    "minDiskBytes": 21474836480,
+    "requiresUefi": false,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: no install plugin yet. downloadUrl points at the official download portal; pin a direct ISO URL and SHA-256 checksum when the plugin is written."
+  }
+}

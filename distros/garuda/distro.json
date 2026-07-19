@@ -1,0 +1,31 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "garuda",
+  "displayName": "Garuda Linux",
+  "description": "Garuda Linux with the Dr460nized KDE Plasma desktop. A flamboyant Arch-based gaming distro: Btrfs snapshots that undo bad updates from the boot menu, a gaming app store, and a neon look that is anything but subtle.",
+  "logo": "logo/garuda-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Calamares",
+
+  "iso": {
+    "downloadUrl": "https://garudalinux.org/downloads",
+    "sha256": ""
+  },
+
+  "tags": [
+    "gaming"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 8589934592,
+    "minDiskBytes": 42949672960,
+    "requiresUefi": true,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: no install plugin yet. downloadUrl points at the official download portal; pin a direct ISO URL and SHA-256 checksum when the plugin is written."
+  }
+}

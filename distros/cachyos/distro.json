@@ -1,0 +1,32 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "cachyos",
+  "displayName": "CachyOS",
+  "description": "CachyOS with the KDE Plasma desktop. The performance king: an Arch-based rolling release whose kernels and core packages are compiled with modern-CPU optimizations (x86-64-v3/v4), topping the popularity charts since 2025.",
+  "logo": "logo/cachyos-logo.png",
+  "status": "coming-soon",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Calamares",
+
+  "iso": {
+    "downloadUrl": "https://cachyos.org/download/",
+    "sha256": ""
+  },
+
+  "tags": [
+    "gaming",
+    "advanced-users"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 4294967296,
+    "minDiskBytes": 42949672960,
+    "requiresUefi": true,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Catalog-only entry: no install plugin yet. downloadUrl points at the official download portal; pin a direct ISO URL and SHA-256 checksum when the plugin is written."
+  }
+}
