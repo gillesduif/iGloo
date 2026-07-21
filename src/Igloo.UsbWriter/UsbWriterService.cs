@@ -5,6 +5,7 @@ using System.Management;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
+using System.Text;
 using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -202,7 +203,7 @@ public sealed class UsbWriterService : IUsbWriterService
     /// Called <em>before</em> any write, so the user gets a clear explanation
     /// rather than a mid-write failure or a silent "Anaconda drops to manual install".
     /// </summary>
-    private static void ValidateFit(UsbDriveInfo drive, long isoSize, int partSizeMb)
+    internal static void ValidateFit(UsbDriveInfo drive, long isoSize, int partSizeMb)
     {
         if (drive.SizeBytes <= 0)
             return; // WMI returned unknown size - skip check, let the write attempt proceed.
@@ -306,7 +307,7 @@ public sealed class UsbWriterService : IUsbWriterService
         _logger.LogInformation("ISO write complete: {Written:N0} bytes written to {Device}", written, deviceId);
     }
 
-    private static int RoundUpToSector(int bytes, int sectorSize = 512) =>
+    internal static int RoundUpToSector(int bytes, int sectorSize = 512) =>
         ((bytes + sectorSize - 1) / sectorSize) * sectorSize;
 
     // ── Phase 2 implementation ────────────────────────────────────────────────
@@ -493,7 +494,7 @@ public sealed class UsbWriterService : IUsbWriterService
             {
                 _logger.LogInformation(
                     "GRUB patch - EFI partition at LBA {L}, patching via raw FAT32", efiLba);
-                PatchGrubCfgsOnFat32(handle, efiLba, patchedPaths, skippedPaths);
+                PatchGrubCfgsOnFatVolume(handle, efiLba, patchedPaths, skippedPaths);
             }
             else
             {
@@ -534,7 +535,7 @@ public sealed class UsbWriterService : IUsbWriterService
         var hdr = new byte[512];
         if (!ReadSector(handle, 1L, hdr))
             return -1;
-        if (System.Text.Encoding.ASCII.GetString(hdr, 0, 8) != "EFI PART")
+        if (Encoding.ASCII.GetString(hdr, 0, 8) != "EFI PART")
             return -1;
 
         long entryLBA = BitConverter.ToInt64(hdr, 72);
@@ -585,7 +586,7 @@ public sealed class UsbWriterService : IUsbWriterService
     /// (~20 MB image), not FAT32.
     /// Results are appended to <paramref name="patchedPaths"/> / <paramref name="skippedPaths"/>.
     /// </summary>
-    private void PatchGrubCfgsOnFat32(      // name kept for call-site compatibility
+    private void PatchGrubCfgsOnFatVolume(
         SafeFileHandle disk,
         long partLba,
         List<string> patchedPaths,
@@ -729,7 +730,7 @@ public sealed class UsbWriterService : IUsbWriterService
                 continue;
             }
 
-            var text = System.Text.Encoding.UTF8.GetString(data);
+            var text = Encoding.UTF8.GetString(data);
             var patched = PatchGrubCfgContent(text);
 
             if (patched == text)
@@ -744,7 +745,7 @@ public sealed class UsbWriterService : IUsbWriterService
                 continue;
             }
 
-            var patchedBytes = System.Text.Encoding.UTF8.GetBytes(patched);
+            var patchedBytes = Encoding.UTF8.GetBytes(patched);
 
             if (!FatWriteFile(disk, fileCluster, patchedBytes, (int)fileSize,
                               secsPerClust, fatLba, dataLba, isFat32))
@@ -801,11 +802,11 @@ public sealed class UsbWriterService : IUsbWriterService
         }
 
         if (pvd[0] != 0x01 ||
-            System.Text.Encoding.ASCII.GetString(pvd, 1, 5) != "CD001")
+            Encoding.ASCII.GetString(pvd, 1, 5) != "CD001")
         {
             _logger.LogDebug(
                 "ISO9660: no PVD at block 16 (type={T}, id={Id})",
-                pvd[0], System.Text.Encoding.ASCII.GetString(pvd, 1, 5));
+                pvd[0], Encoding.ASCII.GetString(pvd, 1, 5));
             return;  // not an ISO9660 volume - silent skip
         }
 
@@ -856,7 +857,7 @@ public sealed class UsbWriterService : IUsbWriterService
             return;
         }
 
-        var text = System.Text.Encoding.UTF8.GetString(data);
+        var text = Encoding.UTF8.GetString(data);
         var patched = PatchGrubCfgContent(text);
 
         if (patched == text)
@@ -871,7 +872,7 @@ public sealed class UsbWriterService : IUsbWriterService
             return;
         }
 
-        var patchedBytes = System.Text.Encoding.UTF8.GetBytes(patched);
+        var patchedBytes = Encoding.UTF8.GetBytes(patched);
 
         // ISO9660 file extents are allocated in full 2048-byte blocks.
         // The patched file (only ~25 bytes larger per line) always fits within
@@ -987,7 +988,7 @@ public sealed class UsbWriterService : IUsbWriterService
                     (block[off + 33] == 0x00 || block[off + 33] == 0x01))
                 { off += recLen; continue; }
 
-                var id = System.Text.Encoding.ASCII.GetString(block, off + 33, fileIdLen);
+                var id = Encoding.ASCII.GetString(block, off + 33, fileIdLen);
                 // ISO9660 file identifiers carry a version suffix (";1", ";2", …) - strip it.
                 int semi = id.IndexOf(';');
                 if (semi >= 0)
@@ -1311,7 +1312,7 @@ public sealed class UsbWriterService : IUsbWriterService
     /// up to 8 uppercase base-name bytes followed by up to 3 uppercase extension
     /// bytes, space-padded to exactly 11 bytes.
     /// </summary>
-    private static byte[] Fat32Make83(string name)
+    internal static byte[] Fat32Make83(string name)
     {
         var r = new byte[11];
         Array.Fill(r, (byte)' ');
@@ -1458,7 +1459,7 @@ public sealed class UsbWriterService : IUsbWriterService
 
             // Verify GPT signature at LBA 1.
             // ReadOnlySpan<byte> cannot be a local in an async method (C# 12), use Encoding.
-            if (System.Text.Encoding.ASCII.GetString(buf, 512, 8) != "EFI PART")
+            if (Encoding.ASCII.GetString(buf, 512, 8) != "EFI PART")
             {
                 throw new InvalidOperationException(
                     "The ISO does not contain a GPT partition table (LBA 1 has no 'EFI PART' signature) " +
@@ -1585,7 +1586,7 @@ public sealed class UsbWriterService : IUsbWriterService
             return false;
         }
 
-        if (System.Text.Encoding.ASCII.GetString(hdr, 0, 8) != "EFI PART")
+        if (Encoding.ASCII.GetString(hdr, 0, 8) != "EFI PART")
         {
             _logger.LogWarning("TryExtendGpt: no GPT signature at LBA 1 after MBR fix");
             return false;
@@ -1709,7 +1710,7 @@ public sealed class UsbWriterService : IUsbWriterService
     /// The CRC is computed over the first <paramref name="length"/> bytes of
     /// <paramref name="data"/>, with the header's own CRC field zeroed before calling.
     /// </summary>
-    private static uint GptCrc32(byte[] data, int length)
+    internal static uint GptCrc32(byte[] data, int length)
     {
         uint crc = 0xFFFF_FFFFu;
         for (int i = 0; i < length; i++)

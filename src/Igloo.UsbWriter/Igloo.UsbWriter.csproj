@@ -22,5 +22,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Igloo.Core\Igloo.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Igloo.UsbWriter.Tests" />
+  </ItemGroup>
 
 </Project>

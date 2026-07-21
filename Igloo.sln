@@ -39,6 +39,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.App.Tests", "tests\Ig
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.Preflight.Tests", "tests\Igloo.Preflight.Tests\Igloo.Preflight.Tests.csproj", "{57874414-D27B-45E4-AEFD-B7D7909023D9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.UsbWriter.Tests", "tests\Igloo.UsbWriter.Tests\Igloo.UsbWriter.Tests.csproj", "{51F93F1F-15B6-4E89-AC0B-D80275D344D3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -229,6 +231,18 @@ Global
 		{57874414-D27B-45E4-AEFD-B7D7909023D9}.Release|x64.Build.0 = Release|Any CPU
 		{57874414-D27B-45E4-AEFD-B7D7909023D9}.Release|x86.ActiveCfg = Release|Any CPU
 		{57874414-D27B-45E4-AEFD-B7D7909023D9}.Release|x86.Build.0 = Release|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Debug|x64.Build.0 = Debug|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Debug|x86.Build.0 = Debug|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Release|x64.ActiveCfg = Release|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Release|x64.Build.0 = Release|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Release|x86.ActiveCfg = Release|Any CPU
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -249,5 +263,6 @@ Global
 		{904914E9-A075-499A-A29D-7AE1BBAD2504} = {22222222-0000-0000-0000-000000000003}
 		{3E8C6E99-9CDA-436C-8835-00309C8560B0} = {22222222-0000-0000-0000-000000000003}
 		{57874414-D27B-45E4-AEFD-B7D7909023D9} = {22222222-0000-0000-0000-000000000003}
+		{51F93F1F-15B6-4E89-AC0B-D80275D344D3} = {22222222-0000-0000-0000-000000000003}
 	EndGlobalSection
 EndGlobal
