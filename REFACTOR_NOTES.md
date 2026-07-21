@@ -17,28 +17,31 @@ the maintainer.
   end-to-end validation required by the ground rules should be a formality, but
   it has NOT been run in this pass.
 
+## Fixed after maintainer sign-off (were "skipped for behavior risk")
+
+### 1. `ThrottledProgress` interval-arithmetic overflow - FIXED
+Originally the `long.MinValue` seed made `now - _lastForwardedTicks` overflow
+negative, so without a force predicate no report was ever forwarded (production
+call sites masked it via `prev is null` in their predicates). Fixed with a
+`_hasForwarded` flag: the first report is now always forwarded, the force
+predicate is still evaluated on every report, and the two production call sites
+observe identical behavior. Tests updated to pin the fixed contract, including
+a regression test for the production `prev is null` convention.
+
+### 2. Hardcoded UEFI boot-entry description - FIXED
+The NVRAM description is now the distro-neutral constant
+`DirectInstallService.BootEntryDescription = "iGloo distribution installer"`
+(was "Igloo Fedora KDE Installer" for every distro). Because the new string no
+longer contains "Igloo" case-sensitively, both first-boot agents'
+`cleanup_installer_partitions` were switched from a case-sensitive `"Igloo" in`
+match to a case-insensitive one; `EfiBootEntries.IsIglooDescription` and
+`LinuxRemovalService` were already case-insensitive. NOTE: this agent change is
+runtime-relevant (unlike the earlier AST-identical layout pass), so the
+Debian/Mint VM end-to-end validation is REQUIRED before merge, and any machine
+carrying a boot entry written by an older build still cleans up correctly (the
+old description also matches case-insensitively).
+
 ## Skipped for behavior risk (known issues, deliberately not fixed)
-
-### 1. `ThrottledProgress` interval-arithmetic overflow (latent bug)
-`src/Igloo.Core/Services/ThrottledProgress.cs` seeds `_lastForwardedTicks` with
-`long.MinValue`; `now - _lastForwardedTicks` overflows negative, so WITHOUT a
-force predicate no report is ever forwarded. Both production call sites
-(DirectInstallViewModel, IsoAcquisitionViewModel) mask it with
-`forceWhen: (cur, prev) => prev is null || ...`, which forces the first report
-through and initializes the timestamp; behavior after that is correct.
-The correct fix (seed with `DateTime.UtcNow.Ticks - _intervalTicks`, or guard the
-subtraction) changes observable behavior for any caller that omits `forceWhen`,
-so it is a bug fix, not a refactor. Current behavior is pinned in
-`ThrottledProgressTests`; fix at will, then update those tests.
-
-### 2. Hardcoded UEFI boot-entry description
-`DirectInstallService.RegisterBootEntry` writes the NVRAM description
-`"Igloo Fedora KDE Installer"` for EVERY distro. Debian/Mint installs show a
-Fedora-named entry in the firmware menu. The natural fix is to derive it from
-`InstallerBootSpec.MenuTitle`, but the string is written to NVRAM (user-visible,
-and matched by `EfiBootEntries.IsIglooDescription` via the "igloo" substring, so
-cleanup keeps working either way). Changing it is a behavior change; needs a
-product decision.
 
 ### 3. Sync-over-async inside the direct-install worker
 `DirectInstallService.Prepare` runs synchronously on a thread-pool thread

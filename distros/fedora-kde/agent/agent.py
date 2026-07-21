@@ -545,13 +545,15 @@ def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
         logger.info("Deleted installer partition %s (%s = partition %s on /dev/%s)",
                     label, part_dev, partn, disk)
 
-    # Igloo's one-shot UEFI entry ("Install … (Igloo)") now points at nothing.
-    # efibootmgr -B also removes it from BootOrder. Only entries containing
-    # "Igloo" are touched — the distro's entry and Windows Boot Manager never are.
+    # iGloo's one-shot UEFI entry ("iGloo distribution installer") now points at
+    # nothing. efibootmgr -B also removes it from BootOrder. Only entries whose
+    # description contains "igloo" (case-insensitive, matching the Windows side's
+    # BootEntryDescription) are touched; the distro's entry and Windows Boot
+    # Manager never are.
     r = run_cmd(["efibootmgr"], check=False)
     for line in (r.stdout or "").splitlines():
         m = re.match(r"^Boot([0-9A-Fa-f]{4})\*?\s+(.*)$", line.strip())
-        if m and "Igloo" in m.group(2):
+        if m and "igloo" in m.group(2).lower():
             run_cmd(["efibootmgr", "-b", m.group(1), "-B"], check=False)
             logger.info("Removed stale UEFI boot entry Boot%s (%s)", m.group(1), m.group(2))
 

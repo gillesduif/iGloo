@@ -18,7 +18,7 @@ public class EfiBootEntryClassificationTests
     [InlineData("GRUB", true)]
     [InlineData("Pop!_OS 22.04", true)]
     [InlineData("Windows Boot Manager", false)]
-    [InlineData("iGloo Fedora KDE Installer", false)]
+    [InlineData("iGloo distribution installer", false)]
     [InlineData("UEFI: Samsung SSD", false)]
     [InlineData("", false)]
     public void Linux_classification_never_matches_windows_or_igloo(string description, bool expected)
@@ -27,7 +27,7 @@ public class EfiBootEntryClassificationTests
     }
 
     [Theory]
-    [InlineData("iGloo Fedora KDE Installer", true)]
+    [InlineData("iGloo distribution installer", true)]
     [InlineData("IGLOO installer", true)]
     [InlineData("Windows Boot Manager", false)]
     [InlineData("ubuntu", false)]

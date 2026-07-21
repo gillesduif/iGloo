@@ -53,6 +53,11 @@ public sealed class DirectInstallService : IDirectInstallService
     private const long IsoPartitionOverheadBytes = 256L * MiB;
     private const string IsoPartitionLabel = "IGLOOISO";
 
+    // Firmware boot-menu name of the one-shot BootNext entry. Distro-neutral: the
+    // same pipeline installs every distro. Matched case-insensitively on "igloo"
+    // by the agents' cleanup and by EfiBootEntries.IsIglooDescription.
+    private const string BootEntryDescription = "iGloo distribution installer";
+
     // Boot chain:
     //
     //   UEFI firmware
@@ -1293,11 +1298,14 @@ public sealed class DirectInstallService : IDirectInstallService
         // efiPath → \igloo-boot\shimx64.efi  (Microsoft-signed shim)
         // Shim loads grubx64.efi from the same directory, which reads
         // \EFI\fedora\grub.cfg - our direct-FAT32 config written during PrepareAsync.
+        // The description must keep "iGloo" in it: the first-boot agents and
+        // LinuxRemovalService find and delete this one-shot entry by a
+        // case-insensitive "igloo" substring match on the description.
         var loadOption = BuildEfiLoadOption(
             _partitionNumber.Value,
             lbaStart, lbaSize, partGuid,
             $@"\{BootDir}\{ShimFile}",
-            "Igloo Fedora KDE Installer");
+            BootEntryDescription);
 
         var bootVar = $"Boot{idx:X4}";
         _logger.LogInformation("Writing UEFI {Var} ({Bytes} bytes)", bootVar, loadOption.Length);

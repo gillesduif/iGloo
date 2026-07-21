@@ -11,8 +11,9 @@ namespace Igloo.Core.Services;
 /// the app from <c>TextBlock.Measure</c>). Forwarding at ~10 Hz is
 /// indistinguishable to a human and removes ~99% of that pressure.
 ///
-/// Reports matching <paramref name="forceWhen"/> (phase transitions, completion)
-/// always pass through, so the final "100%" is never lost to the throttle.
+/// The first report always passes through, as do reports matching
+/// <paramref name="forceWhen"/> (phase transitions, completion), so neither the
+/// initial state nor the final "100%" is ever lost to the throttle.
 /// <see cref="Report"/> is safe to call from any thread.
 /// </summary>
 public sealed class ThrottledProgress<T> : IProgress<T>
@@ -20,7 +21,8 @@ public sealed class ThrottledProgress<T> : IProgress<T>
     private readonly IProgress<T> _inner;
     private readonly Func<T, T?, bool> _forceWhen;
     private readonly long _intervalTicks;
-    private long _lastForwardedTicks = long.MinValue;
+    private long _lastForwardedTicks;
+    private bool _hasForwarded;
     private T? _lastForwarded;
     private readonly object _gate = new();
 
@@ -42,9 +44,14 @@ public sealed class ThrottledProgress<T> : IProgress<T>
     {
         lock (_gate)
         {
+            // The predicate is evaluated on every report (callers may rely on
+            // seeing each value); _hasForwarded guards the very first report,
+            // which must never be throttled.
             long now = DateTime.UtcNow.Ticks;
-            if (!_forceWhen(value, _lastForwarded) && now - _lastForwardedTicks < _intervalTicks)
+            bool force = _forceWhen(value, _lastForwarded);
+            if (!force && _hasForwarded && now - _lastForwardedTicks < _intervalTicks)
                 return;
+            _hasForwarded = true;
             _lastForwardedTicks = now;
             _lastForwarded = value;
         }
