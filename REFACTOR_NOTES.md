@@ -45,8 +45,9 @@ VALIDATED 2026-07-21 on the Mint VM (staged by the new build): firmware entry
 "Boot0080* iGloo distribution installer" was matched case-insensitively and
 deleted by the agent (log: "Removed stale UEFI boot entry Boot0080"); Windows
 Boot Manager and the distro's own entry survived; agent finished with
-0 failures. OEMDRV partition deletion applies at next reboot (kernel table
-re-read is busy during the same boot - expected, logged by sfdisk).
+0 failures. Post-reboot checks confirmed: OEMDRV partition gone from lsblk,
+manifest password redacted, no agent re-run (.done guard), Windows boots
+normally from GRUB. Validation gate CLOSED for the Mint/Debian-family path.
 Checklist gotchas found while validating, for the docs backlog: on Mint the
 unit is igloo-bootstrap.service (not igloo-first-boot.service) and the logs
 are bootstrap.log + agent.log (not first-boot.log) - the README's
