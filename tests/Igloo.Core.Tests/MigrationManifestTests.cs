@@ -53,4 +53,36 @@ public class MigrationManifestTests
         roundTripped.Hardware.GpuVendor.Should().Be("nvidia");
         roundTripped.SchemaVersion.Should().Be(1);
     }
+
+    /// <summary>
+    /// The Linux-side agents parse the manifest by exact camelCase property name
+    /// (e.g. <c>agent.py</c> reads <c>manifest["user"]["linuxPassword"]</c> to redact it).
+    /// A property rename on the C# side would break every agent, so the wire names are pinned here.
+    /// </summary>
+    [Fact]
+    public void Wire_property_names_are_pinned_camel_case()
+    {
+        var manifest = new MigrationManifest
+        {
+            DistroId = "debian",
+            User = new MigrationUser
+            {
+                WindowsUsername = "w",
+                PreferredLinuxUsername = "l",
+                LinuxPassword = "secret",
+            },
+            Files = new FileMigrationPlan { StagingPath = "s" },
+            Hardware = new HardwareProfile(),
+            WifiNetworks = new[] { new WifiNetwork { Ssid = "net", Psk = "key" } },
+        };
+
+        var json = JsonSerializer.Serialize(manifest);
+
+        json.Should().ContainAll(
+            "\"schemaVersion\"", "\"distroId\"", "\"generatedAtUtc\"",
+            "\"user\"", "\"windowsUsername\"", "\"preferredLinuxUsername\"", "\"linuxPassword\"",
+            "\"files\"", "\"stagingPath\"", "\"folders\"",
+            "\"wifiNetworks\"", "\"ssid\"", "\"psk\"", "\"isPrimary\"",
+            "\"hardware\"", "\"gpuVendor\"", "\"installMode\"", "\"linuxPartitionSizeGb\"");
+    }
 }
