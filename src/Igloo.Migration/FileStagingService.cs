@@ -50,13 +50,29 @@ public sealed class FileStagingService : IFileStagingService
         }
         Directory.CreateDirectory(stagingRoot);
 
-        // ── Phase 1: Scan ────────────────────────────────────────────────────
         progress?.Report(new FileStagingProgress(FileStagingPhase.Scanning, 0, 0, "Scanning files…"));
+        var (jobs, totalBytes) = ScanFolders(request.FolderPaths, stagingRoot, ct);
 
+        _logger.LogInformation(
+            "Staging {Count} file(s) (~{Bytes} bytes) from {Folders} folder(s) to {Dir}",
+            jobs.Count, totalBytes, request.FolderPaths.Count, stagingRoot);
+
+        long bytesCopied = await CopyJobsAsync(jobs, totalBytes, progress, ct);
+
+        _logger.LogInformation(
+            "Staging complete: {Bytes} bytes copied in {Count} file(s)", bytesCopied, jobs.Count);
+
+        return new FileStagingResult(stagingRoot, bytesCopied, jobs.Count);
+    }
+
+    /// <summary>Builds the copy plan: one (source, destination) pair per file, plus a size estimate.</summary>
+    private (List<(string Source, string Destination)> Jobs, long TotalBytes) ScanFolders(
+        IReadOnlyList<string> folderPaths, string stagingRoot, CancellationToken ct)
+    {
         var jobs = new List<(string Source, string Destination)>();
         long totalBytes = 0;
 
-        foreach (var folder in request.FolderPaths)
+        foreach (var folder in folderPaths)
         {
             ct.ThrowIfCancellationRequested();
 
@@ -74,8 +90,7 @@ public sealed class FileStagingService : IFileStagingService
                 ct.ThrowIfCancellationRequested();
 
                 var relPath = Path.GetRelativePath(folder, file);
-                var destPath = Path.Combine(destRoot, relPath);
-                jobs.Add((file, destPath));
+                jobs.Add((file, Path.Combine(destRoot, relPath)));
 
                 try
                 { totalBytes += new FileInfo(file).Length; }
@@ -83,11 +98,14 @@ public sealed class FileStagingService : IFileStagingService
             }
         }
 
-        _logger.LogInformation(
-            "Staging {Count} file(s) (~{Bytes} bytes) from {Folders} folder(s) to {Dir}",
-            jobs.Count, totalBytes, request.FolderPaths.Count, stagingRoot);
+        return (jobs, totalBytes);
+    }
 
-        // ── Phase 2: Copy ────────────────────────────────────────────────────
+    /// <summary>Copies every job, skipping (with a warning) files that became inaccessible since the scan.</summary>
+    private async Task<long> CopyJobsAsync(
+        List<(string Source, string Destination)> jobs, long totalBytes,
+        IProgress<FileStagingProgress>? progress, CancellationToken ct)
+    {
         long bytesCopied = 0;
         const int BufSize = 128 * 1024;
         var buffer = new byte[BufSize];
@@ -126,9 +144,6 @@ public sealed class FileStagingService : IFileStagingService
             }
         }
 
-        _logger.LogInformation(
-            "Staging complete: {Bytes} bytes copied in {Count} file(s)", bytesCopied, jobs.Count);
-
-        return new FileStagingResult(stagingRoot, bytesCopied, jobs.Count);
+        return bytesCopied;
     }
 }
