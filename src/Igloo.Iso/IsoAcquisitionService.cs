@@ -388,7 +388,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     ///   <item>Debian/Ubuntu coreutils style: <c>abcdef0123…  filename.iso</c></item>
     /// </list>
     /// </summary>
-    private static string? ParseSha256FromChecksum(string checksumContent, string isoFileName)
+    internal static string? ParseSha256FromChecksum(string checksumContent, string isoFileName)
     {
         static bool IsSha256(string s) => s.Length == 64 && s.All(Uri.IsHexDigit);
 
