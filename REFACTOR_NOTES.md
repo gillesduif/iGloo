@@ -41,6 +41,17 @@ Debian/Mint VM end-to-end validation is REQUIRED before merge, and any machine
 carrying a boot entry written by an older build still cleans up correctly (the
 old description also matches case-insensitively).
 
+VALIDATED 2026-07-21 on the Mint VM (staged by the new build): firmware entry
+"Boot0080* iGloo distribution installer" was matched case-insensitively and
+deleted by the agent (log: "Removed stale UEFI boot entry Boot0080"); Windows
+Boot Manager and the distro's own entry survived; agent finished with
+0 failures. OEMDRV partition deletion applies at next reboot (kernel table
+re-read is busy during the same boot - expected, logged by sfdisk).
+Checklist gotchas found while validating, for the docs backlog: on Mint the
+unit is igloo-bootstrap.service (not igloo-first-boot.service) and the logs
+are bootstrap.log + agent.log (not first-boot.log) - the README's
+"Verifying an install" snippet documents only the Debian d-i names.
+
 ## Skipped for behavior risk (known issues, deliberately not fixed)
 
 ### 3. Sync-over-async inside the direct-install worker
