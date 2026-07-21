@@ -7,7 +7,7 @@ namespace Igloo.Iso;
 /// Verifies an OpenPGP <b>detached</b> signature against a data file, using
 /// BouncyCastle. This is the format Debian and Ubuntu use for their checksum
 /// files: a plain <c>SHA256SUMS</c> data file plus a separate signature file
-/// (<c>SHA256SUMS.sign</c> / <c>SHA256SUMS.gpg</c>) that signs its raw bytes —
+/// (<c>SHA256SUMS.sign</c> / <c>SHA256SUMS.gpg</c>) that signs its raw bytes,
 /// in contrast to Fedora's single clear-signed CHECKSUM (see
 /// <see cref="PgpCleartextVerifier"/>).
 /// </summary>

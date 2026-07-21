@@ -140,8 +140,8 @@ internal static class PgpCleartextVerifier
 
     /// <summary>
     /// Pinned-fingerprint trust anchor. Returns true when the 160-bit fingerprint of
-    /// <paramref name="signingKey"/> — or, because distros routinely sign with a
-    /// subkey, of the PRIMARY key of the ring that contains it — equals
+    /// <paramref name="signingKey"/> (or, because distros routinely sign with a
+    /// subkey, of the PRIMARY key of the ring that contains it) equals
     /// <paramref name="expected"/> (ignoring spaces/colons/case). Pinning the full
     /// fingerprint defeats 64-bit key-ID forgery and a malicious keyserver handing
     /// back a different key; the 64-bit key ID alone is spoofable.

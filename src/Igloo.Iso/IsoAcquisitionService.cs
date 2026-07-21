@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
 
@@ -52,22 +53,53 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         // are the inner layers - none of them is optional when declared.
         RequireHttps(spec);
 
-        // ── Step 1: Fetch CHECKSUM file, GPG-verify it, parse SHA-256 ────────
-        // Done BEFORE downloading the ISO: a verification failure must abort the
-        // acquisition before pulling gigabytes, and the authoritative hash must be
-        // known up front. When distro.json ships with an empty sha256, the hash is
-        // auto-resolved from the GPG-signed CHECKSUM file - no hardcoded values to
-        // maintain across releases.
-        //
-        // FAIL-CLOSED POLICY (do not weaken):
-        //  * GPG declared (signature URL + key source) → the signature MUST verify,
-        //    or acquisition throws. A failed/unavailable signature never degrades
-        //    into a warning.
-        //  * A SHA-256 for the ISO MUST be available from the manifest or the
-        //    signed checksum file, or acquisition throws - an unverifiable image
-        //    is never installed.
-        //  * If the manifest hash and the signed checksum hash BOTH exist they must
-        //    agree, or acquisition throws (either one was tampered with).
+        // ── Step 1: Resolve the authoritative SHA-256 (GPG-verified when declared) ──
+        var (resolvedSha256, gpgVerified) = await ResolveTrustedSha256Async(spec, fileName, progress, ct);
+
+        // ── Step 2: Download ISO (resumable) ──────────────────────────────────
+        _logger.LogInformation("Acquiring ISO for {DistroId} from {Url}", spec.DistroId, spec.DownloadUrl);
+        await DownloadWithResumeAsync(spec.DownloadUrl, isoPath, partialPath, progress, ct);
+
+        // ── Step 3: Verify SHA-256 (mandatory - resolvedSha256 is never null here) ──
+        string computedHash = await ComputeSha256Async(isoPath, progress, ct);
+
+        if (!string.Equals(computedHash, resolvedSha256, StringComparison.OrdinalIgnoreCase))
+        {
+            // Corrupt or tampered - delete so next run re-downloads.
+            File.Delete(isoPath);
+            throw new InvalidOperationException(
+                $"SHA-256 mismatch for {spec.DistroId}. " +
+                $"Expected {resolvedSha256[..16]}…, computed {computedHash[..16]}…");
+        }
+        _logger.LogInformation("SHA-256 OK: {Hash}", computedHash);
+
+        // ── Done ─────────────────────────────────────────────────────────────
+        progress?.Report(new IsoAcquisitionProgress(IsoAcquisitionPhase.Complete, 0, null, null));
+
+        return new IsoAcquisitionResult(isoPath, Sha256Verified: true, gpgVerified, new FileInfo(isoPath).Length);
+    }
+
+    /// <summary>
+    /// Fetches the CHECKSUM file, GPG-verifies it when declared, and returns the
+    /// authoritative SHA-256. Runs BEFORE downloading the ISO: a verification failure
+    /// must abort the acquisition before pulling gigabytes, and the hash must be known
+    /// up front. When distro.json ships with an empty sha256, the hash is auto-resolved
+    /// from the GPG-signed CHECKSUM file - no hardcoded values to maintain across releases.
+    ///
+    /// FAIL-CLOSED POLICY (do not weaken):
+    ///  * GPG declared (signature URL + key source) → the signature MUST verify,
+    ///    or acquisition throws. A failed/unavailable signature never degrades
+    ///    into a warning.
+    ///  * A SHA-256 for the ISO MUST be available from the manifest or the
+    ///    signed checksum file, or acquisition throws - an unverifiable image
+    ///    is never installed.
+    ///  * If the manifest hash and the signed checksum hash BOTH exist they must
+    ///    agree, or acquisition throws (either one was tampered with).
+    /// </summary>
+    private async Task<(string Sha256, bool GpgVerified)> ResolveTrustedSha256Async(
+        IsoSpecification spec, string fileName,
+        IProgress<IsoAcquisitionProgress>? progress, CancellationToken ct)
+    {
         string? resolvedSha256 = null;
         bool gpgVerified = false;
 
@@ -128,27 +160,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
                 $"No SHA-256 hash available for {spec.DistroId} (none pinned in the manifest and none " +
                 "resolvable from a signed checksum file). Refusing to download an unverifiable image.");
 
-        // ── Step 2: Download ISO (resumable) ──────────────────────────────────
-        _logger.LogInformation("Acquiring ISO for {DistroId} from {Url}", spec.DistroId, spec.DownloadUrl);
-        await DownloadWithResumeAsync(spec.DownloadUrl, isoPath, partialPath, progress, ct);
-
-        // ── Step 3: Verify SHA-256 (mandatory - resolvedSha256 is never null here) ──
-        string computedHash = await ComputeSha256Async(isoPath, progress, ct);
-
-        if (!string.Equals(computedHash, resolvedSha256, StringComparison.OrdinalIgnoreCase))
-        {
-            // Corrupt or tampered - delete so next run re-downloads.
-            File.Delete(isoPath);
-            throw new InvalidOperationException(
-                $"SHA-256 mismatch for {spec.DistroId}. " +
-                $"Expected {resolvedSha256[..16]}…, computed {computedHash[..16]}…");
-        }
-        _logger.LogInformation("SHA-256 OK: {Hash}", computedHash);
-
-        // ── Done ─────────────────────────────────────────────────────────────
-        progress?.Report(new IsoAcquisitionProgress(IsoAcquisitionPhase.Complete, 0, null, null));
-
-        return new IsoAcquisitionResult(isoPath, Sha256Verified: true, gpgVerified, new FileInfo(isoPath).Length);
+        return (resolvedSha256, gpgVerified);
     }
 
     /// <summary>
@@ -339,7 +351,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         {
             _logger.LogInformation("Fetching checksum data from {Url}", spec.GpgSignedDataUrl);
             dataBytes = await client.GetByteArrayAsync(spec.GpgSignedDataUrl!, ct);
-            dataText = System.Text.Encoding.UTF8.GetString(dataBytes);
+            dataText = Encoding.UTF8.GetString(dataBytes);
         }
         catch (Exception ex)
         {
