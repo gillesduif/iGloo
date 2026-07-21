@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
 
@@ -207,7 +208,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         if (Array.IndexOf(bytes, (byte)'\r') < 0)
             return bytes;
 
-        var buf = new System.IO.MemoryStream(bytes.Length);
+        var buf = new MemoryStream(bytes.Length);
         for (int i = 0; i < bytes.Length; i++)
         {
             if (bytes[i] == (byte)'\r')
@@ -336,8 +337,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
         // Extract the Fedora release number from a versioned release tree URL,
         // e.g. https://…/releases/44/Everything/x86_64/os/  →  "44".
-        var match = System.Text.RegularExpressions.Regex.Match(
-            stage2Url, @"/releases/(\d+)/", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        var match = Regex.Match(stage2Url, @"/releases/(\d+)/", RegexOptions.IgnoreCase);
 
         if (match.Success)
         {
