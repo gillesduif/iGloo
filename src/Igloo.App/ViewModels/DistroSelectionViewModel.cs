@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
 using Igloo.Core.Plugins;
+using Microsoft.Extensions.Logging;
 
 namespace Igloo.App.ViewModels;
 
@@ -25,6 +26,16 @@ namespace Igloo.App.ViewModels;
 public sealed partial class DistroSelectionViewModel : ObservableObject
 {
     private readonly DistroLoader _loader;
+    private readonly DistroRegistry _registry;
+    private readonly ILogger<DistroSelectionViewModel> _logger;
+
+    // Rebuild bookkeeping: RefreshCompatibility only rebuilds the list when one of
+    // these actually changed (see the comment there for why that matters).
+    private bool _built;
+    private bool _lastSecureBootOn;
+    private PreflightReport? _lastReport;
+    private string _lastCategory = AllCategory;
+    private IReadOnlyList<string> _recommendedIds = [];
 
     // ── Observable state ────────────────────────────────────────────────────
 
@@ -50,7 +61,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     // ── Constructor ──────────────────────────────────────────────────────────
 
     public DistroSelectionViewModel(DistroLoader loader, DistroRegistry registry,
-        Microsoft.Extensions.Logging.ILogger<DistroSelectionViewModel> logger)
+        ILogger<DistroSelectionViewModel> logger)
     {
         _loader = loader;
         _registry = registry;
@@ -59,22 +70,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         RefreshCompatibility(null);
     }
 
-    private readonly DistroRegistry _registry;
-    private readonly Microsoft.Extensions.Logging.ILogger<DistroSelectionViewModel> _logger;
-
     // ── API ──────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// (Re-)evaluates distro compatibility against <paramref name="report"/> and rebuilds
-    /// <see cref="DistroItems"/>. Called by <c>MainWindowViewModel</c> every time the user
-    /// navigates to this step so the list always reflects the current hardware state.
-    /// </summary>
-    private bool _built;
-    private bool _lastSecureBootOn;
-
-    private PreflightReport? _lastReport;
-    private string _lastCategory = AllCategory;
-    private IReadOnlyList<string> _recommendedIds = [];
 
     /// <summary>The quiz-driven filter chip, shown only when recommendations exist.</summary>
     public const string RecommendedCategory = "Recommended";
@@ -109,6 +105,11 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     partial void OnSelectedCategoryChanged(string value) =>
         RefreshCompatibility(_lastReport);
 
+    /// <summary>
+    /// (Re-)evaluates distro compatibility against <paramref name="report"/> and rebuilds
+    /// <see cref="DistroItems"/>. Called by <c>MainWindowViewModel</c> every time the user
+    /// navigates to this step so the list always reflects the current hardware state.
+    /// </summary>
     public void RefreshCompatibility(PreflightReport? report)
     {
         var secureBootOn = report?.SecureBootEnabled ?? false;
@@ -210,8 +211,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
             catch (Exception ex)
             {
                 // A buggy plugin must not take down the catalog; fail open with a log.
-                Microsoft.Extensions.Logging.LoggerExtensions.LogWarning(
-                    _logger, ex, "CheckCompatibility failed for {DistroId}", m.Id);
+                _logger.LogWarning(ex, "CheckCompatibility failed for {DistroId}", m.Id);
             }
         }
 

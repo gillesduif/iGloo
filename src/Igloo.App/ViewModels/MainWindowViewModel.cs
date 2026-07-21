@@ -1,5 +1,7 @@
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
 
 namespace Igloo.App.ViewModels;
@@ -67,7 +69,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     /// <summary>True on the last wizard step - swaps "Next" label to "Finish".</summary>
     public bool IsLastStep =>
-        CurrentPage is UsbWriterViewModel && _diskSelection.InstallMode == Igloo.Core.Abstractions.DiskInstallMode.ReplaceDisk
+        CurrentPage is UsbWriterViewModel && _diskSelection.InstallMode == DiskInstallMode.ReplaceDisk
         || CurrentPage is DirectInstallViewModel;
 
     // ── Step indicator (display only) ────────────────────────────────────────
@@ -141,57 +143,30 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _currentPage = _steps[0];
 
         // Relay CanProceed / completion changes so CanGoNext stays in sync.
-        preflight.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(PreflightViewModel.CanProceed))
-                OnPropertyChanged(nameof(CanGoNext));
-        };
-
-        distroSelection.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(DistroSelectionViewModel.CanProceed)
-             || e.PropertyName is nameof(DistroSelectionViewModel.SelectedItem))
-                OnPropertyChanged(nameof(CanGoNext));
-        };
-
-        isoAcquisition.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(IsoAcquisitionViewModel.IsComplete)
-             || e.PropertyName is nameof(IsoAcquisitionViewModel.HasError))
-                OnPropertyChanged(nameof(CanGoNext));
-        };
-
-        migrationSetup.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(MigrationSetupViewModel.CanProceed))
-                OnPropertyChanged(nameof(CanGoNext));
-        };
-
-        diskSelection.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(DiskSelectionViewModel.CanProceed))
-                OnPropertyChanged(nameof(CanGoNext));
-        };
-
-        fileStaging.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(FileStagingViewModel.IsComplete)
-             || e.PropertyName is nameof(FileStagingViewModel.HasError))
-                OnPropertyChanged(nameof(CanGoNext));
-        };
-
-        usbWriter.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(UsbWriterViewModel.IsComplete)
-             || e.PropertyName is nameof(UsbWriterViewModel.HasError))
-                OnPropertyChanged(nameof(CanGoNext));
-        };
+        RefreshCanGoNextWhenChanged(preflight, nameof(PreflightViewModel.CanProceed));
+        RefreshCanGoNextWhenChanged(distroSelection,
+            nameof(DistroSelectionViewModel.CanProceed), nameof(DistroSelectionViewModel.SelectedItem));
+        RefreshCanGoNextWhenChanged(isoAcquisition,
+            nameof(IsoAcquisitionViewModel.IsComplete), nameof(IsoAcquisitionViewModel.HasError));
+        RefreshCanGoNextWhenChanged(migrationSetup, nameof(MigrationSetupViewModel.CanProceed));
+        RefreshCanGoNextWhenChanged(diskSelection, nameof(DiskSelectionViewModel.CanProceed));
+        RefreshCanGoNextWhenChanged(fileStaging,
+            nameof(FileStagingViewModel.IsComplete), nameof(FileStagingViewModel.HasError));
+        RefreshCanGoNextWhenChanged(usbWriter,
+            nameof(UsbWriterViewModel.IsComplete), nameof(UsbWriterViewModel.HasError));
     }
+
+    private void RefreshCanGoNextWhenChanged(ObservableObject stepViewModel, params string[] propertyNames)
+        => stepViewModel.PropertyChanged += (_, e) =>
+        {
+            if (propertyNames.Contains(e.PropertyName))
+                OnPropertyChanged(nameof(CanGoNext));
+        };
 
     // ── Commands ─────────────────────────────────────────────────────────────
 
     [RelayCommand]
-    private static void Quit() => System.Windows.Application.Current.Shutdown();
+    private static void Quit() => Application.Current.Shutdown();
 
     [RelayCommand]
     private void Back()
@@ -201,9 +176,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         // Skip over the hidden install page when going back.
         _stepIndex--;
-        if (_steps[_stepIndex] is DirectInstallViewModel && _diskSelection.InstallMode != Igloo.Core.Abstractions.DiskInstallMode.DualBoot)
+        if (_steps[_stepIndex] is DirectInstallViewModel && _diskSelection.InstallMode != DiskInstallMode.DualBoot)
             _stepIndex--;
-        if (_steps[_stepIndex] is UsbWriterViewModel && _diskSelection.InstallMode != Igloo.Core.Abstractions.DiskInstallMode.ReplaceDisk)
+        if (_steps[_stepIndex] is UsbWriterViewModel && _diskSelection.InstallMode != DiskInstallMode.ReplaceDisk)
             _stepIndex--;
 
         CurrentPage = _steps[_stepIndex];
@@ -215,7 +190,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // Last step: USB writer "Finish" shuts down.
         if (CurrentPage is UsbWriterViewModel && _usbWriter.IsComplete)
         {
-            System.Windows.Application.Current.Shutdown();
+            Application.Current.Shutdown();
             return;
         }
 
@@ -230,7 +205,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // ── Branch: after FileStagingViewModel, jump to the right install step ──
         if (_steps[_stepIndex - 1] is FileStagingViewModel)
         {
-            if (_diskSelection.InstallMode == Igloo.Core.Abstractions.DiskInstallMode.DualBoot)
+            if (_diskSelection.InstallMode == DiskInstallMode.DualBoot)
             {
                 // Skip UsbWriterViewModel - land on DirectInstallViewModel.
                 _stepIndex = _steps.IndexOf(_directInstall);

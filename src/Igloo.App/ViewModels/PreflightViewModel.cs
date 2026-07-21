@@ -12,6 +12,7 @@ public sealed partial class PreflightViewModel : ObservableObject
 {
     private readonly IPreflightChecker _checker;
     private readonly ILogger<PreflightViewModel> _logger;
+    private readonly ILinuxRemovalService _linuxRemoval;
 
     // ── Observable state ────────────────────────────────────────────────────
 
@@ -83,7 +84,6 @@ public sealed partial class PreflightViewModel : ObservableObject
         _logger = logger;
     }
 
-    private readonly ILinuxRemovalService _linuxRemoval;
 
     // ── Action-status banners (shown after one-click fixes) ──────────────────
 
@@ -117,7 +117,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     public string SeedLeftoverSummary => Report is null
         ? string.Empty
         : string.Join(" · ", Report.SeedLeftovers.Select(
-            s => $"{s.Partition.Label} ({FormatBytes(s.Partition.SizeBytes)})"));
+            s => $"{s.Partition.Label} ({ByteFormat.Format(s.Partition.SizeBytes)})"));
 
     public bool CanRemoveSelected => LinuxInstalls.Any(i => i.IsSelected);
 
@@ -148,11 +148,11 @@ public sealed partial class PreflightViewModel : ObservableObject
         var removingAllLinux = targets.Count > 0 && targets.Count == LinuxInstalls.Count;
 
         var lines = targets
-            .Select(t => $"•  {t.DisplayName} — {FormatBytes(t.TotalBytes)} on {t.DiskModel} " +
+            .Select(t => $"•  {t.DisplayName} — {ByteFormat.Format(t.TotalBytes)} on {t.DiskModel} " +
                          $"({t.Partitions.Count} partition{(t.Partitions.Count == 1 ? "" : "s")})")
             .Concat(leftovers.Select(s =>
                 $"•  iGloo installer partition {s.Partition.Label} — " +
-                $"{FormatBytes(s.Partition.SizeBytes)} on {s.DiskModel}"))
+                $"{ByteFormat.Format(s.Partition.SizeBytes)} on {s.DiskModel}"))
             .ToList();
 
         var confirm = MessageBox.Show(
@@ -351,8 +351,8 @@ public sealed partial class PreflightViewModel : ObservableObject
                 var (kind, name) = ClassifyPartition(p);
                 var fsKnown = p.FileSystem is not (null or "" or "Unknown");
                 var detail = fsKnown && !string.Equals(name, p.FileSystem, StringComparison.OrdinalIgnoreCase)
-                    ? $"{p.FileSystem} · {FormatBytes(p.SizeBytes)}"
-                    : FormatBytes(p.SizeBytes);
+                    ? $"{p.FileSystem} · {ByteFormat.Format(p.SizeBytes)}"
+                    : ByteFormat.Format(p.SizeBytes);
 
                 segments.Add(new PartitionSegment(
                     name, detail, p.SizeBytes, kind, p.IsSystem, p.IsBoot, IsUnallocated: false));
@@ -369,6 +369,16 @@ public sealed partial class PreflightViewModel : ObservableObject
         return views;
     }
 
+    // GPT partition-type GUIDs, lowercase and unbraced to match the normalization
+    // in ClassifyPartition.
+    private const string GptTypeEfi = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b";
+    private const string GptTypeMsr = "e3c9e316-0b5c-4db8-817d-f92df00215ae";
+    private const string GptTypeWindowsRecovery = "de94bba4-06d1-4d40-a16a-bfd50179d6ac";
+    private const string GptTypeLinuxFilesystem = "0fc63daf-8483-4772-8e79-3d69d8477de4";
+    private const string GptTypeLinuxSwap = "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f";
+    private const string GptTypeLinuxLvm = "e6d6d379-f507-44c2-a23c-238f2a3df928";
+    private const string GptTypeLinuxHome = "933ac7e1-2eb4-4f13-b844-0e14e2aef915";
+
     /// <summary>
     /// Names label-less service partitions by their GPT type GUID (the reason
     /// Disk Management can say "EFI system partition" where a raw volume listing
@@ -379,17 +389,17 @@ public sealed partial class PreflightViewModel : ObservableObject
         var gpt = p.GptType?.Trim('{', '}').ToLowerInvariant();
         switch (gpt)
         {
-            case "c12a7328-f81f-11d2-ba4b-00a0c93ec93b":
+            case GptTypeEfi:
                 return ("Efi", "EFI system");
-            case "e3c9e316-0b5c-4db8-817d-f92df00215ae":
+            case GptTypeMsr:
                 return ("Msr", "Microsoft Reserved");
-            case "de94bba4-06d1-4d40-a16a-bfd50179d6ac":
+            case GptTypeWindowsRecovery:
                 return ("Recovery", "Recovery");
-            case "0fc63daf-8483-4772-8e79-3d69d8477de4":                       // Linux filesystem
-            case "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f":                       // Linux swap
-            case "e6d6d379-f507-44c2-a23c-238f2a3df928":                       // Linux LVM
-            case "933ac7e1-2eb4-4f13-b844-0e14e2aef915":
-                return ("Linux", p.Label ?? "Linux");  // /home
+            case GptTypeLinuxFilesystem:
+            case GptTypeLinuxSwap:
+            case GptTypeLinuxLvm:
+            case GptTypeLinuxHome:
+                return ("Linux", p.Label ?? "Linux");
         }
 
         // iGloo's own transient install partitions (kickstart seed, staged ISO).
@@ -408,20 +418,13 @@ public sealed partial class PreflightViewModel : ObservableObject
         return ("Unknown", p.Label ?? "Partition");
     }
 
-    private static string FormatBytes(long bytes) => bytes switch
-    {
-        >= 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024 * 1024):N1} GB",
-        >= 1024L * 1024 => $"{bytes / (1024.0 * 1024):N0} MB",
-        _ => $"{bytes / 1024.0:N0} KB",
-    };
-
     // ── Property-change hooks ────────────────────────────────────────────────
 
     partial void OnReportChanged(PreflightReport? value)
     {
         LinuxInstalls = value?.LinuxInstallations
             .Select(li => new LinuxInstallItem(
-                li, li.DisplayName, $"{FormatBytes(li.TotalBytes)} · {li.DiskModel}",
+                li, li.DisplayName, $"{ByteFormat.Format(li.TotalBytes)} · {li.DiskModel}",
                 OnLinuxSelectionChanged))
             .ToList() ?? [];
         OnPropertyChanged(nameof(LinuxInstalls));
@@ -471,15 +474,8 @@ public sealed record PartitionSegment(string Name, string Detail, long SizeBytes
     public double Weight => SizeBytes;
 
     public static PartitionSegment Unallocated(long sizeBytes) => new(
-        "Unallocated", FormatBytesStatic(sizeBytes), sizeBytes,
+        "Unallocated", ByteFormat.Format(sizeBytes), sizeBytes,
         Kind: "Free", IsSystem: false, IsBoot: false, IsUnallocated: true);
-
-    private static string FormatBytesStatic(long bytes) => bytes switch
-    {
-        >= 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024 * 1024):N1} GB",
-        >= 1024L * 1024 => $"{bytes / (1024.0 * 1024):N0} MB",
-        _ => $"{bytes / 1024.0:N0} KB",
-    };
 }
 
 /// <summary>

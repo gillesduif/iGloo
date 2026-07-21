@@ -72,6 +72,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Igloo.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Igloo.Core\Igloo.Core.csproj" />
     <ProjectReference Include="..\Igloo.Preflight\Igloo.Preflight.csproj" />
     <ProjectReference Include="..\Igloo.Iso\Igloo.Iso.csproj" />
