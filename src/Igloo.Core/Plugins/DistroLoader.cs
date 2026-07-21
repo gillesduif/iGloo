@@ -24,9 +24,9 @@ public sealed class DistroLoader
 
     private List<DistroManifest> _distros = [];
 
-    public IReadOnlyList<DistroManifest> LoadedDistros => _distros;
-
     public DistroLoader(ILogger<DistroLoader> logger) => _logger = logger;
+
+    public IReadOnlyList<DistroManifest> LoadedDistros => _distros;
 
     /// <summary>
     /// Loads (or reloads) all distro manifests from <paramref name="distrosDirectory"/>.

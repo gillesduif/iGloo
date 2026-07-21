@@ -63,8 +63,8 @@ public interface IDistroPlugin
     /// Describe how the no-USB direct installer must boot this distro: the kernel
     /// command line, where the kernel/initrd live on the ISO, and any extra ISO
     /// files to stage onto OEMDRV. This lets <c>DirectInstallService</c> drive any
-    /// installer — Anaconda kickstart, debian-installer preseed, subiquity
-    /// autoinstall — without distro-specific branching in shared code. The
+    /// installer (Anaconda kickstart, debian-installer preseed, subiquity
+    /// autoinstall) without distro-specific branching in shared code. The
     /// installer-config file rendered by <see cref="RenderInstallerConfigAsync"/>
     /// is always copied to the OEMDRV root, so the cmdline can reference it there.
     /// </summary>
@@ -157,11 +157,11 @@ public sealed record InstallerBootSpec
     /// (diskpart, GPT type "Linux filesystem") so the installer only ever REUSES
     /// existing partitions. Required for subiquity/curtin: asking curtin to ADD a
     /// partition makes it rewrite the entire GPT (new disklabel GUID, renumbered
-    /// entries) and then reload the kernel's partition table — impossible while
+    /// entries) and then reload the kernel's partition table, which is impossible while
     /// the live-media partitions on this same disk are in use. With nothing to
     /// add, curtin writes no table at all and only formats the pre-made root.
     /// Installers with native free-space logic (Anaconda, partman biggest_free)
-    /// MUST keep this false — they claim the gap themselves, and a pre-made
+    /// MUST keep this false: they claim the gap themselves, and a pre-made
     /// partition would defeat their free-space selection.
     /// </summary>
     public bool PreCreateRootPartition { get; init; }
