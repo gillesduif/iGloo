@@ -16,11 +16,11 @@ public static class DistroRecommender
     // Option ids the Welcome quiz feeds in (kept as strings so the quiz copy can
     // change freely without touching the scoring).
     public const string UseEveryday = "everyday";
-    public const string UseGaming   = "gaming";
-    public const string UseWork     = "work";
-    public const string UseTinker   = "tinker";
+    public const string UseGaming = "gaming";
+    public const string UseWork = "work";
+    public const string UseTinker = "tinker";
     public const string StyleFamiliar = "familiar";
-    public const string StyleFresh    = "fresh";
+    public const string StyleFresh = "fresh";
     public const string UpdatesStable = "stable";
     public const string UpdatesLatest = "latest";
 
@@ -30,25 +30,25 @@ public static class DistroRecommender
     private static readonly Dictionary<string, Traits> Table = new(StringComparer.OrdinalIgnoreCase)
     {
         //                       every gaming work tinker | winlike modern | stable cutting
-        ["bazzite"]            = new(1,    2,    0,   1,     0,      2,      1,     2),
-        ["cachyos"]            = new(0,    2,    0,   2,     1,      1,      0,     2),
-        ["endeavouros"]        = new(0,    1,    0,   2,     1,      1,      0,     2),
-        ["garuda"]             = new(0,    2,    0,   2,     1,      2,      0,     2),
-        ["linux-lite"]         = new(2,    0,    1,   0,     2,      0,      2,     0),
-        ["linuxmint-cinnamon"] = new(2,    1,    1,   0,     2,      0,      2,     0),
-        ["mx-linux"]           = new(2,    0,    1,   1,     1,      0,      2,     0),
-        ["nobara"]             = new(1,    2,    0,   1,     1,      1,      1,     2),
-        ["zorin-os"]           = new(2,    1,    1,   0,     2,      1,      1,     0),
-        ["ubuntu"]             = new(2,    1,    2,   1,     0,      1,      1,     1),
-        ["debian"]             = new(1,    0,    1,   2,     0,      0,      2,     0),
-        ["fedora-kde"]         = new(1,    1,    2,   1,     1,      1,      1,     1),
-        ["fedora-workstation"] = new(1,    0,    2,   1,     0,      2,      1,     1),
-        ["kde-neon"]           = new(0,    0,    1,   2,     1,      1,      0,     2),
-        ["manjaro"]            = new(0,    2,    0,   2,     0,      1,      0,     2),
-        ["opensuse"]           = new(1,    0,    2,   1,     1,      0,      1,     1),
-        ["pop-os"]             = new(1,    2,    1,   1,     0,      2,      0,     1),
-        ["elementary-os"]      = new(1,    0,    1,   0,     0,      2,      1,     0),
-        ["deepin"]             = new(1,    0,    0,   0,     0,      2,      1,     0),
+        ["bazzite"] = new(1, 2, 0, 1, 0, 2, 1, 2),
+        ["cachyos"] = new(0, 2, 0, 2, 1, 1, 0, 2),
+        ["endeavouros"] = new(0, 1, 0, 2, 1, 1, 0, 2),
+        ["garuda"] = new(0, 2, 0, 2, 1, 2, 0, 2),
+        ["linux-lite"] = new(2, 0, 1, 0, 2, 0, 2, 0),
+        ["linuxmint-cinnamon"] = new(2, 1, 1, 0, 2, 0, 2, 0),
+        ["mx-linux"] = new(2, 0, 1, 1, 1, 0, 2, 0),
+        ["nobara"] = new(1, 2, 0, 1, 1, 1, 1, 2),
+        ["zorin-os"] = new(2, 1, 1, 0, 2, 1, 1, 0),
+        ["ubuntu"] = new(2, 1, 2, 1, 0, 1, 1, 1),
+        ["debian"] = new(1, 0, 1, 2, 0, 0, 2, 0),
+        ["fedora-kde"] = new(1, 1, 2, 1, 1, 1, 1, 1),
+        ["fedora-workstation"] = new(1, 0, 2, 1, 0, 2, 1, 1),
+        ["kde-neon"] = new(0, 0, 1, 2, 1, 1, 0, 2),
+        ["manjaro"] = new(0, 2, 0, 2, 0, 1, 0, 2),
+        ["opensuse"] = new(1, 0, 2, 1, 1, 0, 1, 1),
+        ["pop-os"] = new(1, 2, 1, 1, 0, 2, 0, 1),
+        ["elementary-os"] = new(1, 0, 1, 0, 0, 2, 1, 0),
+        ["deepin"] = new(1, 0, 0, 0, 0, 2, 1, 0),
     };
 
     /// <summary>
@@ -85,17 +85,18 @@ public static class DistroRecommender
             2.0 * (use switch
             {
                 UseEveryday => t.Everyday,
-                UseGaming   => t.Gaming,
-                UseWork     => t.Work,
-                UseTinker   => t.Tinker,
-                _           => 0,
+                UseGaming => t.Gaming,
+                UseWork => t.Work,
+                UseTinker => t.Tinker,
+                _ => 0,
             })
             + 1.5 * (style == StyleFamiliar ? t.WindowsLike : t.Modern)
             + 1.5 * (updates == UpdatesStable ? t.Stable : t.Cutting);
 
         // Tie-break, not a thumb on the scale: an installable distro beats an
         // equally-scored coming-soon one.
-        if (m.IsAvailable) score += 0.5;
+        if (m.IsAvailable)
+            score += 0.5;
         return score;
     }
 }

@@ -17,7 +17,7 @@ namespace Igloo.App.Behaviors;
 public static class SmoothScroll
 {
     private const double WheelStep = 1.4;     // multiplier on the raw wheel delta (~120/tick)
-    private const int    DurationMs = 260;
+    private const int DurationMs = 260;
 
     public static readonly DependencyProperty IsEnabledProperty =
         DependencyProperty.RegisterAttached(
@@ -40,7 +40,8 @@ public static class SmoothScroll
 
     private static void OnIsEnabledChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is not ScrollViewer sv) return;
+        if (d is not ScrollViewer sv)
+            return;
 
         if ((bool)e.NewValue)
             sv.PreviewMouseWheel += OnPreviewMouseWheel;
@@ -59,10 +60,12 @@ public static class SmoothScroll
         var sv = (ScrollViewer)sender;
 
         // Nothing to scroll, or a nested inner scroller should handle it — let it through.
-        if (sv.ScrollableHeight <= 0) return;
+        if (sv.ScrollableHeight <= 0)
+            return;
 
         // Reduced motion: don't hijack; default instant scrolling stays.
-        if (!SystemParameters.ClientAreaAnimation) return;
+        if (!SystemParameters.ClientAreaAnimation)
+            return;
 
         var pending = (double)sv.GetValue(TargetOffsetProperty);
         var from = double.IsNaN(pending) ? sv.VerticalOffset : pending;

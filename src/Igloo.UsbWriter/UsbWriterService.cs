@@ -60,10 +60,10 @@ public sealed class UsbWriterService : IUsbWriterService
         {
             ct.ThrowIfCancellationRequested();
 
-            var deviceId  = obj["DeviceID"]?.ToString() ?? string.Empty;
-            var index     = Convert.ToInt32(obj["Index"]);
-            var model     = obj["Model"]?.ToString() ?? "Unknown USB Drive";
-            var sizeStr   = obj["Size"]?.ToString();
+            var deviceId = obj["DeviceID"]?.ToString() ?? string.Empty;
+            var index = Convert.ToInt32(obj["Index"]);
+            var model = obj["Model"]?.ToString() ?? "Unknown USB Drive";
+            var sizeStr = obj["Size"]?.ToString();
             var sizeBytes = sizeStr is not null ? long.Parse(sizeStr) : 0L;
 
             drives.Add(new UsbDriveInfo(index, model, sizeBytes, deviceId));
@@ -76,11 +76,11 @@ public sealed class UsbWriterService : IUsbWriterService
     // ── Write (orchestration) ─────────────────────────────────────────────────
 
     public async Task WriteAsync(
-        UsbDriveInfo                 drive,
-        string                       isoPath,
-        string                       stagingDirectory,
+        UsbDriveInfo drive,
+        string isoPath,
+        string stagingDirectory,
         IProgress<UsbWriteProgress>? progress,
-        CancellationToken            ct = default)
+        CancellationToken ct = default)
     {
         if (!IsCurrentProcessElevated())
             throw new UnauthorizedAccessException(
@@ -88,7 +88,7 @@ public sealed class UsbWriterService : IUsbWriterService
                 "Please restart iGloo as Administrator and repeat the process from this step.");
 
         // Compute sizes upfront so we can fail before touching the drive.
-        var isoSize     = new FileInfo(isoPath).Length;
+        var isoSize = new FileInfo(isoPath).Length;
         var stagingSize = GetDirectorySize(stagingDirectory);
 
         // Partition must hold all staging files plus a 256 MB buffer; minimum 512 MB.
@@ -244,17 +244,17 @@ public sealed class UsbWriterService : IUsbWriterService
     // ── Phase 1 implementation ────────────────────────────────────────────────
 
     private async Task WriteIsoRawAsync(
-        string                       deviceId,
-        string                       isoPath,
-        long                         isoSize,
+        string deviceId,
+        string isoPath,
+        long isoSize,
         IProgress<UsbWriteProgress>? progress,
-        CancellationToken            ct)
+        CancellationToken ct)
     {
-        const uint GENERIC_WRITE           = 0x40000000u;
-        const uint FILE_SHARE_READ         = 0x00000001u;
-        const uint FILE_SHARE_WRITE        = 0x00000002u;
-        const uint OPEN_EXISTING           = 3u;
-        const uint FILE_FLAG_OVERLAPPED    = 0x40000000u; // required for FileStream isAsync: true
+        const uint GENERIC_WRITE = 0x40000000u;
+        const uint FILE_SHARE_READ = 0x00000001u;
+        const uint FILE_SHARE_WRITE = 0x00000002u;
+        const uint OPEN_EXISTING = 3u;
+        const uint FILE_FLAG_OVERLAPPED = 0x40000000u; // required for FileStream isAsync: true
         const uint FILE_FLAG_WRITE_THROUGH = 0x80000000u;
 
         // FILE_FLAG_OVERLAPPED is in dwFlagsAndAttributes (not dwDesiredAccess), so the
@@ -280,10 +280,10 @@ public sealed class UsbWriterService : IUsbWriterService
 
         // FileStream takes ownership of the SafeFileHandle and closes it on Dispose.
         await using var dest = new FileStream(handle, FileAccess.Write, bufferSize: BufferSize, isAsync: true);
-        using  var src  = new FileStream(isoPath, FileMode.Open, FileAccess.Read,
+        using var src = new FileStream(isoPath, FileMode.Open, FileAccess.Read,
                                          FileShare.Read, bufferSize: BufferSize, useAsync: true);
 
-        var buffer  = new byte[BufferSize];
+        var buffer = new byte[BufferSize];
         var written = 0L;
         int bytesRead;
 
@@ -312,9 +312,9 @@ public sealed class UsbWriterService : IUsbWriterService
     // ── Phase 2 implementation ────────────────────────────────────────────────
 
     private async Task RunDiskpartAsync(
-        int               diskIndex,
-        int               partSizeMb,
-        char              driveLetter,
+        int diskIndex,
+        int partSizeMb,
+        char driveLetter,
         CancellationToken ct)
     {
         // ── TODO v1.1 ──────────────────────────────────────────────────────────
@@ -357,9 +357,9 @@ public sealed class UsbWriterService : IUsbWriterService
             var psi = new ProcessStartInfo("diskpart.exe", $"/s \"{scriptPath}\"")
             {
                 RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
             };
 
             using var proc = Process.Start(psi)
@@ -385,21 +385,23 @@ public sealed class UsbWriterService : IUsbWriterService
         }
         finally
         {
-            try { File.Delete(scriptPath); } catch { /* best-effort cleanup */ }
+            try
+            { File.Delete(scriptPath); }
+            catch { /* best-effort cleanup */ }
         }
     }
 
     // ── Phase 3 implementation ────────────────────────────────────────────────
 
     private async Task CopyStagingFilesAsync(
-        char                         driveLetter,
-        string                       stagingDirectory,
-        long                         totalBytes,
+        char driveLetter,
+        string stagingDirectory,
+        long totalBytes,
         IProgress<UsbWriteProgress>? progress,
-        CancellationToken            ct)
+        CancellationToken ct)
     {
         var destRoot = $"{driveLetter}:\\";
-        var written  = 0L;
+        var written = 0L;
 
         foreach (var srcPath in
             Directory.EnumerateFiles(stagingDirectory, "*", SearchOption.AllDirectories))
@@ -412,8 +414,8 @@ public sealed class UsbWriterService : IUsbWriterService
 
             Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 
-            await using var srcStream  = new FileStream(
-                srcPath,  FileMode.Open,   FileAccess.Read,  FileShare.Read,
+            await using var srcStream = new FileStream(
+                srcPath, FileMode.Open, FileAccess.Read, FileShare.Read,
                 bufferSize: BufferSize, useAsync: true);
             await using var destStream = new FileStream(
                 destPath, FileMode.Create, FileAccess.Write, FileShare.None,
@@ -453,16 +455,16 @@ public sealed class UsbWriterService : IUsbWriterService
     /// </list>
     /// </summary>
     private Task PatchGrubConfigAsync(
-        UsbDriveInfo                 drive,
+        UsbDriveInfo drive,
         IProgress<UsbWriteProgress>? progress)
     {
         progress?.Report(new UsbWriteProgress(UsbWritePhase.PatchingGrub, 0, 0, null));
 
-        const uint GENERIC_READ     = 0x80000000u;
-        const uint GENERIC_WRITE    = 0x40000000u;
-        const uint FILE_SHARE_READ  = 0x00000001u;
+        const uint GENERIC_READ = 0x80000000u;
+        const uint GENERIC_WRITE = 0x40000000u;
+        const uint FILE_SHARE_READ = 0x00000001u;
         const uint FILE_SHARE_WRITE = 0x00000002u;
-        const uint OPEN_EXISTING    = 3u;
+        const uint OPEN_EXISTING = 3u;
 
         var handle = NativeMethods.CreateFileW(
             drive.DeviceId, GENERIC_READ | GENERIC_WRITE,
@@ -530,34 +532,41 @@ public sealed class UsbWriterService : IUsbWriterService
         ];
 
         var hdr = new byte[512];
-        if (!ReadSector(handle, 1L, hdr)) return -1;
-        if (System.Text.Encoding.ASCII.GetString(hdr, 0, 8) != "EFI PART") return -1;
+        if (!ReadSector(handle, 1L, hdr))
+            return -1;
+        if (System.Text.Encoding.ASCII.GetString(hdr, 0, 8) != "EFI PART")
+            return -1;
 
-        long entryLBA   = BitConverter.ToInt64(hdr,  72);
+        long entryLBA = BitConverter.ToInt64(hdr, 72);
         uint entryCount = BitConverter.ToUInt32(hdr, 80);
-        uint entrySize  = BitConverter.ToUInt32(hdr, 84);
-        if (entrySize < 128 || entryCount == 0 || entryCount > 512) return -1;
+        uint entrySize = BitConverter.ToUInt32(hdr, 84);
+        if (entrySize < 128 || entryCount == 0 || entryCount > 512)
+            return -1;
 
-        int  totalSectors = (int)((entryCount * entrySize + 511) / 512);
-        var  entries      = new byte[totalSectors * 512];
+        int totalSectors = (int)((entryCount * entrySize + 511) / 512);
+        var entries = new byte[totalSectors * 512];
         for (int s = 0; s < totalSectors; s++)
         {
             var sec = new byte[512];
-            if (!ReadSector(handle, entryLBA + s, sec)) return -1;
+            if (!ReadSector(handle, entryLBA + s, sec))
+                return -1;
             Buffer.BlockCopy(sec, 0, entries, s * 512, 512);
         }
 
         for (uint i = 0; i < entryCount; i++)
         {
-            int  off   = (int)(i * entrySize);
+            int off = (int)(i * entrySize);
             bool empty = true;
             for (int b = 0; b < 16; b++)
-                if (entries[off + b] != 0) { empty = false; break; }
-            if (empty) continue;
+                if (entries[off + b] != 0)
+                { empty = false; break; }
+            if (empty)
+                continue;
 
             bool isEfi = true;
             for (int b = 0; b < 16; b++)
-                if (entries[off + b] != efiGuid[b]) { isEfi = false; break; }
+                if (entries[off + b] != efiGuid[b])
+                { isEfi = false; break; }
 
             if (isEfi)
             {
@@ -578,9 +587,9 @@ public sealed class UsbWriterService : IUsbWriterService
     /// </summary>
     private void PatchGrubCfgsOnFat32(      // name kept for call-site compatibility
         SafeFileHandle disk,
-        long           partLba,
-        List<string>   patchedPaths,
-        List<string>   skippedPaths)
+        long partLba,
+        List<string> patchedPaths,
+        List<string> skippedPaths)
     {
         // ── Parse BPB ────────────────────────────────────────────────────────────
         var bpb = new byte[512];
@@ -597,22 +606,22 @@ public sealed class UsbWriterService : IUsbWriterService
             return;
         }
 
-        ushort bytesPerSec  = BitConverter.ToUInt16(bpb, 11);
-        byte   secsPerClust = bpb[13];
+        ushort bytesPerSec = BitConverter.ToUInt16(bpb, 11);
+        byte secsPerClust = bpb[13];
         ushort reservedSecs = BitConverter.ToUInt16(bpb, 14);
-        byte   numFats      = bpb[16];
+        byte numFats = bpb[16];
         // rootEntCnt: FAT12/16 = fixed root entry count; FAT32 = 0
-        ushort rootEntCnt   = BitConverter.ToUInt16(bpb, 17);
+        ushort rootEntCnt = BitConverter.ToUInt16(bpb, 17);
         // fatSz16: FAT12/16 = sectors per FAT; FAT32 = 0 (FAT32 uses fatSz32 at offset 36)
-        ushort fatSz16      = BitConverter.ToUInt16(bpb, 22);
-        uint   fatSz32      = BitConverter.ToUInt32(bpb, 36);
-        uint   rootCluster  = BitConverter.ToUInt32(bpb, 44);  // FAT32 only
+        ushort fatSz16 = BitConverter.ToUInt16(bpb, 22);
+        uint fatSz32 = BitConverter.ToUInt32(bpb, 36);
+        uint rootCluster = BitConverter.ToUInt32(bpb, 44);  // FAT32 only
 
         bool isFat32 = fatSz16 == 0;
         uint fatSize = isFat32 ? fatSz32 : fatSz16;
 
         if (bytesPerSec != 512 || secsPerClust == 0 ||
-            reservedSecs == 0  || numFats == 0      || fatSize == 0)
+            reservedSecs == 0 || numFats == 0 || fatSize == 0)
         {
             _logger.LogWarning(
                 "FAT: unexpected BPB (bps={B} spc={S} res={R} fats={F} fsz={Z})",
@@ -625,7 +634,7 @@ public sealed class UsbWriterService : IUsbWriterService
 
         // FAT16/12: root directory occupies fixed sectors between the FATs and data area.
         // FAT32:    root directory is cluster-based; data starts right after the FATs.
-        long fat16RootLba     = 0;
+        long fat16RootLba = 0;
         long fat16RootSectors = 0;
         long dataLba;
 
@@ -635,9 +644,9 @@ public sealed class UsbWriterService : IUsbWriterService
         }
         else
         {
-            fat16RootLba     = fatLba + (long)numFats * fatSz16;
+            fat16RootLba = fatLba + (long)numFats * fatSz16;
             fat16RootSectors = (rootEntCnt * 32L + 511) / 512;
-            dataLba          = fat16RootLba + fat16RootSectors;
+            dataLba = fat16RootLba + fat16RootSectors;
         }
 
         _logger.LogDebug(
@@ -659,9 +668,9 @@ public sealed class UsbWriterService : IUsbWriterService
 
             // Start at the root.  For FAT16/12 the root is a fixed linear region;
             // for FAT32 and all subdirectories it is a cluster chain.
-            bool  inFat16Root = !isFat32;
-            uint  dirCluster  = isFat32 ? rootCluster : 0;
-            bool  ok          = true;
+            bool inFat16Root = !isFat32;
+            uint dirCluster = isFat32 ? rootCluster : 0;
+            bool ok = true;
 
             for (int d = 0; d < parts.Length - 1 && ok; d++)
             {
@@ -677,16 +686,21 @@ public sealed class UsbWriterService : IUsbWriterService
                                 out sub, out _, out _, out _);
 
                 inFat16Root = false;   // subdirs are always cluster-based
-                if (found) dirCluster = sub;
+                if (found)
+                    dirCluster = sub;
                 else
                 {
                     _logger.LogDebug("FAT: '{S}' not found at depth {D}", parts[d], d);
                     ok = false;
                 }
             }
-            if (!ok) { skippedPaths.Add($"{label} (dir not found)"); continue; }
+            if (!ok)
+            { skippedPaths.Add($"{label} (dir not found)"); continue; }
 
-            uint fileCluster; uint fileSize; long dirEntLba; int dirEntOff;
+            uint fileCluster;
+            uint fileSize;
+            long dirEntLba;
+            int dirEntOff;
             bool fileFound = inFat16Root
                 ? FatFindInFixedRoot(disk, fat16RootLba, fat16RootSectors,
                       parts[^1], isDirectory: false,
@@ -715,7 +729,7 @@ public sealed class UsbWriterService : IUsbWriterService
                 continue;
             }
 
-            var text    = System.Text.Encoding.UTF8.GetString(data);
+            var text = System.Text.Encoding.UTF8.GetString(data);
             var patched = PatchGrubCfgContent(text);
 
             if (patched == text)
@@ -775,8 +789,8 @@ public sealed class UsbWriterService : IUsbWriterService
     /// </summary>
     private void PatchIso9660GrubCfg(
         SafeFileHandle disk,
-        List<string>   patchedPaths,
-        List<string>   skippedPaths)
+        List<string> patchedPaths,
+        List<string> skippedPaths)
     {
         // ── Validate Primary Volume Descriptor at logical block 16 ────────────
         var pvd = ReadIso9660Block(disk, 16);
@@ -798,13 +812,13 @@ public sealed class UsbWriterService : IUsbWriterService
         // Root Directory Record is embedded in the PVD at offset 156 (34 bytes fixed).
         //   +2  Extent Location, LE uint32
         //   +10 Data Length,     LE uint32
-        uint rootLba  = BitConverter.ToUInt32(pvd, 156 + 2);
+        uint rootLba = BitConverter.ToUInt32(pvd, 156 + 2);
         uint rootSize = BitConverter.ToUInt32(pvd, 156 + 10);
         _logger.LogDebug("ISO9660: PVD OK, root dir at block {B}, {S} bytes",
             rootLba, rootSize);
 
         // ── Navigate /boot/grub2/ ─────────────────────────────────────────────
-        uint dirLba  = rootLba;
+        uint dirLba = rootLba;
         uint dirSize = rootSize;
 
         foreach (var segment in (string[])["boot", "grub2"])
@@ -816,7 +830,7 @@ public sealed class UsbWriterService : IUsbWriterService
                 skippedPaths.Add($"/boot/grub2/grub.cfg ('{segment}' dir not found)");
                 return;
             }
-            dirLba  = nextLba;
+            dirLba = nextLba;
             dirSize = nextSize;
         }
 
@@ -842,7 +856,7 @@ public sealed class UsbWriterService : IUsbWriterService
             return;
         }
 
-        var text    = System.Text.Encoding.UTF8.GetString(data);
+        var text = System.Text.Encoding.UTF8.GetString(data);
         var patched = PatchGrubCfgContent(text);
 
         if (patched == text)
@@ -895,12 +909,13 @@ public sealed class UsbWriterService : IUsbWriterService
     /// <summary>Reads one 2048-byte ISO9660 logical block (4 consecutive 512-byte sectors).</summary>
     private byte[]? ReadIso9660Block(SafeFileHandle disk, uint blockNum)
     {
-        var  buf     = new byte[2048];
+        var buf = new byte[2048];
         long baseLba = (long)blockNum * 4;
         for (int i = 0; i < 4; i++)
         {
             var sec = new byte[512];
-            if (!ReadSector(disk, baseLba + i, sec)) return null;
+            if (!ReadSector(disk, baseLba + i, sec))
+                return null;
             Buffer.BlockCopy(sec, 0, buf, i * 512, 512);
         }
         return buf;
@@ -914,7 +929,8 @@ public sealed class UsbWriterService : IUsbWriterService
         {
             var sec = new byte[512];
             Buffer.BlockCopy(data, i * 512, sec, 0, 512);
-            if (!WriteSector(disk, baseLba + i, sec)) return false;
+            if (!WriteSector(disk, baseLba + i, sec))
+                return false;
         }
         return true;
     }
@@ -929,37 +945,42 @@ public sealed class UsbWriterService : IUsbWriterService
     /// </summary>
     private bool Iso9660FindEntry(
         SafeFileHandle disk,
-        uint           dirLba,
-        uint           dirSize,
-        string         name,
-        bool           isDir,
-        out uint       extLba,
-        out uint       extSize,
-        out uint       entryBlock,
-        out int        entryOff)
+        uint dirLba,
+        uint dirSize,
+        string name,
+        bool isDir,
+        out uint extLba,
+        out uint extSize,
+        out uint entryBlock,
+        out int entryOff)
     {
-        extLba     = extSize = entryBlock = 0;
-        entryOff   = 0;
+        extLba = extSize = entryBlock = 0;
+        entryOff = 0;
         uint blocksToRead = (dirSize + 2047u) / 2048u;
 
         for (uint b = 0; b < blocksToRead; b++)
         {
             var block = ReadIso9660Block(disk, dirLba + b);
-            if (block is null) return false;
+            if (block is null)
+                return false;
 
             int off = 0;
             while (off + 33 <= 2048)
             {
                 byte recLen = block[off];
-                if (recLen == 0) break;          // padding to end of logical block
-                if (recLen < 33) { off++; continue; }
+                if (recLen == 0)
+                    break;          // padding to end of logical block
+                if (recLen < 33)
+                { off++; continue; }
 
                 byte fileFlags = block[off + 25];
-                bool entIsDir  = (fileFlags & 0x02) != 0;
-                if (entIsDir != isDir) { off += recLen; continue; }
+                bool entIsDir = (fileFlags & 0x02) != 0;
+                if (entIsDir != isDir)
+                { off += recLen; continue; }
 
                 byte fileIdLen = block[off + 32];
-                if (fileIdLen == 0 || off + 33 + fileIdLen > 2048) { off += recLen; continue; }
+                if (fileIdLen == 0 || off + 33 + fileIdLen > 2048)
+                { off += recLen; continue; }
 
                 // Skip "." (0x00) and ".." (0x01) self/parent entries.
                 if (fileIdLen == 1 &&
@@ -969,15 +990,16 @@ public sealed class UsbWriterService : IUsbWriterService
                 var id = System.Text.Encoding.ASCII.GetString(block, off + 33, fileIdLen);
                 // ISO9660 file identifiers carry a version suffix (";1", ";2", …) - strip it.
                 int semi = id.IndexOf(';');
-                if (semi >= 0) id = id[..semi];
+                if (semi >= 0)
+                    id = id[..semi];
 
                 if (!id.Equals(name, StringComparison.OrdinalIgnoreCase))
                 { off += recLen; continue; }
 
-                extLba     = BitConverter.ToUInt32(block, off + 2);   // Extent Location, LE
-                extSize    = BitConverter.ToUInt32(block, off + 10);  // Data Length, LE
+                extLba = BitConverter.ToUInt32(block, off + 2);   // Extent Location, LE
+                extSize = BitConverter.ToUInt32(block, off + 10);  // Data Length, LE
                 entryBlock = dirLba + b;
-                entryOff   = off;
+                entryOff = off;
                 return true;
             }
         }
@@ -987,14 +1009,15 @@ public sealed class UsbWriterService : IUsbWriterService
     /// <summary>Reads <paramref name="fileSize"/> bytes of file data from the ISO9660 extent.</summary>
     private byte[]? Iso9660ReadFile(SafeFileHandle disk, uint fileLba, int fileSize)
     {
-        var  result  = new byte[fileSize];
-        uint blocks  = ((uint)fileSize + 2047u) / 2048u;
-        int  written = 0;
+        var result = new byte[fileSize];
+        uint blocks = ((uint)fileSize + 2047u) / 2048u;
+        int written = 0;
 
         for (uint b = 0; b < blocks && written < fileSize; b++)
         {
             var block = ReadIso9660Block(disk, fileLba + b);
-            if (block is null) return null;
+            if (block is null)
+                return null;
             int copy = Math.Min(2048, fileSize - written);
             Buffer.BlockCopy(block, 0, result, written, copy);
             written += copy;
@@ -1011,11 +1034,13 @@ public sealed class UsbWriterService : IUsbWriterService
     {
         for (uint b = 0; b < blocksAllocated; b++)
         {
-            var block  = new byte[2048];          // zero-initialised → auto-pad
+            var block = new byte[2048];          // zero-initialised → auto-pad
             int srcOff = (int)(b * 2048);
-            int copy   = Math.Max(0, Math.Min(2048, content.Length - srcOff));
-            if (copy > 0) Buffer.BlockCopy(content, srcOff, block, 0, copy);
-            if (!WriteIso9660Block(disk, fileLba + b, block)) return false;
+            int copy = Math.Max(0, Math.Min(2048, content.Length - srcOff));
+            if (copy > 0)
+                Buffer.BlockCopy(content, srcOff, block, 0, copy);
+            if (!WriteIso9660Block(disk, fileLba + b, block))
+                return false;
         }
         return true;
     }
@@ -1029,15 +1054,16 @@ public sealed class UsbWriterService : IUsbWriterService
         SafeFileHandle disk, uint blockNum, int off, uint newSize)
     {
         var block = ReadIso9660Block(disk, blockNum);
-        if (block is null) return false;
+        if (block is null)
+            return false;
 
         // LE copy
         BitConverter.TryWriteBytes(block.AsSpan(off + 10, 4), newSize);
         // BE copy
         block[off + 14] = (byte)(newSize >> 24);
         block[off + 15] = (byte)(newSize >> 16);
-        block[off + 16] = (byte)(newSize >>  8);
-        block[off + 17] = (byte) newSize;
+        block[off + 16] = (byte)(newSize >> 8);
+        block[off + 17] = (byte)newSize;
 
         return WriteIso9660Block(disk, blockNum, block);
     }
@@ -1050,45 +1076,53 @@ public sealed class UsbWriterService : IUsbWriterService
     /// </summary>
     private bool FatFindInFixedRoot(
         SafeFileHandle disk,
-        long           rootLba,
-        long           rootSectors,
-        string         name,
-        bool           isDirectory,
-        out uint       entCluster,
-        out uint       entSize,
-        out long       entLba,
-        out int        entOff)
+        long rootLba,
+        long rootSectors,
+        string name,
+        bool isDirectory,
+        out uint entCluster,
+        out uint entSize,
+        out long entLba,
+        out int entOff)
     {
         entCluster = entSize = 0;
-        entLba     = 0;
-        entOff     = 0;
+        entLba = 0;
+        entOff = 0;
         var target = Fat32Make83(name);
 
         for (long s = 0; s < rootSectors; s++)
         {
             var sec = new byte[512];
-            if (!ReadSector(disk, rootLba + s, sec)) return false;
+            if (!ReadSector(disk, rootLba + s, sec))
+                return false;
 
             for (int i = 0; i <= 512 - 32; i += 32)
             {
-                if (sec[i] == 0x00) return false;  // end of directory
-                if (sec[i] == 0xE5) continue;       // deleted
+                if (sec[i] == 0x00)
+                    return false;  // end of directory
+                if (sec[i] == 0xE5)
+                    continue;       // deleted
                 byte attr = sec[i + 11];
-                if (attr == 0x0F)       continue;   // LFN
-                if ((attr & 0x08) != 0) continue;   // volume label
-                if ((attr & 0x10) != 0 != isDirectory) continue;
+                if (attr == 0x0F)
+                    continue;   // LFN
+                if ((attr & 0x08) != 0)
+                    continue;   // volume label
+                if ((attr & 0x10) != 0 != isDirectory)
+                    continue;
 
                 bool match = true;
                 for (int b = 0; b < 11; b++)
-                    if (sec[i + b] != target[b]) { match = false; break; }
-                if (!match) continue;
+                    if (sec[i + b] != target[b])
+                    { match = false; break; }
+                if (!match)
+                    continue;
 
                 uint hi = BitConverter.ToUInt16(sec, i + 20);
                 uint lo = BitConverter.ToUInt16(sec, i + 26);
                 entCluster = (hi << 16) | lo;
-                entSize    = BitConverter.ToUInt32(sec, i + 28);
-                entLba     = rootLba + s;
-                entOff     = i;
+                entSize = BitConverter.ToUInt32(sec, i + 28);
+                entLba = rootLba + s;
+                entOff = i;
                 return true;
             }
         }
@@ -1102,22 +1136,22 @@ public sealed class UsbWriterService : IUsbWriterService
     /// </summary>
     private bool FatFindInClusters(
         SafeFileHandle disk,
-        uint           dirCluster,
-        string         name,
-        bool           isDirectory,
-        byte           secsPerClust,
-        long           fatLba,
-        long           dataLba,
-        bool           isFat32,
-        out uint       entCluster,
-        out uint       entSize,
-        out long       entLba,
-        out int        entOff)
+        uint dirCluster,
+        string name,
+        bool isDirectory,
+        byte secsPerClust,
+        long fatLba,
+        long dataLba,
+        bool isFat32,
+        out uint entCluster,
+        out uint entSize,
+        out long entLba,
+        out int entOff)
     {
         entCluster = entSize = 0;
-        entLba     = 0;
-        entOff     = 0;
-        var  target  = Fat32Make83(name);
+        entLba = 0;
+        entOff = 0;
+        var target = Fat32Make83(name);
         uint cluster = dirCluster;
 
         while (FatIsValidCluster(cluster, isFat32))
@@ -1126,33 +1160,42 @@ public sealed class UsbWriterService : IUsbWriterService
             for (int s = 0; s < secsPerClust; s++)
             {
                 var sec = new byte[512];
-                if (!ReadSector(disk, clBase + s, sec)) return false;
+                if (!ReadSector(disk, clBase + s, sec))
+                    return false;
 
                 for (int i = 0; i <= 512 - 32; i += 32)
                 {
-                    if (sec[i] == 0x00) return false;  // end of directory
-                    if (sec[i] == 0xE5) continue;       // deleted
+                    if (sec[i] == 0x00)
+                        return false;  // end of directory
+                    if (sec[i] == 0xE5)
+                        continue;       // deleted
                     byte attr = sec[i + 11];
-                    if (attr == 0x0F)       continue;   // LFN
-                    if ((attr & 0x08) != 0) continue;   // volume label
-                    if ((attr & 0x10) != 0 != isDirectory) continue;
+                    if (attr == 0x0F)
+                        continue;   // LFN
+                    if ((attr & 0x08) != 0)
+                        continue;   // volume label
+                    if ((attr & 0x10) != 0 != isDirectory)
+                        continue;
 
                     bool match = true;
                     for (int b = 0; b < 11; b++)
-                        if (sec[i + b] != target[b]) { match = false; break; }
-                    if (!match) continue;
+                        if (sec[i + b] != target[b])
+                        { match = false; break; }
+                    if (!match)
+                        continue;
 
                     uint hi = BitConverter.ToUInt16(sec, i + 20);
                     uint lo = BitConverter.ToUInt16(sec, i + 26);
                     entCluster = (hi << 16) | lo;
-                    entSize    = BitConverter.ToUInt32(sec, i + 28);
-                    entLba     = clBase + s;
-                    entOff     = i;
+                    entSize = BitConverter.ToUInt32(sec, i + 28);
+                    entLba = clBase + s;
+                    entOff = i;
                     return true;
                 }
             }
 
-            if (!FatNextCluster(disk, fatLba, cluster, isFat32, out cluster)) return false;
+            if (!FatNextCluster(disk, fatLba, cluster, isFat32, out cluster))
+                return false;
         }
         return false;
     }
@@ -1162,7 +1205,7 @@ public sealed class UsbWriterService : IUsbWriterService
         SafeFileHandle disk, uint startCluster, int fileSize,
         byte secsPerClust, long fatLba, long dataLba, bool isFat32)
     {
-        var  buf     = new List<byte>(fileSize + 512);
+        var buf = new List<byte>(fileSize + 512);
         uint cluster = startCluster;
 
         while (FatIsValidCluster(cluster, isFat32)
@@ -1172,10 +1215,12 @@ public sealed class UsbWriterService : IUsbWriterService
             for (int s = 0; s < secsPerClust; s++)
             {
                 var sec = new byte[512];
-                if (!ReadSector(disk, clBase + s, sec)) return null;
+                if (!ReadSector(disk, clBase + s, sec))
+                    return null;
                 buf.AddRange(sec);
             }
-            if (!FatNextCluster(disk, fatLba, cluster, isFat32, out cluster)) break;
+            if (!FatNextCluster(disk, fatLba, cluster, isFat32, out cluster))
+                break;
         }
 
         return buf.Count >= fileSize ? buf.Take(fileSize).ToArray() : null;
@@ -1193,12 +1238,13 @@ public sealed class UsbWriterService : IUsbWriterService
     {
         int clSize = secsPerClust * 512;
 
-        var  clusters = new List<uint>();
-        uint c        = startCluster;
+        var clusters = new List<uint>();
+        uint c = startCluster;
         while (FatIsValidCluster(c, isFat32))
         {
             clusters.Add(c);
-            if (!FatNextCluster(disk, fatLba, c, isFat32, out c)) break;
+            if (!FatNextCluster(disk, fatLba, c, isFat32, out c))
+                break;
         }
 
         if (content.Length > clusters.Count * clSize)
@@ -1215,10 +1261,12 @@ public sealed class UsbWriterService : IUsbWriterService
             long clBase = dataLba + (long)(cl - 2) * secsPerClust;
             for (int s = 0; s < secsPerClust; s++)
             {
-                var sec  = new byte[512];
+                var sec = new byte[512];
                 int copy = Math.Min(512, content.Length - written);
-                if (copy > 0) Buffer.BlockCopy(content, written, sec, 0, copy);
-                if (!WriteSector(disk, clBase + s, sec)) return false;
+                if (copy > 0)
+                    Buffer.BlockCopy(content, written, sec, 0, copy);
+                if (!WriteSector(disk, clBase + s, sec))
+                    return false;
                 written += copy;
             }
         }
@@ -1234,18 +1282,20 @@ public sealed class UsbWriterService : IUsbWriterService
     {
         if (isFat32)
         {
-            next     = 0x0FFF_FFF7u;
+            next = 0x0FFF_FFF7u;
             long off = (long)cluster * 4;
-            var  sec = new byte[512];
-            if (!ReadSector(disk, fatLba + off / 512, sec)) return false;
+            var sec = new byte[512];
+            if (!ReadSector(disk, fatLba + off / 512, sec))
+                return false;
             next = BitConverter.ToUInt32(sec, (int)(off % 512)) & 0x0FFF_FFFFu;
         }
         else   // FAT16 / FAT12
         {
-            next     = 0xFFF7u;
+            next = 0xFFF7u;
             long off = (long)cluster * 2;
-            var  sec = new byte[512];
-            if (!ReadSector(disk, fatLba + off / 512, sec)) return false;
+            var sec = new byte[512];
+            if (!ReadSector(disk, fatLba + off / 512, sec))
+                return false;
             next = BitConverter.ToUInt16(sec, (int)(off % 512));
         }
         return true;
@@ -1265,12 +1315,14 @@ public sealed class UsbWriterService : IUsbWriterService
     {
         var r = new byte[11];
         Array.Fill(r, (byte)' ');
-        var up  = name.ToUpperInvariant();
+        var up = name.ToUpperInvariant();
         int dot = up.LastIndexOf('.');
-        var b   = dot >= 0 ? up[..dot] : up;
-        var e   = dot >= 0 ? up[(dot + 1)..] : "";
-        for (int i = 0; i < Math.Min(8, b.Length); i++) r[i]     = (byte)b[i];
-        for (int i = 0; i < Math.Min(3, e.Length); i++) r[8 + i] = (byte)e[i];
+        var b = dot >= 0 ? up[..dot] : up;
+        var e = dot >= 0 ? up[(dot + 1)..] : "";
+        for (int i = 0; i < Math.Min(8, b.Length); i++)
+            r[i] = (byte)b[i];
+        for (int i = 0; i < Math.Min(3, e.Length); i++)
+            r[8 + i] = (byte)e[i];
         return r;
     }
 
@@ -1297,7 +1349,7 @@ public sealed class UsbWriterService : IUsbWriterService
             @"^([ \t]*linux(?:efi)?[ \t]+\S[^\r\n]*?)[ \t]*(\r?\n|$)",
             m =>
             {
-                var line    = m.Groups[1].Value;
+                var line = m.Groups[1].Value;
                 var newline = m.Groups[2].Value;
 
                 // ── rd.live.check ─────────────────────────────────────────────
@@ -1372,11 +1424,11 @@ public sealed class UsbWriterService : IUsbWriterService
     /// </summary>
     private async Task EnsureProtectiveMbrAsync(string deviceId, long diskSizeBytes)
     {
-        const uint GENERIC_READ              = 0x80000000u;
-        const uint GENERIC_WRITE             = 0x40000000u;
-        const uint FILE_SHARE_READ           = 0x00000001u;
-        const uint FILE_SHARE_WRITE          = 0x00000002u;
-        const uint OPEN_EXISTING             = 3u;
+        const uint GENERIC_READ = 0x80000000u;
+        const uint GENERIC_WRITE = 0x40000000u;
+        const uint FILE_SHARE_READ = 0x00000001u;
+        const uint FILE_SHARE_WRITE = 0x00000002u;
+        const uint OPEN_EXISTING = 3u;
         // CTL_CODE(FILE_DEVICE_DISK=7, 0x0050, METHOD_BUFFERED=0, FILE_ANY_ACCESS=0)
         const uint IOCTL_DISK_UPDATE_PROPERTIES = 0x00070140u;
 
@@ -1432,7 +1484,7 @@ public sealed class UsbWriterService : IUsbWriterService
                     "Hybrid MBR on {Dev} (types {T0:X2}/{T1:X2}/{T2:X2}/{T3:X2}) - rewriting as protective",
                     deviceId, buf[450], buf[466], buf[482], buf[498]);
 
-                long diskSectors   = diskSizeBytes > 0 ? diskSizeBytes / 512 : 0L;
+                long diskSectors = diskSizeBytes > 0 ? diskSizeBytes / 512 : 0L;
                 uint sizeInSectors = diskSectors > 1
                     ? (diskSectors - 1 > 0xFFFF_FFFFu ? 0xFFFF_FFFFu : (uint)(diskSectors - 1))
                     : 0xFFFF_FFFFu;
@@ -1441,9 +1493,13 @@ public sealed class UsbWriterService : IUsbWriterService
 
                 // Entry 1: type 0xEE, LBA 1 → end-of-disk
                 buf[446] = 0x00;
-                buf[447] = 0x00; buf[448] = 0x02; buf[449] = 0x00;  // CHS first (legacy)
+                buf[447] = 0x00;
+                buf[448] = 0x02;
+                buf[449] = 0x00;  // CHS first (legacy)
                 buf[450] = 0xEE;                                      // GPT protective type
-                buf[451] = 0xFF; buf[452] = 0xFF; buf[453] = 0xFF;  // CHS last (legacy)
+                buf[451] = 0xFF;
+                buf[452] = 0xFF;
+                buf[453] = 0xFF;  // CHS last (legacy)
                 BitConverter.TryWriteBytes(buf.AsSpan(454, 4), 1u);
                 BitConverter.TryWriteBytes(buf.AsSpan(458, 4), sizeInSectors);
 
@@ -1516,10 +1572,10 @@ public sealed class UsbWriterService : IUsbWriterService
 
         const int BackupEntrySectors = 32; // 128 entries × 128 B = 32 × 512-B sectors
 
-        long diskSectors         = diskSizeBytes / 512;
-        long newAlternateLBA     = diskSectors - 1;
+        long diskSectors = diskSizeBytes / 512;
+        long newAlternateLBA = diskSectors - 1;
         long newBackupEntryStart = diskSectors - 1 - BackupEntrySectors;
-        long newLastUsableLBA    = diskSectors - 1 - BackupEntrySectors - 1;
+        long newLastUsableLBA = diskSectors - 1 - BackupEntrySectors - 1;
 
         // ── Read primary GPT header (LBA 1) ───────────────────────────────────
         var hdr = new byte[512];
@@ -1554,7 +1610,7 @@ public sealed class UsbWriterService : IUsbWriterService
         // Restore the CRC field.
         BitConverter.TryWriteBytes(hdr.AsSpan(16, 4), storedCrc);
 
-        long currentAlternate  = BitConverter.ToInt64(hdr, 32);
+        long currentAlternate = BitConverter.ToInt64(hdr, 32);
         long currentLastUsable = BitConverter.ToInt64(hdr, 48);
 
         if (currentAlternate == newAlternateLBA && currentLastUsable == newLastUsableLBA)
@@ -1682,14 +1738,14 @@ public sealed class UsbWriterService : IUsbWriterService
     /// </summary>
     private List<SafeFileHandle> LockAndDismountVolumesOnDisk(int diskIndex)
     {
-        const uint GENERIC_READ              = 0x80000000u;
-        const uint GENERIC_WRITE             = 0x40000000u;
-        const uint FILE_SHARE_READ           = 0x00000001u;
-        const uint FILE_SHARE_WRITE          = 0x00000002u;
-        const uint OPEN_EXISTING             = 3u;
-        const uint IOCTL_VOLUME_GET_EXTENTS  = 0x00560000u;
-        const uint FSCTL_LOCK_VOLUME         = 0x00090018u;
-        const uint FSCTL_DISMOUNT_VOLUME     = 0x00090020u;
+        const uint GENERIC_READ = 0x80000000u;
+        const uint GENERIC_WRITE = 0x40000000u;
+        const uint FILE_SHARE_READ = 0x00000001u;
+        const uint FILE_SHARE_WRITE = 0x00000002u;
+        const uint OPEN_EXISTING = 3u;
+        const uint IOCTL_VOLUME_GET_EXTENTS = 0x00560000u;
+        const uint FSCTL_LOCK_VOLUME = 0x00090018u;
+        const uint FSCTL_DISMOUNT_VOLUME = 0x00090020u;
 
         var held = new List<SafeFileHandle>();
 
@@ -1698,7 +1754,7 @@ public sealed class UsbWriterService : IUsbWriterService
             if (driveInfo.DriveType is not (DriveType.Fixed or DriveType.Removable or DriveType.Unknown))
                 continue;
 
-            var letter     = char.ToUpperInvariant(driveInfo.Name[0]);
+            var letter = char.ToUpperInvariant(driveInfo.Name[0]);
             var volumePath = $@"\\.\{letter}:";
 
             var handle = NativeMethods.CreateFileW(
@@ -1786,7 +1842,7 @@ public sealed class UsbWriterService : IUsbWriterService
         const int HeaderSize = 8;              // 4 bytes count + 4 bytes alignment padding
         const int ExtentSize = 24;             // sizeof(DISK_EXTENT) including its internal padding
         int bufSize = HeaderSize + MaxExtents * ExtentSize;
-        var buf     = new byte[bufSize];
+        var buf = new byte[bufSize];
 
         // Pin the buffer so the kernel can write into it via DeviceIoControl.
         var gcHandle = GCHandle.Alloc(buf, GCHandleType.Pinned);
@@ -1830,12 +1886,12 @@ internal static partial class NativeMethods
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, ExactSpelling = true)]
     internal static extern SafeFileHandle CreateFileW(
         string lpFileName,
-        uint   dwDesiredAccess,
-        uint   dwShareMode,
-        nint   lpSecurityAttributes,
-        uint   dwCreationDisposition,
-        uint   dwFlagsAndAttributes,
-        nint   hTemplateFile);
+        uint dwDesiredAccess,
+        uint dwShareMode,
+        nint lpSecurityAttributes,
+        uint dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        nint hTemplateFile);
 
     /// <summary>
     /// Sends a control code directly to a device driver.
@@ -1848,22 +1904,22 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool DeviceIoControl(
         SafeFileHandle hDevice,
-        uint           dwIoControlCode,
-        nint           lpInBuffer,
-        int            nInBufferSize,
-        nint           lpOutBuffer,
-        int            nOutBufferSize,
-        out int        lpBytesReturned,
-        nint           lpOverlapped);
+        uint dwIoControlCode,
+        nint lpInBuffer,
+        int nInBufferSize,
+        nint lpOutBuffer,
+        int nOutBufferSize,
+        out int lpBytesReturned,
+        nint lpOverlapped);
 
     /// <summary>Moves the file pointer of the specified file.</summary>
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool SetFilePointerEx(
         SafeFileHandle hFile,
-        long           liDistanceToMove,
-        nint           lpNewFilePointer,   // may be null/Zero
-        uint           dwMoveMethod);      // 0 = FILE_BEGIN
+        long liDistanceToMove,
+        nint lpNewFilePointer,   // may be null/Zero
+        uint dwMoveMethod);      // 0 = FILE_BEGIN
 
     /// <summary>
     /// Reads data from a file using a synchronous (non-overlapped) handle.
@@ -1873,10 +1929,10 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool ReadFile(
         SafeFileHandle hFile,
-        byte[]         lpBuffer,
-        int            nNumberOfBytesToRead,
-        out int        lpNumberOfBytesRead,
-        nint           lpOverlapped);
+        byte[] lpBuffer,
+        int nNumberOfBytesToRead,
+        out int lpNumberOfBytesRead,
+        nint lpOverlapped);
 
     /// <summary>
     /// Writes data to a file using a synchronous (non-overlapped) handle.
@@ -1886,8 +1942,8 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool WriteFile(
         SafeFileHandle hFile,
-        byte[]         lpBuffer,
-        int            nNumberOfBytesToWrite,
-        out int        lpNumberOfBytesWritten,
-        nint           lpOverlapped);
+        byte[] lpBuffer,
+        int nNumberOfBytesToWrite,
+        out int lpNumberOfBytesWritten,
+        nint lpOverlapped);
 }

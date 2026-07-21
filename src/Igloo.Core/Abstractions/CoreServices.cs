@@ -117,19 +117,19 @@ public interface IFileStagingService
 }
 
 public sealed record FileStagingRequest(
-    string                   DistroId,
-    IReadOnlyList<string>    FolderPaths);
+    string DistroId,
+    IReadOnlyList<string> FolderPaths);
 
 public sealed record FileStagingResult(
     string StagingDirectory,
-    long   TotalBytesCopied,
-    int    FileCount);
+    long TotalBytesCopied,
+    int FileCount);
 
 public sealed record FileStagingProgress(
     FileStagingPhase Phase,
-    long             BytesCopied,
-    long             BytesTotal,
-    string           CurrentItem);
+    long BytesCopied,
+    long BytesTotal,
+    string CurrentItem);
 
 public enum FileStagingPhase { Scanning, Copying, Generating, Complete }
 
@@ -150,26 +150,26 @@ public interface IUsbWriterService
     /// the contents of <paramref name="stagingDirectory"/> onto it.
     /// </summary>
     Task WriteAsync(
-        UsbDriveInfo                 drive,
-        string                       isoPath,
-        string                       stagingDirectory,
+        UsbDriveInfo drive,
+        string isoPath,
+        string stagingDirectory,
         IProgress<UsbWriteProgress>? progress,
-        CancellationToken            ct = default);
+        CancellationToken ct = default);
 }
 
 /// <summary>A USB mass-storage drive available for writing.</summary>
 public sealed record UsbDriveInfo(
-    int    DriveIndex,
+    int DriveIndex,
     string Model,
-    long   SizeBytes,
+    long SizeBytes,
     string DeviceId);   // e.g. \\.\PHYSICALDRIVE1
 
 /// <summary>Progress snapshot reported during a USB write operation.</summary>
 public sealed record UsbWriteProgress(
     UsbWritePhase Phase,
-    long          BytesWritten,
-    long          BytesTotal,
-    string?       Message);
+    long BytesWritten,
+    long BytesTotal,
+    string? Message);
 
 public enum UsbWritePhase { ShrinkingPartition, WritingIso, CreatingOemdrv, PatchingGrub, CopyingFiles, Complete }
 
@@ -188,14 +188,14 @@ public interface IDirectInstallService
     /// the ISO.  The Windows partition shrink is also performed here.
     /// </summary>
     Task PrepareAsync(
-        int                               diskNumber,
-        long                              linuxSizeBytes,
-        string                            isoPath,
-        string                            stagingDirectory,
-        InstallerBootSpec                 bootSpec,
-        string?                           stage2Url = null,
-        IProgress<DirectInstallProgress>? progress  = null,
-        CancellationToken                 ct        = default);
+        int diskNumber,
+        long linuxSizeBytes,
+        string isoPath,
+        string stagingDirectory,
+        InstallerBootSpec bootSpec,
+        string? stage2Url = null,
+        IProgress<DirectInstallProgress>? progress = null,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Writes the UEFI <c>BootNext</c> NVRAM variable so the firmware boots
@@ -203,7 +203,7 @@ public interface IDirectInstallService
     /// </summary>
     Task RegisterBootEntryAsync(
         IProgress<DirectInstallProgress>? progress = null,
-        CancellationToken                 ct       = default);
+        CancellationToken ct = default);
 }
 
 public enum DirectInstallPhase
@@ -219,9 +219,9 @@ public enum DirectInstallPhase
 
 public sealed record DirectInstallProgress(
     DirectInstallPhase Phase,
-    long               BytesWritten = 0,
-    long               BytesTotal   = 0,
-    string?            Message      = null);
+    long BytesWritten = 0,
+    long BytesTotal = 0,
+    string? Message = null);
 
 // ── Installation mode ─────────────────────────────────────────────────────────
 

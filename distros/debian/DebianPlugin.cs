@@ -22,8 +22,8 @@ public sealed class DebianPlugin : IDistroPlugin
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
-        AllowTrailingCommas         = true,
-        ReadCommentHandling         = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
     };
 
     public string Id => "debian";
@@ -32,13 +32,14 @@ public sealed class DebianPlugin : IDistroPlugin
 
     public DebianPlugin()
     {
-        var asmDir       = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var manifestPath = Path.Combine(asmDir, "distro.json");
 
         DistroManifest? raw = null;
         if (File.Exists(manifestPath))
         {
-            try { raw = JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(manifestPath), JsonOpts); }
+            try
+            { raw = JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(manifestPath), JsonOpts); }
             catch { /* fall through to defaults */ }
         }
 
@@ -86,7 +87,7 @@ public sealed class DebianPlugin : IDistroPlugin
 
     public Task<InstallerConfig> RenderInstallerConfigAsync(MigrationManifest manifest, CancellationToken ct = default)
     {
-        var asmDir       = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var templatePath = Path.Combine(asmDir, "preseed", "preseed.cfg.template");
 
         var preseed = File.Exists(templatePath)
@@ -101,14 +102,14 @@ public sealed class DebianPlugin : IDistroPlugin
         var config = new InstallerConfig(
             FileName: "preseed.cfg",
             Contents: Encoding.UTF8.GetBytes(preseed),
-            Extras:   Array.Empty<InstallerConfigExtra>());
+            Extras: Array.Empty<InstallerConfigExtra>());
 
         return Task.FromResult(config);
     }
 
     public Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
     {
-        var asmDir   = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         // "agent/" in the build output, or the shared "_debian-family/agent/" when
         // the plugin DLL is loaded from its source folder (distros/<id>/ root).
         var agentDir = Directory.Exists(Path.Combine(asmDir, "agent"))
@@ -119,10 +120,11 @@ public sealed class DebianPlugin : IDistroPlugin
         void Add(string name, bool exe)
         {
             var p = Path.Combine(agentDir, name);
-            if (File.Exists(p)) files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
+            if (File.Exists(p))
+                files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
         }
         Add("first-boot.sh", true);
-        Add("agent.py",      true);
+        Add("agent.py", true);
         Add("igloo-first-boot.service", false);   // shipped to OEMDRV; the late hook installs it
 
         if (files.Count == 0)
@@ -162,16 +164,16 @@ public sealed class DebianPlugin : IDistroPlugin
             "install.amd/gtk/initrd.gz",
             "initrd.gz",
         ],
-        ExtraIsoFiles       = Array.Empty<IsoFileStage>(),
+        ExtraIsoFiles = Array.Empty<IsoFileStage>(),
         CopyFullIsoToVolume = true,         // iso-scan loop-mounts the whole ISO
-        IsoVolumeFileName   = "debian.iso",
+        IsoVolumeFileName = "debian.iso",
         // The netinst initrd runs cdrom-detect (whole-device CDs only) and can't find
         // an .iso FILE on a partition. The hd-media kernel+initrd run iso-scan, which
         // can. Download them from the Debian mirror (trixie = Debian 13).
         KernelUrl = new Uri("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/vmlinuz"),
         InitrdUrl = new Uri("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/initrd.gz"),
-        ConfigDelivery      = ConfigDelivery.InjectIntoInitrd,
-        InitrdConfigPath    = "preseed.cfg",
+        ConfigDelivery = ConfigDelivery.InjectIntoInitrd,
+        InitrdConfigPath = "preseed.cfg",
     };
 
     // ── Rendering ──────────────────────────────────────────────────────────────
@@ -192,32 +194,35 @@ public sealed class DebianPlugin : IDistroPlugin
         var password = m.User.LinuxPassword;
 
         return template
-            .Replace("{{LOCALE}}",           m.User.Locale)
-            .Replace("{{KEYMAP}}",           m.User.Keymap)
-            .Replace("{{TIMEZONE}}",         m.User.Timezone)
-            .Replace("{{HOSTNAME}}",         m.User.PreferredLinuxUsername + "-pc")
+            .Replace("{{LOCALE}}", m.User.Locale)
+            .Replace("{{KEYMAP}}", m.User.Keymap)
+            .Replace("{{TIMEZONE}}", m.User.Timezone)
+            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc")
             .Replace("{{WINDOWS_USERNAME}}", m.User.WindowsUsername)
-            .Replace("{{LINUX_USERNAME}}",   m.User.PreferredLinuxUsername)
-            .Replace("{{FULL_NAME}}",        m.User.FullName ?? m.User.PreferredLinuxUsername)
-            .Replace("{{PASSWORD}}",         password)
-            .Replace("{{INSTALL_MODE}}",     m.Hardware.InstallMode)
+            .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername)
+            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername)
+            .Replace("{{PASSWORD}}", password)
+            .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode)
             .Replace("{{INCLUDED_FOLDERS}}", folderList)
-            .Replace("{{FOLDER_MAP}}",       folderMap)
-            .Replace("{{BROWSER_MAP}}",      browserMap);
+            .Replace("{{FOLDER_MAP}}", folderMap)
+            .Replace("{{BROWSER_MAP}}", browserMap);
     }
 
     private static byte[] NormalizeCrLf(byte[] bytes)
     {
-        if (Array.IndexOf(bytes, (byte)'\r') < 0) return bytes;
+        if (Array.IndexOf(bytes, (byte)'\r') < 0)
+            return bytes;
         var buf = new MemoryStream(bytes.Length);
         for (int i = 0; i < bytes.Length; i++)
         {
             if (bytes[i] == (byte)'\r')
             {
                 buf.WriteByte((byte)'\n');
-                if (i + 1 < bytes.Length && bytes[i + 1] == (byte)'\n') i++;
+                if (i + 1 < bytes.Length && bytes[i + 1] == (byte)'\n')
+                    i++;
             }
-            else buf.WriteByte(bytes[i]);
+            else
+                buf.WriteByte(bytes[i]);
         }
         return buf.ToArray();
     }
@@ -226,34 +231,34 @@ public sealed class DebianPlugin : IDistroPlugin
 
     private static DistroMetadata BuildMetadata(DistroManifest raw) => new()
     {
-        DisplayName               = raw.DisplayName,
-        Description               = raw.Description,
+        DisplayName = raw.DisplayName,
+        Description = raw.Description,
         DefaultDesktopEnvironment = raw.DefaultDesktopEnvironment ?? "GNOME",
-        InstallerType             = InstallerType.DebianInstaller,
-        IsoDownloadUrl            = new Uri(raw.Iso.DownloadUrl),
-        IsoSha256                 = raw.Iso.Sha256,
-        IsoGpgSignatureUrl        = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
-        IsoGpgKeyUrl              = raw.Iso.GpgKeyUrl       is not null ? new Uri(raw.Iso.GpgKeyUrl)       : null,
-        Tags                      = raw.Tags,
-        Screenshots               = raw.Screenshots,
-        MinimumRequirements       = raw.MinimumRequirements is { } req
+        InstallerType = InstallerType.DebianInstaller,
+        IsoDownloadUrl = new Uri(raw.Iso.DownloadUrl),
+        IsoSha256 = raw.Iso.Sha256,
+        IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
+        IsoGpgKeyUrl = raw.Iso.GpgKeyUrl is not null ? new Uri(raw.Iso.GpgKeyUrl) : null,
+        Tags = raw.Tags,
+        Screenshots = raw.Screenshots,
+        MinimumRequirements = raw.MinimumRequirements is { } req
             ? new HardwareRequirements
-              {
-                  MinRamBytes   = req.MinRamBytes,
-                  MinDiskBytes  = req.MinDiskBytes,
-                  RequiresUefi  = req.RequiresUefi,
-                  Requires64Bit = req.Requires64Bit,
-              }
+            {
+                MinRamBytes = req.MinRamBytes,
+                MinDiskBytes = req.MinDiskBytes,
+                RequiresUefi = req.RequiresUefi,
+                Requires64Bit = req.Requires64Bit,
+            }
             : new HardwareRequirements(),
     };
 
     private static DistroMetadata FallbackMetadata() => new()
     {
-        DisplayName               = "Debian",
-        Description               = "Debian 13 with the GNOME desktop.",
+        DisplayName = "Debian",
+        Description = "Debian 13 with the GNOME desktop.",
         DefaultDesktopEnvironment = "GNOME",
-        InstallerType             = InstallerType.DebianInstaller,
-        IsoDownloadUrl            = new Uri("https://www.debian.org"),
-        IsoSha256                 = string.Empty,
+        InstallerType = InstallerType.DebianInstaller,
+        IsoDownloadUrl = new Uri("https://www.debian.org"),
+        IsoSha256 = string.Empty,
     };
 }

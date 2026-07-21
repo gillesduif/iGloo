@@ -33,9 +33,11 @@ internal static class EfiBootEntries
     /// <summary>True when the entry's description names a known Linux boot loader.</summary>
     internal static bool IsLinuxDescription(string description)
     {
-        if (string.IsNullOrWhiteSpace(description)) return false;
+        if (string.IsNullOrWhiteSpace(description))
+            return false;
         var d = description.ToLowerInvariant();
-        if (d.Contains("windows") || d.Contains("igloo")) return false;
+        if (d.Contains("windows") || d.Contains("igloo"))
+            return false;
         return LinuxMarkers.Any(d.Contains);
     }
 
@@ -58,12 +60,14 @@ internal static class EfiBootEntries
             EnablePrivilege(logger);
 
             var indices = new SortedSet<ushort>(ReadBootOrder());
-            for (ushort i = 0; i < 0x0100; i++) indices.Add(i);
+            for (ushort i = 0; i < 0x0100; i++)
+                indices.Add(i);
 
             foreach (var index in indices)
             {
                 var raw = ReadVariable($"Boot{index:X4}");
-                if (raw is null) continue;
+                if (raw is null)
+                    continue;
                 var description = ParseDescription(raw);
                 if (description.Length > 0)
                     entries.Add(new BootEntry(index, description));
@@ -119,7 +123,8 @@ internal static class EfiBootEntries
     {
         var buf = new byte[4096];
         var read = GetFirmwareEnvironmentVariableW(name, EfiGlobGuid, buf, (uint)buf.Length);
-        if (read == 0) return null;
+        if (read == 0)
+            return null;
         var result = new byte[read];
         Buffer.BlockCopy(buf, 0, result, 0, (int)read);
         return result;
@@ -128,7 +133,8 @@ internal static class EfiBootEntries
     private static ushort[] ReadBootOrder()
     {
         var raw = ReadVariable("BootOrder");
-        if (raw is null || raw.Length < 2) return [];
+        if (raw is null || raw.Length < 2)
+            return [];
         var order = new ushort[raw.Length / 2];
         Buffer.BlockCopy(raw, 0, order, 0, order.Length * 2);
         return order;
@@ -141,13 +147,15 @@ internal static class EfiBootEntries
     private static string ParseDescription(byte[] loadOption)
     {
         const int descStart = 6;
-        if (loadOption.Length <= descStart) return string.Empty;
+        if (loadOption.Length <= descStart)
+            return string.Empty;
 
         var sb = new StringBuilder();
         for (var i = descStart; i + 1 < loadOption.Length; i += 2)
         {
             var ch = (char)(loadOption[i] | (loadOption[i + 1] << 8));
-            if (ch == '\0') break;
+            if (ch == '\0')
+                break;
             sb.Append(ch);
         }
         return sb.ToString().Trim();

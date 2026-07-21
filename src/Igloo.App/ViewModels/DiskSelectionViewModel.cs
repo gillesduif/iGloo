@@ -18,7 +18,7 @@ namespace Igloo.App.ViewModels;
 public sealed partial class DiskSelectionViewModel : ObservableObject
 {
     private const long MinDiskBytes = 20L * 1024 * 1024 * 1024; // 20 GB
-    private const int  MinLinuxGb   = 25;                        // Fedora minimum
+    private const int MinLinuxGb = 25;                        // Fedora minimum
 
     // ── Observable state ──────────────────────────────────────────────────────
 
@@ -49,38 +49,38 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
 
     // ── Derived ───────────────────────────────────────────────────────────────
 
-    public DiskInfo? SelectedDisk       => SelectedItem?.Disk;
-    public bool      IsInstallModeReplace => !IsInstallModeDualBoot;
-    public DiskInstallMode InstallMode  => IsInstallModeDualBoot
+    public DiskInfo? SelectedDisk => SelectedItem?.Disk;
+    public bool IsInstallModeReplace => !IsInstallModeDualBoot;
+    public DiskInstallMode InstallMode => IsInstallModeDualBoot
                                             ? DiskInstallMode.DualBoot
                                             : DiskInstallMode.ReplaceDisk;
 
     /// <summary>True when the selected disk can host a dual-boot (has a shrinkable NTFS partition ≥ 25 GiB).</summary>
-    public bool CanDualBoot             => SelectedItem?.IsSystemDisk == true
+    public bool CanDualBoot => SelectedItem?.IsSystemDisk == true
                                         && MaxShrinkableGb >= MinLinuxGb;
 
     /// <summary>Maximum GiB the Windows partition can be shrunk (headroom for Linux).</summary>
-    public int  MaxShrinkableGb         => (int)(SelectedItem?.MaxShrinkableBytes / (1024L * 1024 * 1024) ?? 0);
+    public int MaxShrinkableGb => (int)(SelectedItem?.MaxShrinkableBytes / (1024L * 1024 * 1024) ?? 0);
 
     /// <summary>Show the space-allocation slider only in dual-boot mode when possible.</summary>
-    public bool ShowPartitionSizer      => IsInstallModeDualBoot && CanDualBoot;
+    public bool ShowPartitionSizer => IsInstallModeDualBoot && CanDualBoot;
 
-    public bool CanProceed              => SelectedItem is not null
+    public bool CanProceed => SelectedItem is not null
                                         && (!IsInstallModeDualBoot || LinuxSizeGb >= MinLinuxGb);
 
     // ── Display-only helpers for the proportional allocation bar ─────────────
 
     /// <summary>The chosen Linux allocation in bytes (same unit as DiskInfo.TotalBytes).</summary>
-    public long LinuxSizeBytes          => (long)LinuxSizeGb << 30;
+    public long LinuxSizeBytes => (long)LinuxSizeGb << 30;
 
     /// <summary>GiB of the disk that remain untouched (Windows + other partitions).</summary>
-    public int  WindowsKeepsGb          => Math.Max(0,
+    public int WindowsKeepsGb => Math.Max(0,
         (int)((SelectedItem?.Disk.TotalBytes ?? 0) >> 30) - LinuxSizeGb);
 
     // ── Commands ──────────────────────────────────────────────────────────────
 
-    [RelayCommand] void SetDualBoot() { IsInstallModeDualBoot = true;  }
-    [RelayCommand] void SetReplace()  { IsInstallModeDualBoot = false; }
+    [RelayCommand] void SetDualBoot() { IsInstallModeDualBoot = true; }
+    [RelayCommand] void SetReplace() { IsInstallModeDualBoot = false; }
 
     // ── API ───────────────────────────────────────────────────────────────────
 
@@ -105,7 +105,8 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
 
         // Default Linux size: 50 GiB, capped to available shrinkable space.
         LinuxSizeGb = Math.Min(50, MaxShrinkableGb);
-        if (LinuxSizeGb < MinLinuxGb) LinuxSizeGb = Math.Min(MinLinuxGb, MaxShrinkableGb);
+        if (LinuxSizeGb < MinLinuxGb)
+            LinuxSizeGb = Math.Min(MinLinuxGb, MaxShrinkableGb);
     }
 
     // Keep CanDualBoot / ShowPartitionSizer in sync when selection changes.
@@ -119,7 +120,8 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
         // Re-evaluate default mode for newly selected disk.
         IsInstallModeDualBoot = CanDualBoot;
         LinuxSizeGb = Math.Min(50, MaxShrinkableGb);
-        if (LinuxSizeGb < MinLinuxGb) LinuxSizeGb = Math.Min(MinLinuxGb, MaxShrinkableGb);
+        if (LinuxSizeGb < MinLinuxGb)
+            LinuxSizeGb = Math.Min(MinLinuxGb, MaxShrinkableGb);
     }
 }
 
@@ -140,12 +142,12 @@ public sealed class DiskListItem
     public long MaxShrinkableBytes { get; }
 
     /// <summary>Human-readable GiB available for Linux (dual boot).</summary>
-    public int  MaxShrinkableGb => (int)(MaxShrinkableBytes / (1024L * 1024 * 1024));
+    public int MaxShrinkableGb => (int)(MaxShrinkableBytes / (1024L * 1024 * 1024));
 
     public DiskListItem(DiskInfo disk)
     {
-        Disk              = disk;
-        IsSystemDisk      = disk.Partitions.Any(p => p.IsSystem || p.IsBoot);
+        Disk = disk;
+        IsSystemDisk = disk.Partitions.Any(p => p.IsSystem || p.IsBoot);
         MaxShrinkableBytes = disk.Partitions.Count > 0
             ? disk.Partitions.Max(p => p.ShrinkableBytes)
             : 0L;

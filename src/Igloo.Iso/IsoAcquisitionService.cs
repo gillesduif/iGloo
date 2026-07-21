@@ -16,9 +16,9 @@ namespace Igloo.Iso;
 /// </summary>
 public sealed class IsoAcquisitionService : IIsoAcquisitionService
 {
-    private readonly IHttpClientFactory         _httpFactory;
+    private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<IsoAcquisitionService> _logger;
-    private readonly string                     _cacheDir;
+    private readonly string _cacheDir;
 
     private const int BufferSize = 81_920; // 80 KB
 
@@ -27,8 +27,8 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         ILogger<IsoAcquisitionService> logger)
     {
         _httpFactory = httpFactory;
-        _logger      = logger;
-        _cacheDir    = Path.Combine(
+        _logger = logger;
+        _cacheDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Igloo", "iso-cache");
     }
@@ -40,9 +40,9 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         IProgress<IsoAcquisitionProgress>? progress,
         CancellationToken ct = default)
     {
-        var distroDir   = Path.Combine(_cacheDir, spec.DistroId);
-        var fileName    = Path.GetFileName(spec.DownloadUrl.AbsolutePath);
-        var isoPath     = Path.Combine(distroDir, fileName);
+        var distroDir = Path.Combine(_cacheDir, spec.DistroId);
+        var fileName = Path.GetFileName(spec.DownloadUrl.AbsolutePath);
+        var isoPath = Path.Combine(distroDir, fileName);
         var partialPath = isoPath + ".partial";
 
         Directory.CreateDirectory(distroDir);
@@ -69,7 +69,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         //  * If the manifest hash and the signed checksum hash BOTH exist they must
         //    agree, or acquisition throws (either one was tampered with).
         string? resolvedSha256 = null;
-        bool    gpgVerified    = false;
+        bool gpgVerified = false;
 
         bool hasHardcodedHash = !string.IsNullOrWhiteSpace(spec.ExpectedSha256)
                              && !spec.ExpectedSha256.StartsWith("REPLACE_", StringComparison.OrdinalIgnoreCase);
@@ -169,7 +169,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     // ── Download ──────────────────────────────────────────────────────────────
 
     private async Task DownloadWithResumeAsync(
-        Uri    url,
+        Uri url,
         string isoPath,
         string partialPath,
         IProgress<IsoAcquisitionProgress>? progress,
@@ -185,7 +185,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         if (resumeFrom > 0)
             _logger.LogInformation("Resuming download from byte {Offset:N0}", resumeFrom);
 
-        using var client  = _httpFactory.CreateClient("iso");
+        using var client = _httpFactory.CreateClient("iso");
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
 
         if (resumeFrom > 0)
@@ -199,13 +199,14 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         {
             _logger.LogWarning("Server does not support Range; restarting download from the beginning");
             resumeFrom = 0;
-            if (File.Exists(partialPath)) File.Delete(partialPath);
+            if (File.Exists(partialPath))
+                File.Delete(partialPath);
         }
 
         response.EnsureSuccessStatusCode();
 
         long? contentLength = response.Content.Headers.ContentLength;
-        long? totalBytes    = contentLength.HasValue ? contentLength.Value + resumeFrom : null;
+        long? totalBytes = contentLength.HasValue ? contentLength.Value + resumeFrom : null;
 
         var fileMode = resumeFrom > 0 ? FileMode.Append : FileMode.Create;
         var fileStream = new FileStream(
@@ -215,9 +216,9 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         try
         {
             await using var responseStream = await response.Content.ReadAsStreamAsync(ct);
-            var buffer     = new byte[BufferSize];
+            var buffer = new byte[BufferSize];
             long downloaded = resumeFrom;
-            int  bytesRead;
+            int bytesRead;
 
             while ((bytesRead = await responseStream.ReadAsync(buffer, ct)) > 0)
             {
@@ -237,7 +238,8 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
         if (downloadComplete)
         {
-            if (File.Exists(isoPath)) File.Delete(isoPath);
+            if (File.Exists(isoPath))
+                File.Delete(isoPath);
             File.Move(partialPath, isoPath);
             _logger.LogInformation("Download complete: {Path}", isoPath);
         }
@@ -259,9 +261,9 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         await using var stream = new FileStream(
             filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize * 2, useAsync: true);
 
-        var  buffer         = new byte[BufferSize * 2];
+        var buffer = new byte[BufferSize * 2];
         long bytesProcessed = 0;
-        int  bytesRead;
+        int bytesRead;
 
         while ((bytesRead = await stream.ReadAsync(buffer, ct)) > 0)
         {
@@ -337,7 +339,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         {
             _logger.LogInformation("Fetching checksum data from {Url}", spec.GpgSignedDataUrl);
             dataBytes = await client.GetByteArrayAsync(spec.GpgSignedDataUrl!, ct);
-            dataText  = System.Text.Encoding.UTF8.GetString(dataBytes);
+            dataText = System.Text.Encoding.UTF8.GetString(dataBytes);
         }
         catch (Exception ex)
         {
@@ -351,7 +353,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             _logger.LogInformation("Fetching detached signature from {Url}", spec.GpgSignatureUrl);
             var sigBytes = await client.GetByteArrayAsync(spec.GpgSignatureUrl!, ct);
             var keyBytes = await GetSigningKeyAsync(spec, client, ct);
-            gpgVerified  = PgpDetachedVerifier.Verify(keyBytes, dataBytes, sigBytes, _logger, spec.GpgKeyFingerprint);
+            gpgVerified = PgpDetachedVerifier.Verify(keyBytes, dataBytes, sigBytes, _logger, spec.GpgKeyFingerprint);
             _logger.LogInformation("Detached GPG verification result for {DistroId}: {Result}", spec.DistroId, gpgVerified);
         }
         catch (Exception ex)
@@ -404,13 +406,15 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
                 if (eqIdx >= 0)
                 {
                     var hash = trimmed[(eqIdx + 1)..].Trim();
-                    if (IsSha256(hash)) return hash.ToLowerInvariant();
+                    if (IsSha256(hash))
+                        return hash.ToLowerInvariant();
                 }
             }
 
             // Debian/Ubuntu coreutils style:  <hash>  filename.iso
             var firstToken = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
-            if (IsSha256(firstToken)) return firstToken.ToLowerInvariant();
+            if (IsSha256(firstToken))
+                return firstToken.ToLowerInvariant();
         }
 
         return null;

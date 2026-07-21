@@ -34,18 +34,18 @@ namespace Igloo.Preflight;
 [SupportedOSPlatform("windows")]
 public sealed class DirectInstallService : IDirectInstallService
 {
-    private const string StorageNs   = @"root\Microsoft\Windows\Storage";
+    private const string StorageNs = @"root\Microsoft\Windows\Storage";
     private const string EfiGlobGuid = "{8be4df61-93ca-11d2-aa0d-00e098032b8c}";
-    private const long   MiB         = 1024L * 1024;
+    private const long MiB = 1024L * 1024;
     // Overhead on top of the measured squashfs + kernel + initrd sizes.
     // Covers: EFI binaries (~3 MB), grub.cfg, kickstart, agent payload, FAT32
     // filesystem metadata, and 512 MiB headroom so FAT32 is never full-to-the-brim.
-    private const long   PartitionOverheadBytes = 512L * MiB;
+    private const long PartitionOverheadBytes = 512L * MiB;
     // FAT32 cannot store a single file ≥ 4 GiB. An ISO at/above this goes on its
     // own NTFS partition instead of the FAT32 seed partition (Ubuntu desktop is
     // ~6 GB; Mint/Debian/Fedora artefacts stay under the limit).
-    private const long   Fat32MaxFileBytes = 4L * 1024 * 1024 * 1024;
-    private const long   IsoPartitionOverheadBytes = 256L * MiB;
+    private const long Fat32MaxFileBytes = 4L * 1024 * 1024 * 1024;
+    private const long IsoPartitionOverheadBytes = 256L * MiB;
     private const string IsoPartitionLabel = "IGLOOISO";
 
     // Boot chain:
@@ -74,26 +74,26 @@ public sealed class DirectInstallService : IDirectInstallService
     // Why \EFI\fedora\ for grub.cfg?
     //   grubx64.efi has its compiled prefix hard-coded to /EFI/fedora; it always
     //   looks for grub.cfg there.  Windows does NOT protect \EFI\fedora\.
-    private const string BootDir    = "igloo-boot";   // shim, grub, kernel, initrd
-    private const string ShimFile   = "shimx64.efi";  // UEFI entry point; Microsoft-signed
-    private const string GrubFile   = "grubx64.efi";  // loaded by shim; Red Hat-signed
+    private const string BootDir = "igloo-boot";   // shim, grub, kernel, initrd
+    private const string ShimFile = "shimx64.efi";  // UEFI entry point; Microsoft-signed
+    private const string GrubFile = "grubx64.efi";  // loaded by shim; Red Hat-signed
     private const string GrubCfgDir = @"EFI\fedora";  // grubx64.efi's compiled prefix
     private const string KernelFile = "linux";   // kernel on OEMDRV (under BootDir)
     private const string InitrdFile = "initrd";  // initrd on OEMDRV (under BootDir)
 
     // Stored by PrepareAsync, consumed by RegisterBootEntryAsync.
-    private char?  _oemDrvLetter;
-    private char?  _isoPartitionLetter;   // separate NTFS partition for a >4 GiB ISO
-    private int?   _diskNumber;
-    private uint?  _partitionNumber;
+    private char? _oemDrvLetter;
+    private char? _isoPartitionLetter;   // separate NTFS partition for a >4 GiB ISO
+    private int? _diskNumber;
+    private uint? _partitionNumber;
 
     // The selected distro's boot recipe (kernel/initrd paths, cmdline, volume
     // label, config-delivery). Set at the start of Prepare; read by the boot
     // helpers so the same pipeline drives Anaconda, debian-installer, subiquity, …
     private InstallerBootSpec _bootSpec = null!;
 
-    private readonly IPartitionResizeService          _resizer;
-    private readonly ILogger<DirectInstallService>    _logger;
+    private readonly IPartitionResizeService _resizer;
+    private readonly ILogger<DirectInstallService> _logger;
 
     // ── P/Invoke ──────────────────────────────────────────────────────────────
 
@@ -139,11 +139,11 @@ public sealed class DirectInstallService : IDirectInstallService
     // ── Constructor ───────────────────────────────────────────────────────────
 
     public DirectInstallService(
-        IPartitionResizeService         resizer,
-        ILogger<DirectInstallService>   logger)
+        IPartitionResizeService resizer,
+        ILogger<DirectInstallService> logger)
     {
         _resizer = resizer;
-        _logger  = logger;
+        _logger = logger;
     }
 
     // ── IDirectInstallService ─────────────────────────────────────────────────
@@ -167,7 +167,7 @@ public sealed class DirectInstallService : IDirectInstallService
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         _diskNumber = diskNumber;
-        _bootSpec   = bootSpec;
+        _bootSpec = bootSpec;
 
         // ── Step 1: Measure ISO content to size the OEMDRV partition ─────────
         // Mount the ISO just long enough to stat kernel + initrd + install.img sizes.
@@ -190,11 +190,11 @@ public sealed class DirectInstallService : IDirectInstallService
         // a SEPARATE NTFS partition; casper's iso-scan finds the .iso on any
         // partition it can mount. Small ISOs (Mint, Debian hd-media) stay on the
         // single FAT32 partition exactly as before — no behaviour change for them.
-        long fullIsoBytes      = _bootSpec.CopyFullIsoToVolume ? new FileInfo(isoPath).Length : 0;
+        long fullIsoBytes = _bootSpec.CopyFullIsoToVolume ? new FileInfo(isoPath).Length : 0;
         bool isoOnOwnPartition = _bootSpec.CopyFullIsoToVolume && fullIsoBytes >= Fat32MaxFileBytes;
-        long fat32IsoBytes     = (_bootSpec.CopyFullIsoToVolume && !isoOnOwnPartition) ? fullIsoBytes : 0;
-        long oemDrvBytes       = RoundUpMiB(extractedBytes + fat32IsoBytes + PartitionOverheadBytes);
-        long isoPartBytes      = isoOnOwnPartition ? RoundUpMiB(fullIsoBytes + IsoPartitionOverheadBytes) : 0;
+        long fat32IsoBytes = (_bootSpec.CopyFullIsoToVolume && !isoOnOwnPartition) ? fullIsoBytes : 0;
+        long oemDrvBytes = RoundUpMiB(extractedBytes + fat32IsoBytes + PartitionOverheadBytes);
+        long isoPartBytes = isoOnOwnPartition ? RoundUpMiB(fullIsoBytes + IsoPartitionOverheadBytes) : 0;
         char driveLetter;
 
         var existing = FindExistingOemDrv(diskNumber);
@@ -202,7 +202,7 @@ public sealed class DirectInstallService : IDirectInstallService
         {
             // A previous run already created the OEMDRV partition on this disk.
             // Skip shrink + partition creation and reuse it - just re-copy the files.
-            driveLetter   = existing.Value.letter;
+            driveLetter = existing.Value.letter;
             _oemDrvLetter = driveLetter;
             _partitionNumber = existing.Value.partitionNumber;
             _logger.LogInformation(
@@ -234,7 +234,7 @@ public sealed class DirectInstallService : IDirectInstallService
 
             // ── Step 3: Create FAT32 OEMDRV partition (boot + seed) ──────────
             Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating installer partition…");
-            driveLetter   = CreateOemDrvPartition(diskNumber, oemDrvBytes, ct);
+            driveLetter = CreateOemDrvPartition(diskNumber, oemDrvBytes, ct);
             _oemDrvLetter = driveLetter;
             ct.ThrowIfCancellationRequested();
 
@@ -270,7 +270,7 @@ public sealed class DirectInstallService : IDirectInstallService
         if (_bootSpec.CopyFullIsoToVolume && _bootSpec.IsoVolumeFileName is { } isoName)
         {
             char isoVolLetter = isoOnOwnPartition ? _isoPartitionLetter!.Value : driveLetter;
-            var  isoDst       = Path.Combine($"{isoVolLetter}:\\", isoName);
+            var isoDst = Path.Combine($"{isoVolLetter}:\\", isoName);
             Report(prog, DirectInstallPhase.CopyingIso, message: "Copying installer ISO…");
             CopyWithProgress(isoPath, isoDst, new FileInfo(isoPath).Length, prog, ct);
             ct.ThrowIfCancellationRequested();
@@ -321,7 +321,8 @@ public sealed class DirectInstallService : IDirectInstallService
         }
         finally
         {
-            if (mountedLetter is not null) DismountIso(isoPath);
+            if (mountedLetter is not null)
+                DismountIso(isoPath);
         }
     }
 
@@ -355,7 +356,8 @@ public sealed class DirectInstallService : IDirectInstallService
         for (var i = 0; i < 30; i++)
         {
             ct.ThrowIfCancellationRequested();
-            if (Directory.Exists(root)) break;
+            if (Directory.Exists(root))
+                break;
             Thread.Sleep(500);
         }
         if (!Directory.Exists(root))
@@ -381,10 +383,10 @@ public sealed class DirectInstallService : IDirectInstallService
         {
             var psi = new ProcessStartInfo("diskpart.exe", $"/s \"{tmp}\"")
             {
-                UseShellExecute        = false,
+                UseShellExecute = false,
                 RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                CreateNoWindow         = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
             };
 
             using var p = Process.Start(psi)
@@ -403,7 +405,9 @@ public sealed class DirectInstallService : IDirectInstallService
 
             if (!exited)
             {
-                try { p.Kill(); } catch { /* best effort */ }
+                try
+                { p.Kill(); }
+                catch { /* best effort */ }
                 throw new InvalidOperationException(
                     $"diskpart timed out after 60 s.\n\nOutput:\n{combined}");
             }
@@ -417,7 +421,9 @@ public sealed class DirectInstallService : IDirectInstallService
         }
         finally
         {
-            try { File.Delete(tmp); } catch { /* best effort */ }
+            try
+            { File.Delete(tmp); }
+            catch { /* best effort */ }
         }
     }
 
@@ -427,15 +433,15 @@ public sealed class DirectInstallService : IDirectInstallService
         {
             using var searcher = new ManagementObjectSearcher(StorageNs,
                 $"SELECT PartitionNumber, DriveLetter FROM MSFT_Partition WHERE DiskNumber = {diskNumber}");
-            using var results  = searcher.Get();
+            using var results = searcher.Get();
             foreach (ManagementBaseObject p in results)
             {
                 char dl = p["DriveLetter"] switch
                 {
-                    char c              => c,
+                    char c => c,
                     ushort u when u > 0 => (char)u,
                     string s when s.Length > 0 => s[0],
-                    _                   => '\0',
+                    _ => '\0',
                 };
                 if (char.ToUpper(dl) == char.ToUpper(letter))
                     return Convert.ToUInt32(p["PartitionNumber"]);
@@ -456,7 +462,8 @@ public sealed class DirectInstallService : IDirectInstallService
         {
             foreach (var di in DriveInfo.GetDrives())
             {
-                if (!di.IsReady) continue;
+                if (!di.IsReady)
+                    continue;
                 try
                 {
                     if (!string.Equals(di.VolumeLabel, _bootSpec.VolumeLabel, StringComparison.OrdinalIgnoreCase))
@@ -465,8 +472,9 @@ public sealed class DirectInstallService : IDirectInstallService
                 catch { continue; }
 
                 var letter = char.ToUpper(di.Name[0]);
-                var pn     = FindPartitionByLetter(diskNumber, letter);
-                if (pn == 0) continue; // not on this disk
+                var pn = FindPartitionByLetter(diskNumber, letter);
+                if (pn == 0)
+                    continue; // not on this disk
 
                 _logger.LogInformation(
                     "Found existing OEMDRV volume at {L}: (partition {N}, disk {D})",
@@ -487,7 +495,8 @@ public sealed class DirectInstallService : IDirectInstallService
             .Select(d => char.ToUpper(d.Name[0]))
             .ToHashSet();
         foreach (var c in "IJKLMNOPQRSTUVWXYZ")
-            if (!used.Contains(c)) return c;
+            if (!used.Contains(c))
+                return c;
         throw new InvalidOperationException("No available drive letter for the installer partition.");
     }
 
@@ -502,7 +511,7 @@ public sealed class DirectInstallService : IDirectInstallService
     private char CreateIsoPartition(int diskNumber, long sizeBytes, CancellationToken ct)
     {
         long sizeMiB = RoundUpMiB(sizeBytes) / MiB;
-        var  letter  = FindAvailableDriveLetter();
+        var letter = FindAvailableDriveLetter();
 
         _logger.LogInformation("Creating {MiB} MiB NTFS ISO partition (letter {L}:) on disk {D}",
             sizeMiB, letter, diskNumber);
@@ -523,7 +532,8 @@ public sealed class DirectInstallService : IDirectInstallService
         for (var i = 0; i < 60; i++)
         {
             ct.ThrowIfCancellationRequested();
-            if (Directory.Exists(root)) break;
+            if (Directory.Exists(root))
+                break;
             Thread.Sleep(500);
         }
         if (!Directory.Exists(root))
@@ -544,7 +554,8 @@ public sealed class DirectInstallService : IDirectInstallService
         {
             foreach (var di in DriveInfo.GetDrives())
             {
-                if (!di.IsReady) continue;
+                if (!di.IsReady)
+                    continue;
                 try
                 {
                     if (!string.Equals(di.VolumeLabel, IsoPartitionLabel, StringComparison.OrdinalIgnoreCase))
@@ -553,7 +564,8 @@ public sealed class DirectInstallService : IDirectInstallService
                 catch { continue; }
 
                 var letter = char.ToUpper(di.Name[0]);
-                if (FindPartitionByLetter(diskNumber, letter) == 0) continue; // not on this disk
+                if (FindPartitionByLetter(diskNumber, letter) == 0)
+                    continue; // not on this disk
 
                 _logger.LogInformation("Reusing existing NTFS ISO partition at {L}:", letter);
                 return letter;
@@ -573,12 +585,12 @@ public sealed class DirectInstallService : IDirectInstallService
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         const int BufSize = 4 * 1024 * 1024; // 4 MiB
-        using var fsIn  = new FileStream(src, FileMode.Open,  FileAccess.Read,  FileShare.Read,  BufSize);
+        using var fsIn = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.Read, BufSize);
         using var fsOut = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.None, BufSize);
 
-        var buf     = new byte[BufSize];
+        var buf = new byte[BufSize];
         long copied = 0;
-        int  read;
+        int read;
         while ((read = fsIn.Read(buf, 0, buf.Length)) > 0)
         {
             ct.ThrowIfCancellationRequested();
@@ -605,9 +617,9 @@ public sealed class DirectInstallService : IDirectInstallService
 
         using var src = resp.Content.ReadAsStream();
         using var dst = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20);
-        var  buf  = new byte[1 << 20];
+        var buf = new byte[1 << 20];
         long done = 0;
-        int  read;
+        int read;
         while ((read = src.Read(buf, 0, buf.Length)) > 0)
         {
             ct.ThrowIfCancellationRequested();
@@ -665,15 +677,18 @@ public sealed class DirectInstallService : IDirectInstallService
     private bool TryCopyWithGeometry(string src, string dst)
     {
         var info = new FileInfo(src);
-        if (info.Length is 0 or > 512 * 1024) return false;   // configs are tiny
+        if (info.Length is 0 or > 512 * 1024)
+            return false;   // configs are tiny
         string text;
-        try { text = File.ReadAllText(src); }
+        try
+        { text = File.ReadAllText(src); }
         catch { return false; }
         // Any igloo geometry token ({{IGLOO_STORAGE_PARTITIONS}}, historic
         // {{IGLOO_ROOT_*}}, …) — prefix match so the guard can never silently
         // diverge from the template again: an unsubstituted token means user-data
         // ships as broken YAML and cloud-init quietly ignores the whole autoinstall.
-        if (!text.Contains("{{IGLOO_", StringComparison.Ordinal)) return false;
+        if (!text.Contains("{{IGLOO_", StringComparison.Ordinal))
+            return false;
 
         var resolved = SubstituteGeometryTokens(text);
         File.WriteAllText(dst, resolved, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
@@ -694,7 +709,7 @@ public sealed class DirectInstallService : IDirectInstallService
         if (_diskNumber is not int disk)
             throw new InvalidOperationException("Disk number unknown; cannot resolve install geometry.");
 
-        var block    = BuildStoragePartitionList(disk);
+        var block = BuildStoragePartitionList(disk);
         var resolved = content.Replace("{{IGLOO_STORAGE_PARTITIONS}}", block);
         if (resolved.Contains("{{IGLOO_", StringComparison.Ordinal))
             throw new InvalidOperationException(
@@ -703,7 +718,7 @@ public sealed class DirectInstallService : IDirectInstallService
         return resolved;
     }
 
-    private const string EspGptType     = "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}";
+    private const string EspGptType = "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}";
     private const string LinuxFsGptType = "{0fc63daf-8483-4772-8e79-3d69d8477de4}";
 
     /// <summary>
@@ -787,16 +802,18 @@ public sealed class DirectInstallService : IDirectInstallService
         var lines = new List<string>();
         foreach (var (number, off, size, gptType, guid) in parts)
         {
-            bool isEsp  = string.Equals(gptType, EspGptType,     StringComparison.OrdinalIgnoreCase);
+            bool isEsp = string.Equals(gptType, EspGptType, StringComparison.OrdinalIgnoreCase);
             bool isRoot = string.Equals(gptType, LinuxFsGptType, StringComparison.OrdinalIgnoreCase);
-            var  id     = isEsp ? "esp" : isRoot ? "root" : $"part{number}";
-            var  extra  = isEsp  ? ", grub_device: true"
+            var id = isEsp ? "esp" : isRoot ? "root" : $"part{number}";
+            var extra = isEsp ? ", grub_device: true"
                         : isRoot ? ", wipe: superblock" : "";
-            var  ptype = gptType.Trim('{', '}');
-            var  puuid = guid.Trim('{', '}');
-            if (ptype.Length > 0) extra += $", partition_type: {ptype}";
-            if (puuid.Length > 0) extra += $", uuid: {puuid}";
-            sawEsp  |= isEsp;
+            var ptype = gptType.Trim('{', '}');
+            var puuid = guid.Trim('{', '}');
+            if (ptype.Length > 0)
+                extra += $", partition_type: {ptype}";
+            if (puuid.Length > 0)
+                extra += $", uuid: {puuid}";
+            sawEsp |= isEsp;
             sawRoot |= isRoot;
             lines.Add(FormattableString.Invariant(
                 $"      - {{type: partition, id: {id}, device: disk0, number: {number}, offset: {off}, size: {size}, preserve: true{extra}}}"));
@@ -838,21 +855,23 @@ public sealed class DirectInstallService : IDirectInstallService
 
         parts.Sort((a, b) => a.off.CompareTo(b.off));
 
-        long diskSize   = GetDiskSize(diskNumber);
+        long diskSize = GetDiskSize(diskNumber);
         long bestOffset = 0, bestSize = 0;
-        long cursor     = MiB; // reserve the first MiB (primary GPT + alignment)
+        long cursor = MiB; // reserve the first MiB (primary GPT + alignment)
 
         void Consider(long gapStart, long gapEnd)
         {
             long offset = RoundUpMiB(gapStart);
-            long end    = gapEnd / MiB * MiB;   // align the usable end down to MiB
-            long size   = end - offset - MiB;   // 1 MiB clearance from the next region
-            if (size > bestSize) { bestSize = size; bestOffset = offset; }
+            long end = gapEnd / MiB * MiB;   // align the usable end down to MiB
+            long size = end - offset - MiB;   // 1 MiB clearance from the next region
+            if (size > bestSize)
+            { bestSize = size; bestOffset = offset; }
         }
 
         foreach (var (off, size) in parts)
         {
-            if (off > cursor) Consider(cursor, off);
+            if (off > cursor)
+                Consider(cursor, off);
             cursor = Math.Max(cursor, off + size);
         }
         Consider(cursor, diskSize - MiB); // tail gap (leave 1 MiB for the backup GPT)
@@ -897,7 +916,7 @@ public sealed class DirectInstallService : IDirectInstallService
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         var oemDrvRoot = $"{oemDrvLetter}:\\";
-        var bootDst    = Path.Combine(oemDrvRoot, BootDir);
+        var bootDst = Path.Combine(oemDrvRoot, BootDir);
         Directory.CreateDirectory(bootDst);
 
         string? mountedLetter = null;
@@ -1003,7 +1022,7 @@ public sealed class DirectInstallService : IDirectInstallService
         // Ubuntu/Mint casper grub, whose compiled prefix is /boot/grub.
         foreach (var cfgDir in new[] { @"EFI\BOOT", @"EFI\fedora", @"EFI\debian", @"EFI\ubuntu", @"boot\grub" })
         {
-            var dir  = Path.Combine(oemDrvRoot, cfgDir);
+            var dir = Path.Combine(oemDrvRoot, cfgDir);
             var path = Path.Combine(dir, "grub.cfg");
             Directory.CreateDirectory(dir);
             File.WriteAllText(path, grubCfgContent, Encoding.ASCII);
@@ -1030,11 +1049,13 @@ public sealed class DirectInstallService : IDirectInstallService
         foreach (var k in _bootSpec.KernelIsoPaths)
         {
             var kFull = Path.Combine(isoRoot, k.Replace('/', '\\'));
-            if (!File.Exists(kFull)) continue;
+            if (!File.Exists(kFull))
+                continue;
             foreach (var i in _bootSpec.InitrdIsoPaths)
             {
                 var iFull = Path.Combine(isoRoot, i.Replace('/', '\\'));
-                if (File.Exists(iFull)) { initrdPath = iFull; return kFull; }
+                if (File.Exists(iFull))
+                { initrdPath = iFull; return kFull; }
             }
         }
 
@@ -1048,11 +1069,13 @@ public sealed class DirectInstallService : IDirectInstallService
 
         foreach (var f in Directory.EnumerateFiles(isoRoot, "*", SearchOption.AllDirectories))
         {
-            if (!kernelNames.Contains(Path.GetFileName(f))) continue;
-            var dir      = Path.GetDirectoryName(f)!;
+            if (!kernelNames.Contains(Path.GetFileName(f)))
+                continue;
+            var dir = Path.GetDirectoryName(f)!;
             var initrdHit = Directory.EnumerateFiles(dir)
                 .FirstOrDefault(x => initrdNames.Contains(Path.GetFileName(x)));
-            if (initrdHit is null) continue;
+            if (initrdHit is null)
+                continue;
             _logger.LogInformation("Found kernel via scan: {K}", f);
             initrdPath = initrdHit;
             return f;
@@ -1128,8 +1151,8 @@ public sealed class DirectInstallService : IDirectInstallService
     private static void CopyFileRobust(string src, string dst)
     {
         const int bufSize = 65536;
-        using var fsIn  = new FileStream(src, FileMode.Open,   FileAccess.Read,  FileShare.ReadWrite, bufSize);
-        using var fsOut = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.None,      bufSize);
+        using var fsIn = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, bufSize);
+        using var fsOut = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.None, bufSize);
         fsIn.CopyTo(fsOut);
     }
 
@@ -1158,16 +1181,16 @@ public sealed class DirectInstallService : IDirectInstallService
     private static byte[] BuildNewcCpio(string name, byte[] data)
     {
         using var ms = new MemoryStream();
-        WriteCpioEntry(ms, name,         data,                mode: 0x81A4, nlink: 1); // 0100644
-        WriteCpioEntry(ms, "TRAILER!!!", Array.Empty<byte>(), mode: 0,      nlink: 1);
+        WriteCpioEntry(ms, name, data, mode: 0x81A4, nlink: 1); // 0100644
+        WriteCpioEntry(ms, "TRAILER!!!", Array.Empty<byte>(), mode: 0, nlink: 1);
         return ms.ToArray();
     }
 
     private static void WriteCpioEntry(MemoryStream ms, string name, byte[] data, uint mode, uint nlink)
     {
         static string H(uint v) => v.ToString("X8");
-        var  nameBytes = Encoding.ASCII.GetBytes(name);
-        uint namesize  = (uint)nameBytes.Length + 1; // include trailing NUL
+        var nameBytes = Encoding.ASCII.GetBytes(name);
+        uint namesize = (uint)nameBytes.Length + 1; // include trailing NUL
 
         // newc header: 6-byte magic + 13 × 8-hex fields = 110 bytes.
         var header =
@@ -1194,7 +1217,8 @@ public sealed class DirectInstallService : IDirectInstallService
     private static void Pad4(MemoryStream ms)
     {
         int pad = (int)((4 - (ms.Length & 3)) & 3);
-        for (int i = 0; i < pad; i++) ms.WriteByte(0);
+        for (int i = 0; i < pad; i++)
+            ms.WriteByte(0);
     }
 
     /// <summary>
@@ -1216,7 +1240,7 @@ public sealed class DirectInstallService : IDirectInstallService
     /// </summary>
     private string BuildGrubConfig()
     {
-        var label   = _bootSpec.VolumeLabel;
+        var label = _bootSpec.VolumeLabel;
         var cmdline = _bootSpec.KernelCmdline.Replace("{LABEL}", label);
         return $$"""
             insmod part_gpt
@@ -1251,7 +1275,8 @@ public sealed class DirectInstallService : IDirectInstallService
 
         // First attempt: poll up to 30 seconds.
         var letter = PollForDriveLetter(isoPath, retries: 60);
-        if (letter is not null) return letter;
+        if (letter is not null)
+            return letter;
 
         _logger.LogWarning("ISO did not appear after 30 s - dismounting and retrying once");
 
@@ -1262,7 +1287,8 @@ public sealed class DirectInstallService : IDirectInstallService
         Thread.Sleep(2_000);
 
         letter = PollForDriveLetter(isoPath, retries: 20);
-        if (letter is not null) return letter;
+        if (letter is not null)
+            return letter;
 
         throw new InvalidOperationException("ISO did not mount within 40 seconds.");
     }
@@ -1286,7 +1312,8 @@ public sealed class DirectInstallService : IDirectInstallService
 
     private void DismountIso(string isoPath)
     {
-        try { RunPowerShell($"Dismount-DiskImage -ImagePath \"{isoPath}\""); }
+        try
+        { RunPowerShell($"Dismount-DiskImage -ImagePath \"{isoPath}\""); }
         catch (Exception ex) { _logger.LogWarning(ex, "Dismount-DiskImage failed (non-fatal)"); }
     }
 
@@ -1299,10 +1326,10 @@ public sealed class DirectInstallService : IDirectInstallService
         var psi = new ProcessStartInfo("powershell.exe",
             $"-NonInteractive -NoProfile -EncodedCommand {encoded}")
         {
-            UseShellExecute        = false,
+            UseShellExecute = false,
             RedirectStandardOutput = true,
-            RedirectStandardError  = true,
-            CreateNoWindow         = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
         };
         using var p = Process.Start(psi)
             ?? throw new InvalidOperationException("Could not start powershell.exe.");
@@ -1407,8 +1434,8 @@ public sealed class DirectInstallService : IDirectInstallService
         try
         {
             // Read current BootOrder (array of uint16).
-            var buf      = new byte[256];
-            var size     = GetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, buf, (uint)buf.Length);
+            var buf = new byte[256];
+            var size = GetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, buf, (uint)buf.Length);
             var existing = new List<ushort>();
             for (var i = 0; i + 1 < size; i += 2)
                 existing.Add(BitConverter.ToUInt16(buf, i));
@@ -1454,8 +1481,8 @@ public sealed class DirectInstallService : IDirectInstallService
             var tp = new TokenPrivileges
             {
                 PrivilegeCount = 1,
-                Luid           = luid,
-                Attributes     = 2,  // SE_PRIVILEGE_ENABLED
+                Luid = luid,
+                Attributes = 2,  // SE_PRIVILEGE_ENABLED
             };
 
             // AdjustTokenPrivileges returns TRUE even when not all privileges were
@@ -1486,8 +1513,8 @@ public sealed class DirectInstallService : IDirectInstallService
             var mo = results.Cast<ManagementBaseObject>().First();
 
             var offset = Convert.ToUInt64(mo["Offset"]);
-            var size   = Convert.ToUInt64(mo["Size"]);
-            var guid   = Guid.Parse((string)mo["Guid"]);
+            var size = Convert.ToUInt64(mo["Size"]);
+            var guid = Guid.Parse((string)mo["Guid"]);
             return (offset / 512, size / 512, guid);
         }
         catch (Exception ex)
@@ -1501,9 +1528,10 @@ public sealed class DirectInstallService : IDirectInstallService
     {
         for (ushort i = 0x0080; i < 0x00FF; i++)
         {
-            var buf  = new byte[4096];
+            var buf = new byte[4096];
             var read = GetFirmwareEnvironmentVariableW($"Boot{i:X4}", EfiGlobGuid, buf, (uint)buf.Length);
-            if (read == 0) return i; // variable doesn't exist → free slot
+            if (read == 0)
+                return i; // variable doesn't exist → free slot
         }
         return 0x0090; // fallback - overwrite 0x0090
     }
@@ -1560,10 +1588,10 @@ public sealed class DirectInstallService : IDirectInstallService
         if (cmdLine is not null)
             ms.Write(Encoding.Unicode.GetBytes(cmdLine));
 
-        var result       = ms.ToArray();
+        var result = ms.ToArray();
         ushort fplLength = (ushort)(devicePathEnd - devicePathStart);
-        var fplBytes     = BitConverter.GetBytes(fplLength);
-        result[fplLenOffset]     = fplBytes[0];
+        var fplBytes = BitConverter.GetBytes(fplLength);
+        result[fplLenOffset] = fplBytes[0];
         result[fplLenOffset + 1] = fplBytes[1];
         return result;
     }

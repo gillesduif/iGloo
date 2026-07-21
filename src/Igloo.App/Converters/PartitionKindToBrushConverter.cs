@@ -18,15 +18,15 @@ public sealed class PartitionKindToBrushConverter : IValueConverter
 {
     private static readonly Dictionary<string, Brush> Fills = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Windows"]  = Freeze("#FF2E86C4"),
-        ["Data"]     = Freeze("#FF49759C"),
-        ["Efi"]      = Freeze("#FF7A8894"),
-        ["Msr"]      = Freeze("#FF5A626B"),
+        ["Windows"] = Freeze("#FF2E86C4"),
+        ["Data"] = Freeze("#FF49759C"),
+        ["Efi"] = Freeze("#FF7A8894"),
+        ["Msr"] = Freeze("#FF5A626B"),
         ["Recovery"] = Freeze("#FF6B7684"),
-        ["Seed"]     = Freeze("#FFC99A3F"),
-        ["Linux"]    = Freeze("#FF3F9E6E"),
-        ["Unknown"]  = Freeze("#FF4A5058"),
-        ["Free"]     = Freeze("#0AFFFFFF"),
+        ["Seed"] = Freeze("#FFC99A3F"),
+        ["Linux"] = Freeze("#FF3F9E6E"),
+        ["Unknown"] = Freeze("#FF4A5058"),
+        ["Free"] = Freeze("#0AFFFFFF"),
     };
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)

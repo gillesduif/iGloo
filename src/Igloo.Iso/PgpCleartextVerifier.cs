@@ -30,9 +30,9 @@ internal static class PgpCleartextVerifier
         try
         {
             // ── Load public key ring ─────────────────────────────────────────
-            using var keyInput   = new MemoryStream(publicKeyRingBytes);
-            var       keyDecoder = PgpUtilities.GetDecoderStream(keyInput);
-            var       keyRing    = new PgpPublicKeyRingBundle(keyDecoder);
+            using var keyInput = new MemoryStream(publicKeyRingBytes);
+            var keyDecoder = PgpUtilities.GetDecoderStream(keyInput);
+            var keyRing = new PgpPublicKeyRingBundle(keyDecoder);
 
             // ── Split into body and signature block ──────────────────────────
             if (!TrySplit(cleartextMessage, out var body, out var sigBlock))
@@ -42,10 +42,10 @@ internal static class PgpCleartextVerifier
             }
 
             // ── Parse signature list ─────────────────────────────────────────
-            using var sigInput   = new MemoryStream(Encoding.ASCII.GetBytes(sigBlock));
-            var       sigDecoder = PgpUtilities.GetDecoderStream(sigInput);
-            var       factory    = new PgpObjectFactory(sigDecoder);
-            var       sigList    = factory.NextPgpObject() as PgpSignatureList;
+            using var sigInput = new MemoryStream(Encoding.ASCII.GetBytes(sigBlock));
+            var sigDecoder = PgpUtilities.GetDecoderStream(sigInput);
+            var factory = new PgpObjectFactory(sigDecoder);
+            var sigList = factory.NextPgpObject() as PgpSignatureList;
 
             if (sigList is null || sigList.Count == 0)
             {
@@ -96,7 +96,7 @@ internal static class PgpCleartextVerifier
 
     private static bool TrySplit(string message, out string body, out string sigBlock)
     {
-        body     = string.Empty;
+        body = string.Empty;
         sigBlock = string.Empty;
 
         const string MsgHeader = "-----BEGIN PGP SIGNED MESSAGE-----";
@@ -105,22 +105,25 @@ internal static class PgpCleartextVerifier
 
         int msgStart = message.IndexOf(MsgHeader, StringComparison.Ordinal);
         int sigStart = message.IndexOf(SigHeader, StringComparison.Ordinal);
-        int sigEnd   = message.IndexOf(SigFooter, StringComparison.Ordinal);
+        int sigEnd = message.IndexOf(SigFooter, StringComparison.Ordinal);
 
-        if (msgStart < 0 || sigStart < 0 || sigEnd < 0) return false;
+        if (msgStart < 0 || sigStart < 0 || sigEnd < 0)
+            return false;
 
         // Skip the "Hash: xx" headers after the BEGIN line - look for the first blank line
         int scan = message.IndexOf('\n', msgStart) + 1;
         while (scan < sigStart)
         {
-            int eol  = message.IndexOf('\n', scan);
-            if (eol < 0) break;
+            int eol = message.IndexOf('\n', scan);
+            if (eol < 0)
+                break;
             var line = message[scan..eol].Trim();
             scan = eol + 1;
-            if (line.Length == 0) break; // blank line → body starts here
+            if (line.Length == 0)
+                break; // blank line → body starts here
         }
 
-        body     = message[scan..sigStart].TrimEnd('\r', '\n');
+        body = message[scan..sigStart].TrimEnd('\r', '\n');
         sigBlock = message[sigStart..(sigEnd + SigFooter.Length)];
         return true;
     }
@@ -160,14 +163,16 @@ internal static class PgpCleartextVerifier
         static bool Matches(PgpPublicKey k, string want) =>
             string.Equals(Convert.ToHexString(k.GetFingerprint()), want, StringComparison.OrdinalIgnoreCase);
 
-        if (Matches(signingKey, want)) return true;
+        if (Matches(signingKey, want))
+            return true;
 
         // Subkey case: the checksum may be signed by a subkey whose fingerprint
         // differs from the published (primary) one. Accept iff the primary key of
         // the ring holding the signing key carries the pinned fingerprint.
         var primary = bundle.GetPublicKeyRing(signingKey.KeyId)?
             .GetPublicKeys().OfType<PgpPublicKey>().FirstOrDefault(k => k.IsMasterKey);
-        if (primary is not null && Matches(primary, want)) return true;
+        if (primary is not null && Matches(primary, want))
+            return true;
 
         logger.LogWarning(
             "Signing key fingerprint {Actual} (primary {Primary}) does not match pinned {Want} - rejecting signature",

@@ -124,7 +124,8 @@ public sealed class CoverTextureFactory
 
     private static BitmapSource? TryLoadLogo(string? path, int decodePixels)
     {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return null;
 
         try
         {

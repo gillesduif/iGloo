@@ -17,11 +17,11 @@ namespace Igloo.Core.Services;
 /// </summary>
 public sealed class ThrottledProgress<T> : IProgress<T>
 {
-    private readonly IProgress<T>      _inner;
+    private readonly IProgress<T> _inner;
     private readonly Func<T, T?, bool> _forceWhen;
-    private readonly long              _intervalTicks;
+    private readonly long _intervalTicks;
     private long _lastForwardedTicks = long.MinValue;
-    private T?   _lastForwarded;
+    private T? _lastForwarded;
     private readonly object _gate = new();
 
     /// <param name="inner">Destination (typically a UI-marshalling <see cref="Progress{T}"/>).</param>
@@ -33,9 +33,9 @@ public sealed class ThrottledProgress<T> : IProgress<T>
     public ThrottledProgress(IProgress<T> inner, TimeSpan? interval = null,
                              Func<T, T?, bool>? forceWhen = null)
     {
-        _inner         = inner;
+        _inner = inner;
         _intervalTicks = (interval ?? TimeSpan.FromMilliseconds(100)).Ticks;
-        _forceWhen     = forceWhen ?? ((_, _) => false);
+        _forceWhen = forceWhen ?? ((_, _) => false);
     }
 
     public void Report(T value)
@@ -46,7 +46,7 @@ public sealed class ThrottledProgress<T> : IProgress<T>
             if (!_forceWhen(value, _lastForwarded) && now - _lastForwardedTicks < _intervalTicks)
                 return;
             _lastForwardedTicks = now;
-            _lastForwarded      = value;
+            _lastForwarded = value;
         }
         _inner.Report(value);
     }

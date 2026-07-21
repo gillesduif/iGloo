@@ -11,16 +11,16 @@ namespace Igloo.App.ViewModels;
 /// </summary>
 public sealed partial class MainWindowViewModel : ObservableObject
 {
-    private readonly List<object>             _steps;
-    private readonly WelcomeViewModel         _welcome;
-    private readonly PreflightViewModel       _preflight;
+    private readonly List<object> _steps;
+    private readonly WelcomeViewModel _welcome;
+    private readonly PreflightViewModel _preflight;
     private readonly DistroSelectionViewModel _distroSelection;
-    private readonly IsoAcquisitionViewModel  _isoAcquisition;
-    private readonly MigrationSetupViewModel  _migrationSetup;
-    private readonly DiskSelectionViewModel   _diskSelection;
-    private readonly FileStagingViewModel     _fileStaging;
-    private readonly DirectInstallViewModel   _directInstall;
-    private readonly UsbWriterViewModel       _usbWriter;
+    private readonly IsoAcquisitionViewModel _isoAcquisition;
+    private readonly MigrationSetupViewModel _migrationSetup;
+    private readonly DiskSelectionViewModel _diskSelection;
+    private readonly FileStagingViewModel _fileStaging;
+    private readonly DirectInstallViewModel _directInstall;
+    private readonly UsbWriterViewModel _usbWriter;
 
     // Captured the moment the user advances past distro selection. Downstream steps
     // (ISO download, staging, install) must NOT read DistroSelection.SelectedDistro
@@ -39,30 +39,30 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public bool CanGoNext => CurrentPage switch
     {
-        WelcomeViewModel               => true,
-        PreflightViewModel pf          => pf.CanProceed,
-        DistroSelectionViewModel ds    => ds.CanProceed,
-        IsoAcquisitionViewModel acq    => acq.IsComplete && !acq.HasError,
-        MigrationSetupViewModel setup  => setup.CanProceed,
-        DiskSelectionViewModel disk    => disk.CanProceed,
-        FileStagingViewModel fs        => fs.IsComplete && !fs.HasError,
-        DirectInstallViewModel         => false,  // user reboots - no "Next"
-        UsbWriterViewModel usb         => usb.IsComplete && !usb.HasError,
-        _                              => false,
+        WelcomeViewModel => true,
+        PreflightViewModel pf => pf.CanProceed,
+        DistroSelectionViewModel ds => ds.CanProceed,
+        IsoAcquisitionViewModel acq => acq.IsComplete && !acq.HasError,
+        MigrationSetupViewModel setup => setup.CanProceed,
+        DiskSelectionViewModel disk => disk.CanProceed,
+        FileStagingViewModel fs => fs.IsComplete && !fs.HasError,
+        DirectInstallViewModel => false,  // user reboots - no "Next"
+        UsbWriterViewModel usb => usb.IsComplete && !usb.HasError,
+        _ => false,
     };
 
     public string StepDescription => CurrentPage switch
     {
-        WelcomeViewModel         => "Welcome",
-        PreflightViewModel       => "System check",
+        WelcomeViewModel => "Welcome",
+        PreflightViewModel => "System check",
         DistroSelectionViewModel => "Choose your Linux distribution",
-        IsoAcquisitionViewModel  => "Downloading installer",
-        MigrationSetupViewModel  => "Configure your Linux setup",
-        DiskSelectionViewModel   => "Choose installation disk",
-        FileStagingViewModel     => "Staging files",
-        DirectInstallViewModel   => "Install without USB",
-        UsbWriterViewModel       => "Write to USB",
-        _                        => string.Empty,
+        IsoAcquisitionViewModel => "Downloading installer",
+        MigrationSetupViewModel => "Configure your Linux setup",
+        DiskSelectionViewModel => "Choose installation disk",
+        FileStagingViewModel => "Staging files",
+        DirectInstallViewModel => "Install without USB",
+        UsbWriterViewModel => "Write to USB",
+        _ => string.Empty,
     };
 
     /// <summary>True on the last wizard step - swaps "Next" label to "Finish".</summary>
@@ -78,16 +78,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public int StepNumber => CurrentPage switch
     {
-        WelcomeViewModel         => 1,
-        PreflightViewModel       => 2,
+        WelcomeViewModel => 1,
+        PreflightViewModel => 2,
         DistroSelectionViewModel => 3,
-        IsoAcquisitionViewModel  => 4,
-        MigrationSetupViewModel  => 5,
-        DiskSelectionViewModel   => 6,
-        FileStagingViewModel     => 7,
-        DirectInstallViewModel   => 8,
-        UsbWriterViewModel       => 8,
-        _                        => 1,
+        IsoAcquisitionViewModel => 4,
+        MigrationSetupViewModel => 5,
+        DiskSelectionViewModel => 6,
+        FileStagingViewModel => 7,
+        DirectInstallViewModel => 8,
+        UsbWriterViewModel => 8,
+        _ => 1,
     };
 
     /// <summary>Rail label + Fluent (Segoe MDL2) glyph per step, so the left
@@ -114,30 +114,30 @@ public sealed partial class MainWindowViewModel : ObservableObject
     // ── Constructor ──────────────────────────────────────────────────────────
 
     public MainWindowViewModel(
-        WelcomeViewModel         welcome,
-        PreflightViewModel       preflight,
+        WelcomeViewModel welcome,
+        PreflightViewModel preflight,
         DistroSelectionViewModel distroSelection,
-        IsoAcquisitionViewModel  isoAcquisition,
-        MigrationSetupViewModel  migrationSetup,
-        DiskSelectionViewModel   diskSelection,
-        FileStagingViewModel     fileStaging,
-        DirectInstallViewModel   directInstall,
-        UsbWriterViewModel       usbWriter)
+        IsoAcquisitionViewModel isoAcquisition,
+        MigrationSetupViewModel migrationSetup,
+        DiskSelectionViewModel diskSelection,
+        FileStagingViewModel fileStaging,
+        DirectInstallViewModel directInstall,
+        UsbWriterViewModel usbWriter)
     {
-        _welcome         = welcome;
-        _preflight       = preflight;
+        _welcome = welcome;
+        _preflight = preflight;
         _distroSelection = distroSelection;
-        _isoAcquisition  = isoAcquisition;
-        _migrationSetup  = migrationSetup;
-        _diskSelection   = diskSelection;
-        _fileStaging     = fileStaging;
-        _directInstall   = directInstall;
-        _usbWriter       = usbWriter;
+        _isoAcquisition = isoAcquisition;
+        _migrationSetup = migrationSetup;
+        _diskSelection = diskSelection;
+        _fileStaging = fileStaging;
+        _directInstall = directInstall;
+        _usbWriter = usbWriter;
 
         // The step list ends with TWO install pages - only one is ever shown.
         _steps = [welcome, preflight, distroSelection, isoAcquisition, migrationSetup,
                   diskSelection, fileStaging, directInstall, usbWriter];
-        _stepIndex   = 0;
+        _stepIndex = 0;
         _currentPage = _steps[0];
 
         // Relay CanProceed / completion changes so CanGoNext stays in sync.
@@ -196,7 +196,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void Back()
     {
-        if (_stepIndex <= 0) return;
+        if (_stepIndex <= 0)
+            return;
 
         // Skip over the hidden install page when going back.
         _stepIndex--;

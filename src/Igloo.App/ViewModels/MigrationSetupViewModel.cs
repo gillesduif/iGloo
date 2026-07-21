@@ -37,7 +37,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     /// The password the user typed in the first PasswordBox.
     /// Set from code-behind (PasswordBox.Password is not bindable).
     /// </summary>
-    public string LinuxPassword        { get; private set; } = string.Empty;
+    public string LinuxPassword { get; private set; } = string.Empty;
     public string LinuxPasswordConfirm { get; private set; } = string.Empty;
 
     public bool IsPasswordValid => LinuxPassword.Length >= 8;
@@ -46,7 +46,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     /// <summary>Called by the view code-behind when either PasswordBox changes.</summary>
     public void SetPasswords(string password, string confirm)
     {
-        LinuxPassword        = password;
+        LinuxPassword = password;
         LinuxPasswordConfirm = confirm;
         OnPropertyChanged(nameof(LinuxPassword));
         OnPropertyChanged(nameof(LinuxPasswordConfirm));
@@ -59,10 +59,10 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     [ObservableProperty] private bool _includeDocuments = true;
     [ObservableProperty] private bool _includeDownloads = true;
-    [ObservableProperty] private bool _includePictures  = true;
-    [ObservableProperty] private bool _includeDesktop   = true;
-    [ObservableProperty] private bool _includeMusic     = false;
-    [ObservableProperty] private bool _includeVideos    = false;
+    [ObservableProperty] private bool _includePictures = true;
+    [ObservableProperty] private bool _includeDesktop = true;
+    [ObservableProperty] private bool _includeMusic = false;
+    [ObservableProperty] private bool _includeVideos = false;
 
     // ── Browser profiles ─────────────────────────────────────────────────────
 
@@ -118,20 +118,27 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         void TryAdd(Environment.SpecialFolder sf)
         {
             var p = Environment.GetFolderPath(sf);
-            if (!string.IsNullOrEmpty(p) && Directory.Exists(p)) paths.Add(p);
+            if (!string.IsNullOrEmpty(p) && Directory.Exists(p))
+                paths.Add(p);
         }
 
-        if (IncludeDocuments) TryAdd(Environment.SpecialFolder.MyDocuments);
+        if (IncludeDocuments)
+            TryAdd(Environment.SpecialFolder.MyDocuments);
         if (IncludeDownloads)
         {
             var dl = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-            if (Directory.Exists(dl)) paths.Add(dl);
+            if (Directory.Exists(dl))
+                paths.Add(dl);
         }
-        if (IncludePictures) TryAdd(Environment.SpecialFolder.MyPictures);
-        if (IncludeDesktop)  TryAdd(Environment.SpecialFolder.DesktopDirectory);
-        if (IncludeMusic)    TryAdd(Environment.SpecialFolder.MyMusic);
-        if (IncludeVideos)   TryAdd(Environment.SpecialFolder.MyVideos);
+        if (IncludePictures)
+            TryAdd(Environment.SpecialFolder.MyPictures);
+        if (IncludeDesktop)
+            TryAdd(Environment.SpecialFolder.DesktopDirectory);
+        if (IncludeMusic)
+            TryAdd(Environment.SpecialFolder.MyMusic);
+        if (IncludeVideos)
+            TryAdd(Environment.SpecialFolder.MyVideos);
 
         return paths;
     }
@@ -140,12 +147,18 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     public IReadOnlyList<string> GetSelectedFolderNames()
     {
         var names = new List<string>();
-        if (IncludeDocuments) names.Add("Documents");
-        if (IncludeDownloads) names.Add("Downloads");
-        if (IncludePictures)  names.Add("Pictures");
-        if (IncludeDesktop)   names.Add("Desktop");
-        if (IncludeMusic)     names.Add("Music");
-        if (IncludeVideos)    names.Add("Videos");
+        if (IncludeDocuments)
+            names.Add("Documents");
+        if (IncludeDownloads)
+            names.Add("Downloads");
+        if (IncludePictures)
+            names.Add("Pictures");
+        if (IncludeDesktop)
+            names.Add("Desktop");
+        if (IncludeMusic)
+            names.Add("Music");
+        if (IncludeVideos)
+            names.Add("Videos");
         return names;
     }
 
@@ -161,11 +174,12 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     public IReadOnlyList<MigrationFolder> GetSelectedFolders()
     {
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var result  = new List<MigrationFolder>();
+        var result = new List<MigrationFolder>();
 
         void TryAdd(string name, string? absolute)
         {
-            if (string.IsNullOrEmpty(absolute) || !Directory.Exists(absolute)) return;
+            if (string.IsNullOrEmpty(absolute) || !Directory.Exists(absolute))
+                return;
 
             // Path relative to the profile, normalised to forward slashes for the
             // Linux-side %post. Falls back to the leaf name if the folder lives
@@ -178,12 +192,18 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             result.Add(new MigrationFolder { Name = name, SourceRelativePath = rel });
         }
 
-        if (IncludeDocuments) TryAdd("Documents", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
-        if (IncludeDownloads) TryAdd("Downloads", Path.Combine(profile, "Downloads"));
-        if (IncludePictures)  TryAdd("Pictures",  Environment.GetFolderPath(Environment.SpecialFolder.MyPictures));
-        if (IncludeDesktop)   TryAdd("Desktop",   Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
-        if (IncludeMusic)     TryAdd("Music",     Environment.GetFolderPath(Environment.SpecialFolder.MyMusic));
-        if (IncludeVideos)    TryAdd("Videos",    Environment.GetFolderPath(Environment.SpecialFolder.MyVideos));
+        if (IncludeDocuments)
+            TryAdd("Documents", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+        if (IncludeDownloads)
+            TryAdd("Downloads", Path.Combine(profile, "Downloads"));
+        if (IncludePictures)
+            TryAdd("Pictures", Environment.GetFolderPath(Environment.SpecialFolder.MyPictures));
+        if (IncludeDesktop)
+            TryAdd("Desktop", Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));
+        if (IncludeMusic)
+            TryAdd("Music", Environment.GetFolderPath(Environment.SpecialFolder.MyMusic));
+        if (IncludeVideos)
+            TryAdd("Videos", Environment.GetFolderPath(Environment.SpecialFolder.MyVideos));
 
         return result;
     }
@@ -207,15 +227,15 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     public IReadOnlyList<BrowserMigration> GetSelectedBrowsers()
     {
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var result  = new List<BrowserMigration>();
+        var result = new List<BrowserMigration>();
 
         // Gecko: detected ProfilePath ends in "Profiles"; the folder we copy is its
         // parent (the whole browser root), e.g. AppData/Roaming/Mozilla/Firefox.
         var geckoDest = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["Mozilla Firefox"] = ".mozilla/firefox",
-            ["Zen Browser"]     = ".zen",
-            ["Waterfox"]        = ".waterfox",
+            ["Zen Browser"] = ".zen",
+            ["Waterfox"] = ".waterfox",
         };
 
         foreach (var b in DetectedBrowsers.Where(b => b.IsSelected))
@@ -235,11 +255,11 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
                 result.Add(new BrowserMigration
                 {
-                    Name               = b.Name,
-                    Engine             = "gecko",
+                    Name = b.Name,
+                    Engine = "gecko",
                     SourceRelativePath = portable ? srcRel : string.Empty,
-                    DestRelativePath   = portable ? dest   : string.Empty,
-                    IncludesPasswords  = portable,
+                    DestRelativePath = portable ? dest : string.Empty,
+                    IncludesPasswords = portable,
                 });
             }
             else
@@ -247,8 +267,8 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
                 // Chromium family - recorded only (Phase 2).
                 result.Add(new BrowserMigration
                 {
-                    Name              = b.Name,
-                    Engine            = "chromium",
+                    Name = b.Name,
+                    Engine = "chromium",
                     IncludesPasswords = false,
                 });
             }
@@ -264,10 +284,10 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             .Select(s => new SuggestedPackage
             {
                 WindowsAppName = s.WindowsDisplayName,
-                LinuxAppName   = s.LinuxAppName,
-                FlatpakId      = s.FlatpakId,
-                NativePackage  = s.NativePackage,
-                AutoInstall    = true,
+                LinuxAppName = s.LinuxAppName,
+                FlatpakId = s.FlatpakId,
+                NativePackage = s.NativePackage,
+                AutoInstall = true,
             })
             .ToList();
 
@@ -283,10 +303,14 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     private static bool ValidateLinuxUsername(string name)
     {
-        if (string.IsNullOrWhiteSpace(name)) return false;
-        if (name.Length > 32)               return false;
-        if (ReservedLinuxNames.Contains(name)) return false;
-        if (!char.IsAsciiLetter(name[0]))   return false;
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+        if (name.Length > 32)
+            return false;
+        if (ReservedLinuxNames.Contains(name))
+            return false;
+        if (!char.IsAsciiLetter(name[0]))
+            return false;
 
         foreach (var c in name)
         {
@@ -310,7 +334,8 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             start++;
         s = s[start..];
 
-        if (string.IsNullOrEmpty(s)) return "user";
+        if (string.IsNullOrEmpty(s))
+            return "user";
         return s.Length > 32 ? s[..32] : s;
     }
 
@@ -330,7 +355,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     {
         try
         {
-            using var key  = Registry.CurrentUser.OpenSubKey(@"Keyboard Layout\Preload");
+            using var key = Registry.CurrentUser.OpenSubKey(@"Keyboard Layout\Preload");
             var klid = key?.GetValue("1")?.ToString()?.ToLowerInvariant().TrimStart('0');
             if (!string.IsNullOrEmpty(klid) && KlidMap.TryGetValue(klid, out var mapped))
                 return mapped;
@@ -415,31 +440,31 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     /// </summary>
     private static string CultureToKeymap(string cultureName) => cultureName switch
     {
-        _ when cultureName.EndsWith("-BE")     => "be",
-        _ when cultureName.StartsWith("nl")    => "nl",
+        _ when cultureName.EndsWith("-BE") => "be",
+        _ when cultureName.StartsWith("nl") => "nl",
         _ when cultureName.StartsWith("fr-CH") => "ch",
-        _ when cultureName.StartsWith("fr")    => "fr",
+        _ when cultureName.StartsWith("fr") => "fr",
         _ when cultureName.StartsWith("de-CH") => "ch",
-        _ when cultureName.StartsWith("de")    => "de",
-        _ when cultureName.StartsWith("es")    => "es",
+        _ when cultureName.StartsWith("de") => "de",
+        _ when cultureName.StartsWith("es") => "es",
         _ when cultureName.StartsWith("pt-BR") => "br",
-        _ when cultureName.StartsWith("pt")    => "pt",
-        _ when cultureName.StartsWith("it")    => "it",
-        _ when cultureName.StartsWith("ru")    => "ru",
-        _ when cultureName.StartsWith("pl")    => "pl",
-        _ when cultureName.StartsWith("cs")    => "cz",
-        _ when cultureName.StartsWith("hu")    => "hu",
-        _ when cultureName.StartsWith("ro")    => "ro",
-        _ when cultureName.StartsWith("sk")    => "sk",
-        _ when cultureName.StartsWith("sv")    => "se",
+        _ when cultureName.StartsWith("pt") => "pt",
+        _ when cultureName.StartsWith("it") => "it",
+        _ when cultureName.StartsWith("ru") => "ru",
+        _ when cultureName.StartsWith("pl") => "pl",
+        _ when cultureName.StartsWith("cs") => "cz",
+        _ when cultureName.StartsWith("hu") => "hu",
+        _ when cultureName.StartsWith("ro") => "ro",
+        _ when cultureName.StartsWith("sk") => "sk",
+        _ when cultureName.StartsWith("sv") => "se",
         _ when cultureName.StartsWith("nb") ||
-               cultureName.StartsWith("nn")    => "no",
-        _ when cultureName.StartsWith("da")    => "dk",
-        _ when cultureName.StartsWith("fi")    => "fi",
-        _ when cultureName.StartsWith("tr")    => "tr",
-        _ when cultureName.StartsWith("el")    => "gr",
-        _ when cultureName.StartsWith("uk")    => "ua",
-        _                                      => "us",
+               cultureName.StartsWith("nn") => "no",
+        _ when cultureName.StartsWith("da") => "dk",
+        _ when cultureName.StartsWith("fi") => "fi",
+        _ when cultureName.StartsWith("tr") => "tr",
+        _ when cultureName.StartsWith("el") => "gr",
+        _ when cultureName.StartsWith("uk") => "ua",
+        _ => "us",
     };
 
     // ── Browser detection ─────────────────────────────────────────────────────
@@ -447,17 +472,17 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     private static IReadOnlyList<BrowserEntry> DetectBrowsers()
     {
         var localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appData  = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
         var results = new List<BrowserEntry>();
-        Check("Google Chrome",  Path.Combine(localApp, "Google",       "Chrome",         "User Data", "Default"));
-        Check("Microsoft Edge", Path.Combine(localApp, "Microsoft",    "Edge",           "User Data", "Default"));
-        Check("Mozilla Firefox",Path.Combine(appData,  "Mozilla",      "Firefox",        "Profiles"));
-        Check("Brave",          Path.Combine(localApp, "BraveSoftware","Brave-Browser",  "User Data", "Default"));
-        Check("Zen Browser",    Path.Combine(appData,  "zen",          "Profiles"));
-        Check("Vivaldi",        Path.Combine(localApp, "Vivaldi",      "User Data",      "Default"));
-        Check("Opera",          Path.Combine(appData,  "Opera Software","Opera Stable",  "Default"));
-        Check("Waterfox",       Path.Combine(appData,  "Waterfox",     "Profiles"));
+        Check("Google Chrome", Path.Combine(localApp, "Google", "Chrome", "User Data", "Default"));
+        Check("Microsoft Edge", Path.Combine(localApp, "Microsoft", "Edge", "User Data", "Default"));
+        Check("Mozilla Firefox", Path.Combine(appData, "Mozilla", "Firefox", "Profiles"));
+        Check("Brave", Path.Combine(localApp, "BraveSoftware", "Brave-Browser", "User Data", "Default"));
+        Check("Zen Browser", Path.Combine(appData, "zen", "Profiles"));
+        Check("Vivaldi", Path.Combine(localApp, "Vivaldi", "User Data", "Default"));
+        Check("Opera", Path.Combine(appData, "Opera Software", "Opera Stable", "Default"));
+        Check("Waterfox", Path.Combine(appData, "Waterfox", "Profiles"));
         return results;
 
         void Check(string name, string path)
@@ -471,14 +496,14 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 /// <summary>A browser detected on the Windows system that the user can opt in/out of migrating.</summary>
 public sealed partial class BrowserEntry : ObservableObject
 {
-    public string Name        { get; }
+    public string Name { get; }
     public string ProfilePath { get; }
 
     [ObservableProperty] private bool _isSelected = true;
 
     public BrowserEntry(string name, string profilePath)
     {
-        Name        = name;
+        Name = name;
         ProfilePath = profilePath;
     }
 }
@@ -490,18 +515,18 @@ public sealed partial class BrowserEntry : ObservableObject
 /// </summary>
 public sealed partial class SuggestedPackageEntry : ObservableObject
 {
-    public string  WindowsDisplayName { get; }
-    public string  LinuxAppName       { get; }
-    public string? FlatpakId          { get; }
-    public string? NativePackage      { get; }
+    public string WindowsDisplayName { get; }
+    public string LinuxAppName { get; }
+    public string? FlatpakId { get; }
+    public string? NativePackage { get; }
 
     [ObservableProperty] private bool _isSelected = true;
 
     public SuggestedPackageEntry(DetectedSuggestion suggestion)
     {
         WindowsDisplayName = suggestion.WindowsDisplayName;
-        LinuxAppName       = suggestion.LinuxAppName;
-        FlatpakId          = suggestion.FlatpakId;
-        NativePackage      = suggestion.NativePackage;
+        LinuxAppName = suggestion.LinuxAppName;
+        FlatpakId = suggestion.FlatpakId;
+        NativePackage = suggestion.NativePackage;
     }
 }

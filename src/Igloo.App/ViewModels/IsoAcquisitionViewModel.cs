@@ -8,8 +8,8 @@ namespace Igloo.App.ViewModels;
 
 public sealed partial class IsoAcquisitionViewModel : ObservableObject
 {
-    private readonly IIsoAcquisitionService            _service;
-    private readonly ILogger<IsoAcquisitionViewModel>  _logger;
+    private readonly IIsoAcquisitionService _service;
+    private readonly ILogger<IsoAcquisitionViewModel> _logger;
     private IsoSpecification? _spec;
 
     // ── Observable state ────────────────────────────────────────────────────
@@ -27,14 +27,14 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
     private long? _bytesTotal;
 
-    [ObservableProperty] private bool                   _isRunning;
-    [ObservableProperty] private bool                   _isComplete;
-    [ObservableProperty] private bool                   _hasError;
-    [ObservableProperty] private string?                _errorMessage;
+    [ObservableProperty] private bool _isRunning;
+    [ObservableProperty] private bool _isComplete;
+    [ObservableProperty] private bool _hasError;
+    [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private IsoAcquisitionResult? _result;
 
     /// <summary>The distro being acquired — the page shows its logo on the receipt.</summary>
-    [ObservableProperty] private DistroManifest?        _distro;
+    [ObservableProperty] private DistroManifest? _distro;
 
     // ── Derived ──────────────────────────────────────────────────────────────
 
@@ -47,11 +47,11 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     public string PhaseDisplay => Phase switch
     {
         IsoAcquisitionPhase.ResolvingMirror => "Resolving mirror…",
-        IsoAcquisitionPhase.Downloading     => "Downloading…",
+        IsoAcquisitionPhase.Downloading => "Downloading…",
         IsoAcquisitionPhase.VerifyingSha256 => "Verifying SHA-256…",
-        IsoAcquisitionPhase.VerifyingGpg    => "Verifying GPG signature…",
-        IsoAcquisitionPhase.Complete        => "Complete",
-        _                                   => string.Empty,
+        IsoAcquisitionPhase.VerifyingGpg => "Verifying GPG signature…",
+        IsoAcquisitionPhase.Complete => "Complete",
+        _ => string.Empty,
     };
 
     // ── Constructor ──────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         ILogger<IsoAcquisitionViewModel> logger)
     {
         _service = service;
-        _logger  = logger;
+        _logger = logger;
     }
 
     // ── API called by MainWindowViewModel ────────────────────────────────────
@@ -100,19 +100,19 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
             distro.Id,
             new Uri(distro.Iso.DownloadUrl),
             distro.Iso.Sha256,
-            distro.Iso.GpgSignatureUrl  is not null ? new Uri(distro.Iso.GpgSignatureUrl)  : null,
-            distro.Iso.GpgKeyUrl        is not null ? new Uri(distro.Iso.GpgKeyUrl)        : null,
+            distro.Iso.GpgSignatureUrl is not null ? new Uri(distro.Iso.GpgSignatureUrl) : null,
+            distro.Iso.GpgKeyUrl is not null ? new Uri(distro.Iso.GpgKeyUrl) : null,
             distro.Iso.GpgSignedDataUrl is not null ? new Uri(distro.Iso.GpgSignedDataUrl) : null,
             keyData,
             distro.Iso.GpgKeyFingerprint);
 
-        IsComplete     = false;
-        HasError       = false;
-        ErrorMessage   = null;
-        Result         = null;
+        IsComplete = false;
+        HasError = false;
+        ErrorMessage = null;
+        Result = null;
         BytesCompleted = 0;
-        BytesTotal     = null;
-        Phase          = IsoAcquisitionPhase.Downloading;
+        BytesTotal = null;
+        Phase = IsoAcquisitionPhase.Downloading;
     }
 
     // ── Command ──────────────────────────────────────────────────────────────
@@ -120,17 +120,18 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task AcquireAsync(CancellationToken ct)
     {
-        if (_spec is null) return;
+        if (_spec is null)
+            return;
 
-        IsRunning    = true;
-        HasError     = false;
+        IsRunning = true;
+        HasError = false;
         ErrorMessage = null;
 
         var uiProgress = new Progress<IsoAcquisitionProgress>(p =>
         {
-            Phase          = p.Phase;
+            Phase = p.Phase;
             BytesCompleted = p.BytesCompleted;
-            BytesTotal     = p.BytesTotal;
+            BytesTotal = p.BytesTotal;
             OnPropertyChanged(nameof(PhaseDisplay));
         });
         // The service reports per 80 KB buffer (hundreds/sec on a fast line);
@@ -144,7 +145,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
 
         try
         {
-            Result     = await _service.AcquireAsync(_spec, progress, ct);
+            Result = await _service.AcquireAsync(_spec, progress, ct);
             IsComplete = true;
         }
         catch (OperationCanceledException)
@@ -154,7 +155,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "ISO acquisition failed");
-            HasError     = true;
+            HasError = true;
             ErrorMessage = ex.Message;
         }
         finally

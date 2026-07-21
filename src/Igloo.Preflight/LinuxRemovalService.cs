@@ -155,17 +155,20 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                     p.Dispose();
                 }
             }
-            if (best is null) return;
+            if (best is null)
+                return;
 
             using (best)
             {
                 var supported = best.InvokeMethod("GetSupportedSize",
                     best.GetMethodParameters("GetSupportedSize"), null)!;
-                if (Convert.ToUInt32(supported["ReturnValue"]) != 0) return;
+                if (Convert.ToUInt32(supported["ReturnValue"]) != 0)
+                    return;
 
                 var sizeMax = Convert.ToInt64(supported["SizeMax"]);
                 var gainBytes = sizeMax - bestSize;
-                if (gainBytes < 64 * MiB) return;   // no adjacent space to grow into
+                if (gainBytes < 64 * MiB)
+                    return;   // no adjacent space to grow into
 
                 var gainGb = gainBytes / (1024.0 * MiB);
                 progress?.Report($"Adding {gainGb:N1} GB back to {bestLetter}:…");
@@ -231,7 +234,8 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             {
                 var volumePath = (esp["AccessPaths"] as string[])?
                     .FirstOrDefault(p => p.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
-                if (volumePath is null) continue;
+                if (volumePath is null)
+                    continue;
 
                 CleanOneEsp(volumePath);
             }
@@ -253,7 +257,8 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 var name = Path.GetFileName(dir);
                 var isLinux = LinuxEfiFolders.Contains(name, StringComparer.OrdinalIgnoreCase)
                     || LinuxEfiFolderPrefixes.Any(p => name.StartsWith(p, StringComparison.OrdinalIgnoreCase));
-                if (!isLinux) continue;
+                if (!isLinux)
+                    continue;
 
                 TryDeleteEspFolder(dir);
             }

@@ -12,13 +12,13 @@ public sealed class ManifestGeneratorService
 {
     /// <summary>Builds a <see cref="MigrationManifest"/> from the provided inputs.</summary>
     public MigrationManifest Generate(
-        string            distroId,
-        UserSetup         userSetup,
-        PreflightReport   hardware,
+        string distroId,
+        UserSetup userSetup,
+        PreflightReport hardware,
         FileStagingResult staging,
-        DiskInfo?         targetDisk    = null,
-        DiskInstallMode   installMode   = DiskInstallMode.ReplaceDisk,
-        int               linuxSizeGb   = 0)
+        DiskInfo? targetDisk = null,
+        DiskInstallMode installMode = DiskInstallMode.ReplaceDisk,
+        int linuxSizeGb = 0)
     {
         // Prefer the richly-resolved browser list (engine + source/dest paths) built on the
         // Windows side. Fall back to bare names for back-compat when only names are supplied.
@@ -27,9 +27,9 @@ public sealed class ManifestGeneratorService
             : userSetup.SelectedBrowserNames
                 .Select(name => new BrowserMigration
                 {
-                    Name               = name,
+                    Name = name,
                     ProfileStagingPath = string.Empty,
-                    IncludesPasswords  = false,
+                    IncludesPasswords = false,
                 })
                 .ToArray();
 
@@ -39,20 +39,20 @@ public sealed class ManifestGeneratorService
 
             User = new MigrationUser
             {
-                WindowsUsername        = userSetup.WindowsUsername,
+                WindowsUsername = userSetup.WindowsUsername,
                 PreferredLinuxUsername = userSetup.LinuxUsername,
-                Locale                 = userSetup.Locale,
-                Timezone               = userSetup.Timezone,
-                Keymap                 = userSetup.Keymap,
-                LinuxPassword          = userSetup.LinuxPassword,
+                Locale = userSetup.Locale,
+                Timezone = userSetup.Timezone,
+                Keymap = userSetup.Keymap,
+                LinuxPassword = userSetup.LinuxPassword,
             },
 
             Files = new FileMigrationPlan
             {
-                StagingPath     = staging.StagingDirectory,
-                TotalBytes      = staging.TotalBytesCopied,
+                StagingPath = staging.StagingDirectory,
+                TotalBytes = staging.TotalBytesCopied,
                 IncludedFolders = userSetup.SelectedFolderNames,
-                Folders         = userSetup.SelectedFolders,
+                Folders = userSetup.SelectedFolders,
             },
 
             Browsers = browsers,
@@ -63,13 +63,13 @@ public sealed class ManifestGeneratorService
 
             Hardware = new HardwareProfile
             {
-                GpuVendor          = hardware.GpuVendor,
-                SecureBootEnabled  = hardware.SecureBootEnabled,
-                FirmwareType       = hardware.IsUefi ? "uefi" : "bios",
+                GpuVendor = hardware.GpuVendor,
+                SecureBootEnabled = hardware.SecureBootEnabled,
+                FirmwareType = hardware.IsUefi ? "uefi" : "bios",
                 NeedsNonFreeCodecs = true,
-                TargetDiskModel    = targetDisk?.Model,
-                TargetDiskBytes    = targetDisk?.TotalBytes ?? 0,
-                InstallMode        = installMode == DiskInstallMode.DualBoot ? "dual-boot" : "replace",
+                TargetDiskModel = targetDisk?.Model,
+                TargetDiskBytes = targetDisk?.TotalBytes ?? 0,
+                InstallMode = installMode == DiskInstallMode.DualBoot ? "dual-boot" : "replace",
                 LinuxPartitionSizeGb = installMode == DiskInstallMode.DualBoot ? linuxSizeGb : 0,
             },
         };
@@ -79,16 +79,16 @@ public sealed class ManifestGeneratorService
 /// <summary>User-supplied migration preferences collected on the Migration Setup wizard step.</summary>
 public sealed record UserSetup
 {
-    public required string                     WindowsUsername      { get; init; }
-    public required string                     LinuxUsername        { get; init; }
-    public string?                             LinuxPassword        { get; init; }
-    public string                              Locale               { get; init; } = "en_US.UTF-8";
-    public string                              Timezone             { get; init; } = "UTC";
-    public string                              Keymap               { get; init; } = "us";
-    public IReadOnlyList<string>               SelectedFolderNames  { get; init; } = [];
-    public IReadOnlyList<MigrationFolder>      SelectedFolders      { get; init; } = [];
-    public IReadOnlyList<string>               SelectedBrowserNames { get; init; } = [];
-    public IReadOnlyList<BrowserMigration>     SelectedBrowsers     { get; init; } = [];
-    public IReadOnlyList<SuggestedPackage>     SuggestedPackages    { get; init; } = [];
-    public IReadOnlyList<WifiNetwork>          WifiNetworks         { get; init; } = [];
+    public required string WindowsUsername { get; init; }
+    public required string LinuxUsername { get; init; }
+    public string? LinuxPassword { get; init; }
+    public string Locale { get; init; } = "en_US.UTF-8";
+    public string Timezone { get; init; } = "UTC";
+    public string Keymap { get; init; } = "us";
+    public IReadOnlyList<string> SelectedFolderNames { get; init; } = [];
+    public IReadOnlyList<MigrationFolder> SelectedFolders { get; init; } = [];
+    public IReadOnlyList<string> SelectedBrowserNames { get; init; } = [];
+    public IReadOnlyList<BrowserMigration> SelectedBrowsers { get; init; } = [];
+    public IReadOnlyList<SuggestedPackage> SuggestedPackages { get; init; } = [];
+    public IReadOnlyList<WifiNetwork> WifiNetworks { get; init; } = [];
 }

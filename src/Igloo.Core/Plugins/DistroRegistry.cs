@@ -47,7 +47,8 @@ public sealed class DistroRegistry
             ct.ThrowIfCancellationRequested();
 
             var folderName = Path.GetFileName(dir);
-            if (folderName.StartsWith('_')) continue;
+            if (folderName.StartsWith('_'))
+                continue;
 
             // DLL naming convention: Igloo.Distro.{PascalCase}.dll
             var dllName = "Igloo.Distro." + ToPascalCase(folderName) + ".dll";

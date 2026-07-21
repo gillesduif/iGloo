@@ -12,13 +12,15 @@ public sealed class ProportionalWidthConverter : IMultiValueConverter
 {
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
-        if (values is not [var partRaw, var wholeRaw, var widthRaw]) return 0d;
+        if (values is not [var partRaw, var wholeRaw, var widthRaw])
+            return 0d;
 
-        var part  = ToDouble(partRaw);
+        var part = ToDouble(partRaw);
         var whole = ToDouble(wholeRaw);
         var width = ToDouble(widthRaw);
 
-        if (whole <= 0 || width <= 0 || part <= 0) return 0d;
+        if (whole <= 0 || width <= 0 || part <= 0)
+            return 0d;
         return Math.Max(0, Math.Min(part / whole, 1.0) * width);
     }
 
@@ -28,9 +30,9 @@ public sealed class ProportionalWidthConverter : IMultiValueConverter
     private static double ToDouble(object value) => value switch
     {
         double d => d,
-        long l   => l,
-        int i    => i,
-        float f  => f,
-        _        => 0d,
+        long l => l,
+        int i => i,
+        float f => f,
+        _ => 0d,
     };
 }

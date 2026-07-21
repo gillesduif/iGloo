@@ -48,8 +48,8 @@ public sealed partial class WelcomeViewModel : ObservableObject
     [ObservableProperty]
     private QuizOption? _selectedUpdates;
 
-    partial void OnSelectedUseChanged(QuizOption? value)     => NotifyRecommendationChanged();
-    partial void OnSelectedStyleChanged(QuizOption? value)   => NotifyRecommendationChanged();
+    partial void OnSelectedUseChanged(QuizOption? value) => NotifyRecommendationChanged();
+    partial void OnSelectedStyleChanged(QuizOption? value) => NotifyRecommendationChanged();
     partial void OnSelectedUpdatesChanged(QuizOption? value) => NotifyRecommendationChanged();
 
     /// <summary>

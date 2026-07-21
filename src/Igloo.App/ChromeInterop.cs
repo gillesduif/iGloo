@@ -19,22 +19,22 @@ internal static class ChromeInterop
 {
     // ── Window messages ───────────────────────────────────────────────────────
     public const int WM_GETMINMAXINFO = 0x0024;
-    public const int WM_NCHITTEST     = 0x0084;
-    public const int WM_NCMOUSEMOVE   = 0x00A0;
+    public const int WM_NCHITTEST = 0x0084;
+    public const int WM_NCMOUSEMOVE = 0x00A0;
     public const int WM_NCLBUTTONDOWN = 0x00A1;
-    public const int WM_NCLBUTTONUP   = 0x00A2;
-    public const int WM_NCRBUTTONUP   = 0x00A5;
-    public const int WM_NCMOUSELEAVE  = 0x02A2;
-    public const int WM_SYSKEYDOWN    = 0x0104;
+    public const int WM_NCLBUTTONUP = 0x00A2;
+    public const int WM_NCRBUTTONUP = 0x00A5;
+    public const int WM_NCMOUSELEAVE = 0x02A2;
+    public const int WM_SYSKEYDOWN = 0x0104;
 
-    public const int HTCAPTION   = 2;
+    public const int HTCAPTION = 2;
     public const int HTMAXBUTTON = 9;
-    public const int VK_SPACE    = 0x20;
+    public const int VK_SPACE = 0x20;
 
     // ── Dark title bar ────────────────────────────────────────────────────────
 
-    private const int DWMWA_USE_IMMERSIVE_DARK_MODE          = 20; // Win10 2004+ / Win11
-    private const int DWMWA_USE_IMMERSIVE_DARK_MODE_PRE_20H1  = 19; // Win10 1809–1909
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20; // Win10 2004+ / Win11
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE_PRE_20H1 = 19; // Win10 1809–1909
 
     /// <summary>
     /// Asks DWM to render this window's native non-client area in dark mode. Only matters
@@ -52,8 +52,8 @@ internal static class ChromeInterop
     // ── Mica backdrop (the real thing, not a painted imitation) ──────────────
 
     private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;    // Win11 22H2+
-    private const int DWMWA_MICA_EFFECT         = 1029;  // Win11 21H2 (undocumented)
-    private const int DWMSBT_MAINWINDOW         = 2;     // Mica
+    private const int DWMWA_MICA_EFFECT = 1029;  // Win11 21H2 (undocumented)
+    private const int DWMSBT_MAINWINDOW = 2;     // Mica
 
     /// <summary>
     /// Asks DWM to render the system Mica backdrop behind this window — the same
@@ -82,23 +82,25 @@ internal static class ChromeInterop
     public static void ConstrainMaximizedBounds(IntPtr hwnd, IntPtr lParam, double minWidthDip, double minHeightDip)
     {
         var monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        if (monitor == IntPtr.Zero) return;
+        if (monitor == IntPtr.Zero)
+            return;
 
         var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
-        if (!GetMonitorInfo(monitor, ref mi)) return;
+        if (!GetMonitorInfo(monitor, ref mi))
+            return;
 
         var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
 
         // Maximized position/size in coordinates relative to the monitor.
         mmi.ptMaxPosition.X = mi.rcWork.Left - mi.rcMonitor.Left;
-        mmi.ptMaxPosition.Y = mi.rcWork.Top  - mi.rcMonitor.Top;
-        mmi.ptMaxSize.X     = mi.rcWork.Right  - mi.rcWork.Left;
-        mmi.ptMaxSize.Y     = mi.rcWork.Bottom - mi.rcWork.Top;
+        mmi.ptMaxPosition.Y = mi.rcWork.Top - mi.rcMonitor.Top;
+        mmi.ptMaxSize.X = mi.rcWork.Right - mi.rcWork.Left;
+        mmi.ptMaxSize.Y = mi.rcWork.Bottom - mi.rcWork.Top;
 
         // We answer WM_GETMINMAXINFO fully (handled=true), so re-assert the min size
         // ourselves — otherwise the user could shrink the window past MinWidth/MinHeight.
         var scale = DpiScale(hwnd);
-        mmi.ptMinTrackSize.X = (int)(minWidthDip  * scale);
+        mmi.ptMinTrackSize.X = (int)(minWidthDip * scale);
         mmi.ptMinTrackSize.Y = (int)(minHeightDip * scale);
 
         Marshal.StructureToPtr(mmi, lParam, true);
@@ -122,15 +124,16 @@ internal static class ChromeInterop
     {
         var hwnd = new WindowInteropHelper(window).Handle;
         var menu = GetSystemMenu(hwnd, false);
-        if (menu == IntPtr.Zero) return;
+        if (menu == IntPtr.Zero)
+            return;
 
         var maximized = window.WindowState == WindowState.Maximized;
-        EnableMenuItem(menu, SC_RESTORE,  maximized ? MF_ENABLED : MF_GRAYED);
-        EnableMenuItem(menu, SC_MOVE,     maximized ? MF_GRAYED  : MF_ENABLED);
-        EnableMenuItem(menu, SC_SIZE,     maximized ? MF_GRAYED  : MF_ENABLED);
+        EnableMenuItem(menu, SC_RESTORE, maximized ? MF_ENABLED : MF_GRAYED);
+        EnableMenuItem(menu, SC_MOVE, maximized ? MF_GRAYED : MF_ENABLED);
+        EnableMenuItem(menu, SC_SIZE, maximized ? MF_GRAYED : MF_ENABLED);
         EnableMenuItem(menu, SC_MINIMIZE, MF_ENABLED);
-        EnableMenuItem(menu, SC_MAXIMIZE, maximized ? MF_GRAYED  : MF_ENABLED);
-        EnableMenuItem(menu, SC_CLOSE,    MF_ENABLED);
+        EnableMenuItem(menu, SC_MAXIMIZE, maximized ? MF_GRAYED : MF_ENABLED);
+        EnableMenuItem(menu, SC_CLOSE, MF_ENABLED);
 
         var cmd = TrackPopupMenuEx(menu, TPM_RETURNCMD | TPM_LEFTBUTTON, screenX, screenY, hwnd, IntPtr.Zero);
         if (cmd != 0)

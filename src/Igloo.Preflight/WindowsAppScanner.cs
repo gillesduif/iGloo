@@ -140,7 +140,8 @@ public static class WindowsAppScanner
             try
             {
                 using var root = Registry.LocalMachine.OpenSubKey(path);
-                if (root is null) continue;
+                if (root is null)
+                    continue;
                 foreach (var subName in root.GetSubKeyNames())
                 {
                     try
@@ -191,13 +192,14 @@ public static class WindowsAppScanner
                 mapping.Keywords.Any(kw =>
                     name.Contains(kw, StringComparison.OrdinalIgnoreCase)));
 
-            if (hit is null) continue;
+            if (hit is null)
+                continue;
 
             results.Add(new DetectedSuggestion(
                 WindowsDisplayName: hit,
-                LinuxAppName:       mapping.LinuxAppName,
-                FlatpakId:          mapping.FlatpakId,
-                NativePackage:      mapping.NativePackage));
+                LinuxAppName: mapping.LinuxAppName,
+                FlatpakId: mapping.FlatpakId,
+                NativePackage: mapping.NativePackage));
         }
 
         return results;
@@ -207,9 +209,9 @@ public static class WindowsAppScanner
 
     private sealed record AppMapping(
         string[] Keywords,
-        string   LinuxAppName,
-        string?  FlatpakId,
-        string?  NativePackage);
+        string LinuxAppName,
+        string? FlatpakId,
+        string? NativePackage);
 }
 
 /// <summary>
@@ -217,7 +219,7 @@ public static class WindowsAppScanner
 /// one detected Windows application paired with its Linux equivalent.
 /// </summary>
 public sealed record DetectedSuggestion(
-    string  WindowsDisplayName,
-    string  LinuxAppName,
+    string WindowsDisplayName,
+    string LinuxAppName,
     string? FlatpakId,
     string? NativePackage);

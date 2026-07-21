@@ -32,7 +32,7 @@ internal static class PgpDetachedVerifier
             using var sigInput = new MemoryStream(detachedSignature);
             var factory = new PgpObjectFactory(PgpUtilities.GetDecoderStream(sigInput));
 
-            var obj     = factory.NextPgpObject();
+            var obj = factory.NextPgpObject();
             var sigList = obj as PgpSignatureList;
             if (sigList is null && obj is PgpCompressedData compressed)
                 sigList = new PgpObjectFactory(compressed.GetDataStream()).NextPgpObject() as PgpSignatureList;

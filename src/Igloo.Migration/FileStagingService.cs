@@ -29,14 +29,14 @@ public sealed class FileStagingService : IFileStagingService
     private static readonly EnumerationOptions ScanOptions = new()
     {
         RecurseSubdirectories = true,
-        IgnoreInaccessible    = true,
-        AttributesToSkip      = FileAttributes.ReparsePoint,
+        IgnoreInaccessible = true,
+        AttributesToSkip = FileAttributes.ReparsePoint,
     };
 
     public async Task<FileStagingResult> StageAsync(
-        FileStagingRequest              request,
+        FileStagingRequest request,
         IProgress<FileStagingProgress>? progress,
-        CancellationToken               ct = default)
+        CancellationToken ct = default)
     {
         var stagingRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -53,7 +53,7 @@ public sealed class FileStagingService : IFileStagingService
         // ── Phase 1: Scan ────────────────────────────────────────────────────
         progress?.Report(new FileStagingProgress(FileStagingPhase.Scanning, 0, 0, "Scanning files…"));
 
-        var jobs        = new List<(string Source, string Destination)>();
+        var jobs = new List<(string Source, string Destination)>();
         long totalBytes = 0;
 
         foreach (var folder in request.FolderPaths)
@@ -67,17 +67,18 @@ public sealed class FileStagingService : IFileStagingService
             }
 
             var folderName = Path.GetFileName(folder);
-            var destRoot   = Path.Combine(stagingRoot, "files", folderName);
+            var destRoot = Path.Combine(stagingRoot, "files", folderName);
 
             foreach (var file in Directory.EnumerateFiles(folder, "*", ScanOptions))
             {
                 ct.ThrowIfCancellationRequested();
 
-                var relPath  = Path.GetRelativePath(folder, file);
+                var relPath = Path.GetRelativePath(folder, file);
                 var destPath = Path.Combine(destRoot, relPath);
                 jobs.Add((file, destPath));
 
-                try   { totalBytes += new FileInfo(file).Length; }
+                try
+                { totalBytes += new FileInfo(file).Length; }
                 catch { /* file may be locked or gone - size estimate only */ }
             }
         }

@@ -21,8 +21,8 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
-        AllowTrailingCommas         = true,
-        ReadCommentHandling         = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
     };
 
     public string Id => "linuxmint-cinnamon";
@@ -31,11 +31,12 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
     public LinuxmintCinnamonPlugin()
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var path   = Path.Combine(asmDir, "distro.json");
+        var path = Path.Combine(asmDir, "distro.json");
         DistroManifest? raw = null;
         if (File.Exists(path))
         {
-            try { raw = JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(path), JsonOpts); }
+            try
+            { raw = JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(path), JsonOpts); }
             catch { /* defaults */ }
         }
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
@@ -62,7 +63,7 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
 
     public Task<InstallerConfig> RenderInstallerConfigAsync(MigrationManifest manifest, CancellationToken ct = default)
     {
-        var asmDir       = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var templatePath = Path.Combine(asmDir, "preseed", "preseed.cfg.template");
         if (!File.Exists(templatePath))
             throw new FileNotFoundException("preseed.cfg.template missing from the Mint plugin output.");
@@ -76,7 +77,7 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
 
     public Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
     {
-        var asmDir   = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var agentDir = Directory.Exists(Path.Combine(asmDir, "agent"))
             ? Path.Combine(asmDir, "agent")
             : Path.Combine(asmDir, "..", "_debian-family", "agent");
@@ -85,7 +86,8 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
         foreach (var (name, exe) in new[] { ("first-boot.sh", true), ("agent.py", true), ("igloo-first-boot.service", false) })
         {
             var p = Path.Combine(agentDir, name);
-            if (File.Exists(p)) files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
+            if (File.Exists(p))
+                files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
         }
         return Task.FromResult(new AgentPayload(files));
     }
@@ -102,60 +104,71 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
             "iso-scan/filename=/mint.iso iso-scan/copy_iso_to_ram=true ---",
         KernelIsoPaths = ["casper/vmlinuz"],
         InitrdIsoPaths = ["casper/initrd.lz", "casper/initrd"],
-        ExtraIsoFiles  = Array.Empty<IsoFileStage>(),
+        ExtraIsoFiles = Array.Empty<IsoFileStage>(),
         CopyFullIsoToVolume = true,        // casper loop-mounts the whole ISO
-        IsoVolumeFileName   = "mint.iso",
+        IsoVolumeFileName = "mint.iso",
         // Fully-unattended Ubiquity reads the preseed from the initrd (file=/preseed.cfg).
-        ConfigDelivery   = ConfigDelivery.InjectIntoInitrd,
+        ConfigDelivery = ConfigDelivery.InjectIntoInitrd,
         InitrdConfigPath = "preseed.cfg",
     };
 
     // ── Rendering ──────────────────────────────────────────────────────────────
 
     private static string RenderFromTemplate(string template, MigrationManifest m) => template
-        .Replace("{{LOCALE}}",         m.User.Locale)
-        .Replace("{{KEYMAP}}",         m.User.Keymap)
-        .Replace("{{TIMEZONE}}",       m.User.Timezone)
-        .Replace("{{HOSTNAME}}",       m.User.PreferredLinuxUsername + "-pc")
+        .Replace("{{LOCALE}}", m.User.Locale)
+        .Replace("{{KEYMAP}}", m.User.Keymap)
+        .Replace("{{TIMEZONE}}", m.User.Timezone)
+        .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc")
         .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername)
-        .Replace("{{FULL_NAME}}",      m.User.FullName ?? m.User.PreferredLinuxUsername)
-        .Replace("{{PASSWORD}}",       m.User.LinuxPassword ?? "")
-        .Replace("{{INSTALL_MODE}}",   m.Hardware.InstallMode);
+        .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername)
+        .Replace("{{PASSWORD}}", m.User.LinuxPassword ?? "")
+        .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode);
 
     private static byte[] NormalizeCrLf(byte[] bytes)
     {
-        if (Array.IndexOf(bytes, (byte)'\r') < 0) return bytes;
+        if (Array.IndexOf(bytes, (byte)'\r') < 0)
+            return bytes;
         var buf = new MemoryStream(bytes.Length);
         for (int i = 0; i < bytes.Length; i++)
         {
-            if (bytes[i] == (byte)'\r') { buf.WriteByte((byte)'\n'); if (i + 1 < bytes.Length && bytes[i + 1] == (byte)'\n') i++; }
-            else buf.WriteByte(bytes[i]);
+            if (bytes[i] == (byte)'\r')
+            { buf.WriteByte((byte)'\n'); if (i + 1 < bytes.Length && bytes[i + 1] == (byte)'\n') i++; }
+            else
+                buf.WriteByte(bytes[i]);
         }
         return buf.ToArray();
     }
 
     private static DistroMetadata BuildMetadata(DistroManifest raw) => new()
     {
-        DisplayName               = raw.DisplayName,
-        Description               = raw.Description,
+        DisplayName = raw.DisplayName,
+        Description = raw.Description,
         DefaultDesktopEnvironment = raw.DefaultDesktopEnvironment ?? "Cinnamon",
-        InstallerType             = InstallerType.Ubiquity,
-        IsoDownloadUrl            = new Uri(raw.Iso.DownloadUrl),
-        IsoSha256                 = raw.Iso.Sha256,
-        IsoGpgSignatureUrl        = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
-        IsoGpgKeyUrl              = raw.Iso.GpgKeyUrl       is not null ? new Uri(raw.Iso.GpgKeyUrl)       : null,
-        Tags                      = raw.Tags,
-        Screenshots               = raw.Screenshots,
-        MinimumRequirements       = raw.MinimumRequirements is { } req
-            ? new HardwareRequirements { MinRamBytes = req.MinRamBytes, MinDiskBytes = req.MinDiskBytes,
-                                         RequiresUefi = req.RequiresUefi, Requires64Bit = req.Requires64Bit }
+        InstallerType = InstallerType.Ubiquity,
+        IsoDownloadUrl = new Uri(raw.Iso.DownloadUrl),
+        IsoSha256 = raw.Iso.Sha256,
+        IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
+        IsoGpgKeyUrl = raw.Iso.GpgKeyUrl is not null ? new Uri(raw.Iso.GpgKeyUrl) : null,
+        Tags = raw.Tags,
+        Screenshots = raw.Screenshots,
+        MinimumRequirements = raw.MinimumRequirements is { } req
+            ? new HardwareRequirements
+            {
+                MinRamBytes = req.MinRamBytes,
+                MinDiskBytes = req.MinDiskBytes,
+                RequiresUefi = req.RequiresUefi,
+                Requires64Bit = req.Requires64Bit
+            }
             : new HardwareRequirements(),
     };
 
     private static DistroMetadata FallbackMetadata() => new()
     {
-        DisplayName = "Linux Mint", Description = "Linux Mint with the Cinnamon desktop.",
-        DefaultDesktopEnvironment = "Cinnamon", InstallerType = InstallerType.Ubiquity,
-        IsoDownloadUrl = new Uri("https://linuxmint.com"), IsoSha256 = string.Empty,
+        DisplayName = "Linux Mint",
+        Description = "Linux Mint with the Cinnamon desktop.",
+        DefaultDesktopEnvironment = "Cinnamon",
+        InstallerType = InstallerType.Ubiquity,
+        IsoDownloadUrl = new Uri("https://linuxmint.com"),
+        IsoSha256 = string.Empty,
     };
 }

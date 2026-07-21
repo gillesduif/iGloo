@@ -31,19 +31,19 @@ public sealed class CoverFlow3DControl : FrameworkElement
 {
     // ── Scene constants ──────────────────────────────────────────────────────
 
-    private const double FlankAngleDeg   = 56;    // Y rotation of side covers
-    private const double FirstFlankX     = 2.05;  // gap between center and first flank
-    private const double FlankSpacingX   = 0.62;  // spacing between subsequent flanks
-    private const double FlankDepthZ     = 1.30;  // how far the first flank drops back
-    private const double FlankRecedeZ    = 0.34;  // additional depth per further flank
-    private const double CenterScale     = 1.16;  // the centered cover is slightly larger
-    private const double CameraBaseZ     = 6.1;
-    private const double CameraDollyMax  = 0.85;  // dolly-out at high transition speed
-    private const double EaseRate        = 9.0;   // exponential ease-out (~330 ms to settle)
+    private const double FlankAngleDeg = 56;    // Y rotation of side covers
+    private const double FirstFlankX = 2.05;  // gap between center and first flank
+    private const double FlankSpacingX = 0.62;  // spacing between subsequent flanks
+    private const double FlankDepthZ = 1.30;  // how far the first flank drops back
+    private const double FlankRecedeZ = 0.34;  // additional depth per further flank
+    private const double CenterScale = 1.16;  // the centered cover is slightly larger
+    private const double CameraBaseZ = 6.1;
+    private const double CameraDollyMax = 0.85;  // dolly-out at high transition speed
+    private const double EaseRate = 9.0;   // exponential ease-out (~330 ms to settle)
 
-    private const int FullResPixels      = 512;   // texture size near center
-    private const int LowResPixels       = 144;   // texture size beyond the window
-    private const int FullResWindow      = 4;     // ± positions that get full-res textures
+    private const int FullResPixels = 512;   // texture size near center
+    private const int LowResPixels = 144;   // texture size beyond the window
+    private const int FullResWindow = 4;     // ± positions that get full-res textures
 
     private static readonly Color BackgroundColor = Color.FromRgb(0x07, 0x0B, 0x16);
 
@@ -62,22 +62,22 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     // ── Visual tree ──────────────────────────────────────────────────────────
 
-    private readonly Grid              _root;
-    private readonly Border            _focusRing;
-    private readonly Viewport3D        _viewport;
+    private readonly Grid _root;
+    private readonly Border _focusRing;
+    private readonly Viewport3D _viewport;
     private readonly PerspectiveCamera _camera;
-    private readonly ModelVisual3D     _lightsVisual;
+    private readonly ModelVisual3D _lightsVisual;
 
     // ── Scene/animation state (the only state this control owns) ────────────
 
-    private readonly List<Cover>                _covers       = [];
-    private readonly Dictionary<Model3D, int>   _modelToIndex = [];
+    private readonly List<Cover> _covers = [];
+    private readonly Dictionary<Model3D, int> _modelToIndex = [];
     private readonly List<CoverItemAutomationPeer> _itemPeers = [];
     private List<object> _items = [];
     private double _offset;          // continuous flow position, eased toward _target
     private double _target;
-    private bool   _animating;
-    private bool   _syncingSelection;
+    private bool _animating;
+    private bool _syncingSelection;
     private TimeSpan _lastRenderTime;
 
     public CoverFlow3DControl()
@@ -87,9 +87,9 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
         _camera = new PerspectiveCamera
         {
-            FieldOfView   = 62,
-            UpDirection   = new Vector3D(0, 1, 0),
-            Position      = new Point3D(0, 0.30, CameraBaseZ),
+            FieldOfView = 62,
+            UpDirection = new Vector3D(0, 1, 0),
+            Position = new Point3D(0, 0.30, CameraBaseZ),
             LookDirection = new Vector3D(0, -0.10, -1),
         };
 
@@ -108,9 +108,9 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
         _focusRing = new Border
         {
-            BorderThickness  = new Thickness(1.5),
-            CornerRadius     = new CornerRadius(12),
-            BorderBrush      = Brushes.Transparent,
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(12),
+            BorderBrush = Brushes.Transparent,
             IsHitTestVisible = false,
         };
 
@@ -216,13 +216,14 @@ public sealed class CoverFlow3DControl : FrameworkElement
         // on the middle of the shelf — starting at the far-left cover wastes half
         // the carousel and reads as an empty stage.
         var index = SelectedItem is { } current ? _items.IndexOf(current) : -1;
-        if (index < 0 && _items.Count > 0) index = _items.Count / 2;
+        if (index < 0 && _items.Count > 0)
+            index = _items.Count / 2;
 
         _syncingSelection = true;
         try
         {
             SelectedIndex = index;
-            SelectedItem  = index >= 0 ? _items[index] : null;
+            SelectedItem = index >= 0 ? _items[index] : null;
         }
         finally
         {
@@ -240,7 +241,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     private void OnSelectedItemChanged(object? newValue)
     {
-        if (_syncingSelection) return;
+        if (_syncingSelection)
+            return;
 
         if (newValue is null)
         {
@@ -263,21 +265,23 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     private void OnSelectedIndexChanged()
     {
-        if (_syncingSelection) return;
+        if (_syncingSelection)
+            return;
 
         var index = Math.Clamp(SelectedIndex, _items.Count == 0 ? -1 : 0, _items.Count - 1);
         _syncingSelection = true;
         try
         {
             SelectedIndex = index;
-            SelectedItem  = index >= 0 ? _items[index] : null;
+            SelectedItem = index >= 0 ? _items[index] : null;
         }
         finally
         {
             _syncingSelection = false;
         }
 
-        if (index < 0) return;
+        if (index < 0)
+            return;
 
         _target = index;
         StartAnimation();
@@ -290,23 +294,40 @@ public sealed class CoverFlow3DControl : FrameworkElement
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (_items.Count == 0) return;
+        if (_items.Count == 0)
+            return;
 
         switch (e.Key)
         {
-            case Key.Left:  SelectedIndex = Math.Max(0, SelectedIndex - 1);                e.Handled = true; break;
-            case Key.Right: SelectedIndex = Math.Min(_items.Count - 1, SelectedIndex + 1); e.Handled = true; break;
-            case Key.Home:  SelectedIndex = 0;                                             e.Handled = true; break;
-            case Key.End:   SelectedIndex = _items.Count - 1;                              e.Handled = true; break;
+            case Key.Left:
+                SelectedIndex = Math.Max(0, SelectedIndex - 1);
+                e.Handled = true;
+                break;
+            case Key.Right:
+                SelectedIndex = Math.Min(_items.Count - 1, SelectedIndex + 1);
+                e.Handled = true;
+                break;
+            case Key.Home:
+                SelectedIndex = 0;
+                e.Handled = true;
+                break;
+            case Key.End:
+                SelectedIndex = _items.Count - 1;
+                e.Handled = true;
+                break;
             case Key.Enter:
-            case Key.Space: Confirm();                                                     e.Handled = true; break;
+            case Key.Space:
+                Confirm();
+                e.Handled = true;
+                break;
         }
     }
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
-        if (_items.Count == 0) return;
+        if (_items.Count == 0)
+            return;
         var step = e.Delta < 0 ? 1 : -1;
         SelectedIndex = Math.Clamp(SelectedIndex + step, 0, _items.Count - 1);
         e.Handled = true;
@@ -322,15 +343,18 @@ public sealed class CoverFlow3DControl : FrameworkElement
         if (hit is RayMeshGeometry3DHitTestResult meshHit
             && _modelToIndex.TryGetValue(meshHit.ModelHit, out var index))
         {
-            if (index == SelectedIndex) Confirm();   // click the centered cover → proceed
-            else SelectedIndex = index;              // click a flank → animate it to center
+            if (index == SelectedIndex)
+                Confirm();   // click the centered cover → proceed
+            else
+                SelectedIndex = index;              // click a flank → animate it to center
             e.Handled = true;
         }
     }
 
     private void Confirm()
     {
-        if (!CanConfirm) return;
+        if (!CanConfirm)
+            return;
         if (ConfirmCommand is { } command && command.CanExecute(null))
             command.Execute(null);
     }
@@ -356,7 +380,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
             var cover = CreateCover(_items[i]);
             _covers.Add(cover);
             _viewport.Children.Add(cover.Visual);
-            _modelToIndex[cover.FrontModel]      = i;
+            _modelToIndex[cover.FrontModel] = i;
             _modelToIndex[cover.ReflectionModel] = i;
             _itemPeers.Add(new CoverItemAutomationPeer(this, _items[i], i));
         }
@@ -384,15 +408,15 @@ public sealed class CoverFlow3DControl : FrameworkElement
         var reflectionMaterial = new MaterialGroup();
         reflectionMaterial.Children.Add(reflectionDiffuse);
 
-        var frontModel      = new GeometryModel3D(FrontMesh, frontMaterial);
+        var frontModel = new GeometryModel3D(FrontMesh, frontMaterial);
         var reflectionModel = new GeometryModel3D(ReflectionMesh, reflectionMaterial);
 
-        var rotation    = new AxisAngleRotation3D(new Vector3D(0, 1, 0), 0);
+        var rotation = new AxisAngleRotation3D(new Vector3D(0, 1, 0), 0);
         // Constant lift: raises the whole ensemble (cover + reflection) in the
         // frame, closing the dead space between the category chips and the art.
         var translation = new TranslateTransform3D { OffsetY = 0.42 };
-        var scale       = new ScaleTransform3D(1, 1, 1);
-        var transform   = new Transform3DGroup();
+        var scale = new ScaleTransform3D(1, 1, 1);
+        var transform = new Transform3DGroup();
         transform.Children.Add(scale);
         transform.Children.Add(new RotateTransform3D(rotation));
         transform.Children.Add(translation);
@@ -403,15 +427,15 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
         return new Cover
         {
-            Item              = item,
-            Visual            = new ModelVisual3D { Content = group },
-            Rotation          = rotation,
-            Translation       = translation,
-            Scale             = scale,
-            EmissiveBrush     = emissiveBrush,
-            FrontModel        = frontModel,
-            ReflectionModel   = reflectionModel,
-            FrontDiffuse      = frontDiffuse,
+            Item = item,
+            Visual = new ModelVisual3D { Content = group },
+            Rotation = rotation,
+            Translation = translation,
+            Scale = scale,
+            EmissiveBrush = emissiveBrush,
+            FrontModel = frontModel,
+            ReflectionModel = reflectionModel,
+            FrontDiffuse = frontDiffuse,
             ReflectionDiffuse = reflectionDiffuse,
         };
     }
@@ -444,12 +468,12 @@ public sealed class CoverFlow3DControl : FrameworkElement
         Brush front = source is not null ? new ImageBrush(source) : FallbackFrontBrush.Clone();
         var reflection = BuildReflectionBrush(source);
 
-        cover.FrontBrush               = front;
-        cover.ReflectionBrush          = reflection;
-        cover.FrontDiffuse.Brush       = front;
-        cover.ReflectionDiffuse.Brush  = reflection;
+        cover.FrontBrush = front;
+        cover.ReflectionBrush = reflection;
+        cover.FrontDiffuse.Brush = front;
+        cover.ReflectionDiffuse.Brush = reflection;
         cover.EmissiveBrush.ImageSource = source;
-        cover.TexturePixels            = pixels;
+        cover.TexturePixels = pixels;
         ApplyFog(cover);   // re-apply the cover's current fog to the fresh brushes
     }
 
@@ -457,8 +481,10 @@ public sealed class CoverFlow3DControl : FrameworkElement
     private static void ApplyFog(Cover cover)
     {
         var visibility = 1 - cover.Fog;
-        if (!cover.FrontBrush.IsFrozen)      cover.FrontBrush.Opacity      = visibility;
-        if (!cover.ReflectionBrush.IsFrozen) cover.ReflectionBrush.Opacity = visibility;
+        if (!cover.FrontBrush.IsFrozen)
+            cover.FrontBrush.Opacity = visibility;
+        if (!cover.ReflectionBrush.IsFrozen)
+            cover.ReflectionBrush.Opacity = visibility;
     }
 
     private static readonly Brush FallbackFrontBrush = CreateFallbackFrontBrush();
@@ -496,7 +522,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         group.OpacityMask = new LinearGradientBrush
         {
             StartPoint = new Point(0, 0),
-            EndPoint   = new Point(0, 1),
+            EndPoint = new Point(0, 1),
             GradientStops =
             {
                 new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.0),
@@ -510,8 +536,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
         using (var dc = visual.RenderOpen())
             dc.DrawDrawing(new DrawingGroup
             {
-                Children    = { group },
-                Transform   = new ScaleTransform(bake, bake),
+                Children = { group },
+                Transform = new ScaleTransform(bake, bake),
             });
         var baked = new RenderTargetBitmap(bake, bake, 96, 96, PixelFormats.Pbgra32);
         baked.Render(visual);
@@ -534,7 +560,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
             return;
         }
 
-        if (_animating) return;
+        if (_animating)
+            return;
         _animating = true;
         _lastRenderTime = TimeSpan.Zero;
         CompositionTarget.Rendering += OnRendering;
@@ -542,7 +569,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     private void StopAnimation()
     {
-        if (!_animating) return;
+        if (!_animating)
+            return;
         _animating = false;
         CompositionTarget.Rendering -= OnRendering;
     }
@@ -558,7 +586,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
         var dt = Math.Min((now - _lastRenderTime).TotalSeconds, 0.05);
         _lastRenderTime = now;
-        if (dt <= 0) return;
+        if (dt <= 0)
+            return;
 
         // Exponential ease-out toward the target - equivalent feel to a ~330 ms
         // CubicEase Storyboard, but retargetable every frame without a restart.
@@ -605,15 +634,15 @@ public sealed class CoverFlow3DControl : FrameworkElement
         for (var i = 0; i < _covers.Count; i++)
         {
             var cover = _covers[i];
-            var d     = i - _offset;
-            var side  = Math.Sign(d);
-            var a     = Math.Abs(d);
-            var t     = Math.Min(a, 1.0);       // 0 = centered … 1 = first flank pose
+            var d = i - _offset;
+            var side = Math.Sign(d);
+            var a = Math.Abs(d);
+            var t = Math.Min(a, 1.0);       // 0 = centered … 1 = first flank pose
             var extra = Math.Max(a - 1.0, 0.0); // positions beyond the first flank
 
             cover.Translation.OffsetX = side * (FirstFlankX * t + FlankSpacingX * extra);
             cover.Translation.OffsetZ = -(FlankDepthZ * t + FlankRecedeZ * extra);
-            cover.Rotation.Angle      = -side * FlankAngleDeg * t;
+            cover.Rotation.Angle = -side * FlankAngleDeg * t;
 
             var scale = 1 + (CenterScale - 1) * (1 - t);
             cover.Scale.ScaleX = scale;
@@ -636,8 +665,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
         // breathes during a jump, with a slight lateral lean into the motion.
         var delta = _target - _offset;
         var dolly = Math.Min(Math.Abs(delta), 2.5) / 2.5 * CameraDollyMax;
-        var lean  = Math.Clamp(delta, -1.0, 1.0) * 0.12;
-        _camera.Position      = new Point3D(lean, 0.30, CameraBaseZ + dolly);
+        var lean = Math.Clamp(delta, -1.0, 1.0) * 0.12;
+        _camera.Position = new Point3D(lean, 0.30, CameraBaseZ + dolly);
         _camera.LookDirection = new Vector3D(-lean * 0.04, -0.10, -1);
     }
 
@@ -649,9 +678,9 @@ public sealed class CoverFlow3DControl : FrameworkElement
     {
         var mesh = new MeshGeometry3D
         {
-            Positions          = [p0, p1, p2, p3],
+            Positions = [p0, p1, p2, p3],
             TextureCoordinates = [uv0, uv1, uv2, uv3],
-            TriangleIndices    = [0, 1, 2, 0, 2, 3],
+            TriangleIndices = [0, 1, 2, 0, 2, 3],
         };
         mesh.Freeze();
         return mesh;
@@ -659,23 +688,23 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     private sealed class Cover
     {
-        public required object               Item;
-        public required ModelVisual3D        Visual;
-        public required AxisAngleRotation3D  Rotation;
+        public required object Item;
+        public required ModelVisual3D Visual;
+        public required AxisAngleRotation3D Rotation;
         public required TranslateTransform3D Translation;
-        public required ScaleTransform3D     Scale;
-        public required ImageBrush           EmissiveBrush;
-        public required GeometryModel3D      FrontModel;
-        public required GeometryModel3D      ReflectionModel;
-        public required DiffuseMaterial      FrontDiffuse;
-        public required DiffuseMaterial      ReflectionDiffuse;
+        public required ScaleTransform3D Scale;
+        public required ImageBrush EmissiveBrush;
+        public required GeometryModel3D FrontModel;
+        public required GeometryModel3D ReflectionModel;
+        public required DiffuseMaterial FrontDiffuse;
+        public required DiffuseMaterial ReflectionDiffuse;
         public int TexturePixels;
 
         // Depth-fog state: 0 = centered/fully visible … 0.88 = far flank. Applied
         // by fading FrontBrush/ReflectionBrush opacity (never an overlay layer).
         public double Fog;
-        public Brush  FrontBrush      = Brushes.Transparent;
-        public Brush  ReflectionBrush = Brushes.Transparent;
+        public Brush FrontBrush = Brushes.Transparent;
+        public Brush ReflectionBrush = Brushes.Transparent;
     }
 
     // ── UI Automation ────────────────────────────────────────────────────────
@@ -730,7 +759,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         public CoverItemAutomationPeer(CoverFlow3DControl owner, object item, int index)
         {
             _owner = owner;
-            _item  = item;
+            _item = item;
             _index = index;
         }
 

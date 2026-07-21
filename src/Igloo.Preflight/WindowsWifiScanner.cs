@@ -43,13 +43,15 @@ public static class WindowsWifiScanner
             var connectedValues = GetConnectedValues();
 
             var results = new List<WifiNetwork>();
-            var seen    = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var file in Directory.EnumerateFiles(tmpDir, "*.xml"))
             {
                 var net = ParseProfile(file, connectedValues);
-                if (net is null) continue;
-                if (!seen.Add(net.Ssid)) continue;   // de-dupe per-adapter duplicates
+                if (net is null)
+                    continue;
+                if (!seen.Add(net.Ssid))
+                    continue;   // de-dupe per-adapter duplicates
                 results.Add(net);
             }
 
@@ -63,7 +65,9 @@ public static class WindowsWifiScanner
         {
             if (tmpDir is not null)
             {
-                try { Directory.Delete(tmpDir, recursive: true); } catch { /* best-effort */ }
+                try
+                { Directory.Delete(tmpDir, recursive: true); }
+                catch { /* best-effort */ }
             }
         }
     }
@@ -74,24 +78,26 @@ public static class WindowsWifiScanner
     {
         try
         {
-            var doc  = XDocument.Load(path);
+            var doc = XDocument.Load(path);
             var root = doc.Root;
-            if (root is null) return null;
+            if (root is null)
+                return null;
 
             // SSIDConfig → SSID → name
             var ssidConfig = FirstLocal(root, "SSIDConfig");
-            var ssidElem   = FirstLocal(ssidConfig, "SSID");
-            var ssid       = FirstLocal(ssidElem, "name")?.Value?.Trim();
-            if (string.IsNullOrWhiteSpace(ssid)) return null;
+            var ssidElem = FirstLocal(ssidConfig, "SSID");
+            var ssid = FirstLocal(ssidElem, "name")?.Value?.Trim();
+            if (string.IsNullOrWhiteSpace(ssid))
+                return null;
 
             var hidden = string.Equals(
                 FirstLocal(ssidConfig, "nonBroadcast")?.Value?.Trim(),
                 "true", StringComparison.OrdinalIgnoreCase);
 
             // MSM → security → authEncryption → authentication
-            var security    = FirstLocal(FirstLocal(root, "MSM"), "security");
-            var authEnc     = FirstLocal(security, "authEncryption");
-            var auth        = FirstLocal(authEnc, "authentication")?.Value?.Trim() ?? "open";
+            var security = FirstLocal(FirstLocal(root, "MSM"), "security");
+            var authEnc = FirstLocal(security, "authEncryption");
+            var auth = FirstLocal(authEnc, "authentication")?.Value?.Trim() ?? "open";
 
             // MSM → security → sharedKey → keyMaterial
             var keyMaterial = FirstLocal(FirstLocal(security, "sharedKey"), "keyMaterial")?.Value;
@@ -100,10 +106,10 @@ public static class WindowsWifiScanner
 
             return new WifiNetwork
             {
-                Ssid      = ssid,
-                Security  = normalisedSecurity,
-                Psk       = psk,
-                Hidden    = hidden,
+                Ssid = ssid,
+                Security = normalisedSecurity,
+                Psk = psk,
+                Hidden = hidden,
                 IsPrimary = connectedValues.Contains(ssid),
             };
         }
@@ -150,14 +156,17 @@ public static class WindowsWifiScanner
     {
         var values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var text = RunNetsh("wlan show interfaces");
-        if (text is null) return values;
+        if (text is null)
+            return values;
 
         foreach (var line in text.Split('\n'))
         {
             var idx = line.IndexOf(':');
-            if (idx < 0 || idx + 1 >= line.Length) continue;
+            if (idx < 0 || idx + 1 >= line.Length)
+                continue;
             var value = line[(idx + 1)..].Trim();
-            if (value.Length > 0) values.Add(value);
+            if (value.Length > 0)
+                values.Add(value);
         }
         return values;
     }
@@ -171,21 +180,24 @@ public static class WindowsWifiScanner
         {
             var psi = new ProcessStartInfo
             {
-                FileName               = "netsh",
-                Arguments              = arguments,
+                FileName = "netsh",
+                Arguments = arguments,
                 RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
             };
 
             using var p = Process.Start(psi);
-            if (p is null) return null;
+            if (p is null)
+                return null;
 
             var output = p.StandardOutput.ReadToEnd();
             if (!p.WaitForExit(15_000))
             {
-                try { p.Kill(); } catch { /* ignore */ }
+                try
+                { p.Kill(); }
+                catch { /* ignore */ }
                 return null;
             }
             return output;

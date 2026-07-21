@@ -21,12 +21,12 @@ namespace Igloo.App.ViewModels;
 /// </summary>
 public sealed partial class DirectInstallViewModel : ObservableObject
 {
-    private readonly IDirectInstallService              _installer;
-    private readonly DistroRegistry                     _registry;
-    private readonly ILogger<DirectInstallViewModel>    _logger;
+    private readonly IDirectInstallService _installer;
+    private readonly DistroRegistry _registry;
+    private readonly ILogger<DirectInstallViewModel> _logger;
 
-    private int     _diskNumber;
-    private long    _linuxSizeBytes;
+    private int _diskNumber;
+    private long _linuxSizeBytes;
     private string? _isoPath;
     private string? _stagingDirectory;
     private string? _stage2Url;
@@ -38,8 +38,8 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsCancelable))]
     private bool _isRunning;
 
-    [ObservableProperty] private bool    _isComplete;
-    [ObservableProperty] private bool    _hasError;
+    [ObservableProperty] private bool _isComplete;
+    [ObservableProperty] private bool _hasError;
     [ObservableProperty] private string? _errorMessage;
 
     [ObservableProperty]
@@ -58,14 +58,14 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
     private long _bytesTotal;
 
-    [ObservableProperty] private string?              _phaseDisplay;
-    [ObservableProperty] private DirectInstallPhase   _currentPhase;
-    [ObservableProperty] private bool                 _isRebooting;
+    [ObservableProperty] private string? _phaseDisplay;
+    [ObservableProperty] private DirectInstallPhase _currentPhase;
+    [ObservableProperty] private bool _isRebooting;
 
     // ── Derived ───────────────────────────────────────────────────────────────
 
-    public double ProgressPercent         => BytesTotal > 0 ? BytesWritten * 100.0 / BytesTotal : 0;
-    public bool   IsProgressIndeterminate => BytesTotal == 0;
+    public double ProgressPercent => BytesTotal > 0 ? BytesWritten * 100.0 / BytesTotal : 0;
+    public bool IsProgressIndeterminate => BytesTotal == 0;
 
     /// <summary>Allow cancel at any point except during the atomic partition creation.</summary>
     public bool IsCancelable => !IsRunning || CurrentPhase != DirectInstallPhase.CreatingPartition;
@@ -73,13 +73,13 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     // ── Constructor ───────────────────────────────────────────────────────────
 
     public DirectInstallViewModel(
-        IDirectInstallService           installer,
-        DistroRegistry                  registry,
+        IDirectInstallService installer,
+        DistroRegistry registry,
         ILogger<DirectInstallViewModel> logger)
     {
         _installer = installer;
-        _registry  = registry;
-        _logger    = logger;
+        _registry = registry;
+        _logger = logger;
     }
 
     // ── API called by MainWindowViewModel ─────────────────────────────────────
@@ -90,32 +90,32 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     /// </summary>
     public void Prepare(
         IsoAcquisitionResult isoResult,
-        FileStagingResult    stagingResult,
-        DiskInfo             targetDisk,
-        int                  linuxSizeGb,
-        string               distroId,
-        string?              stage2Url = null)
+        FileStagingResult stagingResult,
+        DiskInfo targetDisk,
+        int linuxSizeGb,
+        string distroId,
+        string? stage2Url = null)
     {
-        _isoPath          = isoResult.LocalPath;
+        _isoPath = isoResult.LocalPath;
         _stagingDirectory = stagingResult.StagingDirectory;
-        _linuxSizeBytes   = (long)linuxSizeGb * 1024 * 1024 * 1024;
-        _stage2Url        = stage2Url;
-        _distroId         = distroId;
+        _linuxSizeBytes = (long)linuxSizeGb * 1024 * 1024 * 1024;
+        _stage2Url = stage2Url;
+        _distroId = distroId;
 
         // Extract disk number from DeviceId e.g. "\\.\PHYSICALDRIVE2" → 2
         const string prefix = "\\\\.\\PHYSICALDRIVE";
         _diskNumber = int.Parse(targetDisk.DeviceId.AsSpan()[prefix.Length..]);
 
-        IsComplete    = false;
-        HasError      = false;
-        ErrorMessage  = null;
-        ErrorDetail   = null;
-        PhaseDisplay  = null;
-        BytesWritten  = 0;
-        BytesTotal    = 0;
-        IsRunning     = false;
-        IsRebooting   = false;
-        CurrentPhase  = DirectInstallPhase.ShrinkingPartition;
+        IsComplete = false;
+        HasError = false;
+        ErrorMessage = null;
+        ErrorDetail = null;
+        PhaseDisplay = null;
+        BytesWritten = 0;
+        BytesTotal = 0;
+        IsRunning = false;
+        IsRebooting = false;
+        CurrentPhase = DirectInstallPhase.ShrinkingPartition;
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
@@ -124,31 +124,32 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task InstallAsync(CancellationToken ct)
     {
-        if (_isoPath is null || _stagingDirectory is null) return;
+        if (_isoPath is null || _stagingDirectory is null)
+            return;
 
-        IsRunning    = true;
-        HasError     = false;
+        IsRunning = true;
+        HasError = false;
         ErrorMessage = null;
-        ErrorDetail  = null;
+        ErrorDetail = null;
         BytesWritten = 0;
-        BytesTotal   = 0;
+        BytesTotal = 0;
         PhaseDisplay = "Preparing…";
 
         var uiProgress = new Progress<DirectInstallProgress>(p =>
         {
             CurrentPhase = p.Phase;
             BytesWritten = p.BytesWritten;
-            BytesTotal   = p.BytesTotal;
+            BytesTotal = p.BytesTotal;
             PhaseDisplay = p.Phase switch
             {
-                DirectInstallPhase.ShrinkingPartition  => p.Message ?? "Shrinking Windows partition…",
-                DirectInstallPhase.CreatingPartition   => p.Message ?? "Creating installer partition…",
-                DirectInstallPhase.CopyingIso          => "Copying installer image…",
-                DirectInstallPhase.CopyingFiles        => "Copying migration files…",
-                DirectInstallPhase.ConfiguringGrub     => "Configuring bootloader…",
+                DirectInstallPhase.ShrinkingPartition => p.Message ?? "Shrinking Windows partition…",
+                DirectInstallPhase.CreatingPartition => p.Message ?? "Creating installer partition…",
+                DirectInstallPhase.CopyingIso => "Copying installer image…",
+                DirectInstallPhase.CopyingFiles => "Copying migration files…",
+                DirectInstallPhase.ConfiguringGrub => "Configuring bootloader…",
                 DirectInstallPhase.RegisteringBootEntry => "Registering boot entry…",
-                DirectInstallPhase.Complete            => "Ready to reboot",
-                _                                      => string.Empty,
+                DirectInstallPhase.Complete => "Ready to reboot",
+                _ => string.Empty,
             };
         });
         // The full-ISO staging copy reports per buffer; throttle before the UI
@@ -179,7 +180,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             _logger.LogInformation("Direct install cancelled at phase {Phase}", CurrentPhase);
-            HasError     = true;
+            HasError = true;
             ErrorMessage = "Installation preparation cancelled. " +
                            "You may need to remove the partial partition manually via Disk Management, " +
                            "then run Igloo again.";
@@ -187,9 +188,9 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "Direct install preparation failed");
-            HasError     = true;
+            HasError = true;
             ErrorMessage = ex.Message;
-            ErrorDetail  = BuildErrorDetail(ex);
+            ErrorDetail = BuildErrorDetail(ex);
         }
         finally
         {
@@ -204,7 +205,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     [RelayCommand]
     private async Task RebootToInstallAsync()
     {
-        IsRebooting  = true;
+        IsRebooting = true;
         PhaseDisplay = "Registering UEFI boot entry…";
 
         var progress = new Progress<DirectInstallProgress>(p =>
@@ -222,7 +223,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
                 "Save any open work now.\"")
             {
                 UseShellExecute = false,
-                CreateNoWindow  = true,
+                CreateNoWindow = true,
             });
 
             // Shut down the WPF app so the user isn't left with a dead window.
@@ -232,10 +233,10 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "RegisterBootEntry / reboot failed");
-            IsRebooting  = false;
-            HasError     = true;
+            IsRebooting = false;
+            HasError = true;
             ErrorMessage = ex.Message;
-            ErrorDetail  = BuildErrorDetail(ex);
+            ErrorDetail = BuildErrorDetail(ex);
         }
     }
 
@@ -243,12 +244,13 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
     private static string BuildErrorDetail(Exception ex)
     {
-        var sb      = new StringBuilder();
+        var sb = new StringBuilder();
         var current = ex;
-        var depth   = 0;
+        var depth = 0;
         while (current is not null)
         {
-            if (depth > 0) sb.AppendLine().AppendLine("── inner exception ───────────────────────────────");
+            if (depth > 0)
+                sb.AppendLine().AppendLine("── inner exception ───────────────────────────────");
             sb.Append('[').Append(current.GetType().FullName).AppendLine("]");
             sb.AppendLine(current.Message);
             if (current is System.ComponentModel.Win32Exception w32)

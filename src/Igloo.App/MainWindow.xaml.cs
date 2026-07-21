@@ -97,7 +97,8 @@ public sealed partial class MainWindow : Window
     /// <summary>True when the screen point packed in an NC-message lParam is inside the maximize button.</summary>
     private bool IsOverMaxRestoreButton(IntPtr lParam)
     {
-        if (MaxRestoreButton.ActualWidth == 0) return false;
+        if (MaxRestoreButton.ActualWidth == 0)
+            return false;
 
         var (sx, sy) = ChromeInterop.GetScreenPoint(lParam);
         var topLeft = MaxRestoreButton.PointToScreen(new Point(0, 0));
@@ -110,7 +111,8 @@ public sealed partial class MainWindow : Window
 
     private void SetMaxButtonHover(bool hovered)
     {
-        if (hovered == _maxButtonHovered) return;
+        if (hovered == _maxButtonHovered)
+            return;
         _maxButtonHovered = hovered;
 
         if (hovered)
@@ -154,7 +156,8 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnStepChanged(object sender, DataTransferEventArgs e)
     {
-        if (!SystemParameters.ClientAreaAnimation) return;
+        if (!SystemParameters.ClientAreaAnimation)
+            return;
 
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = new Duration(TimeSpan.FromMilliseconds(200));

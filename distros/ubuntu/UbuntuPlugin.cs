@@ -24,8 +24,8 @@ public sealed class UbuntuPlugin : IDistroPlugin
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
-        AllowTrailingCommas         = true,
-        ReadCommentHandling         = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
     };
 
     public string Id => "ubuntu";
@@ -34,11 +34,12 @@ public sealed class UbuntuPlugin : IDistroPlugin
     public UbuntuPlugin()
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var path   = Path.Combine(asmDir, "distro.json");
+        var path = Path.Combine(asmDir, "distro.json");
         DistroManifest? raw = null;
         if (File.Exists(path))
         {
-            try { raw = JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(path), JsonOpts); }
+            try
+            { raw = JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(path), JsonOpts); }
             catch { /* defaults */ }
         }
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
@@ -84,7 +85,7 @@ public sealed class UbuntuPlugin : IDistroPlugin
 
     public Task<InstallerConfig> RenderInstallerConfigAsync(MigrationManifest manifest, CancellationToken ct = default)
     {
-        var asmDir       = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var templatePath = Path.Combine(asmDir, "autoinstall", "user-data.template");
         if (!File.Exists(templatePath))
             throw new FileNotFoundException("user-data.template missing from the Ubuntu plugin output.");
@@ -104,7 +105,7 @@ public sealed class UbuntuPlugin : IDistroPlugin
 
     public Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
     {
-        var asmDir   = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var agentDir = Directory.Exists(Path.Combine(asmDir, "agent"))
             ? Path.Combine(asmDir, "agent")
             : Path.Combine(asmDir, "..", "_debian-family", "agent");
@@ -113,14 +114,15 @@ public sealed class UbuntuPlugin : IDistroPlugin
         foreach (var (name, exe) in new[] { ("first-boot.sh", true), ("agent.py", true), ("igloo-first-boot.service", false) })
         {
             var p = Path.Combine(agentDir, name);
-            if (File.Exists(p)) files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
+            if (File.Exists(p))
+                files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
         }
         return Task.FromResult(new AgentPayload(files));
     }
 
     public InstallerBootSpec GetInstallerBootSpec() => new()
     {
-        MenuTitle   = "Install Ubuntu (Igloo)",
+        MenuTitle = "Install Ubuntu (Igloo)",
         // CIDATA so cloud-init's NoCloud datasource auto-detects user-data/meta-data
         // from this volume; GRUB also locates casper's kernel/initrd by this label.
         VolumeLabel = "CIDATA",
@@ -142,9 +144,9 @@ public sealed class UbuntuPlugin : IDistroPlugin
             "iso-scan/filename=/ubuntu.iso ---",
         KernelIsoPaths = ["casper/vmlinuz"],
         InitrdIsoPaths = ["casper/initrd"],
-        ExtraIsoFiles  = Array.Empty<IsoFileStage>(),
+        ExtraIsoFiles = Array.Empty<IsoFileStage>(),
         CopyFullIsoToVolume = true,          // casper loop-mounts the whole ISO
-        IsoVolumeFileName   = "ubuntu.iso",
+        IsoVolumeFileName = "ubuntu.iso",
         // curtin must never ADD a partition (full-GPT rewrite + kernel reload →
         // fails while live media occupies this disk). Igloo pre-creates root;
         // the autoinstall config preserves everything and only formats it.
@@ -160,14 +162,14 @@ public sealed class UbuntuPlugin : IDistroPlugin
     {
         var storage = BuildStorage(m);
         return template
-            .Replace("{{LOCALE}}",         m.User.Locale)
-            .Replace("{{KEYMAP}}",         m.User.Keymap)
-            .Replace("{{TIMEZONE}}",       m.User.Timezone)
-            .Replace("{{HOSTNAME}}",       m.User.PreferredLinuxUsername + "-pc")
+            .Replace("{{LOCALE}}", m.User.Locale)
+            .Replace("{{KEYMAP}}", m.User.Keymap)
+            .Replace("{{TIMEZONE}}", m.User.Timezone)
+            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc")
             .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername)
-            .Replace("{{FULL_NAME}}",      m.User.FullName ?? m.User.PreferredLinuxUsername)
-            .Replace("{{PASSWORD}}",       m.User.LinuxPassword ?? "")
-            .Replace("{{STORAGE}}",        storage);
+            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername)
+            .Replace("{{PASSWORD}}", m.User.LinuxPassword ?? "")
+            .Replace("{{STORAGE}}", storage);
     }
 
     /// <summary>
@@ -227,38 +229,49 @@ public sealed class UbuntuPlugin : IDistroPlugin
 
     private static byte[] NormalizeCrLf(byte[] bytes)
     {
-        if (Array.IndexOf(bytes, (byte)'\r') < 0) return bytes;
+        if (Array.IndexOf(bytes, (byte)'\r') < 0)
+            return bytes;
         var buf = new MemoryStream(bytes.Length);
         for (int i = 0; i < bytes.Length; i++)
         {
-            if (bytes[i] == (byte)'\r') { buf.WriteByte((byte)'\n'); if (i + 1 < bytes.Length && bytes[i + 1] == (byte)'\n') i++; }
-            else buf.WriteByte(bytes[i]);
+            if (bytes[i] == (byte)'\r')
+            { buf.WriteByte((byte)'\n'); if (i + 1 < bytes.Length && bytes[i + 1] == (byte)'\n') i++; }
+            else
+                buf.WriteByte(bytes[i]);
         }
         return buf.ToArray();
     }
 
     private static DistroMetadata BuildMetadata(DistroManifest raw) => new()
     {
-        DisplayName               = raw.DisplayName,
-        Description               = raw.Description,
+        DisplayName = raw.DisplayName,
+        Description = raw.Description,
         DefaultDesktopEnvironment = raw.DefaultDesktopEnvironment ?? "GNOME",
-        InstallerType             = InstallerType.Subiquity,
-        IsoDownloadUrl            = new Uri(raw.Iso.DownloadUrl),
-        IsoSha256                 = raw.Iso.Sha256,
-        IsoGpgSignatureUrl        = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
-        IsoGpgKeyUrl              = raw.Iso.GpgKeyUrl       is not null ? new Uri(raw.Iso.GpgKeyUrl)       : null,
-        Tags                      = raw.Tags,
-        Screenshots               = raw.Screenshots,
-        MinimumRequirements       = raw.MinimumRequirements is { } req
-            ? new HardwareRequirements { MinRamBytes = req.MinRamBytes, MinDiskBytes = req.MinDiskBytes,
-                                         RequiresUefi = req.RequiresUefi, Requires64Bit = req.Requires64Bit }
+        InstallerType = InstallerType.Subiquity,
+        IsoDownloadUrl = new Uri(raw.Iso.DownloadUrl),
+        IsoSha256 = raw.Iso.Sha256,
+        IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
+        IsoGpgKeyUrl = raw.Iso.GpgKeyUrl is not null ? new Uri(raw.Iso.GpgKeyUrl) : null,
+        Tags = raw.Tags,
+        Screenshots = raw.Screenshots,
+        MinimumRequirements = raw.MinimumRequirements is { } req
+            ? new HardwareRequirements
+            {
+                MinRamBytes = req.MinRamBytes,
+                MinDiskBytes = req.MinDiskBytes,
+                RequiresUefi = req.RequiresUefi,
+                Requires64Bit = req.Requires64Bit
+            }
             : new HardwareRequirements(),
     };
 
     private static DistroMetadata FallbackMetadata() => new()
     {
-        DisplayName = "Ubuntu", Description = "Ubuntu with the GNOME desktop.",
-        DefaultDesktopEnvironment = "GNOME", InstallerType = InstallerType.Subiquity,
-        IsoDownloadUrl = new Uri("https://ubuntu.com"), IsoSha256 = string.Empty,
+        DisplayName = "Ubuntu",
+        Description = "Ubuntu with the GNOME desktop.",
+        DefaultDesktopEnvironment = "GNOME",
+        InstallerType = InstallerType.Subiquity,
+        IsoDownloadUrl = new Uri("https://ubuntu.com"),
+        IsoSha256 = string.Empty,
     };
 }

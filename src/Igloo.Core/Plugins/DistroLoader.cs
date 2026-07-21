@@ -18,8 +18,8 @@ public sealed class DistroLoader
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
-        AllowTrailingCommas         = true,
-        ReadCommentHandling         = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
     };
 
     private List<DistroManifest> _distros = [];
@@ -46,16 +46,19 @@ public sealed class DistroLoader
         foreach (var dir in Directory.EnumerateDirectories(distrosDirectory))
         {
             var name = Path.GetFileName(dir);
-            if (name.StartsWith('_')) continue;
+            if (name.StartsWith('_'))
+                continue;
 
             var manifestPath = Path.Combine(dir, "distro.json");
-            if (!File.Exists(manifestPath)) continue;
+            if (!File.Exists(manifestPath))
+                continue;
 
             try
             {
-                var json     = File.ReadAllText(manifestPath);
+                var json = File.ReadAllText(manifestPath);
                 var manifest = JsonSerializer.Deserialize<DistroManifest>(json, JsonOpts);
-                if (manifest is null) continue;
+                if (manifest is null)
+                    continue;
 
                 // Stamp the source directory so relative asset paths (logo, screenshots)
                 // can be resolved by consumers.

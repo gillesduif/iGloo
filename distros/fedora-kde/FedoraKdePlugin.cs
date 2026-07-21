@@ -17,8 +17,8 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
-        AllowTrailingCommas         = true,
-        ReadCommentHandling         = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
     };
 
     public string Id => "fedora-kde";
@@ -37,7 +37,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     /// </summary>
     public FedoraKdePlugin()
     {
-        var asmDir       = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var manifestPath = Path.Combine(asmDir, "distro.json");
 
         DistroManifest? raw = null;
@@ -54,7 +54,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             }
         }
 
-        Metadata   = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
+        Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
         _stage2Url = raw?.Iso?.Stage2Url;
     }
 
@@ -68,9 +68,9 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         if (string.Equals(report.GpuVendor, "nvidia", StringComparison.OrdinalIgnoreCase))
         {
             findings.Add(new PreflightFinding(
-                Severity:    FindingSeverity.Info,
-                Code:        "FEDORA_NVIDIA_RPMFUSION",
-                Message:     "Your machine has an NVIDIA GPU. Igloo's first-boot agent will install " +
+                Severity: FindingSeverity.Info,
+                Code: "FEDORA_NVIDIA_RPMFUSION",
+                Message: "Your machine has an NVIDIA GPU. Igloo's first-boot agent will install " +
                              "the proprietary drivers from RPM Fusion on first boot. An internet " +
                              "connection is required at first boot.",
                 Remediation: null));
@@ -80,9 +80,9 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         if (report.BitLocker == BitLockerState.EncryptedAndLocked)
         {
             findings.Add(new PreflightFinding(
-                Severity:    FindingSeverity.Blocker,
-                Code:        "BITLOCKER_LOCKED",
-                Message:     "BitLocker is enabled and the volume is currently locked. " +
+                Severity: FindingSeverity.Blocker,
+                Code: "BITLOCKER_LOCKED",
+                Message: "BitLocker is enabled and the volume is currently locked. " +
                              "Igloo cannot resize a locked encrypted volume.",
                 Remediation: "Unlock the drive in Windows, or suspend BitLocker protection before " +
                              "re-running Igloo."));
@@ -92,9 +92,9 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         if (report.TotalRamBytes < Metadata.MinimumRequirements.MinRamBytes)
         {
             findings.Add(new PreflightFinding(
-                Severity:    FindingSeverity.Warning,
-                Code:        "RAM_BELOW_RECOMMENDED",
-                Message:     $"This machine has {report.TotalRamBytes / (1024.0 * 1024 * 1024):F1} GiB of RAM. " +
+                Severity: FindingSeverity.Warning,
+                Code: "RAM_BELOW_RECOMMENDED",
+                Message: $"This machine has {report.TotalRamBytes / (1024.0 * 1024 * 1024):F1} GiB of RAM. " +
                              $"Fedora KDE recommends at least " +
                              $"{Metadata.MinimumRequirements.MinRamBytes / (1024.0 * 1024 * 1024):F0} GiB.",
                 Remediation: "Installation will proceed but the desktop may feel sluggish."));
@@ -106,7 +106,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     public Task<InstallerConfig> RenderInstallerConfigAsync(
         MigrationManifest manifest, CancellationToken ct = default)
     {
-        var asmDir       = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var templatePath = Path.Combine(asmDir, "kickstart", "ks.cfg.template");
 
         string ks = File.Exists(templatePath)
@@ -126,7 +126,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         var config = new InstallerConfig(
             FileName: "ks.cfg",
             Contents: Encoding.UTF8.GetBytes(ks),
-            Extras:   Array.Empty<InstallerConfigExtra>());
+            Extras: Array.Empty<InstallerConfigExtra>());
 
         return Task.FromResult(config);
     }
@@ -139,17 +139,17 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
         // Include first-boot.sh and agent.py if they exist on disk.
         TryAddFile("agent/first-boot.sh", executable: true);
-        TryAddFile("agent/agent.py",       executable: true);
+        TryAddFile("agent/agent.py", executable: true);
 
         // Fallback stub if the scripts aren't bundled.
         if (files.Count == 0)
         {
             files.Add(new AgentFile(
                 RelativePath: "first-boot.sh",
-                Contents:     Encoding.UTF8.GetBytes(
+                Contents: Encoding.UTF8.GetBytes(
                     "#!/usr/bin/env bash\n" +
                     "exec python3 /opt/igloo/agent.py --manifest /var/lib/igloo/manifest.json\n"),
-                Executable:   true));
+                Executable: true));
         }
 
         return Task.FromResult(new AgentPayload(files));
@@ -157,7 +157,8 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         void TryAddFile(string relative, bool executable)
         {
             var path = Path.Combine(asmDir, relative);
-            if (!File.Exists(path)) return;
+            if (!File.Exists(path))
+                return;
 
             // Normalize CRLF → LF so shell scripts and Python files execute
             // correctly on Linux.  Windows git checkouts (text=auto) may add
@@ -167,14 +168,14 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
             files.Add(new AgentFile(
                 RelativePath: Path.GetFileName(path),
-                Contents:     contents,
-                Executable:   executable));
+                Contents: contents,
+                Executable: executable));
         }
     }
 
     public InstallerBootSpec GetInstallerBootSpec() => new()
     {
-        MenuTitle     = "Install Fedora KDE (Igloo)",
+        MenuTitle = "Install Fedora KDE (Igloo)",
         // Anaconda reads ks.cfg from the OEMDRV label and loads its stage-2
         // (install.img) locally so no 862 MiB network download is needed at boot.
         KernelCmdline = "inst.stage2=hd:LABEL={LABEL}: inst.ks=hd:LABEL={LABEL}:/ks.cfg inst.geoloc=0",
@@ -254,7 +255,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         // Password: use the user's chosen password (--plaintext).
         // If somehow empty, fall back to a locked account so we don't create
         // a passwordless account - the first-boot agent should handle recovery.
-        var password       = m.User.LinuxPassword;
+        var password = m.User.LinuxPassword;
         var passwordOption = !string.IsNullOrEmpty(password)
             ? $"--password={password} --plaintext"
             : "--lock";
@@ -269,7 +270,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             ?? m.WifiNetworks.FirstOrDefault(w => w.IsPrimary && w.Security == "open");
 
         var wifiSsid = primaryWifi is not null ? ShellDoubleQuote(primaryWifi.Ssid) : "";
-        var wifiPsk  = primaryWifi?.Psk is { Length: > 0 } k ? ShellDoubleQuote(k) : "";
+        var wifiPsk = primaryWifi?.Psk is { Length: > 0 } k ? ShellDoubleQuote(k) : "";
 
         // Every saved Wi-Fi network (WPA-PSK with a recovered key, or open) as
         // tab-separated "SSID<TAB>PSK" lines for the %pre auto-connect loop. That
@@ -292,26 +293,26 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
         return template
             .Replace("{{INSTALL_SOURCE_URL}}", installSource)
-            .Replace("{{LOCALE}}",            m.User.Locale)
-            .Replace("{{KEYMAP}}",            m.User.Keymap)
-            .Replace("{{XLAYOUT}}",           m.User.Keymap)
-            .Replace("{{TIMEZONE}}",          m.User.Timezone)
-            .Replace("{{HOSTNAME}}",          m.User.PreferredLinuxUsername + "-pc")
-            .Replace("{{WINDOWS_USERNAME}}",  m.User.WindowsUsername)
-            .Replace("{{LINUX_USERNAME}}",    m.User.PreferredLinuxUsername)
-            .Replace("{{FULL_NAME}}",         m.User.FullName ?? m.User.PreferredLinuxUsername)
-            .Replace("{{PASSWORD_OPTION}}",   passwordOption)
+            .Replace("{{LOCALE}}", m.User.Locale)
+            .Replace("{{KEYMAP}}", m.User.Keymap)
+            .Replace("{{XLAYOUT}}", m.User.Keymap)
+            .Replace("{{TIMEZONE}}", m.User.Timezone)
+            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc")
+            .Replace("{{WINDOWS_USERNAME}}", m.User.WindowsUsername)
+            .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername)
+            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername)
+            .Replace("{{PASSWORD_OPTION}}", passwordOption)
             .Replace("{{TARGET_DISK_BYTES}}", m.Hardware.TargetDiskBytes > 0
                                                 ? m.Hardware.TargetDiskBytes.ToString()
                                                 : "0")
             .Replace("{{TARGET_DISK_MODEL}}", m.Hardware.TargetDiskModel ?? "")
-            .Replace("{{INSTALL_MODE}}",      m.Hardware.InstallMode)
-            .Replace("{{INCLUDED_FOLDERS}}",  folderList)
-            .Replace("{{FOLDER_MAP}}",        folderMap)
-            .Replace("{{BROWSER_MAP}}",       browserMap)
-            .Replace("{{WIFI_SSID}}",         wifiSsid)
-            .Replace("{{WIFI_PSK}}",          wifiPsk)
-            .Replace("{{WIFI_LIST}}",         wifiList);
+            .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode)
+            .Replace("{{INCLUDED_FOLDERS}}", folderList)
+            .Replace("{{FOLDER_MAP}}", folderMap)
+            .Replace("{{BROWSER_MAP}}", browserMap)
+            .Replace("{{WIFI_SSID}}", wifiSsid)
+            .Replace("{{WIFI_PSK}}", wifiPsk)
+            .Replace("{{WIFI_LIST}}", wifiList);
     }
 
     /// <summary>
@@ -355,15 +356,15 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     private static string ShellDoubleQuote(string value) =>
         value.Replace("\\", "\\\\")
              .Replace("\"", "\\\"")
-             .Replace("$",  "\\$")
-             .Replace("`",  "\\`");
+             .Replace("$", "\\$")
+             .Replace("`", "\\`");
 
     private string RenderInline(MigrationManifest m)
     {
-        var diskBytes     = m.Hardware.TargetDiskBytes > 0 ? m.Hardware.TargetDiskBytes.ToString() : "0";
-        var folderList    = string.Join(" ", m.Files.IncludedFolders);
-        var username      = m.User.PreferredLinuxUsername;
-        var fullName      = m.User.FullName ?? username;
+        var diskBytes = m.Hardware.TargetDiskBytes > 0 ? m.Hardware.TargetDiskBytes.ToString() : "0";
+        var folderList = string.Join(" ", m.Files.IncludedFolders);
+        var username = m.User.PreferredLinuxUsername;
+        var fullName = m.User.FullName ?? username;
         var installSource = BuildInstallSourceLine(_stage2Url);
 
         return $@"# Generated by Igloo for Fedora KDE
@@ -448,35 +449,35 @@ chroot ""$SYSIMAGE"" systemctl enable igloo-first-boot.service || \
         var req = raw.MinimumRequirements;
         return new DistroMetadata
         {
-            DisplayName               = raw.DisplayName,
-            Description               = raw.Description,
+            DisplayName = raw.DisplayName,
+            Description = raw.Description,
             DefaultDesktopEnvironment = raw.DefaultDesktopEnvironment ?? "KDE Plasma",
-            InstallerType             = InstallerType.Anaconda,
-            IsoDownloadUrl            = new Uri(raw.Iso.DownloadUrl),
-            IsoSha256                 = raw.Iso.Sha256,
-            IsoGpgSignatureUrl        = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
-            IsoGpgKeyUrl              = raw.Iso.GpgKeyUrl       is not null ? new Uri(raw.Iso.GpgKeyUrl)       : null,
-            Tags                      = raw.Tags,
-            Screenshots               = raw.Screenshots,
-            MinimumRequirements       = req is not null
+            InstallerType = InstallerType.Anaconda,
+            IsoDownloadUrl = new Uri(raw.Iso.DownloadUrl),
+            IsoSha256 = raw.Iso.Sha256,
+            IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
+            IsoGpgKeyUrl = raw.Iso.GpgKeyUrl is not null ? new Uri(raw.Iso.GpgKeyUrl) : null,
+            Tags = raw.Tags,
+            Screenshots = raw.Screenshots,
+            MinimumRequirements = req is not null
                 ? new HardwareRequirements
-                  {
-                      MinRamBytes  = req.MinRamBytes,
-                      MinDiskBytes = req.MinDiskBytes,
-                      RequiresUefi = req.RequiresUefi,
-                      Requires64Bit = req.Requires64Bit,
-                  }
+                {
+                    MinRamBytes = req.MinRamBytes,
+                    MinDiskBytes = req.MinDiskBytes,
+                    RequiresUefi = req.RequiresUefi,
+                    Requires64Bit = req.Requires64Bit,
+                }
                 : new HardwareRequirements(),
         };
     }
 
     private static DistroMetadata FallbackMetadata() => new()
     {
-        DisplayName               = "Fedora KDE",
-        Description               = "Fedora with the KDE Plasma desktop environment.",
+        DisplayName = "Fedora KDE",
+        Description = "Fedora with the KDE Plasma desktop environment.",
         DefaultDesktopEnvironment = "KDE Plasma",
-        InstallerType             = InstallerType.Anaconda,
-        IsoDownloadUrl            = new Uri("https://fedoraproject.org"),
-        IsoSha256                 = string.Empty,
+        InstallerType = InstallerType.Anaconda,
+        IsoDownloadUrl = new Uri("https://fedoraproject.org"),
+        IsoSha256 = string.Empty,
     };
 }

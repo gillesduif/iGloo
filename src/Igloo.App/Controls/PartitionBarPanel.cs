@@ -62,7 +62,8 @@ public sealed class PartitionBarPanel : Panel
         foreach (UIElement child in InternalChildren)
             if (child.Visibility != Visibility.Collapsed)
                 visible.Add(child);
-        if (visible.Count == 0) return finalSize;
+        if (visible.Count == 0)
+            return finalSize;
 
         var widths = ComputeWidths(visible, finalSize.Width);
         double x = 0;
@@ -96,14 +97,17 @@ public sealed class PartitionBarPanel : Panel
             var unpinned = 0;
             for (var i = 0; i < n; i++)
             {
-                if (pinned[i]) freeWidth -= min;
-                else { weightSum += weights[i]; unpinned++; }
+                if (pinned[i])
+                    freeWidth -= min;
+                else
+                { weightSum += weights[i]; unpinned++; }
             }
 
             var pinnedThisPass = false;
             for (var i = 0; i < n; i++)
             {
-                if (pinned[i]) { widths[i] = min; continue; }
+                if (pinned[i])
+                { widths[i] = min; continue; }
 
                 widths[i] = weightSum > 0
                     ? freeWidth * weights[i] / weightSum
@@ -116,7 +120,8 @@ public sealed class PartitionBarPanel : Panel
                 }
             }
 
-            if (!pinnedThisPass) return widths;
+            if (!pinnedThisPass)
+                return widths;
         }
     }
 }

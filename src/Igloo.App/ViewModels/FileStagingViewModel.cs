@@ -23,18 +23,18 @@ namespace Igloo.App.ViewModels;
 /// </summary>
 public sealed partial class FileStagingViewModel : ObservableObject
 {
-    private readonly IFileStagingService          _stagingService;
-    private readonly ManifestGeneratorService     _manifestGenerator;
-    private readonly DistroRegistry               _registry;
+    private readonly IFileStagingService _stagingService;
+    private readonly ManifestGeneratorService _manifestGenerator;
+    private readonly DistroRegistry _registry;
     private readonly ILogger<FileStagingViewModel> _logger;
 
-    private FileStagingRequest?      _request;
-    private string?                  _distroId;
-    private PreflightReport?         _preflightReport;
+    private FileStagingRequest? _request;
+    private string? _distroId;
+    private PreflightReport? _preflightReport;
     private MigrationSetupViewModel? _setup;
-    private DiskInfo?                _targetDisk;
-    private DiskInstallMode          _installMode = DiskInstallMode.ReplaceDisk;
-    private int                      _linuxSizeGb;
+    private DiskInfo? _targetDisk;
+    private DiskInstallMode _installMode = DiskInstallMode.ReplaceDisk;
+    private int _linuxSizeGb;
 
     private static readonly JsonSerializerOptions PrettyJson =
         new() { WriteIndented = true };
@@ -53,39 +53,39 @@ public sealed partial class FileStagingViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
     private long _bytesTotal;
 
-    [ObservableProperty] private string?            _currentFile;
-    [ObservableProperty] private bool               _isRunning;
-    [ObservableProperty] private bool               _isComplete;
-    [ObservableProperty] private bool               _hasError;
-    [ObservableProperty] private string?            _errorMessage;
+    [ObservableProperty] private string? _currentFile;
+    [ObservableProperty] private bool _isRunning;
+    [ObservableProperty] private bool _isComplete;
+    [ObservableProperty] private bool _hasError;
+    [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private FileStagingResult? _result;
 
     // ── Derived ──────────────────────────────────────────────────────────────
 
-    public double ProgressPercent        => BytesTotal > 0 ? BytesCopied * 100.0 / BytesTotal : 0;
-    public bool   IsProgressIndeterminate => BytesTotal == 0;
+    public double ProgressPercent => BytesTotal > 0 ? BytesCopied * 100.0 / BytesTotal : 0;
+    public bool IsProgressIndeterminate => BytesTotal == 0;
 
     public string PhaseDisplay => Phase switch
     {
-        FileStagingPhase.Scanning   => "Scanning files…",
-        FileStagingPhase.Copying    => "Copying files…",
+        FileStagingPhase.Scanning => "Scanning files…",
+        FileStagingPhase.Copying => "Copying files…",
         FileStagingPhase.Generating => "Generating installer configuration…",
-        FileStagingPhase.Complete   => "Complete",
-        _                           => string.Empty,
+        FileStagingPhase.Complete => "Complete",
+        _ => string.Empty,
     };
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
     public FileStagingViewModel(
-        IFileStagingService           stagingService,
-        ManifestGeneratorService      manifestGenerator,
-        DistroRegistry                registry,
+        IFileStagingService stagingService,
+        ManifestGeneratorService manifestGenerator,
+        DistroRegistry registry,
         ILogger<FileStagingViewModel> logger)
     {
-        _stagingService    = stagingService;
+        _stagingService = stagingService;
         _manifestGenerator = manifestGenerator;
-        _registry          = registry;
-        _logger            = logger;
+        _registry = registry;
+        _logger = logger;
     }
 
     // ── API called by MainWindowViewModel ────────────────────────────────────
@@ -96,28 +96,28 @@ public sealed partial class FileStagingViewModel : ObservableObject
     /// </summary>
     public void Prepare(
         MigrationSetupViewModel setup,
-        PreflightReport         report,
-        DistroManifest          distro,
-        DiskInfo?               targetDisk  = null,
-        DiskInstallMode         installMode = DiskInstallMode.ReplaceDisk,
-        int                     linuxSizeGb = 0)
+        PreflightReport report,
+        DistroManifest distro,
+        DiskInfo? targetDisk = null,
+        DiskInstallMode installMode = DiskInstallMode.ReplaceDisk,
+        int linuxSizeGb = 0)
     {
-        _setup           = setup;
+        _setup = setup;
         _preflightReport = report;
-        _distroId        = distro.Id;
-        _targetDisk      = targetDisk;
-        _installMode     = installMode;
-        _linuxSizeGb     = linuxSizeGb;
-        _request         = new FileStagingRequest(distro.Id, setup.GetSelectedFolderPaths());
+        _distroId = distro.Id;
+        _targetDisk = targetDisk;
+        _installMode = installMode;
+        _linuxSizeGb = linuxSizeGb;
+        _request = new FileStagingRequest(distro.Id, setup.GetSelectedFolderPaths());
 
-        IsComplete   = false;
-        HasError     = false;
+        IsComplete = false;
+        HasError = false;
         ErrorMessage = null;
-        Result       = null;
-        BytesCopied  = 0;
-        BytesTotal   = 0;
-        Phase        = FileStagingPhase.Scanning;
-        CurrentFile  = null;
+        Result = null;
+        BytesCopied = 0;
+        BytesTotal = 0;
+        Phase = FileStagingPhase.Scanning;
+        CurrentFile = null;
     }
 
     // ── Command ──────────────────────────────────────────────────────────────
@@ -125,17 +125,18 @@ public sealed partial class FileStagingViewModel : ObservableObject
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task StageAsync(CancellationToken ct)
     {
-        if (_request is null || _setup is null || _preflightReport is null || _distroId is null) return;
+        if (_request is null || _setup is null || _preflightReport is null || _distroId is null)
+            return;
 
-        IsRunning    = true;
-        HasError     = false;
+        IsRunning = true;
+        HasError = false;
         ErrorMessage = null;
 
         var progress = new Progress<FileStagingProgress>(p =>
         {
-            Phase       = p.Phase;
+            Phase = p.Phase;
             BytesCopied = p.BytesCopied;
-            BytesTotal  = p.BytesTotal;
+            BytesTotal = p.BytesTotal;
             CurrentFile = p.CurrentItem;
             OnPropertyChanged(nameof(PhaseDisplay));
         });
@@ -157,18 +158,18 @@ public sealed partial class FileStagingViewModel : ObservableObject
 
             var userSetup = new UserSetup
             {
-                WindowsUsername      = _setup.WindowsUsername,
-                LinuxUsername        = _setup.LinuxUsername,
-                LinuxPassword        = _setup.LinuxPassword,
-                Locale               = "en_US.UTF-8",
-                Timezone             = _setup.Timezone,
-                Keymap               = _setup.Keymap,
-                SelectedFolderNames  = _setup.GetSelectedFolderNames(),
-                SelectedFolders      = _setup.GetSelectedFolders(),
+                WindowsUsername = _setup.WindowsUsername,
+                LinuxUsername = _setup.LinuxUsername,
+                LinuxPassword = _setup.LinuxPassword,
+                Locale = "en_US.UTF-8",
+                Timezone = _setup.Timezone,
+                Keymap = _setup.Keymap,
+                SelectedFolderNames = _setup.GetSelectedFolderNames(),
+                SelectedFolders = _setup.GetSelectedFolders(),
                 SelectedBrowserNames = _setup.GetSelectedBrowserNames(),
-                SelectedBrowsers     = _setup.GetSelectedBrowsers(),
-                SuggestedPackages    = _setup.GetSelectedSuggestions(),
-                WifiNetworks         = wifiNetworks,
+                SelectedBrowsers = _setup.GetSelectedBrowsers(),
+                SuggestedPackages = _setup.GetSelectedSuggestions(),
+                WifiNetworks = wifiNetworks,
             };
 
             var manifest = _manifestGenerator.Generate(
@@ -200,7 +201,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
 
                 // First-boot agent files.
                 var agentPayload = await plugin.GetAgentPayloadAsync(ct);
-                var agentDir     = Path.Combine(stagingResult.StagingDirectory, "igloo-agent");
+                var agentDir = Path.Combine(stagingResult.StagingDirectory, "igloo-agent");
                 Directory.CreateDirectory(agentDir);
 
                 foreach (var agentFile in agentPayload.Files)
@@ -220,7 +221,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
                     _distroId);
             }
 
-            Result     = stagingResult;
+            Result = stagingResult;
             IsComplete = true;
         }
         catch (OperationCanceledException)
@@ -230,7 +231,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "File staging failed");
-            HasError     = true;
+            HasError = true;
             ErrorMessage = ex.Message;
         }
         finally

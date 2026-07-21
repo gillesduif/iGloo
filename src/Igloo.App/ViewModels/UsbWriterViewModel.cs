@@ -21,15 +21,15 @@ namespace Igloo.App.ViewModels;
 /// </summary>
 public sealed partial class UsbWriterViewModel : ObservableObject
 {
-    private readonly IUsbWriterService          _writer;
-    private readonly IPartitionResizeService    _resizer;
+    private readonly IUsbWriterService _writer;
+    private readonly IPartitionResizeService _resizer;
     private readonly ILogger<UsbWriterViewModel> _logger;
 
-    private string?          _isoPath;
-    private string?          _stagingDirectory;
-    private DiskInfo?        _targetDisk;
-    private DiskInstallMode  _installMode  = DiskInstallMode.ReplaceDisk;
-    private int              _linuxSizeGb;
+    private string? _isoPath;
+    private string? _stagingDirectory;
+    private DiskInfo? _targetDisk;
+    private DiskInstallMode _installMode = DiskInstallMode.ReplaceDisk;
+    private int _linuxSizeGb;
 
     // ── Observable state ──────────────────────────────────────────────────────
 
@@ -49,9 +49,9 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsCancelable))]
     private bool _isRunning;
 
-    [ObservableProperty] private bool          _isComplete;
-    [ObservableProperty] private bool          _hasError;
-    [ObservableProperty] private string?       _errorMessage;
+    [ObservableProperty] private bool _isComplete;
+    [ObservableProperty] private bool _hasError;
+    [ObservableProperty] private string? _errorMessage;
 
     /// <summary>
     /// Set after the GRUB patch step completes (success or best-effort skip).
@@ -71,11 +71,11 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasErrorDetail))]
-    private string?       _errorDetail;
+    private string? _errorDetail;
 
     public bool HasErrorDetail => !string.IsNullOrEmpty(ErrorDetail);
 
-    [ObservableProperty] private string?       _phaseDisplay;
+    [ObservableProperty] private string? _phaseDisplay;
 
     /// <summary>
     /// The phase currently executing.  Used to gate the Cancel button:
@@ -110,19 +110,19 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     /// </summary>
     public bool IsCancelable => !IsRunning || CurrentPhase != UsbWritePhase.CreatingOemdrv;
 
-    public double ProgressPercent         => BytesTotal > 0 ? BytesWritten * 100.0 / BytesTotal : 0;
-    public bool   IsProgressIndeterminate => BytesTotal == 0;
+    public double ProgressPercent => BytesTotal > 0 ? BytesWritten * 100.0 / BytesTotal : 0;
+    public bool IsProgressIndeterminate => BytesTotal == 0;
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
     public UsbWriterViewModel(
-        IUsbWriterService           writer,
-        IPartitionResizeService     resizer,
+        IUsbWriterService writer,
+        IPartitionResizeService resizer,
         ILogger<UsbWriterViewModel> logger)
     {
-        _writer  = writer;
+        _writer = writer;
         _resizer = resizer;
-        _logger  = logger;
+        _logger = logger;
     }
 
     // ── API called by MainWindowViewModel ─────────────────────────────────────
@@ -133,25 +133,25 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     /// </summary>
     public void Prepare(
         IsoAcquisitionResult isoResult,
-        FileStagingResult    stagingResult,
-        DiskInfo?            targetDisk  = null,
-        DiskInstallMode      installMode = DiskInstallMode.ReplaceDisk,
-        int                  linuxSizeGb = 0)
+        FileStagingResult stagingResult,
+        DiskInfo? targetDisk = null,
+        DiskInstallMode installMode = DiskInstallMode.ReplaceDisk,
+        int linuxSizeGb = 0)
     {
-        _isoPath          = isoResult.LocalPath;
+        _isoPath = isoResult.LocalPath;
         _stagingDirectory = stagingResult.StagingDirectory;
-        _targetDisk       = targetDisk;
-        _installMode      = installMode;
-        _linuxSizeGb      = linuxSizeGb;
+        _targetDisk = targetDisk;
+        _installMode = installMode;
+        _linuxSizeGb = linuxSizeGb;
 
-        IsComplete   = false;
-        HasError     = false;
+        IsComplete = false;
+        HasError = false;
         ErrorMessage = null;
-        ErrorDetail  = null;
+        ErrorDetail = null;
         PhaseDisplay = null;
         BytesWritten = 0;
-        BytesTotal   = 0;
-        IsRunning    = false;
+        BytesTotal = 0;
+        IsRunning = false;
         CurrentPhase = UsbWritePhase.WritingIso;
         GrubPatchNote = null;
     }
@@ -192,30 +192,31 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     [RelayCommand(IncludeCancelCommand = true, CanExecute = nameof(CanWrite))]
     private async Task WriteAsync(CancellationToken ct)
     {
-        if (SelectedDrive is null || _isoPath is null || _stagingDirectory is null) return;
+        if (SelectedDrive is null || _isoPath is null || _stagingDirectory is null)
+            return;
 
-        IsRunning    = true;
-        HasError     = false;
+        IsRunning = true;
+        HasError = false;
         ErrorMessage = null;
-        ErrorDetail  = null;
+        ErrorDetail = null;
         BytesWritten = 0;
-        BytesTotal   = 0;
+        BytesTotal = 0;
         PhaseDisplay = "Preparing…";
 
         var progress = new Progress<UsbWriteProgress>(p =>
         {
             BytesWritten = p.BytesWritten;
-            BytesTotal   = p.BytesTotal;
+            BytesTotal = p.BytesTotal;
             CurrentPhase = p.Phase;    // drives IsCancelable and cancel-message logic
             PhaseDisplay = p.Phase switch
             {
                 UsbWritePhase.ShrinkingPartition => "Shrinking Windows partition…",
-                UsbWritePhase.WritingIso         => "Writing installer image…",
-                UsbWritePhase.CreatingOemdrv     => "Creating OEMDRV partition…",
-                UsbWritePhase.PatchingGrub       => "Patching GRUB configuration…",
-                UsbWritePhase.CopyingFiles       => "Copying migration files…",
-                UsbWritePhase.Complete           => "Complete",
-                _                               => string.Empty,
+                UsbWritePhase.WritingIso => "Writing installer image…",
+                UsbWritePhase.CreatingOemdrv => "Creating OEMDRV partition…",
+                UsbWritePhase.PatchingGrub => "Patching GRUB configuration…",
+                UsbWritePhase.CopyingFiles => "Copying migration files…",
+                UsbWritePhase.Complete => "Complete",
+                _ => string.Empty,
             };
 
             // Capture the last GRUB patch message so it is displayed on completion.
@@ -260,7 +261,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         {
             _logger.LogInformation("USB write cancelled at phase {Phase}", CurrentPhase);
 
-            HasError     = true;
+            HasError = true;
             ErrorMessage = CurrentPhase == UsbWritePhase.WritingIso
                 // Cancelled mid-ISO: the image on the stick is truncated.
                 ? "Write cancelled - the USB drive contains an incomplete installer image " +
@@ -274,16 +275,16 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "USB write failed - insufficient rights");
-            HasError     = true;
+            HasError = true;
             ErrorMessage = ex.Message;
-            ErrorDetail  = BuildErrorDetail(ex);
+            ErrorDetail = BuildErrorDetail(ex);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "USB write failed");
-            HasError     = true;
+            HasError = true;
             ErrorMessage = ex.Message;
-            ErrorDetail  = BuildErrorDetail(ex);
+            ErrorDetail = BuildErrorDetail(ex);
         }
         finally
         {
@@ -303,9 +304,9 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     /// </summary>
     private static string BuildErrorDetail(Exception ex)
     {
-        var sb      = new StringBuilder();
+        var sb = new StringBuilder();
         var current = ex;
-        var depth   = 0;
+        var depth = 0;
 
         while (current is not null)
         {

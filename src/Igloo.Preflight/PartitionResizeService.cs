@@ -69,12 +69,12 @@ public sealed class PartitionResizeService : IPartitionResizeService
 
         // Obtain precise size limits.
         var outSizes = mo.InvokeMethod("GetSupportedSize", null, null)!;
-        var sizeMin  = Convert.ToInt64(outSizes["SizeMin"]);
-        var sizeMax  = Convert.ToInt64(outSizes["SizeMax"]);
+        var sizeMin = Convert.ToInt64(outSizes["SizeMin"]);
+        var sizeMax = Convert.ToInt64(outSizes["SizeMax"]);
 
         // New size = current size − linux allocation, aligned down to 1 MiB.
-        long newSize  = sizeMax - linuxSizeBytes;
-        newSize       = (newSize / MiB) * MiB;          // 1 MiB align
+        long newSize = sizeMax - linuxSizeBytes;
+        newSize = (newSize / MiB) * MiB;          // 1 MiB align
 
         if (newSize < sizeMin)
         {
@@ -92,9 +92,9 @@ public sealed class PartitionResizeService : IPartitionResizeService
 
         ct.ThrowIfCancellationRequested();
 
-        var inParams  = mo.GetMethodParameters("Resize");
+        var inParams = mo.GetMethodParameters("Resize");
         inParams["Size"] = (ulong)newSize;
-        var result    = mo.InvokeMethod("Resize", inParams, null)!;
+        var result = mo.InvokeMethod("Resize", inParams, null)!;
         var returnVal = Convert.ToUInt32(result["ReturnValue"]);
 
         if (returnVal != 0)
@@ -121,7 +121,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
             using var results = searcher.Get();
 
             ManagementObject? best = null;
-            long              bestShrinkable = 0;
+            long bestShrinkable = 0;
 
             foreach (ManagementObject p in results.Cast<ManagementObject>())
             {
@@ -130,20 +130,23 @@ public sealed class PartitionResizeService : IPartitionResizeService
                 // and a positive SizeMin/SizeMax delta.
                 char dl = p["DriveLetter"] switch
                 {
-                    char c           => c,
+                    char c => c,
                     ushort u when u > 0 => (char)u,
                     string s when s.Length > 0 => s[0],
-                    _                => '\0',
+                    _ => '\0',
                 };
-                if (dl == '\0') continue;
+                if (dl == '\0')
+                    continue;
 
                 try
                 {
                     var outSizes = p.InvokeMethod("GetSupportedSize", null, null);
-                    if (outSizes is null) continue;
+                    if (outSizes is null)
+                        continue;
 
                     var returnValue = Convert.ToUInt32(outSizes["ReturnValue"]);
-                    if (returnValue != 0) continue;
+                    if (returnValue != 0)
+                        continue;
 
                     var sizeMin = Convert.ToInt64(outSizes["SizeMin"]);
                     var sizeMax = Convert.ToInt64(outSizes["SizeMax"]);
@@ -152,7 +155,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
                     if (shrinkable > bestShrinkable)
                     {
                         best?.Dispose();
-                        best           = (ManagementObject)p.Clone();
+                        best = (ManagementObject)p.Clone();
                         bestShrinkable = shrinkable;
                     }
                 }

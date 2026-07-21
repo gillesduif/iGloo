@@ -52,9 +52,9 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     public DistroSelectionViewModel(DistroLoader loader, DistroRegistry registry,
         Microsoft.Extensions.Logging.ILogger<DistroSelectionViewModel> logger)
     {
-        _loader   = loader;
+        _loader = loader;
         _registry = registry;
-        _logger   = logger;
+        _logger = logger;
         // Initial population with no preflight data (no constraints yet).
         RefreshCompatibility(null);
     }
@@ -69,11 +69,11 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     /// <see cref="DistroItems"/>. Called by <c>MainWindowViewModel</c> every time the user
     /// navigates to this step so the list always reflects the current hardware state.
     /// </summary>
-    private bool  _built;
-    private bool  _lastSecureBootOn;
+    private bool _built;
+    private bool _lastSecureBootOn;
 
     private PreflightReport? _lastReport;
-    private string           _lastCategory = AllCategory;
+    private string _lastCategory = AllCategory;
     private IReadOnlyList<string> _recommendedIds = [];
 
     /// <summary>The quiz-driven filter chip, shown only when recommendations exist.</summary>
@@ -88,7 +88,8 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     /// </summary>
     public void SetRecommendation(IReadOnlyList<string> distroIds)
     {
-        if (_recommendedIds.SequenceEqual(distroIds, StringComparer.OrdinalIgnoreCase)) return;
+        if (_recommendedIds.SequenceEqual(distroIds, StringComparer.OrdinalIgnoreCase))
+            return;
         _recommendedIds = distroIds;
         _built = false;
         if (distroIds.Count > 0)
@@ -111,7 +112,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     public void RefreshCompatibility(PreflightReport? report)
     {
         var secureBootOn = report?.SecureBootEnabled ?? false;
-        var category     = SelectedCategory ?? AllCategory;
+        var category = SelectedCategory ?? AllCategory;
 
         // Only rebuild the list when something that affects it actually changed.
         // Rebuilding reassigns DistroItems, which makes WPF's bound ListBox reset
@@ -131,7 +132,8 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         // so a chip can't disappear while it is active. The Recommended chip
         // leads (right after All) and only exists once the quiz was answered.
         var head = new List<string> { AllCategory };
-        if (_recommendedIds.Count > 0) head.Add(RecommendedCategory);
+        if (_recommendedIds.Count > 0)
+            head.Add(RecommendedCategory);
         Categories = head
             .Concat(_loader.LoadedDistros
                 .Select(m => m.DefaultDesktopEnvironment)
@@ -152,15 +154,15 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                 IsRecommended = _recommendedIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase),
             })
             .ToList();
-        _built            = true;
+        _built = true;
         _lastSecureBootOn = secureBootOn;
-        _lastReport       = report;
-        _lastCategory     = category;
+        _lastReport = report;
+        _lastCategory = category;
 
         // Selection preference: the user's previous pick, else the TOP-ranked
         // recommendation (the carousel opens centered on the selection), else
         // null (the carousel centers the middle of the shelf).
-        var restored    = DistroItems.FirstOrDefault(i => i.Manifest.Id == previousId);
+        var restored = DistroItems.FirstOrDefault(i => i.Manifest.Id == previousId);
         var recommended = _recommendedIds
             .Select(id => DistroItems.FirstOrDefault(
                 i => string.Equals(i.Manifest.Id, id, StringComparison.OrdinalIgnoreCase)))
@@ -179,9 +181,9 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         if (secureBootOn && !HasSecureBootTag(m))
         {
             return new DistroListItem(m,
-                IsCompatible:          false,
+                IsCompatible: false,
                 IncompatibilityReason: "Requires Secure Boot to be disabled",
-                IsComingSoon:          comingSoon);
+                IsComingSoon: comingSoon);
         }
 
         // Plugin-declared hardware requirements (BitLocker state, distro-specific
@@ -226,7 +228,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
 /// </summary>
 public sealed record DistroListItem(
     DistroManifest Manifest,
-    bool           IsCompatible,
-    string?        IncompatibilityReason,
-    bool           IsComingSoon = false,
-    bool           IsRecommended = false);
+    bool IsCompatible,
+    string? IncompatibilityReason,
+    bool IsComingSoon = false,
+    bool IsRecommended = false);

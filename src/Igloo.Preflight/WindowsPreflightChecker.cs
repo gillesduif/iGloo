@@ -74,7 +74,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
         foreach (var disk in disks)
         {
-            if (!TryParseDiskNumber(disk.DeviceId, out var diskNumber)) continue;
+            if (!TryParseDiskNumber(disk.DeviceId, out var diskNumber))
+                continue;
 
             List<PartitionInfo>? run = null;
             foreach (var p in disk.Partitions.OrderBy(p => p.OffsetBytes))
@@ -101,7 +102,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             }
         }
 
-        if (groups.Count == 0) return ([], leftovers);
+        if (groups.Count == 0)
+            return ([], leftovers);
 
         // Best-effort naming from UEFI boot entries (empty list on any failure).
         var linuxEntries = EfiBootEntries.Enumerate(_logger)
@@ -211,7 +213,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 "SELECT ConversionStatus, ProtectionStatus FROM Win32_EncryptableVolume WHERE DriveLetter = 'C:'");
             using var results = searcher.Get();
             var obj = results.Cast<ManagementBaseObject>().FirstOrDefault();
-            if (obj == null) return BitLockerState.Unknown;
+            if (obj == null)
+                return BitLockerState.Unknown;
 
             // ConversionStatus 0 = FullyDecrypted, 1 = FullyEncrypted, 2+ = in transition.
             // ProtectionStatus 0 = Off (protection suspended or no key protector), 1 = On.
@@ -221,10 +224,14 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             // ConversionStatus values from Win32_EncryptableVolume:
             //   0 = FullyDecrypted  1 = FullyEncrypted  2 = EncryptionInProgress
             //   3 = DecryptionInProgress  4 = EncryptionPaused  5 = DecryptionPaused
-            if (conversion == 0) return BitLockerState.NotEncrypted;
-            if (conversion == 3 || conversion == 5) return BitLockerState.DecryptionInProgress;
-            if (protection == 1) return BitLockerState.EncryptedAndUnlocked;
-            if (protection == 0) return BitLockerState.SuspendedProtection;
+            if (conversion == 0)
+                return BitLockerState.NotEncrypted;
+            if (conversion == 3 || conversion == 5)
+                return BitLockerState.DecryptionInProgress;
+            if (protection == 1)
+                return BitLockerState.EncryptedAndUnlocked;
+            if (protection == 0)
+                return BitLockerState.SuspendedProtection;
             return BitLockerState.Unknown;
         }
         catch (Exception ex)
@@ -297,7 +304,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 };
 
                 var (fs, label) = QueryVolumeInfo(dl);
-                var shrinkable  = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index, p) : 0L;
+                var shrinkable = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index, p) : 0L;
                 partitions.Add(new PartitionInfo(index, fs, size, label, isSystem, isBoot, shrinkable,
                                                  offset, gptType));
             }
@@ -325,13 +332,16 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 $"AND PartitionNumber = {partitionNumber}");
             using var results = searcher.Get();
             var mo = results.Cast<ManagementObject>().FirstOrDefault();
-            if (mo is null) return 0;
+            if (mo is null)
+                return 0;
 
             var outParams = mo.InvokeMethod("GetSupportedSize", null, null);
-            if (outParams is null) return 0;
+            if (outParams is null)
+                return 0;
 
             var returnValue = Convert.ToUInt32(outParams["ReturnValue"]);
-            if (returnValue != 0) return 0;   // 0 = success
+            if (returnValue != 0)
+                return 0;   // 0 = success
 
             var sizeMin = Convert.ToInt64(outParams["SizeMin"]);
             var sizeMax = Convert.ToInt64(outParams["SizeMax"]);
@@ -347,7 +357,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
     private (string FileSystem, string? Label) QueryVolumeInfo(char driveLetter)
     {
-        if (driveLetter == '\0') return ("Unknown", null);
+        if (driveLetter == '\0')
+            return ("Unknown", null);
         try
         {
             using var searcher = new ManagementObjectSearcher(
