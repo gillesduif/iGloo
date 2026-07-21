@@ -74,7 +74,7 @@ public static class WindowsWifiScanner
 
     // ── Private ───────────────────────────────────────────────────────────────
 
-    private static WifiNetwork? ParseProfile(string path, HashSet<string> connectedValues)
+    internal static WifiNetwork? ParseProfile(string path, HashSet<string> connectedValues)
     {
         try
         {
@@ -123,7 +123,7 @@ public static class WindowsWifiScanner
     /// Maps a WLANProfile <c>&lt;authentication&gt;</c> value to the agent's
     /// normalised security type and decides whether to carry the key.
     /// </summary>
-    private static (string security, string? psk) NormaliseSecurity(string auth, string? keyMaterial)
+    internal static (string security, string? psk) NormaliseSecurity(string auth, string? keyMaterial)
     {
         var a = auth.ToUpperInvariant();
 

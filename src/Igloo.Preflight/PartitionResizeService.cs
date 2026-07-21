@@ -128,13 +128,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
                 // We only want to resize the main NTFS data partition.
                 // Heuristic: pick the largest partition that has a drive letter
                 // and a positive SizeMin/SizeMax delta.
-                char dl = p["DriveLetter"] switch
-                {
-                    char c => c,
-                    ushort u when u > 0 => (char)u,
-                    string s when s.Length > 0 => s[0],
-                    _ => '\0',
-                };
+                char dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
                 if (dl == '\0')
                     continue;
 

@@ -144,7 +144,7 @@ internal static class EfiBootEntries
     /// EFI_LOAD_OPTION: UINT32 Attributes · UINT16 FilePathListLength ·
     /// null-terminated CHAR16 Description · device path. We only need the description.
     /// </summary>
-    private static string ParseDescription(byte[] loadOption)
+    internal static string ParseDescription(byte[] loadOption)
     {
         const int descStart = 6;
         if (loadOption.Length <= descStart)

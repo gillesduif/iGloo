@@ -136,52 +136,37 @@ public static class WindowsAppScanner
 
         // HKLM - system-wide installs (64-bit and 32-bit on 64-bit Windows)
         foreach (var path in HklmUninstallPaths)
-        {
-            try
-            {
-                using var root = Registry.LocalMachine.OpenSubKey(path);
-                if (root is null)
-                    continue;
-                foreach (var subName in root.GetSubKeyNames())
-                {
-                    try
-                    {
-                        using var sub = root.OpenSubKey(subName);
-                        if (sub?.GetValue("DisplayName") is string dn
-                            && !string.IsNullOrWhiteSpace(dn))
-                            names.Add(dn);
-                    }
-                    catch { /* skip inaccessible subkey */ }
-                }
-            }
-            catch { /* skip inaccessible hive */ }
-        }
+            AddDisplayNames(Registry.LocalMachine, path, names);
 
         // HKCU - per-user installs (Spotify installs here by default)
-        try
-        {
-            using var root = Registry.CurrentUser.OpenSubKey(HkcuUninstallPath);
-            if (root is not null)
-            {
-                foreach (var subName in root.GetSubKeyNames())
-                {
-                    try
-                    {
-                        using var sub = root.OpenSubKey(subName);
-                        if (sub?.GetValue("DisplayName") is string dn
-                            && !string.IsNullOrWhiteSpace(dn))
-                            names.Add(dn);
-                    }
-                    catch { /* skip inaccessible subkey */ }
-                }
-            }
-        }
-        catch { /* skip inaccessible hive */ }
+        AddDisplayNames(Registry.CurrentUser, HkcuUninstallPath, names);
 
         return names;
     }
 
-    private static IReadOnlyList<DetectedSuggestion> Match(HashSet<string> installed)
+    private static void AddDisplayNames(RegistryKey hive, string uninstallPath, HashSet<string> names)
+    {
+        try
+        {
+            using var root = hive.OpenSubKey(uninstallPath);
+            if (root is null)
+                return;
+            foreach (var subName in root.GetSubKeyNames())
+            {
+                try
+                {
+                    using var sub = root.OpenSubKey(subName);
+                    if (sub?.GetValue("DisplayName") is string dn
+                        && !string.IsNullOrWhiteSpace(dn))
+                        names.Add(dn);
+                }
+                catch { /* skip inaccessible subkey */ }
+            }
+        }
+        catch { /* skip inaccessible hive */ }
+    }
+
+    internal static IReadOnlyList<DetectedSuggestion> Match(HashSet<string> installed)
     {
         var results = new List<DetectedSuggestion>();
 

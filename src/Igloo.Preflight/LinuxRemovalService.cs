@@ -1,5 +1,6 @@
 using System.IO;
 using System.Management;
+using System.Runtime.Versioning;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
@@ -20,7 +21,7 @@ namespace Igloo.Preflight;
 ///     when unambiguously paired, or all of them when the last install goes.
 /// The freed space is left unallocated for the user (or a future iGloo install).
 /// </summary>
-[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+[SupportedOSPlatform("windows")]
 public sealed class LinuxRemovalService : ILinuxRemovalService
 {
     private const string StorageNs = @"root\Microsoft\Windows\Storage";
@@ -137,13 +138,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             char bestLetter = '\0';
             foreach (var p in results.Cast<ManagementObject>())
             {
-                var dl = p["DriveLetter"] switch
-                {
-                    char c => c,
-                    ushort u when u > 0 => (char)u,
-                    string s when s.Length > 0 => s[0],
-                    _ => '\0',
-                };
+                var dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
                 var size = dl == '\0' ? 0 : Convert.ToInt64(p["Size"]);
                 if (size > bestSize)
                 {

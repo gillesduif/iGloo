@@ -13,23 +13,28 @@ using Microsoft.Win32;
 namespace Igloo.Preflight;
 
 /// <summary>
-/// Implements direct-install (no USB) for dual-boot scenarios using the
-/// Fedora netinstall ISO (Anaconda + network package fetch).
+/// Implements direct-install (no USB) for dual-boot scenarios. The selected
+/// distro's <see cref="InstallerBootSpec"/> parameterizes every distro-specific
+/// step; the pipeline itself never branches on distro identity.
 ///
 /// Flow:
 ///   1. Mount the ISO briefly to measure kernel + initrd sizes; unmount.
 ///   2. Shrink the Windows NTFS partition.
-///   3. Create a FAT32 partition labeled <c>OEMDRV</c> in the freed space.
-///   4. Mount the ISO; extract kernel, initrd, shim and GRUB onto OEMDRV;
-///      write a custom <c>grub.cfg</c>; unmount.
-///   5. Copy migration artefacts (kickstart, agent, manifest) to OEMDRV.
+///   3. Create a FAT32 seed partition (label from the boot spec: OEMDRV/CIDATA)
+///      in the freed space, plus an NTFS ISO partition for oversized ISOs and a
+///      pre-created Linux root when the spec demands them.
+///   4. Mount the ISO; extract (or download) kernel and initrd, plus shim and
+///      GRUB, onto the seed partition; inject the installer config into the
+///      initrd when the spec asks; write a custom <c>grub.cfg</c>; unmount.
+///   5. Copy migration artefacts (installer config, agent, manifest).
 ///   6. Register a one-time UEFI boot entry (BootNext) so the firmware boots
 ///      the GRUB installer on the next restart.
 ///
-/// Using the netinstall ISO (not the live ISO) gives full kickstart support:
-/// package selection, dual-boot bootloader config, and unattended installation.
-/// The kickstart's <c>%post</c> enables os-prober so GRUB detects Windows and
-/// adds it to the boot menu - giving end users the OS choice at every startup.
+/// For Fedora, using the netinstall ISO (not the live ISO) gives full kickstart
+/// support: package selection, dual-boot bootloader config, and unattended
+/// installation. The kickstart's <c>%post</c> enables os-prober so GRUB detects
+/// Windows and adds it to the boot menu - giving end users the OS choice at
+/// every startup.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class DirectInstallService : IDirectInstallService
@@ -436,13 +441,7 @@ public sealed class DirectInstallService : IDirectInstallService
             using var results = searcher.Get();
             foreach (ManagementBaseObject p in results)
             {
-                char dl = p["DriveLetter"] switch
-                {
-                    char c => c,
-                    ushort u when u > 0 => (char)u,
-                    string s when s.Length > 0 => s[0],
-                    _ => '\0',
-                };
+                char dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
                 if (char.ToUpper(dl) == char.ToUpper(letter))
                     return Convert.ToUInt32(p["PartitionNumber"]);
             }
@@ -832,69 +831,6 @@ public sealed class DirectInstallService : IDirectInstallService
         return string.Join("\n", lines);
     }
 
-    /// <summary>
-    /// Finds the largest unallocated byte range on <paramref name="diskNumber"/>,
-    /// returned as an MiB-aligned (offset, size).
-    ///
-    /// Ubuntu's subiquity autoinstall cannot locate free space on its own, and after
-    /// a Windows shrink the free region is usually a GAP IN THE MIDDLE of the disk —
-    /// Windows keeps its Recovery partition at the very end, so shrinking C: opens a
-    /// hole between it and the tail. We enumerate every partition (offset+size),
-    /// scan the gaps between them plus the tail, and return the biggest. A 1 MiB
-    /// margin is trimmed so the new partition never abuts the next one or the GPT
-    /// backup header.
-    /// </summary>
-    private (long offset, long size) FindLargestFreeGap(int diskNumber)
-    {
-        var parts = new List<(long off, long size)>();
-        using (var searcher = new ManagementObjectSearcher(StorageNs,
-            $"SELECT Offset, Size FROM MSFT_Partition WHERE DiskNumber = {diskNumber}"))
-        using (var results = searcher.Get())
-            foreach (ManagementBaseObject p in results)
-                parts.Add((Convert.ToInt64(p["Offset"]), Convert.ToInt64(p["Size"])));
-
-        parts.Sort((a, b) => a.off.CompareTo(b.off));
-
-        long diskSize = GetDiskSize(diskNumber);
-        long bestOffset = 0, bestSize = 0;
-        long cursor = MiB; // reserve the first MiB (primary GPT + alignment)
-
-        void Consider(long gapStart, long gapEnd)
-        {
-            long offset = RoundUpMiB(gapStart);
-            long end = gapEnd / MiB * MiB;   // align the usable end down to MiB
-            long size = end - offset - MiB;   // 1 MiB clearance from the next region
-            if (size > bestSize)
-            { bestSize = size; bestOffset = offset; }
-        }
-
-        foreach (var (off, size) in parts)
-        {
-            if (off > cursor)
-                Consider(cursor, off);
-            cursor = Math.Max(cursor, off + size);
-        }
-        Consider(cursor, diskSize - MiB); // tail gap (leave 1 MiB for the backup GPT)
-
-        if (bestSize <= 0)
-            throw new InvalidOperationException(
-                $"No usable free space found on disk {diskNumber} for the Linux root partition.");
-
-        _logger.LogInformation("Largest free gap on disk {Disk}: offset {Off}, size {Size} bytes",
-            diskNumber, bestOffset, bestSize);
-        return (bestOffset, bestSize);
-    }
-
-    private long GetDiskSize(int diskNumber)
-    {
-        using var searcher = new ManagementObjectSearcher(StorageNs,
-            $"SELECT Size FROM MSFT_Disk WHERE Number = {diskNumber}");
-        using var results = searcher.Get();
-        foreach (ManagementBaseObject d in results)
-            return Convert.ToInt64(d["Size"]);
-        throw new InvalidOperationException($"Could not read the size of disk {diskNumber}.");
-    }
-
     // ── Step 5 - extract kernel + initrd from ISO ────────────────────────────
 
     /// <summary>
@@ -1042,7 +978,7 @@ public sealed class DirectInstallService : IDirectInstallService
     /// </list>
     /// Falls back to a full recursive scan as a safety net.
     /// </summary>
-    private string FindKernelFiles(string isoRoot, out string initrdPath)
+    private (string kernel, string initrd) FindKernelFiles(string isoRoot)
     {
         // Try the distro's declared kernel/initrd locations (from the boot spec),
         // pairing any existing kernel with any existing initrd.
@@ -1055,7 +991,7 @@ public sealed class DirectInstallService : IDirectInstallService
             {
                 var iFull = Path.Combine(isoRoot, i.Replace('/', '\\'));
                 if (File.Exists(iFull))
-                { initrdPath = iFull; return kFull; }
+                    return (kFull, iFull);
             }
         }
 
@@ -1077,8 +1013,7 @@ public sealed class DirectInstallService : IDirectInstallService
             if (initrdHit is null)
                 continue;
             _logger.LogInformation("Found kernel via scan: {K}", f);
-            initrdPath = initrdHit;
-            return f;
+            return (f, initrdHit);
         }
 
         // Last resort: dump the full file listing so the next iteration can add
@@ -1090,13 +1025,6 @@ public sealed class DirectInstallService : IDirectInstallService
         throw new InvalidOperationException(
             $"Cannot locate kernel + initrd on the mounted ISO.\n" +
             $"ISO file listing:\n  {string.Join("\n  ", allFiles)}");
-    }
-
-    // Thin wrapper so callers use a clean tuple syntax.
-    private (string kernel, string initrd) FindKernelFiles(string isoRoot)
-    {
-        var k = FindKernelFiles(isoRoot, out var i);
-        return (k, i);
     }
 
     /// <summary>
@@ -1178,7 +1106,7 @@ public sealed class DirectInstallService : IDirectInstallService
     }
 
     /// <summary>Builds a cpio "newc" archive containing one regular file + the trailer.</summary>
-    private static byte[] BuildNewcCpio(string name, byte[] data)
+    internal static byte[] BuildNewcCpio(string name, byte[] data)
     {
         using var ms = new MemoryStream();
         WriteCpioEntry(ms, name, data, mode: 0x81A4, nlink: 1); // 0100644
@@ -1322,7 +1250,7 @@ public sealed class DirectInstallService : IDirectInstallService
         // Use -EncodedCommand (Base64 UTF-16LE) so that paths containing
         // special characters such as apostrophes (e.g. "D'huyvetter") never
         // break PowerShell's argument / string parsing.
-        var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(command));
+        var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(command));
         var psi = new ProcessStartInfo("powershell.exe",
             $"-NonInteractive -NoProfile -EncodedCommand {encoded}")
         {
@@ -1536,7 +1464,7 @@ public sealed class DirectInstallService : IDirectInstallService
         return 0x0090; // fallback - overwrite 0x0090
     }
 
-    private static byte[] BuildEfiLoadOption(
+    internal static byte[] BuildEfiLoadOption(
         uint partitionNumber, ulong lbaStart, ulong lbaSize,
         Guid partGuid, string efiPath, string description,
         string? cmdLine = null)
@@ -1598,7 +1526,7 @@ public sealed class DirectInstallService : IDirectInstallService
 
     // ── Utility ───────────────────────────────────────────────────────────────
 
-    private static long RoundUpMiB(long bytes) =>
+    internal static long RoundUpMiB(long bytes) =>
         ((bytes + MiB - 1) / MiB) * MiB;
 
     private static void Report(

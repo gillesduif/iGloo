@@ -13,4 +13,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Igloo.Core\Igloo.Core.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="Igloo.Preflight.Tests" />
+	</ItemGroup>
 </Project>

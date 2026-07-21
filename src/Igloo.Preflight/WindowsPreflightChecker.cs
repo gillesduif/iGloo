@@ -1,11 +1,12 @@
 using System.Management;
+using System.Runtime.Versioning;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
 namespace Igloo.Preflight;
 
-[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+[SupportedOSPlatform("windows")]
 public sealed class WindowsPreflightChecker : IPreflightChecker
 {
     private readonly ILogger<WindowsPreflightChecker> _logger;
@@ -294,14 +295,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 var isSystem = p["IsSystem"] is bool bs && bs;
                 var isBoot = p["IsBoot"] is bool bb && bb;
 
-                // DriveLetter is a WMI Char16; providers may return it as char, ushort, or string.
-                char dl = p["DriveLetter"] switch
-                {
-                    char c => c,
-                    ushort u when u > 0 => (char)u,
-                    string s when s.Length > 0 => s[0],
-                    _ => '\0',
-                };
+                char dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
 
                 var (fs, label) = QueryVolumeInfo(dl);
                 var shrinkable = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index, p) : 0L;
