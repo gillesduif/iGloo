@@ -90,8 +90,11 @@ from the bin directory up to the repo root):
   folder root, not `bin/`) into `AssemblyLoadContext.Default` and instantiates
   the single `IDistroPlugin` implementation.
 
-The loose `Igloo.Distro.*.dll` files and `bin/`/`obj/`/`__pycache__` under
-`distros/` are git-ignored build outputs, not tracked files. The App csproj's
+The loose `Igloo.Distro.*.dll` files and `bin/`/`obj/` under `distros/` are
+git-ignored build outputs, not tracked files. EXCEPTION discovered late: the
+`distros/*/agent/__pycache__/*.pyc` files ARE tracked in git (predating the
+ignore rules) and were re-committed in sync with their sources; the hygiene
+pass should `git rm --cached` them and extend `.gitignore`. The App csproj's
 `CopyDistrosToOutput` target copies the tree (excluding sources and `bin`/`obj`)
 next to the exe, which is how the published app finds both the manifests and the
 loose plugin DLLs. Any hygiene pass that relocates the loose DLLs must update the
