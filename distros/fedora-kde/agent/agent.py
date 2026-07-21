@@ -116,7 +116,7 @@ def _is_dnf5() -> bool:
 def enable_rpmfusion(manifest: dict[str, Any]) -> None:
     """Install RPM Fusion free and nonfree release packages."""
     ver = fedora_version()
-    free_url    = f"https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-{ver}.noarch.rpm"
+    free_url = f"https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-{ver}.noarch.rpm"
     nonfree_url = f"https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{ver}.noarch.rpm"
 
     logger.info("Enabling RPM Fusion for Fedora %s", ver)
@@ -264,8 +264,8 @@ def install_suggested_packages(manifest: dict[str, Any]) -> None:
         logger.info("No auto-install packages in manifest")
         return
 
-    flatpak_ids = [p["flatpakId"]     for p in pkgs if p.get("flatpakId")]
-    dnf_pkgs    = [p["nativePackage"] for p in pkgs if p.get("nativePackage")]
+    flatpak_ids = [p["flatpakId"] for p in pkgs if p.get("flatpakId")]
+    dnf_pkgs = [p["nativePackage"] for p in pkgs if p.get("nativePackage")]
 
     if flatpak_ids:
         labels = [p.get("linuxAppName") or p["flatpakId"] for p in pkgs if p.get("flatpakId")]

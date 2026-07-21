@@ -201,8 +201,8 @@ def install_suggested_packages(manifest: dict[str, Any]) -> None:
         logger.info("No auto-install packages in manifest")
         return
 
-    flatpak_ids = [p["flatpakId"]     for p in pkgs if p.get("flatpakId")]
-    apt_pkgs    = [p["nativePackage"] for p in pkgs if p.get("nativePackage")]
+    flatpak_ids = [p["flatpakId"] for p in pkgs if p.get("flatpakId")]
+    apt_pkgs = [p["nativePackage"] for p in pkgs if p.get("nativePackage")]
 
     if flatpak_ids:
         logger.info("Installing Flatpaks: %s", ", ".join(flatpak_ids))
@@ -255,7 +255,7 @@ def migrate_user_files(manifest: dict[str, Any]) -> None:
     """Copy the user's selected folders + browser profiles from Windows NTFS."""
     user = manifest.get("user", {})
     linux_user = user.get("preferredLinuxUsername", "")
-    win_user   = user.get("windowsUsername", "")
+    win_user = user.get("windowsUsername", "")
     if not linux_user or not win_user:
         logger.info("Missing user names in manifest — skipping file migration")
         return
@@ -274,7 +274,7 @@ def migrate_user_files(manifest: dict[str, Any]) -> None:
         # Folder API), so OneDrive-redirected folders carry their real location.
         for folder in manifest.get("files", {}).get("folders", []):
             name = folder.get("name")
-            rel  = folder.get("sourceRelativePath") or name
+            rel = folder.get("sourceRelativePath") or name
             if not name:
                 continue
             src = win_home / rel
@@ -315,7 +315,7 @@ def set_user_password(manifest: dict[str, Any]) -> None:
     Re-applying it here (as root, on first boot, before the display manager) makes it
     deterministic. Runs before redact-manifest, while the plaintext is still present.
     """
-    user     = manifest.get("user", {})
+    user = manifest.get("user", {})
     username = (user.get("preferredLinuxUsername") or "").strip()
     password = user.get("linuxPassword")
     if not username or not password:
@@ -476,9 +476,14 @@ def install_welcome_app(manifest: dict[str, Any]) -> None:
 def configure_logging(log_dir: Path) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    fh = logging.FileHandler(log_dir / "agent.log"); fh.setFormatter(fmt)
-    sh = logging.StreamHandler(sys.stdout); sh.setFormatter(fmt)
-    root = logging.getLogger(); root.addHandler(fh); root.addHandler(sh); root.setLevel(logging.DEBUG)
+    fh = logging.FileHandler(log_dir / "agent.log")
+    fh.setFormatter(fmt)
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setFormatter(fmt)
+    root = logging.getLogger()
+    root.addHandler(fh)
+    root.addHandler(sh)
+    root.setLevel(logging.DEBUG)
 
 
 IGLOO_SEED_LABELS = ("OEMDRV", "CIDATA", "IGLOOISO")
