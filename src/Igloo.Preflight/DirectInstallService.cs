@@ -1321,16 +1321,24 @@ public sealed class DirectInstallService : IDirectInstallService
         ushort idx = FindFreeBootIndex();
 
         // Build and write Boot####.
-        // efiPath → \igloo-boot\shimx64.efi  (Microsoft-signed shim)
-        // Shim loads grubx64.efi from the same directory, which reads
-        // \EFI\fedora\grub.cfg - our direct-FAT32 config written during PrepareAsync.
+        // efiPath points at the STANDARD fallback loader \EFI\BOOT\BOOTX64.EFI
+        // (staged by ConfigureBootFiles), NOT the private \igloo-boot\shimx64.efi.
+        // Field finding on a Gigabyte/AMI board: firmware validates boot options at
+        // POST and PRUNES any Boot#### entry whose target it deems non-standard -
+        // our \igloo-boot\ entry vanished, while the firmware happily kept (and
+        // auto-created "UEFI OS" for) the \EFI\BOOT\BOOTX64.EFI target. Pointing our
+        // own entry at that same trusted path lets it survive, so BootNext to it is
+        // honoured. The shim there loads \EFI\BOOT\grubx64.efi (also staged); grub
+        // finds grub.cfg via its compiled prefix and boots ($root)/igloo-boot/linux.
+        // No regression on firmware that already worked: \EFI\BOOT\BOOTX64.EFI is the
+        // exact same shim binary, just at a second path.
         // The description must keep "iGloo" in it: the first-boot agents and
         // LinuxRemovalService find and delete this one-shot entry by a
         // case-insensitive "igloo" substring match on the description.
         var loadOption = BuildEfiLoadOption(
             _partitionNumber.Value,
             lbaStart, lbaSize, partGuid,
-            $@"\{BootDir}\{ShimFile}",
+            $@"\{FallbackBootDir}\{FallbackBootFile}",
             BootEntryDescription);
 
         var bootVar = $"Boot{idx:X4}";

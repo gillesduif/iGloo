@@ -78,11 +78,38 @@ Corrected a false code comment in the process: it claimed Windows write-protects
 by writing BOOTX64.EFI there directly; the real value of `\igloo-boot\` is just
 that it is the NVRAM entry's target.
 
-VALIDATION STILL OPEN: the fallback loader was pre-staged manually onto the live
-OEMDRV and needs an F12 "UEFI: OEMDRV" boot on the Gigabyte board to confirm the
-shim -> grub -> grub.cfg -> Mint chain launches; then a full end-to-end run with
-the patched build. Not unit-testable (ISO mount + file I/O); relies on hardware
-validation. Applies to ALL distros (shared pipeline, distro-agnostic).
+VALIDATION: Mint installed automatically on the Gigabyte board with this patch
+(no F12) - the firmware auto-discovered \EFI\BOOT\BOOTX64.EFI on OEMDRV and
+created a generic "UEFI OS" entry that booted it. Confirmed distro-agnostic
+(shared pipeline).
+
+### 3b. Boot entry now targets the standard fallback path - FIXED (follow-up)
+Second field run: installing Fedora as a SECOND distro (Windows + an existing
+Mint) on the same Gigabyte board booted straight back to Windows. `bcdedit
+/enum firmware` showed why:
+  - displayorder: Windows Boot Manager (1st), "ubuntu" (2nd, Mint's efibootmgr
+    entry, which SURVIVES), "UEFI OS" -> J:\EFI\BOOT\BOOTX64.EFI (3rd, our
+    fallback loader, auto-created by the firmware).
+  - iGloo's own Boot0080 was gone again, and BootNext with it.
+Two facts stand out: (a) a Linux-side efibootmgr entry survives while iGloo's
+Windows-written Boot#### is pruned; (b) the pruned entry pointed at the private
+\igloo-boot\shimx64.efi, whereas the target the firmware KEPT and even auto-
+registered is the standard \EFI\BOOT\BOOTX64.EFI. Conclusion: this AMI firmware
+prunes boot options whose device path it considers non-standard.
+
+Fix: RegisterBootEntry now builds the EFI_LOAD_OPTION pointing at
+\EFI\BOOT\BOOTX64.EFI (FallbackBootDir/FallbackBootFile) instead of
+\igloo-boot\shimx64.efi. Same shim binary (ConfigureBootFiles stages it to both
+paths), so no regression on firmware that already worked; but on pruning
+firmware the entry now survives, so the BootNext to it is honoured and the
+installer boots first instead of falling through to Windows. The BCD-firmware-
+object route (bcdedit) was rejected: Windows cannot cleanly add a firmware app
+entry to an arbitrary .efi the way Linux's efibootmgr can.
+
+VALIDATION OPEN: must be tested in the FAILING scenario (Windows + an existing
+Linux/boot entry present), not a fully wiped clean disk - a clean disk already
+booted via the auto-"UEFI OS" path and would pass regardless, proving nothing
+about this fix.
 
 ## Skipped for behavior risk (known issues, deliberately not fixed)
 
