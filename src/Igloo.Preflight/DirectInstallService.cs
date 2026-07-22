@@ -77,17 +77,32 @@ public sealed class DirectInstallService : IDirectInstallService
     //   package selection, storage layout, bootloader config, %post scripts.
     //   End users get a proper GRUB dual-boot menu on every startup.
     //
-    // Why \igloo-boot\ for the EFI binaries?
-    //   Windows write-protects \EFI\BOOT\ on FAT32 (UEFI fallback path), even for
-    //   Administrator.  \igloo-boot\ is unprotected - we create it.
+    // The shim + grub are staged to TWO locations on the OEMDRV FAT32 volume:
     //
-    // Why \EFI\fedora\ for grub.cfg?
-    //   grubx64.efi has its compiled prefix hard-coded to /EFI/fedora; it always
-    //   looks for grub.cfg there.  Windows does NOT protect \EFI\fedora\.
-    private const string BootDir = "igloo-boot";   // shim, grub, kernel, initrd
-    private const string ShimFile = "shimx64.efi";  // UEFI entry point; Microsoft-signed
-    private const string GrubFile = "grubx64.efi";  // loaded by shim; Red Hat-signed
-    private const string GrubCfgDir = @"EFI\fedora";  // grubx64.efi's compiled prefix
+    //   \igloo-boot\shimx64.efi  is the target of the one-shot NVRAM Boot#### entry.
+    //     Primary path, used by firmware that honours OS-registered boot entries
+    //     (VMware, the Fedora reference hardware).
+    //   \EFI\BOOT\BOOTX64.EFI  is the UEFI removable/fallback path. Consumer
+    //     AMI/Gigabyte firmware silently discards the runtime-registered NVRAM entry
+    //     across a reboot (validated on a B650 AORUS board: after reboot the entry
+    //     was gone and BootOrder had reset to Windows-only). Such firmware still
+    //     boots \EFI\BOOT\BOOTX64.EFI from any FAT volume, via its fallback scan or
+    //     one-time boot menu, so the installer stays reachable there.
+    //
+    // Both copies are always written. The fallback loader is dormant whenever the
+    // NVRAM entry survives, so the already-validated configurations boot exactly as
+    // before. (A previous comment here claimed Windows write-protects \EFI\BOOT\ on
+    // FAT32 even for Administrator; that is not true for a normal data partition we
+    // create and assign a letter, confirmed by writing BOOTX64.EFI there directly.)
+    //
+    // grub.cfg is written to every compiled-in prefix (\EFI\fedora, \EFI\debian,
+    // \EFI\ubuntu, \boot\grub, \EFI\BOOT) because grubx64.efi's prefix differs per
+    // distro; whichever shim/grub the ISO shipped then finds its config.
+    private const string BootDir = "igloo-boot";           // shim, grub, kernel, initrd (NVRAM path)
+    private const string ShimFile = "shimx64.efi";         // UEFI entry point; Microsoft-signed
+    private const string GrubFile = "grubx64.efi";         // loaded by shim; Red Hat-signed
+    private const string FallbackBootDir = @"EFI\BOOT";    // UEFI removable/fallback directory
+    private const string FallbackBootFile = "BOOTX64.EFI"; // default x64 loader name firmware boots there
     private const string KernelFile = "linux";   // kernel on OEMDRV (under BootDir)
     private const string InitrdFile = "initrd";  // initrd on OEMDRV (under BootDir)
 
@@ -915,6 +930,17 @@ public sealed class DirectInstallService : IDirectInstallService
             CopyFileRobust(shimSrc, Path.Combine(bootDst, ShimFile));
             CopyFileRobust(grubSrc, Path.Combine(bootDst, GrubFile));
             _logger.LogInformation("shim + grubx64.efi copied to {Dir}", bootDst);
+
+            // Also stage shim + grub at the UEFI fallback path so firmware that
+            // discards our NVRAM boot entry (see the BootDir/FallbackBootDir notes)
+            // can still boot the installer. The shim loads grubx64.efi from its own
+            // directory, so both must sit together under \EFI\BOOT; grub then locates
+            // grub.cfg via its compiled prefix (written to every candidate below).
+            var fallbackDst = Path.Combine(oemDrvRoot, FallbackBootDir);
+            Directory.CreateDirectory(fallbackDst);
+            CopyFileRobust(shimSrc, Path.Combine(fallbackDst, FallbackBootFile));
+            CopyFileRobust(grubSrc, Path.Combine(fallbackDst, GrubFile));
+            _logger.LogInformation("shim + grubx64.efi also staged at fallback path {Dir}", fallbackDst);
 
             // ── 3. Copy images/install.img (Anaconda stage2 squashfs) ─────────
             // The Fedora netinstall ISO contains images/install.img - the squashfs

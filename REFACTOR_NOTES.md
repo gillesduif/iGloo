@@ -53,9 +53,40 @@ unit is igloo-bootstrap.service (not igloo-first-boot.service) and the logs
 are bootstrap.log + agent.log (not first-boot.log) - the README's
 "Verifying an install" snippet documents only the Debian d-i names.
 
+### 3. UEFI fallback-path loader (bare-metal Gigabyte/AMI boot failure) - FIXED
+Bare-metal Mint attempt 2026-07-21 on a Gigabyte B650 AORUS ELITE AX V2
+(AMI BIOS F33a, Secure Boot off): the Windows pipeline completed flawlessly
+(shrink, OEMDRV carve, kernel/initrd extract, preseed inject, full ISO copy,
+grub.cfg to all prefixes, Boot0080 + BootNext written) but the machine rebooted
+straight into Windows. `bcdedit /enum firmware` afterward showed Boot0080 GONE
+and displayorder reset to `{bootmgr}` only: this firmware class silently PURGES
+OS-registered Boot#### entries across a reboot. The one-shot BootNext safety
+worked perfectly (clean fallback to Windows, no boot loop, staging intact).
+
+Fix: `DirectInstallService.ConfigureBootFiles` now also stages the shim + grub
+to the UEFI fallback path `\EFI\BOOT\BOOTX64.EFI` (+ grubx64.efi) on the OEMDRV
+volume, which such firmware boots via its fallback scan / one-time boot menu
+without needing an NVRAM entry. The change is ADDITIVE: the `\igloo-boot\` copy
+and the NVRAM Boot#### entry are unchanged, so firmware that honours entries
+(VMware, the Fedora reference hardware) boots exactly as before and the fallback
+loader stays dormant. No boot-loop risk: the fallback path is never in BootOrder,
+so a failed install still lands in Windows (BootOrder[0]).
+
+Corrected a false code comment in the process: it claimed Windows write-protects
+`\EFI\BOOT\` on FAT32 even for Administrator (the stated reason for staging to
+`\igloo-boot\`). Verified untrue for a normal data partition we create and letter
+by writing BOOTX64.EFI there directly; the real value of `\igloo-boot\` is just
+that it is the NVRAM entry's target.
+
+VALIDATION STILL OPEN: the fallback loader was pre-staged manually onto the live
+OEMDRV and needs an F12 "UEFI: OEMDRV" boot on the Gigabyte board to confirm the
+shim -> grub -> grub.cfg -> Mint chain launches; then a full end-to-end run with
+the patched build. Not unit-testable (ISO mount + file I/O); relies on hardware
+validation. Applies to ALL distros (shared pipeline, distro-agnostic).
+
 ## Skipped for behavior risk (known issues, deliberately not fixed)
 
-### 3. Sync-over-async inside the direct-install worker
+### 4. Sync-over-async inside the direct-install worker
 `DirectInstallService.Prepare` runs synchronously on a thread-pool thread
 (`Task.Run`) and calls `_resizer.ShrinkAsync(...).GetAwaiter().GetResult()` plus
 blocking reads in `RunDiskpart`. Deadlock-safe in context (no sync-context), but
