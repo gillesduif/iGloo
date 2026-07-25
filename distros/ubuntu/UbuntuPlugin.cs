@@ -5,20 +5,6 @@ using Igloo.Core.Models;
 
 namespace Igloo.Distro.Ubuntu;
 
-/// <summary>
-/// <see cref="IDistroPlugin"/> for Ubuntu (subiquity autoinstall / cloud-init).
-///
-/// The rendered config is a cloud-init <c>#cloud-config</c> with an
-/// <c>autoinstall:</c> section, plus an empty <c>meta-data</c> file. They are
-/// placed on a FAT32 volume labelled <c>CIDATA</c> so cloud-init's NoCloud
-/// datasource auto-detects the seed; the kernel cmdline carries <c>autoinstall</c>.
-///
-/// Password: subiquity's <c>identity.password</c> must be a crypt hash, which we
-/// can't produce on the Windows side, so a locked placeholder is used and the
-/// real (plaintext) password is set by a <c>late-commands</c> <c>chpasswd</c>.
-///
-/// The first-boot agent is shared across the Debian family.
-/// </summary>
 public sealed class UbuntuPlugin : IDistroPlugin
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -39,10 +25,6 @@ public sealed class UbuntuPlugin : IDistroPlugin
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
     }
 
-    /// <summary>
-    /// Loads the co-located <c>distro.json</c>, or returns <c>null</c> when it is
-    /// absent or unreadable so the constructor uses <see cref="FallbackMetadata"/>.
-    /// </summary>
     private static DistroManifest? TryLoadManifest(string path)
     {
         if (!File.Exists(path))
@@ -188,12 +170,6 @@ public sealed class UbuntuPlugin : IDistroPlugin
             .Replace("{{STORAGE}}", storage, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Renders the autoinstall <c>storage</c> block. Replace mode wipes the whole
-    /// disk (fully supported). Dual-boot reuses the free space Igloo already made
-    /// next to Windows — the most validation-sensitive part on real hardware, so
-    /// it is emitted explicitly rather than guessed by a layout name.
-    /// </summary>
     private static string BuildStorage(MigrationManifest m)
     {
         if (!string.Equals(m.Hardware.InstallMode, "dual-boot", StringComparison.OrdinalIgnoreCase))
@@ -233,7 +209,7 @@ public sealed class UbuntuPlugin : IDistroPlugin
         return string.Join("\n", AutoinstallStorageLines);
     }
 
-    /// <summary>Static curtin storage skeleton; the token line is expanded per-disk at install time.</summary>
+    
     private static readonly string[] AutoinstallStorageLines =
     [
         "  storage:",

@@ -3,11 +3,6 @@ using System.Windows.Data;
 
 namespace Igloo.App.Converters;
 
-/// <summary>
-/// MultiBinding converter: [part, whole, availableWidth] → pixel width, so partition
-/// segments can be laid out proportionally to their byte size. Values may arrive as
-/// any numeric type (long byte counts, int GiB, double widths).
-/// </summary>
 public sealed class ProportionalWidthConverter : IMultiValueConverter
 {
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)

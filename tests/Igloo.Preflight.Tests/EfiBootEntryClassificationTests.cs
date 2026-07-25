@@ -4,11 +4,6 @@ using Xunit;
 
 namespace Igloo.Preflight.Tests;
 
-/// <summary>
-/// Characterization tests for boot-entry description parsing and classification in
-/// <see cref="EfiBootEntries"/>. Misclassification here either leaves dead Linux
-/// entries behind or, far worse, deletes a Windows entry during Linux removal.
-/// </summary>
 public class EfiBootEntryClassificationTests
 {
     [Theory]

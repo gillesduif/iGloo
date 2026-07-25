@@ -33,7 +33,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private IsoAcquisitionResult? _result;
 
-    /// <summary>The distro being acquired — the page shows its logo on the receipt.</summary>
+    
     [ObservableProperty] private DistroManifest? _distro;
 
     //   Derived                                
@@ -66,12 +66,6 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
 
     //   API called by MainWindowViewModel                   
 
-    /// <summary>
-    /// Builds the <see cref="IsoSpecification"/> from the chosen distro manifest and
-    /// resets all observable state so the page shows a clean start.
-    /// Call this before navigating to the acquisition step, then call
-    /// <see cref="AcquireCommand"/>.
-    /// </summary>
     public void Prepare(DistroManifest distro)
     {
         ArgumentNullException.ThrowIfNull(distro);

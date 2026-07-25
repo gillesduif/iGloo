@@ -5,11 +5,6 @@ using Xunit;
 
 namespace Igloo.App.Tests;
 
-/// <summary>
-/// Characterization tests for <see cref="DistroRecommender"/>: the quiz-to-badge
-/// pipeline. The trait table itself is product content and free to change; these
-/// tests pin the mechanics (gating, ranking window, cap, availability tie-break).
-/// </summary>
 public class DistroRecommenderTests
 {
     private static DistroManifest Distro(string id, string? status = null) => new()

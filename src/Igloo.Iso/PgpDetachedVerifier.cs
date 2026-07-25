@@ -3,21 +3,8 @@ using Org.BouncyCastle.Bcpg.OpenPgp;
 
 namespace Igloo.Iso;
 
-/// <summary>
-/// Verifies an OpenPGP <b>detached</b> signature against a data file, using
-/// BouncyCastle. This is the format Debian and Ubuntu use for their checksum
-/// files: a plain <c>SHA256SUMS</c> data file plus a separate signature file
-/// (<c>SHA256SUMS.sign</c> / <c>SHA256SUMS.gpg</c>) that signs its raw bytes,
-/// in contrast to Fedora's single clear-signed CHECKSUM (see
-/// <see cref="PgpCleartextVerifier"/>).
-/// </summary>
 internal static class PgpDetachedVerifier
 {
-    /// <summary>
-    /// Returns <c>true</c> when <paramref name="detachedSignature"/> is a valid
-    /// signature over <paramref name="signedData"/> for a key in
-    /// <paramref name="publicKeyRingBytes"/>. Never throws; logs on failure.
-    /// </summary>
     internal static bool Verify(
         byte[] publicKeyRingBytes, byte[] signedData, byte[] detachedSignature, ILogger logger,
         string? expectedFingerprint = null)

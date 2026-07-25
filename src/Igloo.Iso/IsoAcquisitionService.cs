@@ -7,14 +7,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.Iso;
 
-/// <summary>
-/// Downloads a distribution ISO with HTTP Range-request resumability, verifies its
-/// SHA-256 hash, and verifies the GPG cleartext-signed CHECKSUM file (Fedora-style).
-///
-/// Partial downloads are kept as <c>&lt;filename&gt;.partial</c> alongside the final ISO.
-/// On resume the service sends <c>Range: bytes=N-</c>; if the server returns 200 instead
-/// of 206 (no Range support) the download restarts from zero.
-/// </summary>
 public sealed class IsoAcquisitionService : IIsoAcquisitionService
 {
     private readonly IHttpClientFactory _httpFactory;
@@ -81,23 +73,6 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         return new IsoAcquisitionResult(isoPath, Sha256Verified: true, gpgVerified, new FileInfo(isoPath).Length);
     }
 
-    /// <summary>
-    /// Fetches the CHECKSUM file, GPG-verifies it when declared, and returns the
-    /// authoritative SHA-256. Runs BEFORE downloading the ISO: a verification failure
-    /// must abort the acquisition before pulling gigabytes, and the hash must be known
-    /// up front. When distro.json ships with an empty sha256, the hash is auto-resolved
-    /// from the GPG-signed CHECKSUM file - no hardcoded values to maintain across releases.
-    ///
-    /// FAIL-CLOSED POLICY (do not weaken):
-    ///  * GPG declared (signature URL + key source) → the signature MUST verify,
-    ///    or acquisition throws. A failed/unavailable signature never degrades
-    ///    into a warning.
-    ///  * A SHA-256 for the ISO MUST be available from the manifest or the
-    ///    signed checksum file, or acquisition throws - an unverifiable image
-    ///    is never installed.
-    ///  * If the manifest hash and the signed checksum hash BOTH exist they must
-    ///    agree, or acquisition throws (either one was tampered with).
-    /// </summary>
     private async Task<(string Sha256, bool GpgVerified)> ResolveTrustedSha256Async(
         IsoSpecification spec, string fileName,
         IProgress<IsoAcquisitionProgress>? progress, CancellationToken ct)
@@ -165,11 +140,6 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         return (resolvedSha256, gpgVerified);
     }
 
-    /// <summary>
-    /// Rejects any non-HTTPS artefact URL. TLS alone is not the trust anchor
-    /// (GPG + SHA-256 are), but allowing plain HTTP would hand an on-path attacker
-    /// the checksum, signature AND key in one go.
-    /// </summary>
     private static void RequireHttps(IsoSpecification spec)
     {
         foreach (var url in new[] { spec.DownloadUrl, spec.GpgSignatureUrl, spec.GpgKeyUrl, spec.GpgSignedDataUrl })
@@ -293,7 +263,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         return ToLowerHex(sha256.Hash!);
     }
 
-    /// <summary>Lower-case hex of a byte array, matching the form checksum files use.</summary>
+    
     private static string ToLowerHex(byte[] bytes) =>
         string.Create(bytes.Length * 2, bytes, static (chars, src) =>
         {
@@ -307,12 +277,6 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
     //   GPG + CHECKSUM                             
 
-    /// <summary>
-    /// Downloads the CHECKSUM file and (separately) GPG-verifies it. Failures are
-    /// reported through the returned <c>verified</c> flag - the caller enforces the
-    /// fail-closed policy (this method stays exception-free so logs capture the
-    /// specific failure before the caller aborts).
-    /// </summary>
     private async Task<(string? content, bool verified)> FetchAndVerifyChecksumAsync(
         IsoSpecification spec, CancellationToken ct)
     {
@@ -354,11 +318,6 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         return (checksumContent, gpgVerified);
     }
 
-    /// <summary>
-    /// Debian/Ubuntu model: a plain checksum data file (SHA256SUMS) plus a detached
-    /// signature file (SHA256SUMS.sign / .gpg). Verifies the detached signature over
-    /// the raw data bytes, then returns the data text for SHA-256 resolution.
-    /// </summary>
     private async Task<(string? content, bool verified)> FetchAndVerifyDetachedAsync(
         IsoSpecification spec, HttpClient client, CancellationToken ct)
     {
@@ -394,11 +353,6 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         return (dataText, gpgVerified);
     }
 
-    /// <summary>
-    /// Returns the signing-key bytes: the key bundled with the distro if present,
-    /// otherwise fetched from the key URL. A bundled key avoids an untrusted
-    /// keyserver round-trip; either source is still subject to the fingerprint pin.
-    /// </summary>
     private async Task<byte[]> GetSigningKeyAsync(IsoSpecification spec, HttpClient client, CancellationToken ct)
     {
         if (spec.GpgKeyData is { Length: > 0 } bundled)
@@ -410,14 +364,6 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         return await client.GetByteArrayAsync(spec.GpgKeyUrl!, ct).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Parses a SHA-256 hash for <paramref name="isoFileName"/> from a checksum file.
-    /// Handles both layouts:
-    /// <list type="bullet">
-    ///   <item>Fedora "BSD" style: <c>SHA256 (filename.iso) = abcdef0123…</c></item>
-    ///   <item>Debian/Ubuntu coreutils style: <c>abcdef0123…  filename.iso</c></item>
-    /// </list>
-    /// </summary>
     internal static string? ParseSha256FromChecksum(string checksumContent, string isoFileName)
     {
         static bool IsSha256(string s) => s.Length == 64 && s.All(Uri.IsHexDigit);

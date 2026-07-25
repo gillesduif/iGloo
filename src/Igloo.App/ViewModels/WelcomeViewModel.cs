@@ -4,16 +4,9 @@ using Igloo.Core.Plugins;
 
 namespace Igloo.App.ViewModels;
 
-/// <summary>One selectable answer in the Welcome-step "find your Linux" quiz.</summary>
+
 public sealed record QuizOption(string Id, string Label);
 
-/// <summary>
-/// Welcome step. Besides routing to WelcomePage, it hosts the "find your Linux"
-/// quiz: three optional multiple-choice questions whose answers produce a
-/// recommended distro. The wizard hands <see cref="RecommendedDistroId"/> to the
-/// distro picker on navigation, where it becomes the RECOMMENDED badge and the
-/// carousel's opening position.
-/// </summary>
 public sealed partial class WelcomeViewModel : ObservableObject
 {
     private readonly DistroLoader _loader;
@@ -53,11 +46,6 @@ public sealed partial class WelcomeViewModel : ObservableObject
     partial void OnSelectedStyleChanged(QuizOption? value) => NotifyRecommendationChanged();
     partial void OnSelectedUpdatesChanged(QuizOption? value) => NotifyRecommendationChanged();
 
-    /// <summary>
-    /// Ranked winning distros, best first; empty until all three questions are
-    /// answered. No visible result here — the picker shows a Recommended
-    /// category chip plus per-cover badges on the next step.
-    /// </summary>
     public IReadOnlyList<string> RecommendedDistroIds =>
         DistroRecommender.Recommend(
                 _loader.LoadedDistros, SelectedUse?.Id, SelectedStyle?.Id, SelectedUpdates?.Id)

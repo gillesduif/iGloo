@@ -1,10 +1,10 @@
 namespace Igloo.Core.Abstractions;
 
-/// <summary>A physical disk and its partitions, as reported by Windows.</summary>
+
 public sealed record DiskInfo(string DeviceId, string Model, long TotalBytes, long FreeBytes,
     string PartitionStyle, IReadOnlyList<PartitionInfo> Partitions);
 
-/// <summary>One partition on a disk.</summary>
+
 /// <param name="ShrinkableBytes">How far the partition can shrink without data loss; 0 when unknown.</param>
 /// <param name="OffsetBytes">
 /// Byte position of the partition on the disk, -1 when the provider could not supply it.

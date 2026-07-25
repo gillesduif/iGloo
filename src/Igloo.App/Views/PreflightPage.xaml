@@ -177,7 +177,7 @@
                             <RowDefinition Height="30" />
                         </Grid.RowDefinitions>
                         <Image Grid.Column="0" Grid.RowSpan="3"
-                               Source="/Assets/Fluent3D/computer.png"
+                               Source="/Assets/Fluent3D/mouse.png"
                                Width="48" Height="48" VerticalAlignment="Center"
                                HorizontalAlignment="Left" Margin="4,0,0,0"
                                RenderOptions.BitmapScalingMode="HighQuality" />
@@ -326,7 +326,7 @@
                         <Button Grid.Column="2" Content="Remove Linux"
                                 Style="{StaticResource Button.Danger}"
                                 Command="{Binding RemoveLinuxCommand}"
-                                VerticalAlignment="Center" />
+                                VerticalAlignment="Center" Foreground="White" />
                     </Grid>
                 </Border>
 
@@ -374,7 +374,7 @@
                         <Button Content="Remove selection"
                                 Style="{StaticResource Button.Danger}"
                                 Command="{Binding RemoveSelectedLinuxCommand}"
-                                HorizontalAlignment="Left" Margin="4,10,0,2" />
+                                HorizontalAlignment="Left" Margin="4,10,0,2" Foreground="White" />
                     </StackPanel>
                 </Border>
 
@@ -398,7 +398,7 @@
                         <Button Grid.Column="1" Content="Remove"
                                 Style="{StaticResource Button.Danger}"
                                 Command="{Binding RemoveSeedLeftoversCommand}"
-                                VerticalAlignment="Center" />
+                                VerticalAlignment="Center" Foreground="White" />
                     </Grid>
                 </Border>
 

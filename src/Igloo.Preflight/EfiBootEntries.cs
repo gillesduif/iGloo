@@ -10,15 +10,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.Preflight;
 
-/// <summary>
-/// Minimal read/delete access to UEFI <c>Boot####</c> NVRAM variables, shared by
-/// the preflight checker (detect Linux boot entries) and the Linux removal
-/// service (delete them). Locale-independent by design — parsing
-/// <c>bcdedit /enum firmware</c> output breaks on non-English Windows.
-///
-/// All calls require <c>SeSystemEnvironmentPrivilege</c> (elevated process);
-/// every method is best-effort and returns empty/false rather than throwing.
-/// </summary>
 internal static partial class EfiBootEntries
 {
     private const string EfiGlobGuid = "{8BE4DF61-93CA-11D2-AA0D-00E098032B8C}";
@@ -35,7 +26,7 @@ internal static partial class EfiBootEntries
         "endeavour", "nobara", "garuda", "cachy",
     ];
 
-    /// <summary>True when the entry's description names a known Linux boot loader.</summary>
+    
     internal static bool IsLinuxDescription(string description)
     {
         if (string.IsNullOrWhiteSpace(description))
@@ -46,17 +37,12 @@ internal static partial class EfiBootEntries
         return LinuxMarkers.Any(m => description.Contains(m, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>True for iGloo's own one-shot installer entries.</summary>
+    
     internal static bool IsIglooDescription(string description)
         => description.Contains("igloo", StringComparison.OrdinalIgnoreCase);
 
     //   Enumeration                              
 
-    /// <summary>
-    /// Returns every resolvable boot entry: the BootOrder list plus a sweep of
-    /// the conventional 0x0000–0x00FF range (entries some firmwares keep outside
-    /// BootOrder). Empty on any failure (no privilege, legacy BIOS, …).
-    /// </summary>
     internal static IReadOnlyList<BootEntry> Enumerate(ILogger logger)
     {
         var entries = new List<BootEntry>();
@@ -87,7 +73,7 @@ internal static partial class EfiBootEntries
 
     //   Deletion                               ─
 
-    /// <summary>Deletes one Boot#### variable and drops it from BootOrder.</summary>
+    
     internal static bool Delete(ushort index, ILogger logger)
     {
         try
@@ -145,10 +131,6 @@ internal static partial class EfiBootEntries
         return order;
     }
 
-    /// <summary>
-    /// EFI_LOAD_OPTION: UINT32 Attributes · UINT16 FilePathListLength ·
-    /// null-terminated CHAR16 Description · device path. We only need the description.
-    /// </summary>
     internal static string ParseDescription(byte[] loadOption)
     {
         const int descStart = 6;

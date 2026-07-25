@@ -4,16 +4,6 @@ using System.Windows.Media;
 
 namespace Igloo.App.Converters;
 
-/// <summary>
-/// Maps a partition-segment kind (see <c>PreflightViewModel.ClassifyPartition</c>)
-/// to its fill brush in the disk bar and legend.
-///
-/// Charter note: this is the data-visualization exception to "semantic color
-/// only" — a partition map needs categorical color to be readable at all.
-/// The palette stays muted and dark-theme native; the only loud entries carry
-/// meaning: accent blue = the Windows install, amber = iGloo's own seed
-/// partitions, green = Linux.
-/// </summary>
 public sealed class PartitionKindToBrushConverter : IValueConverter
 {
     private static readonly Dictionary<string, Brush> Fills = new(StringComparer.OrdinalIgnoreCase)

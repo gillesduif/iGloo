@@ -7,13 +7,6 @@ using Igloo.Core.Models;
 
 namespace Igloo.Distro.FedoraKde;
 
-/// <summary>
-/// Reference implementation of <see cref="IDistroPlugin"/> for Fedora KDE.
-///
-/// Loaded at runtime by <c>DistroRegistry</c> via <c>AssemblyLoadContext</c>. The plugin uses a
-/// parameterless constructor and reads its own <c>distro.json</c> from the assembly's output
-/// directory so no injection wiring is needed.
-/// </summary>
 public sealed class FedoraKdePlugin : IDistroPlugin
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -27,16 +20,8 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
     public DistroMetadata Metadata { get; }
 
-    /// <summary>
-    /// Anaconda stage-2 OS tree URL from <c>distro.json</c> (<c>iso.stage2Url</c>).
-    /// Used to render the kickstart install-source directive so the netinstall
-    /// knows where to fetch packages without the user configuring it interactively.
-    /// </summary>
     private readonly Uri? _stage2Url;
 
-    /// <summary>
-    /// Parameterless constructor - reads <c>distro.json</c> from the same directory as this DLL.
-    /// </summary>
     public FedoraKdePlugin()
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
@@ -204,10 +189,6 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         ],
     };
 
-    /// <summary>
-    /// Replaces every bare CR or CRLF sequence with a single LF.
-    /// Returns the original array if no CR bytes are present (fast path).
-    /// </summary>
     private static byte[] NormalizeCrLf(byte[] bytes)
     {
         if (Array.IndexOf(bytes, (byte)'\r') < 0)
@@ -321,20 +302,6 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             .Replace("{{WIFI_LIST}}", wifiList, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Builds the Anaconda kickstart install-source command from the distro's
-    /// <c>stage2Url</c>.
-    ///
-    /// Fedora's mirror network is exposed through a metalink service that returns
-    /// the closest, currently-healthy mirror - this is exactly the "Closest
-    /// mirror" option in Anaconda's GUI, which is the most reliable source.
-    /// When the stage2Url points at a versioned release tree
-    /// (<c>…/releases/&lt;ver&gt;/Everything/x86_64/os/</c>) we derive that version
-    /// and emit a metalink <c>url</c> line for it. If the version can't be parsed
-    /// we fall back to a direct <c>url --url=</c> against the tree, and if no
-    /// stage2Url is configured at all we emit a commented-out placeholder so the
-    /// kickstart still parses (Anaconda will then prompt interactively).
-    /// </summary>
     private static string BuildInstallSourceLine(Uri? stage2Url)
     {
         if (stage2Url is null)
@@ -356,10 +323,6 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         return $"url --url=\"{stage2}\"";
     }
 
-    /// <summary>
-    /// Escapes a value for safe placement inside a bash double-quoted string
-    /// (e.g. <c>VAR="…"</c>): backslash, double-quote, dollar and backtick.
-    /// </summary>
     private static string ShellDoubleQuote(string value) =>
         value.Replace("\\", "\\\\", StringComparison.Ordinal)
              .Replace("\"", "\\\"", StringComparison.Ordinal)

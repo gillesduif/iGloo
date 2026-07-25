@@ -5,11 +5,6 @@ using Xunit;
 
 namespace Igloo.UsbWriter.Tests;
 
-/// <summary>
-/// Characterization tests for UsbWriterService's pure helpers: the GRUB kernel-line
-/// patch, FAT 8.3 name encoding, the GPT CRC32, sector rounding, and the size
-/// pre-flight. Everything else in the class needs a physical drive.
-/// </summary>
 public class UsbWriterPureLogicTests
 {
     //   PatchGrubCfgContent                          

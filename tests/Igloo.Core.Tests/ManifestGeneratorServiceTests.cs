@@ -6,11 +6,6 @@ using Xunit;
 
 namespace Igloo.Core.Tests;
 
-/// <summary>
-/// Characterization tests for <see cref="ManifestGeneratorService"/>. The generated
-/// manifest is consumed by installer configs and the first-boot agents, so the exact
-/// mapping rules (install-mode strings, firmware strings, browser fallback) are contract.
-/// </summary>
 public class ManifestGeneratorServiceTests
 {
     private static readonly PreflightReport UefiReport = new()

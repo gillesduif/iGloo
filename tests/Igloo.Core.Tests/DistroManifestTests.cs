@@ -4,11 +4,6 @@ using Xunit;
 
 namespace Igloo.Core.Tests;
 
-/// <summary>
-/// Characterization tests for <see cref="DistroManifest"/> computed properties. The
-/// catalog UI uses <see cref="DistroManifest.IsAvailable"/> to grey out entries and
-/// <see cref="DistroManifest.LogoAbsolutePath"/> to resolve bundled assets.
-/// </summary>
 public class DistroManifestTests
 {
     private static DistroManifest Manifest(string? status = null, string? logo = null,

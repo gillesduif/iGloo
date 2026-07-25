@@ -3,11 +3,6 @@ using Xunit;
 
 namespace Igloo.Iso.Tests;
 
-/// <summary>
-/// Characterization tests for <see cref="IsoAcquisitionService.ParseSha256FromChecksum"/>.
-/// Both real-world checksum layouts must keep parsing, or SHA-256 auto-resolution
-/// from signed checksum files silently stops working for that distro family.
-/// </summary>
 public class ChecksumParsingTests
 {
     private const string Hash = "b71b64cbbd6e9d1552b48e78e197c0a9678872b0dbbea3251d38b8bab334f6d7";

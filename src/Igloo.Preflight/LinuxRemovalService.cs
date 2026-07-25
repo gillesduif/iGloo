@@ -10,20 +10,6 @@ using Microsoft.Win32;
 
 namespace Igloo.Preflight;
 
-/// <summary>
-/// Removes Linux installations (and leftover iGloo seed partitions) from Windows:
-/// deletes the partitions via <c>MSFT_Partition.DeleteObject()</c> and cleans the
-/// corresponding UEFI boot entries so the firmware menu doesn't keep dead loaders.
-///
-/// Safety rules:
-///   * only partitions the preflight checker classified by GPT type GUID (Linux)
-///     or exact iGloo seed label are ever passed in — this service never scans;
-///   * the EFI System Partition is never touched (a Linux \EFI\&lt;distro&gt; folder
-///     of a few MB may remain — harmless once its boot entry is gone);
-///   * boot entries: iGloo's own entries are always removed; a Linux entry only
-///     when unambiguously paired, or all of them when the last install goes.
-/// The freed space is left unallocated for the user (or a future iGloo install).
-/// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class LinuxRemovalService : ILinuxRemovalService
 {
@@ -119,12 +105,6 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
     //   Reclaim freed space                          
 
-    /// <summary>
-    /// Extends the disk's main lettered partition (C: on the Windows disk) into
-    /// the space the removal just freed. MSFT_Partition.Resize grows the
-    /// partition AND its filesystem. Best-effort: the space staying unallocated
-    /// is an inconvenience, not a failure.
-    /// </summary>
     private void TryReclaimFreedSpace(uint diskNumber, IProgress<string>? progress)
     {
         const long MiB = 1024L * 1024;
@@ -193,12 +173,6 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
     //   EFI System Partition cleanup                     ─
 
-    /// <summary>
-    /// Loader folders under \EFI\ that belong to Linux boot chains. STRICT
-    /// whitelist — anything not listed here survives. \EFI\Microsoft and
-    /// \EFI\BOOT are never candidates: Microsoft is Windows itself, and BOOT is
-    /// the firmware fallback some machines boot Windows through.
-    /// </summary>
     private static readonly string[] LinuxEfiFolders =
     [
         "ubuntu", "fedora", "debian", "linuxmint", "opensuse", "suse", "manjaro",
@@ -208,17 +182,8 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
         "solus", "gentoo", "slackware", "void", "nixos",
     ];
 
-    /// <summary>Folder-name prefixes (systemd-boot installs use per-OS suffixes,
-    /// e.g. "Pop_OS-1234-abcd").</summary>
     private static readonly string[] LinuxEfiFolderPrefixes = ["pop_os", "pop!_os"];
 
-    /// <summary>
-    /// Deletes whitelisted Linux loader folders from every EFI System Partition,
-    /// plus systemd-boot's root \loader folder. The ESP has no drive letter but
-    /// is reachable via its \\?\Volume{guid}\ access path when elevated — no
-    /// mountvol needed. Best-effort: a leftover folder is cosmetic, so failures
-    /// log a warning and never fail the removal.
-    /// </summary>
     private void CleanEfiSystemPartitions()
     {
         try
@@ -282,8 +247,6 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
         }
     }
 
-    /// <summary>Removes RealTimeIsUniversal (set by the install pipeline for
-    /// dual-boot clock agreement) so a Linux-free machine behaves stock again.</summary>
     private void RestoreRtcLocalTime()
     {
         try

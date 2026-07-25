@@ -10,12 +10,6 @@ using Xunit;
 
 namespace Igloo.Iso.Tests;
 
-/// <summary>
-/// Characterization tests for <see cref="PgpDetachedVerifier"/>, the trust anchor of the
-/// Debian/Ubuntu download path. A freshly generated RSA key signs test data; the tests
-/// pin the accept/reject rules: valid signature accepted, tampered data rejected,
-/// fingerprint mismatch rejected, malformed input rejected without throwing.
-/// </summary>
 public class PgpDetachedVerifierTests : IClassFixture<PgpDetachedVerifierTests.SigningKeyFixture>
 {
     public sealed class SigningKeyFixture

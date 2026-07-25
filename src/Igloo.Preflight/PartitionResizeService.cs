@@ -7,14 +7,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.Preflight;
 
-/// <summary>
-/// Shrinks the main Windows NTFS partition on a target disk to create unpartitioned
-/// free space that Anaconda can use for a Linux dual-boot installation.
-///
-/// Uses <c>ROOT\Microsoft\Windows\Storage</c> WMI - specifically the
-/// <c>MSFT_Partition.GetSupportedSize()</c> and <c>MSFT_Partition.Resize()</c> methods.
-/// These operations require the calling process to be running as Administrator.
-/// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class PartitionResizeService : IPartitionResizeService
 {
@@ -41,12 +33,6 @@ public sealed class PartitionResizeService : IPartitionResizeService
         return shrinkable;
     }
 
-    /// <summary>
-    /// Finds the largest NTFS partition on the disk, invokes
-    /// <c>GetSupportedSize()</c> to learn the minimum shrink target, then
-    /// calls <c>Resize()</c> to free exactly <paramref name="linuxSizeBytes"/>.
-    /// Alignment: rounds the new partition size DOWN to the nearest 1 MiB boundary.
-    /// </summary>
     private void Shrink(int diskNumber, long linuxSizeBytes,
         IProgress<string>? progress, CancellationToken ct)
     {
@@ -108,11 +94,6 @@ public sealed class PartitionResizeService : IPartitionResizeService
         progress?.Report("Windows partition shrunk successfully.");
     }
 
-    /// <summary>
-    /// Returns the WMI <c>ManagementObject</c> and shrinkable byte count for the
-    /// largest NTFS partition on <paramref name="diskNumber"/>.
-    /// Returns <c>(null, 0)</c> if none is found.
-    /// </summary>
     private (ManagementObject? mo, long shrinkable) FindNtfsPartition(int diskNumber)
     {
         try

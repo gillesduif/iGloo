@@ -6,11 +6,6 @@ using Igloo.Core.Models;
 
 namespace Igloo.App.ViewModels;
 
-/// <summary>
-/// Orchestrates the linear wizard flow with a branch at the final install step:
-///   • Dual boot  → DirectInstallViewModel  (no USB needed)
-///   • Replace    → UsbWriterViewModel       (USB required)
-/// </summary>
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly List<object> _steps;
@@ -55,11 +50,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _ => false,
     };
 
-    /// <summary>
-    /// Label on the wizard's forward button. Rebooting into the installer is the last
-    /// navigation step of the dual-boot path, not a separate action, so the button is
-    /// simply renamed rather than duplicated by a second one on the page.
-    /// </summary>
     public string PrimaryActionLabel => CurrentPage switch
     {
         DirectInstallViewModel di => di.IsRebooting ? "Rebooting…" : "Reboot  ↻",
@@ -70,25 +60,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public string StepDescription => CurrentPage switch
     {
         WelcomeViewModel => "Welcome",
-        PreflightViewModel => "System check",
-        DistroSelectionViewModel => "Choose your Linux distribution",
-        IsoAcquisitionViewModel => "Downloading installer",
-        MigrationSetupViewModel => "Configure your Linux setup",
-        DiskSelectionViewModel => "Choose installation disk",
-        FileStagingViewModel => "Staging files",
-        DirectInstallViewModel => "Install without USB",
+        PreflightViewModel => "System checkpoint",
+        DistroSelectionViewModel => "Linux distribution",
+        IsoAcquisitionViewModel => "Downloader",
+        MigrationSetupViewModel => "Configurator",
+        DiskSelectionViewModel => "Installation disk",
+        FileStagingViewModel => "File migration",
+        DirectInstallViewModel => "Installer preperation",
         UsbWriterViewModel => "Write to USB",
         _ => string.Empty,
     };
 
-    /// <summary>True on the last wizard step - swaps "Next" label to "Finish".</summary>
+    
     public bool IsLastStep =>
         CurrentPage is UsbWriterViewModel && _diskSelection.InstallMode == DiskInstallMode.ReplaceDisk
         || CurrentPage is DirectInstallViewModel;
 
-    //   Step indicator (display only)                     
-    // The two install pages share the final slot, so the user-visible journey is
-    // always 8 steps regardless of which install path is taken.
 
     public static int StepCount => 8;
 
@@ -106,21 +93,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _ => 1,
     };
 
-    /// <summary>Rail label + Fluent (Segoe MDL2) glyph per step, so the left
-    /// navigation names every step and gives it a recognisable icon.</summary>
     private static readonly (string Title, string Glyph)[] StepTitles =
     [
         ("Welcome", ""),  // Home
-        ("System check", ""),  // Diagnostic
+        ("System", ""),  // Diagnostic
         ("Distribution", ""),  // All apps
         ("Download", ""),  // Download
-        ("Your setup", ""),  // Settings
+        ("Setup", ""),  // Settings
         ("Disk", ""),  // Hard drive
-        ("Staging", ""),  // Copy
+        ("Files", ""),  // Copy
         ("Install", ""),  // Play / go
     ];
 
-    /// <summary>One marker per wizard step; rebuilt on navigation for the left rail.</summary>
+    
     public IReadOnlyList<StepMarker> StepMarkers =>
         Enumerable.Range(1, StepCount)
             .Select(n => new StepMarker(n, StepTitles[n - 1].Title, StepTitles[n - 1].Glyph,
@@ -319,5 +304,5 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 }
 
-/// <summary>A single entry in the wizard's step rail.</summary>
+
 public sealed record StepMarker(int Number, string Title, string Glyph, bool IsDone, bool IsCurrent);

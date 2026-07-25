@@ -62,6 +62,9 @@
     </ItemGroup>
     <Copy SourceFiles="@(_DistroFilesPublish)" DestinationFiles="@(_DistroFilesPublish->'$(PublishDir)distros\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
+  <ItemGroup>
+    <None Remove="Views\iGloo.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
@@ -81,6 +84,10 @@
     <ProjectReference Include="..\Igloo.Iso\Igloo.Iso.csproj" />
     <ProjectReference Include="..\Igloo.Migration\Igloo.Migration.csproj" />
     <ProjectReference Include="..\Igloo.UsbWriter\Igloo.UsbWriter.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Views\iGloo.png" />
   </ItemGroup>
 
 </Project>

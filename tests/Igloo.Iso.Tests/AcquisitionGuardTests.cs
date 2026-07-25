@@ -5,11 +5,6 @@ using Xunit;
 
 namespace Igloo.Iso.Tests;
 
-/// <summary>
-/// Characterization tests for the fail-closed guards at the top of
-/// <see cref="IsoAcquisitionService.AcquireAsync"/>. Both must throw BEFORE any
-/// network traffic; the fake factory proves it by failing if a client is created.
-/// </summary>
 public sealed class AcquisitionGuardTests : IDisposable
 {
     private sealed class ExplodingHttpClientFactory : IHttpClientFactory

@@ -8,17 +8,6 @@ using System.Windows.Interop;
 
 namespace Igloo.App;
 
-/// <summary>
-/// Win32 interop backing the custom window chrome on <see cref="MainWindow"/>.
-///
-/// Three jobs, none of which WPF + <c>WindowChrome</c> give us for free:
-///   1. Paint any momentary native chrome (startup, before the WPF template applies)
-///      dark instead of white — <see cref="EnableDarkTitleBar"/>.
-///   2. Constrain a <c>WindowStyle=None</c> maximized window to the monitor work area
-///      so it never covers the taskbar or clips content — <see cref="ConstrainMaximizedBounds"/>.
-///   3. Restore the native system menu (Alt+Space, caption right-click) that
-///      <c>WindowStyle=None</c> otherwise removes — <see cref="ShowSystemMenu"/>.
-/// </summary>
 internal static partial class ChromeInterop
 {
     //   Window messages                            ─
@@ -40,12 +29,6 @@ internal static partial class ChromeInterop
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20; // Win10 2004+ / Win11
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE_PRE_20H1 = 19; // Win10 1809–1909
 
-    /// <summary>
-    /// Asks DWM to render this window's native non-client area in dark mode. Only matters
-    /// for the brief moments WPF's custom chrome is not yet painting (startup, restore
-    /// transitions); the rest of the time our own title bar covers it. Safe no-op on
-    /// builds that don't recognise the attribute.
-    /// </summary>
     public static void EnableDarkTitleBar(IntPtr hwnd)
     {
         int enabled = 1;
@@ -59,12 +42,6 @@ internal static partial class ChromeInterop
     private const int DWMWA_MICA_EFFECT = 1029;  // Win11 21H2 (undocumented)
     private const int DWMSBT_MAINWINDOW = 2;     // Mica
 
-    /// <summary>
-    /// Asks DWM to render the system Mica backdrop behind this window — the same
-    /// desktop-tinted material Settings and other first-party Win11 apps use.
-    /// The caller must make the window background transparent so it shows
-    /// through. Returns false on Windows 10 (caller keeps a solid fallback).
-    /// </summary>
     public static bool TryEnableMicaBackdrop(IntPtr hwnd)
     {
         int type = DWMSBT_MAINWINDOW;
@@ -77,12 +54,6 @@ internal static partial class ChromeInterop
 
     //   Maximize bounds (the classic WindowStyle=None bug)           
 
-    /// <summary>
-    /// Handles <c>WM_GETMINMAXINFO</c>: pins a maximized window to the current monitor's
-    /// work area (excluding the taskbar) and re-applies the window's minimum size, so a
-    /// borderless window neither overlaps the taskbar nor clips its own content.
-    /// Multi-monitor aware via <c>MonitorFromWindow</c>.
-    /// </summary>
     public static void ConstrainMaximizedBounds(IntPtr hwnd, IntPtr lParam, double minWidthDip, double minHeightDip)
     {
         var monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
@@ -118,12 +89,6 @@ internal static partial class ChromeInterop
                        SC_MAXIMIZE = 0xF030, SC_RESTORE = 0xF120, SC_CLOSE = 0xF060;
     private const uint TPM_RETURNCMD = 0x0100, TPM_LEFTBUTTON = 0x0000;
 
-    /// <summary>
-    /// Pops the native system menu (Restore / Move / Size / Minimize / Maximize / Close)
-    /// at a screen location given in physical pixels, with items enabled/greyed to match
-    /// the current window state. Used for Alt+Space and caption right-click, both of which
-    /// <c>WindowStyle=None</c> would otherwise swallow.
-    /// </summary>
     public static void ShowSystemMenu(Window window, int screenX, int screenY)
     {
         var hwnd = new WindowInteropHelper(window).Handle;
@@ -147,7 +112,7 @@ internal static partial class ChromeInterop
             System.Diagnostics.Debug.WriteLine($"PostMessage(WM_SYSCOMMAND {cmd:X}) failed: {Marshal.GetLastWin32Error()}");
     }
 
-    /// <summary>Splits the screen coordinates packed into an NC mouse-message lParam.</summary>
+    
     public static (int X, int Y) GetScreenPoint(IntPtr lParam)
     {
         var v = lParam.ToInt32();

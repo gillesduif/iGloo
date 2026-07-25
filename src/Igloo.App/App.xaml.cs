@@ -19,10 +19,6 @@ using Serilog;
 
 namespace Igloo.App;
 
-/// <summary>
-/// Application entry point. Bootstraps the generic host, configures Serilog,
-/// registers all services and view-models, then shows the main window.
-/// </summary>
 public partial class IglooApp : Application
 {
     private IHost? _host;
@@ -131,11 +127,6 @@ public partial class IglooApp : Application
         services.AddSingleton<MainWindow>();
     }
 
-    /// <summary>
-    /// In a published app <c>distros/</c> sits next to the exe.
-    /// During development (<c>dotnet run</c>) we walk up from the bin directory
-    /// until we find the repo-root <c>distros/</c> folder.
-    /// </summary>
     private static string FindDistrosDirectory()
     {
         var adjacent = Path.Combine(AppContext.BaseDirectory, "distros");

@@ -3,13 +3,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.Migration;
 
-/// <summary>
-/// Copies the user's selected Windows folders to a local staging directory under
-/// <c>%LOCALAPPDATA%\Igloo\staging\{distroId}\</c>.
-///
-/// The staging directory is consumed by <c>FileStagingViewModel</c> which also writes the
-/// migration manifest and installer config there before everything is burned to OEMDRV.
-/// </summary>
 public sealed partial class FileStagingService : IFileStagingService
 {
     private readonly ILogger<FileStagingService> _logger;
@@ -64,7 +57,7 @@ public sealed partial class FileStagingService : IFileStagingService
         return new FileStagingResult(stagingRoot, bytesCopied, jobs.Count);
     }
 
-    /// <summary>Builds the copy plan: one (source, destination) pair per file, plus a size estimate.</summary>
+    
     private (List<(string Source, string Destination)> Jobs, long TotalBytes) ScanFolders(
         IReadOnlyList<string> folderPaths, string stagingRoot, CancellationToken ct)
     {
@@ -98,7 +91,7 @@ public sealed partial class FileStagingService : IFileStagingService
         return (jobs, totalBytes);
     }
 
-    /// <summary>File size for the pre-copy estimate, or 0 if the file is locked or gone.</summary>
+    
     private static long TryGetFileLength(string file)
     {
         try
@@ -111,7 +104,7 @@ public sealed partial class FileStagingService : IFileStagingService
         }
     }
 
-    /// <summary>Copies every job, skipping (with a warning) files that became inaccessible since the scan.</summary>
+    
     private async Task<long> CopyJobsAsync(
         List<(string Source, string Destination)> jobs, long totalBytes,
         IProgress<FileStagingProgress>? progress, CancellationToken ct)

@@ -49,7 +49,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
     //   Linux inventory                            
 
-    /// <summary>GPT type GUIDs that mark a partition as belonging to a Linux install.</summary>
+    
     private static readonly HashSet<string> LinuxGptTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "{0fc63daf-8483-4772-8e79-3d69d8477de4}", // Linux filesystem
@@ -63,13 +63,6 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
     private static readonly string[] SeedLabels = ["OEMDRV", "CIDATA", "IGLOOISO"];
 
-    /// <summary>
-    /// Groups each disk's contiguous run of Linux-typed partitions into one
-    /// installation and collects leftover iGloo seed partitions. Names come from
-    /// the machine's UEFI boot entries when they can be paired unambiguously:
-    /// with exactly one install (or equal counts, paired in order) the loader's
-    /// own description ("ubuntu", "Fedora") is used; otherwise a generic name.
-    /// </summary>
     private (IReadOnlyList<LinuxInstallation>, IReadOnlyList<SeedLeftover>)
         BuildLinuxInventory(IReadOnlyList<DiskInfo> disks)
     {
@@ -160,11 +153,6 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         "Fedora", "Nobara",
     };
 
-    /// <summary>
-    /// Splits a contiguous Linux run into one partition group per distribution. Each root-sized
-    /// partition (>= 4 GiB) anchors a distro; smaller partitions (/boot, swap) attach to the root
-    /// they precede. Order-independent, so it does not matter which distro was installed first.
-    /// </summary>
     internal static List<List<PartitionInfo>> SplitRunByDistro(IReadOnlyList<PartitionInfo> run)
     {
         const long RootMinBytes = 4L * 1024 * 1024 * 1024;
@@ -189,12 +177,6 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         return groups;
     }
 
-    /// <summary>
-    /// Maps split partition groups to distro names, but only in the one case Windows can resolve
-    /// safely: exactly two distros, one LVM-based (RHEL/Fedora family) and one not, with one group
-    /// carrying LVM and the other not. Anything else returns <see langword="false"/> so the caller
-    /// keeps the run as a single install rather than risk labelling - and deleting - the wrong OS.
-    /// </summary>
     internal static bool TryAttributeDistros(
         List<List<PartitionInfo>> groups, IReadOnlyList<string> espDistros,
         out List<(List<PartitionInfo> Parts, string Name)> attributed)
@@ -243,12 +225,6 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         ["neon"] = "KDE neon",
     };
 
-    /// <summary>
-    /// The distributions installed on <paramref name="diskNumber"/>, read from the ESP's
-    /// \EFI\&lt;distro&gt; loader folders. Ubuntu-derived distros (Mint, Pop!_OS, …) all install
-    /// under \EFI\ubuntu, so they are reported as "Ubuntu". Returns an empty list if the ESP
-    /// cannot be read.
-    /// </summary>
     private List<string> DetectEspDistros(uint diskNumber)
     {
         var distros = new List<string>();
@@ -287,13 +263,6 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         return distros;
     }
 
-    /// <summary>
-    /// The display name and firmware boot-entry index for a detected Linux install, asserted
-    /// only when it can be known for certain: one install paired with one Linux boot entry.
-    /// Anything else (multiple installs, or stale/missing entries) returns a generic name and
-    /// no entry rather than guess - so the removal UI never shows the wrong distribution and
-    /// never deletes an unrelated boot entry.
-    /// </summary>
     internal static (string name, ushort? entryIndex) ResolveInstallIdentity(
         int groupCount, IReadOnlyList<EfiBootEntries.BootEntry> linuxEntries)
     {
@@ -310,7 +279,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         return at >= 0 && uint.TryParse(deviceId[(at + marker.Length)..], out number);
     }
 
-    /// <summary>"ubuntu" → "Ubuntu"; already-capitalized descriptions pass through.</summary>
+    
     private static string Prettify(string description) =>
         description.Length > 0 && char.IsLower(description[0])
             ? char.ToUpperInvariant(description[0]) + description[1..]
@@ -473,10 +442,6 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         return partitions.OrderBy(p => p.OffsetBytes >= 0 ? p.OffsetBytes : long.MaxValue).ToList();
     }
 
-    /// <summary>
-    /// Calls <c>MSFT_Partition.GetSupportedSize()</c> to find how many bytes the partition
-    /// can be shrunk.  Returns 0 on any failure (non-NTFS, locked, etc.).
-    /// </summary>
     private long QueryShrinkableBytes(uint diskNumber, uint partitionNumber, ManagementBaseObject partObj)
     {
         try

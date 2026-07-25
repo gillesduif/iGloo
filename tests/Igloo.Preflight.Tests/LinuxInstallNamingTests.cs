@@ -4,12 +4,6 @@ using Xunit;
 
 namespace Igloo.Preflight.Tests;
 
-/// <summary>
-/// Pins <see cref="WindowsPreflightChecker.ResolveInstallIdentity"/>: the display name and
-/// boot-entry index shown for a detected Linux install. Getting this wrong in a removal tool
-/// means labelling one distro as another and deleting the wrong UEFI boot entry, so the rule
-/// is deliberately conservative - assert an identity only when it is unambiguous.
-/// </summary>
 public class LinuxInstallNamingTests
 {
     [Fact]

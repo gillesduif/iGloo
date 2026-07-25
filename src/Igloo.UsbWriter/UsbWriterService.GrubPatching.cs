@@ -9,36 +9,10 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Igloo.UsbWriter;
 
-/// <summary>
-/// GRUB config patching half of <see cref="UsbWriterService"/>: raw-sector access
-/// to the FAT EFI partition (UEFI boot path) and the ISO9660 data area
-/// (BIOS/legacy boot path) written in Phase 1. See PatchGrubConfigAsync for why
-/// the patch must run before Windows re-reads the partition table.
-/// </summary>
 public sealed partial class UsbWriterService
 {
     //   GRUB config patching                          
 
-    /// <summary>
-    /// Best-effort: opens the physical disk once and patches every grub.cfg it can
-    /// find via raw sector access - no drive-letter assignment, no diskpart.
-    ///
-    /// <para>Two boot paths are covered:</para>
-    /// <list type="bullet">
-    ///   <item><b>UEFI</b> - FAT32 EFI partition:
-    ///     <c>EFI/BOOT/grub.cfg</c> and <c>EFI/fedora/grub.cfg</c>.</item>
-    ///   <item><b>BIOS/legacy</b> - ISO9660 data area:
-    ///     <c>/boot/grub2/grub.cfg</c>.</item>
-    /// </list>
-    ///
-    /// <para>Required because:</para>
-    /// <list type="bullet">
-    ///   <item><b>rd.live.check=0</b> - the ISO integrity check fails after our
-    ///   MBR/GPT modifications (LBA 0 and LBA 1 were rewritten).</item>
-    ///   <item><b>nomodeset</b> - prevents a black screen on VMs where Wayland
-    ///   cannot enumerate the virtual GPU on first boot.</item>
-    /// </list>
-    /// </summary>
     private Task PatchGrubConfigAsync(
         UsbDriveInfo drive,
         IProgress<UsbWriteProgress>? progress)
@@ -104,10 +78,6 @@ public sealed partial class UsbWriterService
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Reads the GPT on the already-open <paramref name="handle"/> and returns the
-    /// <c>StartingLBA</c> of the EFI System Partition, or −1 if not found.
-    /// </summary>
     private long FindEfiPartitionStartLba(SafeFileHandle handle)
     {
         byte[] efiGuid =
@@ -164,13 +134,6 @@ public sealed partial class UsbWriterService
         return -1;
     }
 
-    /// <summary>
-    /// Walks the FAT filesystem on the EFI partition and patches every
-    /// <c>grub.cfg</c> found at the known Fedora Live paths.
-    /// Supports FAT12, FAT16, and FAT32 - Fedora's EFI partition is often FAT16
-    /// (~20 MB image), not FAT32.
-    /// Results are appended to <paramref name="patchedPaths"/> / <paramref name="skippedPaths"/>.
-    /// </summary>
     private void PatchGrubCfgsOnFatVolume(
         SafeFileHandle disk,
         long partLba,
@@ -360,18 +323,6 @@ public sealed partial class UsbWriterService
 
     //   ISO9660 GRUB config patching (BIOS/legacy boot path)         ─
 
-    /// <summary>
-    /// Locates and patches <c>/boot/grub2/grub.cfg</c> in the ISO9660 filesystem
-    /// that was raw-written to the disk in Phase 1.  This covers BIOS/legacy boot,
-    /// where GRUB reads its config from the ISO data area rather than the EFI partition.
-    ///
-    /// <para>
-    /// ISO9660 uses 2048-byte logical blocks.  Block N maps to disk LBA N×4
-    /// (since we use 512-byte sectors).  The PVD lives at block 16 (LBA 64).
-    /// Files are stored in contiguous block extents so the patch writes back
-    /// into the same extent without any reallocation.
-    /// </para>
-    /// </summary>
     private void PatchIso9660GrubCfg(
         SafeFileHandle disk,
         List<string> patchedPaths,
@@ -491,7 +442,7 @@ public sealed partial class UsbWriterService
 
     //   ISO9660 sector helpers                         
 
-    /// <summary>Reads one 2048-byte ISO9660 logical block (4 consecutive 512-byte sectors).</summary>
+    
     private static byte[]? ReadIso9660Block(SafeFileHandle disk, uint blockNum)
     {
         var buf = new byte[2048];
@@ -506,7 +457,7 @@ public sealed partial class UsbWriterService
         return buf;
     }
 
-    /// <summary>Writes one 2048-byte ISO9660 logical block as 4 consecutive 512-byte sectors.</summary>
+    
     private static bool WriteIso9660Block(SafeFileHandle disk, uint blockNum, byte[] data)
     {
         long baseLba = (long)blockNum * 4;
@@ -520,14 +471,6 @@ public sealed partial class UsbWriterService
         return true;
     }
 
-    /// <summary>
-    /// Scans the ISO9660 directory spanning (<paramref name="dirLba"/>,
-    /// <paramref name="dirSize"/>) for an entry whose identifier matches
-    /// <paramref name="name"/> (case-insensitive, ISO9660 version suffix stripped).
-    ///
-    /// Returns the entry's extent location, data size, and its position within
-    /// the on-disk directory block so the caller can update the file size in-place.
-    /// </summary>
     private static bool Iso9660FindEntry(
         SafeFileHandle disk,
         uint dirLba,
@@ -591,7 +534,7 @@ public sealed partial class UsbWriterService
         return false;
     }
 
-    /// <summary>Reads <paramref name="fileSize"/> bytes of file data from the ISO9660 extent.</summary>
+    
     private static byte[]? Iso9660ReadFile(SafeFileHandle disk, uint fileLba, int fileSize)
     {
         var result = new byte[fileSize];
@@ -610,10 +553,6 @@ public sealed partial class UsbWriterService
         return result;
     }
 
-    /// <summary>
-    /// Writes <paramref name="content"/> into the ISO9660 extent at <paramref name="fileLba"/>,
-    /// zero-padding any remaining space in the last 2048-byte block.
-    /// </summary>
     private static bool Iso9660WriteFile(
         SafeFileHandle disk, uint fileLba, byte[] content, uint blocksAllocated)
     {
@@ -630,11 +569,6 @@ public sealed partial class UsbWriterService
         return true;
     }
 
-    /// <summary>
-    /// Patches the Data Length field of an ISO9660 directory entry in-place.
-    /// Writes both the little-endian copy (record offset +10) and the
-    /// big-endian copy (record offset +14) as required by the ISO9660 spec.
-    /// </summary>
     private static bool Iso9660UpdateEntrySize(
         SafeFileHandle disk, uint blockNum, int off, uint newSize)
     {
@@ -655,10 +589,6 @@ public sealed partial class UsbWriterService
 
     //   FAT helpers (FAT12 / FAT16 / FAT32)                  
 
-    /// <summary>
-    /// Scans the FAT16/12 <em>fixed</em> root directory (at a known LBA range,
-    /// not managed by the cluster chain) for an entry matching <paramref name="name"/>.
-    /// </summary>
     private static bool FatFindInFixedRoot(
         SafeFileHandle disk,
         long rootLba,
@@ -714,11 +644,6 @@ public sealed partial class UsbWriterService
         return false;
     }
 
-    /// <summary>
-    /// Scans a cluster-chain directory (FAT16/32 subdirectory or FAT32 root) for
-    /// an entry matching <paramref name="name"/>.
-    /// Pass <paramref name="isFat32"/>=<see langword="false"/> for FAT16/12 cluster chains.
-    /// </summary>
     private static bool FatFindInClusters(
         SafeFileHandle disk,
         uint dirCluster,
@@ -785,7 +710,7 @@ public sealed partial class UsbWriterService
         return false;
     }
 
-    /// <summary>Reads all bytes of a FAT file by following its cluster chain.</summary>
+    
     private static byte[]? FatReadFile(
         SafeFileHandle disk, uint startCluster, int fileSize,
         byte secsPerClust, long fatLba, long dataLba, bool isFat32)
@@ -811,12 +736,6 @@ public sealed partial class UsbWriterService
         return buf.Count >= fileSize ? buf.Take(fileSize).ToArray() : null;
     }
 
-    /// <summary>
-    /// Writes <paramref name="content"/> into the file's existing cluster chain.
-    /// Returns <see langword="false"/> if the content exceeds the allocated clusters
-    /// (no new clusters are allocated - the patch only adds ~25 bytes/line so this
-    /// never triggers in practice).
-    /// </summary>
     private bool FatWriteFile(
         SafeFileHandle disk, uint startCluster, byte[] content, int originalSize,
         byte secsPerClust, long fatLba, long dataLba, bool isFat32)
@@ -858,10 +777,6 @@ public sealed partial class UsbWriterService
         return true;
     }
 
-    /// <summary>
-    /// Returns the next cluster in the FAT chain.
-    /// Handles both FAT16 (2-byte entries) and FAT32 (4-byte entries, upper 4 bits reserved).
-    /// </summary>
     private static bool FatNextCluster(
         SafeFileHandle disk, long fatLba, uint cluster, bool isFat32, out uint next)
     {
@@ -886,16 +801,9 @@ public sealed partial class UsbWriterService
         return true;
     }
 
-    /// <summary>Returns <see langword="true"/> when <paramref name="cluster"/> is a
-    /// valid data cluster (≥ 2 and below the bad/EOC markers).</summary>
     private static bool FatIsValidCluster(uint cluster, bool isFat32)
         => cluster >= 2 && (isFat32 ? cluster < 0x0FFF_FFF7u : cluster < 0xFFF7u);
 
-    /// <summary>
-    /// Converts <paramref name="name"/> to an 11-byte FAT 8.3 short name:
-    /// up to 8 uppercase base-name bytes followed by up to 3 uppercase extension
-    /// bytes, space-padded to exactly 11 bytes.
-    /// </summary>
     internal static byte[] Fat32Make83(string name)
     {
         var r = new byte[11];
@@ -911,16 +819,6 @@ public sealed partial class UsbWriterService
         return r;
     }
 
-    /// <summary>
-    /// Returns a new copy of <paramref name="content"/> with every
-    /// <c>linuxefi</c> / <c>linux</c> kernel line modified to include
-    /// <c>nomodeset</c> and <c>rd.live.check=0</c>.
-    ///
-    /// <para>
-    /// Existing <c>nomodeset</c> and <c>rd.live.check[=…]</c> tokens are stripped
-    /// first so re-running the writer does not accumulate duplicate parameters.
-    /// </para>
-    /// </summary>
     /// <remarks>
     /// <c>internal</c> for unit-testing without a real USB drive.
     /// </remarks>

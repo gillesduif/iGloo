@@ -6,23 +6,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.App.ViewModels;
 
-/// <summary>
-/// View-model for the distribution selection step.
-///
-/// Wraps each <see cref="DistroManifest"/> in a <see cref="DistroListItem"/> that carries
-/// a pre-computed compatibility flag. Compatibility is (re-)evaluated every time the user
-/// navigates to this step via <see cref="RefreshCompatibility"/>, which receives the latest
-/// <see cref="PreflightReport"/> from <c>MainWindowViewModel</c>.
-///
-/// Current compatibility rules
-///              ─
-/// • Secure Boot ON  → distro must declare the <c>secure-boot-supported</c> tag.
-/// • Plugin findings → each distro plugin's <c>CheckCompatibility</c> runs against
-///   the preflight report; any <c>Blocker</c> finding (BitLocker locked, RAM below
-///   the distro's install floor, …) makes the distro unselectable with the reason
-///   shown in the catalog. This is where those checks are ENFORCED — nothing else
-///   calls them.
-/// </summary>
 public sealed partial class DistroSelectionViewModel : ObservableObject
 {
     private readonly DistroLoader _loader;
@@ -49,13 +32,9 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
 
     //   Derived                                
 
-    /// <summary>The manifest of the currently selected (and compatible) distro; null otherwise.</summary>
+    
     public DistroManifest? SelectedDistro => SelectedItem?.Manifest;
 
-    /// <summary>
-    /// True when the user has selected a compatible, installable distro - enables "Next".
-    /// Coming-soon entries (no IDistroPlugin yet) can be browsed but never installed.
-    /// </summary>
     public bool CanProceed => SelectedItem is { IsCompatible: true, IsComingSoon: false };
 
     //   Constructor                              
@@ -72,16 +51,9 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
 
     //   API                                  
 
-    /// <summary>The quiz-driven filter chip, shown only when recommendations exist.</summary>
+    
     public const string RecommendedCategory = "Recommended";
 
-    /// <summary>
-    /// Sets the Welcome quiz's ranked recommendations. Called by the wizard
-    /// before <see cref="RefreshCompatibility"/> on every navigation here.
-    /// Changed answers invalidate the built list (badges move) and activate the
-    /// Recommended chip, so the shelf opens showing only the matches — the
-    /// choice-paralysis payoff. "All" is one click away.
-    /// </summary>
     public void SetRecommendation(IReadOnlyList<string> distroIds)
     {
         ArgumentNullException.ThrowIfNull(distroIds);
@@ -94,8 +66,6 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
             SelectedCategory = RecommendedCategory;   // triggers a rebuild via its change hook
     }
 
-    /// <summary>Category filter for the picker. "All" plus each desktop
-    /// environment present in the catalog (GNOME, KDE, Cinnamon, …).</summary>
     public const string AllCategory = "All";
 
     [ObservableProperty]
@@ -107,11 +77,6 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     partial void OnSelectedCategoryChanged(string value) =>
         RefreshCompatibility(_lastReport);
 
-    /// <summary>
-    /// (Re-)evaluates distro compatibility against <paramref name="report"/> and rebuilds
-    /// <see cref="DistroItems"/>. Called by <c>MainWindowViewModel</c> every time the user
-    /// navigates to this step so the list always reflects the current hardware state.
-    /// </summary>
     public void RefreshCompatibility(PreflightReport? report)
     {
         var secureBootOn = report?.SecureBootEnabled ?? false;
@@ -225,9 +190,6 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         => m.Tags.Any(t => string.Equals(t, "secure-boot-supported", StringComparison.OrdinalIgnoreCase));
 }
 
-/// <summary>
-/// A <see cref="DistroManifest"/> decorated with compatibility info for the current machine.
-/// </summary>
 public sealed record DistroListItem(
     DistroManifest Manifest,
     bool IsCompatible,

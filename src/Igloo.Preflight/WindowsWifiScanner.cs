@@ -8,27 +8,9 @@ using Igloo.Core.Models;
 
 namespace Igloo.Preflight;
 
-/// <summary>
-/// Exports the machine's saved Wi-Fi profiles (with cleartext keys) using
-/// <c>netsh wlan export profile key=clear</c> and parses the resulting XML into
-/// <see cref="WifiNetwork"/> records for the migration manifest.
-///
-/// We export to XML rather than scraping <c>netsh wlan show profile</c> text
-/// because the text output is fully localized - label strings like "Key Content"
-/// differ per Windows display language and cannot be matched reliably. The XML
-/// profile schema (<c>WLANProfile/v1</c>) is fixed regardless of locale.
-///
-/// Defensive: never throws; returns an empty list on any failure (no WLAN
-/// adapter, group-policy lockdown, no saved profiles, etc.).
-/// </summary>
 [SupportedOSPlatform("windows")]
 public static class WindowsWifiScanner
 {
-    /// <summary>
-    /// Scans saved Wi-Fi networks and returns one <see cref="WifiNetwork"/> per
-    /// profile. The currently-connected network (if any) is flagged
-    /// <see cref="WifiNetwork.IsPrimary"/> = true.
-    /// </summary>
     public static IReadOnlyList<WifiNetwork> Scan()
     {
         string? tmpDir = null;
@@ -71,7 +53,7 @@ public static class WindowsWifiScanner
         }
     }
 
-    /// <summary>Best-effort recursive delete of the temporary export folder.</summary>
+    
     private static bool TryDeleteDirectory(string dir)
     {
         try
@@ -132,10 +114,6 @@ public static class WindowsWifiScanner
         }
     }
 
-    /// <summary>
-    /// Maps a WLANProfile <c>&lt;authentication&gt;</c> value to the agent's
-    /// normalised security type and decides whether to carry the key.
-    /// </summary>
     internal static (string security, string? psk) NormaliseSecurity(string auth, string? keyMaterial)
     {
         var a = auth.ToUpperInvariant();
@@ -158,13 +136,6 @@ public static class WindowsWifiScanner
         return ("unsupported", null);
     }
 
-    /// <summary>
-    /// Returns the set of values that appear after a colon in
-    /// <c>netsh wlan show interfaces</c> output. We match on values rather than
-    /// labels so this stays locale-independent: the currently-connected SSID and
-    /// profile name both appear here, so a profile whose SSID is in this set is
-    /// the active connection.
-    /// </summary>
     private static HashSet<string> GetConnectedValues()
     {
         var values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -219,7 +190,7 @@ public static class WindowsWifiScanner
         }
     }
 
-    /// <summary>Best-effort kill of a netsh process that overran its timeout.</summary>
+    
     private static bool TryKill(Process p)
     {
         try

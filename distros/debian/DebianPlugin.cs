@@ -5,18 +5,6 @@ using Igloo.Core.Models;
 
 namespace Igloo.Distro.Debian;
 
-/// <summary>
-/// <see cref="IDistroPlugin"/> for Debian (debian-installer + preseed).
-///
-/// Reference implementation for the Debian family. The rendered config is a
-/// classic <c>preseed.cfg</c>; the unattended "%post" equivalent is the preseed
-/// <c>d-i preseed/late_command</c>, which copies the Igloo agent + manifest onto
-/// the installed system, copies the user's files from the live Windows NTFS
-/// partition, and enables the first-boot service.
-///
-/// The first-boot agent is shared across the Debian family (Debian / Ubuntu /
-/// Mint) and detects the distro at runtime via <c>/etc/os-release</c>.
-/// </summary>
 public sealed class DebianPlugin : IDistroPlugin
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -39,10 +27,6 @@ public sealed class DebianPlugin : IDistroPlugin
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
     }
 
-    /// <summary>
-    /// Loads the co-located <c>distro.json</c>, or returns <c>null</c> when it is
-    /// absent or unreadable so the constructor uses <see cref="FallbackMetadata"/>.
-    /// </summary>
     private static DistroManifest? TryLoadManifest(string manifestPath)
     {
         if (!File.Exists(manifestPath))

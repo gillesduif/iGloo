@@ -4,10 +4,6 @@ using Xunit;
 
 namespace Igloo.App.Tests;
 
-/// <summary>
-/// Characterization tests for <see cref="LinuxUsernameRules"/>. The username lands in
-/// useradd via the installer config, so the rules must stay aligned with useradd(8).
-/// </summary>
 public class LinuxUsernameRulesTests
 {
     [Theory]

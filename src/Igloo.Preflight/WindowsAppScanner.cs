@@ -5,13 +5,6 @@ using Microsoft.Win32;
 
 namespace Igloo.Preflight;
 
-/// <summary>
-/// Reads installed Windows applications from the registry uninstall keys and
-/// matches them against a curated table of Linux equivalents.
-///
-/// Called once during the Migration Setup wizard step to populate the
-/// "Suggested apps" checklist.
-/// </summary>
 [SupportedOSPlatform("windows")]
 public static class WindowsAppScanner
 {
@@ -110,17 +103,6 @@ public static class WindowsAppScanner
 
     //   Public API                               
 
-    /// <summary>
-    /// Scans the Windows registry for installed applications and returns a list
-    /// of <see cref="SuggestedPackage"/> entries for any that have a known Linux
-    /// equivalent. Defensive: never throws; returns an empty list on any error.
-    /// </summary>
-    /// <summary>
-    /// Scans the Windows registry for installed applications and returns a list
-    /// of <see cref="SuggestedPackage"/> entries for any that have a known Linux
-    /// equivalent. Inaccessible registry keys are skipped, so a locked-down
-    /// machine simply yields fewer suggestions.
-    /// </summary>
     public static IReadOnlyList<DetectedSuggestion> Scan() => Match(ReadInstalledDisplayNames());
 
     //   Private                                ─
@@ -226,10 +208,6 @@ public static class WindowsAppScanner
         string? NativePackage);
 }
 
-/// <summary>
-/// A single match returned by <see cref="WindowsAppScanner.Scan"/>:
-/// one detected Windows application paired with its Linux equivalent.
-/// </summary>
 public sealed record DetectedSuggestion(
     string WindowsDisplayName,
     string LinuxAppName,

@@ -5,18 +5,11 @@ using Igloo.Preflight;
 
 namespace Igloo.App.ViewModels;
 
-/// <summary>
-/// View-model for the Migration Setup wizard step. The user configures:
-///   • Linux username (auto-seeded from the Windows username, fully editable)
-///   • Which personal folders to migrate (Documents, Downloads, Pictures, …)
-///   • Which browser profiles to include
-///   • Timezone and keyboard layout (auto-detected from Windows, editable)
-/// </summary>
 public sealed partial class MigrationSetupViewModel : ObservableObject
 {
     //   Auto-detected / read-only context                   
 
-    /// <summary>Current Windows username shown as context.</summary>
+    
     public string WindowsUsername { get; } = Environment.UserName;
 
     //   Linux username                             
@@ -30,17 +23,13 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     //   Linux password                             
 
-    /// <summary>
-    /// The password the user typed in the first PasswordBox.
-    /// Set from code-behind (PasswordBox.Password is not bindable).
-    /// </summary>
     public string LinuxPassword { get; private set; } = string.Empty;
     public string LinuxPasswordConfirm { get; private set; } = string.Empty;
 
     public bool IsPasswordValid => LinuxPassword.Length >= 8;
     public bool IsPasswordMatch => LinuxPassword == LinuxPasswordConfirm;
 
-    /// <summary>Called by the view code-behind when either PasswordBox changes.</summary>
+    
     public void SetPasswords(string password, string confirm)
     {
         LinuxPassword = password;
@@ -78,7 +67,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     //   CanProceed                               
 
-    /// <summary>Enables "Next" once the username and password both pass validation.</summary>
+    
     public bool CanProceed => IsUsernameValid && IsPasswordValid && IsPasswordMatch;
 
     //   Constructor                              
@@ -107,12 +96,6 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     //   Public API                               
 
-    /// <summary>
-    /// The selected folders in wizard order, each paired with its absolute source
-    /// location. The absolute path comes from the Known Folder API, so OneDrive
-    /// Known Folder Move redirection is honoured. Single source of truth for the
-    /// three getters below.
-    /// </summary>
     private IEnumerable<(string Name, string? Absolute)> SelectedFolderSources()
     {
         if (IncludeDocuments)
@@ -130,26 +113,17 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             yield return ("Videos", Environment.GetFolderPath(Environment.SpecialFolder.MyVideos));
     }
 
-    /// <summary>Returns absolute paths of the selected user folders that actually exist.</summary>
+    
     public IReadOnlyList<string> GetSelectedFolderPaths()
         => SelectedFolderSources()
             .Where(f => !string.IsNullOrEmpty(f.Absolute) && Directory.Exists(f.Absolute))
             .Select(f => f.Absolute!)
             .ToList();
 
-    /// <summary>Returns the display names of the selected folders (for the manifest).</summary>
+    
     public IReadOnlyList<string> GetSelectedFolderNames()
         => SelectedFolderSources().Select(f => f.Name).ToList();
 
-    /// <summary>
-    /// Returns the selected folders paired with their source path <em>relative to
-    /// the Windows user profile</em> (forward slashes). The absolute path is
-    /// resolved via the Known Folder API, so OneDrive-redirected folders come back
-    /// as e.g. <c>("Documents", "OneDrive/Documents")</c> while non-redirected ones
-    /// are <c>("Downloads", "Downloads")</c>. Only folders that actually exist on
-    /// disk are included. The kickstart <c>%post</c> uses the relative path to copy
-    /// from the real location instead of guessing <c>$WIN_HOME/&lt;name&gt;</c>.
-    /// </summary>
     public IReadOnlyList<MigrationFolder> GetSelectedFolders()
     {
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -174,22 +148,10 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         return result;
     }
 
-    /// <summary>Returns the names of the browsers the user chose to include.</summary>
+    
     public IReadOnlyList<string> GetSelectedBrowserNames()
         => DetectedBrowsers.Where(b => b.IsSelected).Select(b => b.Name).ToList();
 
-    /// <summary>
-    /// Phase 1 browser migration. Maps each selected browser to a
-    /// <see cref="BrowserMigration"/>:
-    ///   • Gecko browsers (Firefox / Zen / Waterfox) - the on-disk profile root is
-    ///     OS-portable and includes saved passwords (NSS, not bound to the Windows
-    ///     account). Source = the profile root relative to the Windows profile
-    ///     (forward slashes); dest = the canonical Linux home location.
-    ///   • Chromium browsers (Chrome / Edge / Brave / Vivaldi / Opera) - passwords
-    ///     are DPAPI-bound to the Windows account and not portable, so these are
-    ///     recorded (engine + name) but left with empty paths; the kickstart skips
-    ///     them. Real migration is a future phase.
-    /// </summary>
     public IReadOnlyList<BrowserMigration> GetSelectedBrowsers()
     {
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -243,7 +205,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         return result;
     }
 
-    /// <summary>Returns the selected Linux app suggestions as manifest entries.</summary>
+    
     public IReadOnlyList<SuggestedPackage> GetSelectedSuggestions()
         => DetectedSuggestions
             .Where(s => s.IsSelected)
@@ -283,7 +245,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     }
 }
 
-/// <summary>A browser detected on the Windows system that the user can opt in/out of migrating.</summary>
+
 public sealed partial class BrowserEntry : ObservableObject
 {
     public string Name { get; }
@@ -298,11 +260,6 @@ public sealed partial class BrowserEntry : ObservableObject
     }
 }
 
-/// <summary>
-/// A Windows app detected by <see cref="WindowsAppScanner"/> paired with its
-/// Linux equivalent. Wraps a <see cref="DetectedSuggestion"/> with an
-/// observable <see cref="IsSelected"/> checkbox for the wizard UI.
-/// </summary>
 public sealed partial class SuggestedPackageEntry : ObservableObject
 {
     public string WindowsDisplayName { get; }

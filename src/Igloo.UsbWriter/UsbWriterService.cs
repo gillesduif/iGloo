@@ -14,26 +14,6 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Igloo.UsbWriter;
 
-/// <summary>
-/// Implements the USB write pipeline:
-///   1. Raw-write the ISO to <c>\\.\PhysicalDriveN</c>.
-///   2. Create a FAT32 <c>OEMDRV</c> partition in the remaining unallocated space
-///      so Anaconda finds the kickstart automatically.
-///   3. Copy the staging directory (ks.cfg, igloo-agent, migration-manifest.json,
-///      and any staged Windows files) onto the OEMDRV partition.
-///
-/// <b>Elevation required:</b> direct physical-drive writes need administrator rights.
-/// <see cref="WriteAsync"/> throws <see cref="UnauthorizedAccessException"/> before
-/// touching any drive when the calling process is not elevated.
-///
-/// <b>Cancellation contract:</b>
-///   Phase 1 (raw write)  - cancelable at any 128 KB boundary.
-///   Phase 2 (diskpart)   - <em>atomic</em>; the CancellationToken is checked
-///                          <em>before</em> and <em>after</em> but never during the
-///                          diskpart run.  Cancelling mid-partition creation would leave
-///                          the partition table in an undefined state.
-///   Phase 3 (file copy)  - cancelable at every file boundary.
-/// </summary>
 [SupportedOSPlatform("windows")]
 public sealed partial class UsbWriterService : IUsbWriterService
 {
@@ -201,12 +181,6 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
     //   Pre-flight validation                         ─
 
-    /// <summary>
-    /// Throws <see cref="InvalidOperationException"/> with a human-readable message
-    /// when the drive is too small to hold both the ISO and the OEMDRV partition.
-    /// Called <em>before</em> any write, so the user gets a clear explanation
-    /// rather than a mid-write failure or a silent "Anaconda drops to manual install".
-    /// </summary>
     internal static void ValidateFit(UsbDriveInfo drive, long isoSize, int partSizeMb)
     {
         if (drive.SizeBytes <= 0)
@@ -224,12 +198,6 @@ public sealed partial class UsbWriterService : IUsbWriterService
             "Use a larger drive (8 GB or more is recommended).");
     }
 
-    /// <summary>
-    /// Verifies that the OEMDRV partition was actually created and mounted.
-    /// diskpart exits with code 0 even when individual commands fail silently,
-    /// so trusting the exit code alone would leave the user with a USB stick
-    /// that boots into manual-install mode with no kickstart.
-    /// </summary>
     private void ValidateOemDrvMounted(char driveLetter)
     {
         var root = $"{driveLetter}:\\";
@@ -396,7 +364,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         }
     }
 
-    /// <summary>Best-effort delete of the temporary diskpart script.</summary>
+    
     private static bool TryDeleteFile(string path)
     {
         try

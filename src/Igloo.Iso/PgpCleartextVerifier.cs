@@ -4,28 +4,10 @@ using Org.BouncyCastle.Bcpg.OpenPgp;
 
 namespace Igloo.Iso;
 
-/// <summary>
-/// Verifies OpenPGP cleartext-signed messages (RFC 4880 §7) using BouncyCastle.
-/// This is the format Fedora uses for its SHA256SUM / CHECKSUM files:
-/// <code>
-/// -----BEGIN PGP SIGNED MESSAGE-----
-/// Hash: SHA256
-///
-/// SHA256 (Fedora-KDE-Live-x86_64-40-1.14.iso) = &lt;hash&gt;
-/// -----BEGIN PGP SIGNATURE-----
-/// ...
-/// -----END PGP SIGNATURE-----
-/// </code>
-/// </summary>
 internal static class PgpCleartextVerifier
 {
     private static readonly string[] LineSeparators = ["\r\n", "\r", "\n"];
 
-    /// <summary>
-    /// Returns <c>true</c> when at least one signature in <paramref name="cleartextMessage"/>
-    /// is valid for a key present in <paramref name="publicKeyRingBytes"/>.
-    /// Never throws; logs warnings on failure.
-    /// </summary>
     internal static bool Verify(byte[] publicKeyRingBytes, string cleartextMessage, ILogger logger,
         string? expectedFingerprint = null)
     {
@@ -133,26 +115,12 @@ internal static class PgpCleartextVerifier
         return true;
     }
 
-    /// <summary>
-    /// RFC 4880 §7.1: strip trailing whitespace from each line, join with CRLF.
-    /// The last line does NOT receive a trailing CRLF.
-    /// </summary>
     private static string Canonicalize(string body)
     {
         var lines = body.Split(LineSeparators, StringSplitOptions.None);
         return string.Join("\r\n", lines.Select(l => l.TrimEnd(' ', '\t')));
     }
 
-    /// <summary>
-    /// Pinned-fingerprint trust anchor. Returns true when the 160-bit fingerprint of
-    /// <paramref name="signingKey"/> (or, because distros routinely sign with a
-    /// subkey, of the PRIMARY key of the ring that contains it) equals
-    /// <paramref name="expected"/> (ignoring spaces/colons/case). Pinning the full
-    /// fingerprint defeats 64-bit key-ID forgery and a malicious keyserver handing
-    /// back a different key; the 64-bit key ID alone is spoofable.
-    /// When no fingerprint is pinned this returns true but logs a warning: the
-    /// signature then only proves "signed by whatever key the key URL served".
-    /// </summary>
     internal static bool PinAccepts(
         PgpPublicKeyRingBundle bundle, PgpPublicKey signingKey, string? expected, ILogger logger)
     {

@@ -10,16 +10,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.App.ViewModels;
 
-/// <summary>
-/// View-model for the Direct Install wizard step (dual-boot, no USB).
-///
-/// Flow:
-///   1. On navigation <see cref="Prepare"/> is called; the step auto-triggers
-///      <see cref="InstallCommand"/> which runs in the background.
-///   2. Progress through phases (shrink → partition → copy ISO → copy files → GRUB).
-///   3. On completion the user clicks "Reboot to Install" which registers the
-///      UEFI boot entry and initiates a Windows restart.
-/// </summary>
 public sealed partial class DirectInstallViewModel : ObservableObject
 {
     private readonly IDirectInstallService _installer;
@@ -68,7 +58,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     public double ProgressPercent => BytesTotal > 0 ? BytesWritten * 100.0 / BytesTotal : 0;
     public bool IsProgressIndeterminate => BytesTotal == 0;
 
-    /// <summary>Allow cancel at any point except during the atomic partition creation.</summary>
+    
     public bool IsCancelable => !IsRunning || CurrentPhase != DirectInstallPhase.CreatingPartition;
 
     //   Constructor                              ─
@@ -85,10 +75,6 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
     //   API called by MainWindowViewModel                   ─
 
-    /// <summary>
-    /// Stores parameters from prior wizard steps and resets all state.
-    /// Call before navigating to this step.
-    /// </summary>
     public void Prepare(
         IsoAcquisitionResult isoResult,
         FileStagingResult stagingResult,
@@ -125,7 +111,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
     //   Commands                                
 
-    /// <summary>Runs the full preparation pipeline (shrink → partition → copy → GRUB).</summary>
+    
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task InstallAsync(CancellationToken ct)
     {
@@ -203,10 +189,6 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Registers the UEFI BootNext entry then restarts Windows.
-    /// Shown on the completion panel.
-    /// </summary>
     [RelayCommand]
     private async Task RebootToInstallAsync()
     {

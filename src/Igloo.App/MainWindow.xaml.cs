@@ -94,7 +94,7 @@ public sealed partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
-    /// <summary>True when the screen point packed in an NC-message lParam is inside the maximize button.</summary>
+    
     private bool IsOverMaxRestoreButton(IntPtr lParam)
     {
         if (MaxRestoreButton.ActualWidth == 0)
@@ -149,11 +149,6 @@ public sealed partial class MainWindow : Window
 
     //   Step transition                            ─
 
-    /// <summary>
-    /// Light fade/slide when the wizard step changes (200 ms, ease-out). Purely
-    /// decorative: it never blocks input, and it is skipped entirely when the
-    /// user has animations disabled in Windows accessibility settings.
-    /// </summary>
     private void OnStepChanged(object sender, DataTransferEventArgs e)
     {
         if (!SystemParameters.ClientAreaAnimation)

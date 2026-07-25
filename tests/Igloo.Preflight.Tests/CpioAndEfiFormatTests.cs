@@ -4,12 +4,6 @@ using Xunit;
 
 namespace Igloo.Preflight.Tests;
 
-/// <summary>
-/// Characterization tests for the binary formats DirectInstallService emits:
-/// the cpio "newc" member appended to installer initrds and the EFI_LOAD_OPTION
-/// written to UEFI NVRAM. A malformed byte in either breaks boot in ways that
-/// only surface on real firmware, so the layouts are pinned here.
-/// </summary>
 public class CpioAndEfiFormatTests
 {
     //   cpio newc                               

@@ -34,7 +34,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     public bool HasNoFindings => HasReport && !HasFindings;
     public bool HasBlockers => Findings.Any(f => f.Severity == FindingSeverity.Blocker);
 
-    /// <summary>True when the check has completed without blockers - enables "Next" in the wizard.</summary>
+    
     public bool CanProceed => HasReport && !HasBlockers;
 
     public string FirmwareDisplay => Report?.IsUefi == true ? "UEFI" : "Legacy BIOS";
@@ -71,7 +71,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     public IReadOnlyList<DiskInfo> Disks => Report?.Disks ?? Array.Empty<DiskInfo>();
     public IReadOnlyList<PreflightFinding> Findings => Report?.Findings ?? Array.Empty<PreflightFinding>();
 
-    /// <summary>Presentation model for the Disk Management-style partition bars.</summary>
+    
     public IReadOnlyList<DiskView> DiskViews => BuildDiskViews();
 
     //   Constructor                             ─
@@ -101,7 +101,7 @@ public sealed partial class PreflightViewModel : ObservableObject
 
     public bool HasLinuxActionStatus => LinuxActionStatus is not null;
 
-    /// <summary>Selectable wrappers around the report's detected installations.</summary>
+    
     public IReadOnlyList<LinuxInstallItem> LinuxInstalls { get; private set; } = [];
 
     public bool HasLinux => LinuxInstalls.Count > 0;
@@ -111,7 +111,7 @@ public sealed partial class PreflightViewModel : ObservableObject
 
     public bool HasSeedLeftovers => (Report?.SeedLeftovers.Count ?? 0) > 0;
 
-    /// <summary>Leftover seed partitions without any Linux install → own small card.</summary>
+    
     public bool ShowLeftoversOnlyCard => !HasLinux && HasSeedLeftovers;
 
     public string SeedLeftoverSummary => Report is null
@@ -210,10 +210,6 @@ public sealed partial class PreflightViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Runs <c>manage-bde -off &lt;SystemDrive&gt;</c> to start BitLocker decryption,
-    /// then automatically re-runs the pre-flight check so the UI reflects the new state.
-    /// </summary>
     [RelayCommand]
     private async Task DisableBitLockerAsync()
     {
@@ -259,10 +255,6 @@ public sealed partial class PreflightViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Schedules a restart directly into UEFI firmware settings (<c>shutdown /r /fw /t 10</c>).
-    /// The user disables Secure Boot there manually, then boots back into Windows.
-    /// </summary>
     [RelayCommand]
     private void RestartToFirmware()
     {
@@ -299,15 +291,6 @@ public sealed partial class PreflightViewModel : ObservableObject
 
     //   Helpers                                
 
-    /// <summary>
-    /// Returns the full path to a System32 executable, bypassing WOW64 file-system
-    /// redirection for 32-bit processes running on 64-bit Windows.
-    ///
-    /// A 32-bit process's <c>SpecialFolder.System</c> resolves to <c>SysWOW64</c>, which
-    /// lacks many admin tools (manage-bde, shutdown, …). The virtual <c>Sysnative</c> folder
-    /// bypasses the redirect for 32-bit callers; on a native 64-bit process it doesn't exist
-    /// and the real <c>System32</c> path is used instead.
-    /// </summary>
     private static string FindNativeExe(string exeName)
     {
         var winRoot = Environment.GetEnvironmentVariable("SystemRoot") ?? @"C:\Windows";
@@ -319,10 +302,6 @@ public sealed partial class PreflightViewModel : ObservableObject
 
     //   Partition-bar presentation model                   ─
 
-    /// <summary>
-    /// Gaps below this size are alignment noise (the ~1 MiB GPT lead-in, sector
-    /// padding) and are not rendered as unallocated segments.
-    /// </summary>
     private const long UnallocatedThresholdBytes = 32L * 1024 * 1024;
 
     private List<DiskView> BuildDiskViews()
@@ -379,11 +358,6 @@ public sealed partial class PreflightViewModel : ObservableObject
     private const string GptTypeLinuxLvm = "E6D6D379-F507-44C2-A23C-238F2A3DF928";
     private const string GptTypeLinuxHome = "933AC7E1-2EB4-4F13-B844-0E14E2AEF915";
 
-    /// <summary>
-    /// Names label-less service partitions by their GPT type GUID (the reason
-    /// Disk Management can say "EFI system partition" where a raw volume listing
-    /// says "Unknown"), then falls back to label / filesystem / flags.
-    /// </summary>
     private static (string Kind, string Name) ClassifyPartition(PartitionInfo p)
     {
         var gpt = p.GptType?.Trim('{', '}').ToUpperInvariant();
@@ -459,15 +433,10 @@ public sealed partial class PreflightViewModel : ObservableObject
     }
 }
 
-/// <summary>One disk in the STORAGE section: header facts plus its partition bar.</summary>
+
 public sealed record DiskView(string Model, long TotalBytes, string PartitionStyle,
     IReadOnlyList<PartitionSegment> Segments);
 
-/// <summary>
-/// One segment of a disk's partition bar (a partition, or an unallocated gap).
-/// <see cref="Kind"/> keys the fill color (see <c>PartitionKindToBrushConverter</c>);
-/// <see cref="SizeBytes"/> doubles as the segment's proportional layout weight.
-/// </summary>
 public sealed record PartitionSegment(string Name, string Detail, long SizeBytes,
     string Kind, bool IsSystem, bool IsBoot, bool IsUnallocated)
 {
@@ -478,10 +447,6 @@ public sealed record PartitionSegment(string Name, string Detail, long SizeBytes
         Kind: "Free", IsSystem: false, IsBoot: false, IsUnallocated: true);
 }
 
-/// <summary>
-/// One detected Linux installation in the removal UI. <see cref="IsSelected"/>
-/// backs the checkbox in the multiple-installations layout.
-/// </summary>
 public sealed partial class LinuxInstallItem : ObservableObject
 {
     private readonly Action _selectionChanged;

@@ -3,14 +3,9 @@ using Igloo.Core.Models;
 
 namespace Igloo.Core.Services;
 
-/// <summary>
-/// Combines user-supplied setup data, the pre-flight hardware report, and the result of file
-/// staging into a <see cref="MigrationManifest"/> that is written to the staging directory.
-/// The manifest is the wire format read by the first-boot agent on the freshly-installed system.
-/// </summary>
 public static class ManifestGeneratorService
 {
-    /// <summary>Builds a <see cref="MigrationManifest"/> from the provided inputs.</summary>
+    
     public static MigrationManifest Generate(
         string distroId,
         UserSetup userSetup,
@@ -80,7 +75,7 @@ public static class ManifestGeneratorService
     }
 }
 
-/// <summary>User-supplied migration preferences collected on the Migration Setup wizard step.</summary>
+
 public sealed record UserSetup
 {
     public required string WindowsUsername { get; init; }

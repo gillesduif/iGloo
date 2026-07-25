@@ -5,13 +5,6 @@ using Xunit;
 
 namespace Igloo.Migration.Tests;
 
-/// <summary>
-/// Characterization tests for <see cref="FileStagingService"/>. The staging layout
-/// (<c>files/&lt;folderName&gt;/&lt;relative path&gt;</c> under the distro's staging root)
-/// is consumed by the installer configs and first-boot agents, so it is contract.
-/// The service hardcodes %LOCALAPPDATA%\Igloo\staging\{distroId}; tests use a unique
-/// distro id and clean up after themselves.
-/// </summary>
 public sealed class FileStagingServiceTests : IDisposable
 {
     private readonly string _distroId = "igloo-test-" + Guid.NewGuid().ToString("N");

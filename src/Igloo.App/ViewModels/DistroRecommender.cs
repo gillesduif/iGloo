@@ -2,15 +2,6 @@ using Igloo.Core.Models;
 
 namespace Igloo.App.ViewModels;
 
-/// <summary>
-/// Turns the Welcome screen's three quiz answers into one recommended distro —
-/// iGloo's answer to choice paralysis: the catalog stays complete, but one cover
-/// carries a RECOMMENDED badge and the carousel opens centered on it.
-///
-/// Scoring is a transparent trait table (0–2 per trait, editable below), not a
-/// black box: use-case weighs double, look-and-feel and update-cadence half as
-/// much, and installable distros win ties over coming-soon entries.
-/// </summary>
 public static class DistroRecommender
 {
     // Option ids the Welcome quiz feeds in (kept as strings so the quiz copy can
@@ -51,11 +42,6 @@ public static class DistroRecommender
         ["deepin"] = new(1, 0, 0, 0, 0, 2, 1, 0),
     };
 
-    /// <summary>
-    /// Ranked matches, best first: several answers fit several distros equally
-    /// well, so everything within one trait-step (2.0 points) of the top score
-    /// is recommended, capped at four. Empty until all three answers are in.
-    /// </summary>
     public static IReadOnlyList<DistroManifest> Recommend(IReadOnlyList<DistroManifest> catalog,
         string? use, string? style, string? updates)
     {

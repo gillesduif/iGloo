@@ -1,21 +1,5 @@
 namespace Igloo.Core.Services;
 
-/// <summary>
-/// Rate-limits an <see cref="IProgress{T}"/> chain.
-///
-/// Byte-level operations (ISO download, hashing, staging copies) report per
-/// buffer — hundreds of reports per second for minutes. Each report posted to
-/// the UI thread triggers text re-layout, which is wasted work at best and, in
-/// the worst case, hammers WPF's glyph pipeline exactly when it is fragile
-/// (Windows updates restarting the FontCache service mid-session have crashed
-/// the app from <c>TextBlock.Measure</c>). Forwarding at ~10 Hz is
-/// indistinguishable to a human and removes ~99% of that pressure.
-///
-/// The first report always passes through, as do reports matching
-/// <paramref name="forceWhen"/> (phase transitions, completion), so neither the
-/// initial state nor the final "100%" is ever lost to the throttle.
-/// <see cref="Report"/> is safe to call from any thread.
-/// </summary>
 public sealed class ThrottledProgress<T> : IProgress<T>
 {
     private readonly IProgress<T> _inner;

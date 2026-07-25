@@ -2,11 +2,6 @@ using System.Text;
 
 namespace Igloo.App.ViewModels;
 
-/// <summary>
-/// Validation and sanitization for the Linux username the wizard writes into the
-/// manifest. Mirrors useradd(8) constraints: ASCII letter first, then lowercase
-/// letters/digits/underscore/hyphen, max 32 chars, no well-known system accounts.
-/// </summary>
 internal static class LinuxUsernameRules
 {
     private static readonly HashSet<string> ReservedNames =
@@ -36,7 +31,7 @@ internal static class LinuxUsernameRules
         return true;
     }
 
-    /// <summary>Derives a plausible Linux username from a Windows account name; "user" as last resort.</summary>
+    
     internal static string Sanitize(string windowsName)
     {
         // useradd only accepts lowercase names, so each character is lowered as it is copied.

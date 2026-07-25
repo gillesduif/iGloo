@@ -82,7 +82,7 @@
                 SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                 CanConfirm="{Binding CanProceed}"
                 ConfirmCommand="{Binding DataContext.NextCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                AutomationProperties.Name="Choose your Linux distribution" />
+                AutomationProperties.Name="Pick a Linux distribution" />
 
             <!-- 2D caption overlay: crisp text is never texture-mapped onto 3D planes. -->
             <!-- Fixed-height caption box: title/description sit at a CONSTANT

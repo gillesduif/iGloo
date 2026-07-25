@@ -4,11 +4,6 @@ using Xunit;
 
 namespace Igloo.App.Tests;
 
-/// <summary>
-/// Characterization tests for the culture-to-XKB fallback in <see cref="KeymapDetection"/>.
-/// The registry path is machine-dependent and not tested here; the culture fallback is
-/// pure and ordering-sensitive (e.g. "-BE" must win over the "fr"/"nl" prefixes).
-/// </summary>
 public class KeymapDetectionTests
 {
     [Theory]

@@ -5,11 +5,6 @@ using Xunit;
 
 namespace Igloo.Core.Tests;
 
-/// <summary>
-/// Characterization tests for <see cref="DistroLoader"/> catalog discovery: which folders
-/// are scanned, how failures degrade, and the SourceDirectory stamp that asset resolution
-/// depends on.
-/// </summary>
 public sealed class DistroLoaderTests : IDisposable
 {
     private readonly string _root = Path.Combine(

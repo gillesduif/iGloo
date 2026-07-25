@@ -5,17 +5,6 @@ using Igloo.Core.Models;
 
 namespace Igloo.Distro.LinuxmintCinnamon;
 
-/// <summary>
-/// <see cref="IDistroPlugin"/> for Linux Mint Cinnamon (Ubiquity / automatic-ubiquity).
-///
-/// Mint installs from a casper live ISO via Ubiquity. Fully-unattended Ubiquity
-/// is driven by a preseed (honouring most debian-installer keys plus
-/// <c>ubiquity/*</c> ones) loaded with <c>automatic-ubiquity file=/preseed.cfg</c>,
-/// where the preseed is injected into the initrd. <c>ubiquity/success_command</c>
-/// is the late hook that bootstraps the Igloo agent.
-///
-/// Shares the Debian-family first-boot agent.
-/// </summary>
 public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -36,10 +25,6 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
     }
 
-    /// <summary>
-    /// Loads the co-located <c>distro.json</c>, or returns <c>null</c> when it is
-    /// absent or unreadable so the constructor uses <see cref="FallbackMetadata"/>.
-    /// </summary>
     private static DistroManifest? TryLoadManifest(string path)
     {
         if (!File.Exists(path))

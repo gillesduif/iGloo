@@ -14,30 +14,6 @@ using Microsoft.Win32;
 
 namespace Igloo.Preflight;
 
-/// <summary>
-/// Implements direct-install (no USB) for dual-boot scenarios. The selected
-/// distro's <see cref="InstallerBootSpec"/> parameterizes every distro-specific
-/// step; the pipeline itself never branches on distro identity.
-///
-/// Flow:
-///   1. Mount the ISO briefly to measure kernel + initrd sizes; unmount.
-///   2. Shrink the Windows NTFS partition.
-///   3. Create a FAT32 seed partition (label from the boot spec: OEMDRV/CIDATA)
-///      in the freed space, plus an NTFS ISO partition for oversized ISOs and a
-///      pre-created Linux root when the spec demands them.
-///   4. Mount the ISO; extract (or download) kernel and initrd, plus shim and
-///      GRUB, onto the seed partition; inject the installer config into the
-///      initrd when the spec asks; write a custom <c>grub.cfg</c>; unmount.
-///   5. Copy migration artefacts (installer config, agent, manifest).
-///   6. Register a one-time UEFI boot entry (BootNext) so the firmware boots
-///      the GRUB installer on the next restart.
-///
-/// For Fedora, using the netinstall ISO (not the live ISO) gives full kickstart
-/// support: package selection, dual-boot bootloader config, and unattended
-/// installation. The kickstart's <c>%post</c> enables os-prober so GRUB detects
-/// Windows and adds it to the boot menu - giving end users the OS choice at
-/// every startup.
-/// </summary>
 [SupportedOSPlatform("windows")]
 public sealed partial class DirectInstallService : IDirectInstallService
 {
@@ -337,10 +313,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         _logger.LogInformation("Direct install partition prepared on {Letter}:", driveLetter);
     }
 
-    /// <summary>
-    /// Mounts the ISO, reads the kernel, initrd, and <c>images/install.img</c> sizes,
-    /// then dismounts. Used to right-size the OEMDRV partition before it is created.
-    /// </summary>
     private (long kernelBytes, long initrdBytes, long installImgBytes) MeasureIsoContent(string isoPath)
     {
         string? mountedLetter = null;
@@ -420,12 +392,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         return letter;
     }
 
-    /// <summary>
-    /// Runs a diskpart script file and returns the combined stdout output.
-    /// Stdout and stderr are drained asynchronously to prevent pipe-buffer deadlock.
-    /// Throws <see cref="InvalidOperationException"/> with the captured output appended
-    /// when diskpart exits with a non-zero code, so the error message is actionable.
-    /// </summary>
     private static string RunDiskpart(string script)
     {
         var tmp = Path.GetTempFileName();
@@ -474,7 +440,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         }
     }
 
-    /// <summary>Best-effort kill of a diskpart process that overran its timeout.</summary>
+    
     private static bool TryKill(Process p)
     {
         try
@@ -488,7 +454,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         }
     }
 
-    /// <summary>Best-effort delete of the temporary diskpart script.</summary>
+    
     private static bool TryDeleteFile(string path)
     {
         try
@@ -523,11 +489,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         return 0;
     }
 
-    /// <summary>
-    /// Looks for a mounted volume labelled <c>OEMDRV</c> that belongs to
-    /// <paramref name="diskNumber"/>. Returns the drive letter and WMI partition
-    /// number if found, <see langword="null"/> otherwise.
-    /// </summary>
     private (char letter, uint partitionNumber)? FindExistingOemDrv(int diskNumber)
     {
         try
@@ -562,21 +523,9 @@ public sealed partial class DirectInstallService : IDirectInstallService
         return null;
     }
 
-    /// <summary>
-    /// True when an existing installer partition is large enough to reuse for the current
-    /// install. Reuse skips the shrink+resize step, so a leftover partition sized for a
-    /// different (smaller) distribution must be rejected rather than overflowed on copy.
-    /// </summary>
     internal static bool InstallerPartitionFits(long capacityBytes, long requiredBytes)
         => capacityBytes >= requiredBytes;
 
-    /// <summary>
-    /// Deletes a leftover installer volume by drive letter so a correctly-sized one can replace it.
-    /// This is destructive, so it is deliberately paranoid: it re-confirms the volume still carries
-    /// the OEMDRV installer label immediately before deleting (guarding against a drive-letter change
-    /// since detection), and selects the target in diskpart by letter - which is unambiguous - never
-    /// by partition number. Such a partition is disposable installer seed storage, never a data volume.
-    /// </summary>
     private void DeleteInstallerVolume(char letter)
     {
         string label;
@@ -618,14 +567,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         throw new InvalidOperationException("No available drive letter for the installer partition.");
     }
 
-    /// <summary>
-    /// Creates a dedicated NTFS partition to hold an ISO too large for FAT32
-    /// (≥ 4 GiB, e.g. Ubuntu desktop). casper's iso-scan locates the .iso on any
-    /// mountable partition, so this need not (and cannot) be FAT32. It is carved
-    /// from the free space left after the FAT32 seed partition; the remainder
-    /// stays free for the Linux install. The partition number is intentionally NOT
-    /// recorded — UEFI still boots from the FAT32 seed partition, not this one.
-    /// </summary>
     private char CreateIsoPartition(int diskNumber, long sizeBytes, CancellationToken ct)
     {
         long sizeMiB = RoundUpMiB(sizeBytes) / MiB;
@@ -661,11 +602,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         return letter;
     }
 
-    /// <summary>
-    /// Finds a mounted volume labelled <see cref="IsoPartitionLabel"/> on
-    /// <paramref name="diskNumber"/> (the standalone ISO partition from a prior
-    /// run). Returns its drive letter, or <see langword="null"/> if absent.
-    /// </summary>
     private char? FindExistingIsoPartition(int diskNumber)
     {
         try
@@ -720,11 +656,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         }
     }
 
-    /// <summary>
-    /// Downloads <paramref name="url"/> to <paramref name="destPath"/> with progress.
-    /// Used for installer kernel/initrd that don't live on the ISO (Debian hd-media,
-    /// which runs iso-scan). A short-lived HttpClient is fine for these one-off fetches.
-    /// </summary>
     private static void DownloadTo(Uri url, string destPath,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
@@ -786,13 +717,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         _logger.LogInformation("Staging artefacts copied to {Root}", oemDrvRoot);
     }
 
-    /// <summary>
-    /// If <paramref name="src"/> is a small text config carrying install-geometry
-    /// tokens, resolves them against the just-partitioned disk and writes the result
-    /// to <paramref name="dst"/> (returning true). Otherwise returns false so the
-    /// caller copies the file verbatim. UTF-8 without BOM and the original LF line
-    /// endings are preserved (subiquity/cloud-init reject a BOM).
-    /// </summary>
     private bool TryCopyWithGeometry(string src, string dst)
     {
         var info = new FileInfo(src);
@@ -816,14 +740,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         return true;
     }
 
-    /// <summary>
-    /// Replaces <c>{{IGLOO_STORAGE_PARTITIONS}}</c> with the complete curtin
-    /// partition list for the freshly partitioned disk. Only Ubuntu's subiquity
-    /// config uses this; every other distro's config lacks the token and this is
-    /// never called for it. Throws if any <c>{{IGLOO_*}}</c> token survives:
-    /// shipping an unsubstituted token means cloud-init silently discards the
-    /// whole autoinstall (broken YAML) and the installer turns interactive.
-    /// </summary>
     private string SubstituteGeometryTokens(string content)
     {
         if (_diskNumber is not int disk)
@@ -841,13 +757,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
     private const string EspGptType = "{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}";
     private const string LinuxFsGptType = "{0fc63daf-8483-4772-8e79-3d69d8477de4}";
 
-    /// <summary>
-    /// Creates the Linux root partition from Windows when the boot spec asks for
-    /// it (<see cref="InstallerBootSpec.PreCreateRootPartition"/>): one partition
-    /// filling the remaining free region (the gap the shrink left for Linux),
-    /// GPT-typed "Linux filesystem", unformatted — the installer formats it.
-    /// Idempotent: an existing Linux-filesystem partition on the disk is reused.
-    /// </summary>
     private void EnsureRootPartition(int diskNumber, CancellationToken ct)
     {
         using (var searcher = new ManagementObjectSearcher(StorageNs,
@@ -876,18 +785,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         ct.ThrowIfCancellationRequested();
     }
 
-    /// <summary>
-    /// Emits the complete curtin partition list for the target disk: every existing
-    /// partition with <c>preserve: true</c> and its REAL number/offset/size, plus the
-    /// new root partition placed in the largest free gap.
-    ///
-    /// Completeness is a DATA-SAFETY requirement, not cosmetics: curtin storage v2
-    /// treats the config as the disk's authoritative final state and DELETES any
-    /// partition not declared — an early config that listed only the ESP made curtin
-    /// start wiping the undeclared partitions (Windows included; only a busy-device
-    /// error stopped it). Explicit offset/size everywhere also satisfies subiquity's
-    /// assign_omitted_offsets, which crashes on any partition whose size is unknown.
-    /// </summary>
     private string BuildStoragePartitionList(int diskNumber)
     {
         var parts = new List<(uint number, long off, long size, string gptType, string guid)>();
@@ -954,20 +851,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
 
     //   Step 5 - extract kernel + initrd from ISO               
 
-    /// <summary>
-    /// Mounts the netinstall ISO and extracts the boot files onto OEMDRV:
-    /// <list type="bullet">
-    ///   <item>kernel → <c>\igloo-boot\linux</c></item>
-    ///   <item>initrd → <c>\igloo-boot\initrd</c> (Anaconda installer, ~200–400 MB)</item>
-    ///   <item><c>shimx64.efi</c> + <c>grubx64.efi</c> → <c>\igloo-boot\</c></item>
-    ///   <item><c>images/install.img</c> → OEMDRV <c>\images\install.img</c> (~870 MiB)
-    ///         - the Anaconda stage2 squashfs, copied locally so the installer
-    ///         does not need to download 862 MB from the network during installation.</item>
-    /// </list>
-    /// Then writes <c>\EFI\fedora\grub.cfg</c> and <c>\EFI\BOOT\grub.cfg</c> that
-    /// boot Anaconda using <c>inst.stage2=hd:LABEL=OEMDRV:</c> (local copy) and
-    /// <c>inst.ks=hd:LABEL=OEMDRV:/ks.cfg</c> for unattended dual-boot install.
-    /// </summary>
     private void ConfigureBootFiles(
         string isoPath, char oemDrvLetter, string stagingDirectory, long initrdBytes, long installImgBytes,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
@@ -1098,18 +981,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         }
     }
 
-    /// <summary>
-    /// Locates the kernel and initrd files on a mounted ISO and returns their
-    /// full paths as <c>(kernelPath, initrdPath)</c>.
-    ///
-    /// Handles naming variations across Fedora releases:
-    /// <list type="bullet">
-    ///   <item>Fedora 44+ (new lorax): <c>boot/x86_64/loader/linux</c> + <c>boot/x86_64/loader/initrd</c></item>
-    ///   <item>Fedora 40–43: <c>images/pxeboot/vmlinuz</c> + <c>images/pxeboot/initrd.img</c></item>
-    ///   <item>Fedora ≤39: <c>isolinux/vmlinuz</c> + <c>isolinux/initrd.img</c></item>
-    /// </list>
-    /// Falls back to a full recursive scan as a safety net.
-    /// </summary>
     private (string kernel, string initrd) FindKernelFiles(string isoRoot)
     {
         // Try the distro's declared kernel/initrd locations (from the boot spec),
@@ -1159,14 +1030,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
             $"ISO file listing:\n  {string.Join("\n  ", allFiles)}");
     }
 
-    /// <summary>
-    /// Locates the shim and GRUB EFI binaries on a mounted Fedora ISO.
-    ///
-    /// Fedora netinstall ISOs ship the shim as <c>EFI/BOOT/BOOTX64.EFI</c>
-    /// (the UEFI fallback name) rather than as <c>EFI/fedora/shimx64.efi</c>.
-    /// Full desktop/live ISOs and installed systems use the named path.
-    /// This method checks the most common locations in priority order.
-    /// </summary>
     private static (string shimPath, string grubPath) FindEfiFiles(string isoRoot)
     {
         //   Shim candidates (in priority order)               ─
@@ -1201,13 +1064,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         return (shimPath, grubPath);
     }
 
-    /// <summary>
-    /// Copies a file using <see cref="FileStream"/> rather than <see cref="File.Copy"/>.
-    /// <see cref="File.Copy"/> on Windows inherits source file attributes (e.g. read-only
-    /// from ISO mounts) onto the destination, which causes failures on subsequent
-    /// overwrites.  Creating the destination with <c>FileMode.Create</c> always starts
-    /// with default attributes.
-    /// </summary>
     private static void CopyFileRobust(string src, string dst)
     {
         const int bufSize = 65536;
@@ -1218,14 +1074,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
 
     //   initrd config injection                        
 
-    /// <summary>
-    /// Appends <paramref name="fileData"/> as a single-file gzipped cpio (newc)
-    /// member to <paramref name="initrdPath"/>. The Linux initramfs loader
-    /// concatenates gzip streams, so the file appears at
-    /// /<paramref name="nameInInitrd"/> in the initramfs root. This is the
-    /// standard fully-unattended preseed delivery for debian-installer / Ubiquity
-    /// (referenced by the kernel cmdline as <c>preseed/file=/preseed.cfg</c>).
-    /// </summary>
     private static void AppendFileToInitrd(string initrdPath, string nameInInitrd, byte[] fileData)
     {
         var cpio = BuildNewcCpio(nameInInitrd.TrimStart('/'), fileData);
@@ -1237,7 +1085,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         fs.Write(gzBytes, 0, gzBytes.Length);
     }
 
-    /// <summary>Builds a cpio "newc" archive containing one regular file + the trailer.</summary>
+    
     internal static byte[] BuildNewcCpio(string name, byte[] data)
     {
         using var ms = new MemoryStream();
@@ -1281,23 +1129,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
             ms.WriteByte(0);
     }
 
-    /// <summary>
-    /// Builds the GRUB2 config written to <c>\EFI\fedora\grub.cfg</c> (and
-    /// <c>\EFI\BOOT\grub.cfg</c>) on OEMDRV.
-    ///
-    /// Boots the netinstall Anaconda kernel directly from FAT32 - no loopback,
-    /// iso9660, or live-boot dracut parameters.
-    ///
-    /// <c>inst.stage2=hd:LABEL=OEMDRV:</c> tells Anaconda to load
-    /// <c>images/install.img</c> from the OEMDRV partition (copied there from the
-    /// ISO during step 3 of <see cref="ConfigureBootFiles"/>).  This replaces the
-    /// previous <c>inst.stage2=https://…</c> approach which required an unreliable
-    /// 862 MiB network download at boot time.
-    ///
-    /// Anaconda reads the kickstart from <c>hd:LABEL=OEMDRV:/ks.cfg</c> and
-    /// installs packages from the internet, giving full kickstart support including
-    /// the dual-boot bootloader setup.
-    /// </summary>
     private string BuildGrubConfig()
     {
         var label = _bootSpec.VolumeLabel;
@@ -1478,12 +1309,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         Report(prog, DirectInstallPhase.Complete, message: "UEFI boot entry registered. Ready to reboot.");
     }
 
-    /// <summary>
-    /// Sets HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation\
-    /// RealTimeIsUniversal = 1 (QWORD — the variant that works reliably on
-    /// x64 Windows 10/11). LinuxRemovalService removes the value again when the
-    /// last Linux installation is deleted, restoring stock Windows behavior.
-    /// </summary>
     private void SetRtcUniversalTime()
     {
         try

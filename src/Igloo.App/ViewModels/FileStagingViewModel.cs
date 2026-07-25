@@ -11,16 +11,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.App.ViewModels;
 
-/// <summary>
-/// View-model for the File Staging wizard step.
-///
-/// Orchestrates four sequential phases:
-///   1. Scanning   - enumerate files in the selected folders.
-///   2. Copying    - stream files to the staging directory with progress.
-///   3. Generating - build the migration manifest, render the kickstart (via the distro plugin),
-///                   and write the first-boot agent to the staging directory.
-///   4. Complete   - all artefacts are in place; the user can proceed to USB creation (M5).
-/// </summary>
 public sealed partial class FileStagingViewModel : ObservableObject
 {
     private readonly IFileStagingService _stagingService;
@@ -87,10 +77,6 @@ public sealed partial class FileStagingViewModel : ObservableObject
 
     //   API called by MainWindowViewModel                   
 
-    /// <summary>
-    /// Stores the user's choices and resets all observable state.
-    /// Call this before navigating to the staging step, then invoke <see cref="StageCommand"/>.
-    /// </summary>
     public void Prepare(
         MigrationSetupViewModel setup,
         PreflightReport report,

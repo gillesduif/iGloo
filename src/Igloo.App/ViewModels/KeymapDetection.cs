@@ -5,25 +5,11 @@ using Microsoft.Win32;
 
 namespace Igloo.App.ViewModels;
 
-/// <summary>
-/// Maps the user's Windows keyboard layout to a Linux XKB keymap name.
-///
-/// Strategy (most-accurate first):
-///   1. Registry <c>HKCU\Keyboard Layout\Preload\1</c> → KLID hex string (e.g. "0000080c").
-///      This reflects the actual keyboard the user has installed, regardless of the
-///      Windows display language.
-///   2. <see cref="CultureInfo.CurrentUICulture"/> heuristic - fallback only, because
-///      UI language ≠ keyboard layout (English Windows + Belgian AZERTY is common).
-/// </summary>
 internal static class KeymapDetection
 {
     internal static string DetectCurrent()
         => TryDetectFromRegistry() ?? FromCulture(CultureInfo.CurrentUICulture.Name);
 
-    /// <summary>
-    /// Reads the installed keyboard's KLID from the registry and maps it, or returns
-    /// <c>null</c> when the key is missing/unreadable so the caller falls back to culture.
-    /// </summary>
     private static string? TryDetectFromRegistry()
     {
         try
@@ -41,11 +27,6 @@ internal static class KeymapDetection
         }
     }
 
-    /// <summary>
-    /// Windows Keyboard Layout IDs (KLID) → Linux XKB layout names.
-    /// KLIDs are 8-char hex; we strip leading zeroes before lookup.
-    /// Reference: https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-language-pack-default-values
-    /// </summary>
     private static readonly Dictionary<string, string> KlidMap = new(StringComparer.OrdinalIgnoreCase)
     {
         // English
@@ -109,11 +90,6 @@ internal static class KeymapDetection
         { "81a",   "rs" },  // Serbian (Cyrillic)
     };
 
-    /// <summary>
-    /// Last-resort fallback: infer a keymap from the Windows UI culture name.
-    /// Less accurate than the KLID registry key because the display language
-    /// often differs from the physical keyboard layout.
-    /// </summary>
     internal static string FromCulture(string cultureName) => cultureName switch
     {
         _ when cultureName.EndsWith("-BE", StringComparison.Ordinal) => "be",

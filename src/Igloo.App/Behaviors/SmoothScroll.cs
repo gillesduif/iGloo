@@ -5,15 +5,6 @@ using System.Windows.Media.Animation;
 
 namespace Igloo.App.Behaviors;
 
-/// <summary>
-/// Attached behavior that turns a <see cref="ScrollViewer"/>'s chunky line-by-line mouse
-/// wheel into a smooth, eased glide. Wheel ticks accumulate into a target offset that is
-/// animated via an attached proxy property (ScrollViewer.VerticalOffset is read-only, so
-/// we animate the proxy and forward it through <see cref="ScrollViewer.ScrollToVerticalOffset"/>).
-///
-/// Honors the system reduced-motion preference: when animations are off, the default
-/// (instant) scrolling is left untouched.
-/// </summary>
 public static class SmoothScroll
 {
     private const double WheelStep = 1.4;     // multiplier on the raw wheel delta (~120/tick)

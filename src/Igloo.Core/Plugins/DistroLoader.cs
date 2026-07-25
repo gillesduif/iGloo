@@ -4,13 +4,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.Core.Plugins;
 
-/// <summary>
-/// Scans a <c>distros/</c> directory tree, reads every <c>distro.json</c> manifest it finds,
-/// and exposes the results as <see cref="LoadedDistros"/>.
-///
-/// Directories whose names start with an underscore (e.g. <c>_template</c>, <c>_schema</c>)
-/// are skipped. A single malformed manifest emits a warning and does not abort loading.
-/// </summary>
 public sealed partial class DistroLoader
 {
     private readonly ILogger<DistroLoader> _logger;
@@ -28,10 +21,6 @@ public sealed partial class DistroLoader
 
     public IReadOnlyList<DistroManifest> LoadedDistros => _distros;
 
-    /// <summary>
-    /// Loads (or reloads) all distro manifests from <paramref name="distrosDirectory"/>.
-    /// Safe to call multiple times; replaces the previous result set.
-    /// </summary>
     public void Load(string distrosDirectory)
     {
         if (!Directory.Exists(distrosDirectory))

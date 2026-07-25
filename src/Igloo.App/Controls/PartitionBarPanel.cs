@@ -3,13 +3,6 @@ using System.Windows.Controls;
 
 namespace Igloo.App.Controls;
 
-/// <summary>
-/// Lays out its children as one horizontal disk bar: each child's width is
-/// proportional to its attached <see cref="WeightProperty"/> (partition size in
-/// bytes), separated by <see cref="Gap"/>, with a readability floor so a tiny
-/// partition (a 99 MB ESP on a 1 TB disk) never collapses below
-/// <see cref="MinSegmentWidth"/> — the same compromise Disk Management makes.
-/// </summary>
 public sealed class PartitionBarPanel : Panel
 {
     public static readonly DependencyProperty WeightProperty = DependencyProperty.RegisterAttached(
@@ -33,7 +26,7 @@ public sealed class PartitionBarPanel : Panel
         nameof(Gap), typeof(double), typeof(PartitionBarPanel),
         new FrameworkPropertyMetadata(3.0, FrameworkPropertyMetadataOptions.AffectsArrange));
 
-    /// <summary>Pixels between segments.</summary>
+    
     public double Gap
     {
         get => (double)GetValue(GapProperty);
@@ -44,7 +37,7 @@ public sealed class PartitionBarPanel : Panel
         nameof(MinSegmentWidth), typeof(double), typeof(PartitionBarPanel),
         new FrameworkPropertyMetadata(12.0, FrameworkPropertyMetadataOptions.AffectsArrange));
 
-    /// <summary>Readability floor for a segment's width.</summary>
+    
     public double MinSegmentWidth
     {
         get => (double)GetValue(MinSegmentWidthProperty);

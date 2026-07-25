@@ -1,10 +1,5 @@
 namespace Igloo.App.ViewModels;
 
-/// <summary>
-/// Compact size formatting for view-model display strings (GB/MB/KB, binary units).
-/// Not the same scale as <c>BytesToSizeConverter</c>, which additionally handles TB
-/// and raw bytes for XAML bindings.
-/// </summary>
 internal static class ByteFormat
 {
     internal static string Format(long bytes) => bytes switch

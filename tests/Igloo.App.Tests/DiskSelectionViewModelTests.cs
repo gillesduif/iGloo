@@ -5,11 +5,6 @@ using Xunit;
 
 namespace Igloo.App.Tests;
 
-/// <summary>
-/// Characterization tests for <see cref="DiskSelectionViewModel"/>: disk filtering,
-/// system-disk preference, and the dual-boot/replace defaulting rules that decide
-/// which install pipeline the wizard branches into.
-/// </summary>
 public class DiskSelectionViewModelTests
 {
     private const long Gb = 1024L * 1024 * 1024;

@@ -7,11 +7,6 @@ namespace Igloo.Core.Tests;
 
 public class MigrationManifestTests
 {
-    /// <summary>
-    /// The manifest is the wire format between Igloo's Windows half and the Linux first-boot agent.
-    /// If JSON round-tripping breaks, the agent can't read what the Windows side wrote.
-    /// This test guards that contract.
-    /// </summary>
     [Fact]
     public void Manifest_round_trips_through_json_without_data_loss()
     {
@@ -54,11 +49,6 @@ public class MigrationManifestTests
         roundTripped.SchemaVersion.Should().Be(1);
     }
 
-    /// <summary>
-    /// The Linux-side agents parse the manifest by exact camelCase property name
-    /// (e.g. <c>agent.py</c> reads <c>manifest["user"]["linuxPassword"]</c> to redact it).
-    /// A property rename on the C# side would break every agent, so the wire names are pinned here.
-    /// </summary>
     [Fact]
     public void Wire_property_names_are_pinned_camel_case()
     {

@@ -9,38 +9,10 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Igloo.UsbWriter;
 
-/// <summary>
-/// Disk-preparation half of <see cref="UsbWriterService"/>: hybrid-MBR to
-/// protective-MBR conversion, GPT extension to the full physical disk, raw
-/// sector IO, the GPT CRC32, and volume locking/dismounting.
-/// </summary>
 public sealed partial class UsbWriterService
 {
     //   Hybrid-MBR → protective-MBR conversion                ─
 
-    /// <summary>
-    /// Prepares the partition table on <paramref name="deviceId"/> so that
-    /// diskpart can create the OEMDRV partition. Does two things in order:
-    ///
-    /// <list type="number">
-    ///   <item><b>Protective MBR</b> - Fedora Live ISOs embed a hybrid MBR that
-    ///   fills all four primary MBR slots for BIOS-boot compatibility while also
-    ///   carrying a full GPT at LBA 1.  Windows/diskpart prefers the hybrid MBR
-    ///   and reports the disk as "MBR, 4 partitions, no room".  Replacing the
-    ///   four MBR entries with a single type-0xEE protective entry makes Windows
-    ///   switch to the GPT view.</item>
-    ///
-    ///   <item><b>GPT resize</b> - The ISO's GPT header records the disk size as
-    ///   the ISO file size (~2.3 GB).  <c>LastUsableLBA</c> and
-    ///   <c>AlternateLBA</c> point to the end of the ISO, so diskpart sees zero
-    ///   free space even on a 115 GB drive.  This step updates both headers (and
-    ///   moves the backup GPT to the actual end of the drive) so diskpart sees
-    ///   the full unallocated space.</item>
-    /// </list>
-    ///
-    /// Throws <see cref="InvalidOperationException"/> when there is no GPT and
-    /// the MBR is full (pure-MBR ISOs are not supported in v1).
-    /// </summary>
     private async Task EnsureProtectiveMbrAsync(string deviceId, long diskSizeBytes)
     {
         const uint GENERIC_READ = 0x80000000u;
@@ -165,23 +137,6 @@ public sealed partial class UsbWriterService
 
     //   GPT size extension                           
 
-    /// <summary>
-    /// Updates the primary and backup GPT headers so their
-    /// <c>LastUsableLBA</c> / <c>AlternateLBA</c> reflect the full physical
-    /// disk size, not just the ISO file size.
-    ///
-    /// <para>
-    /// Standard GPT layout (sectors from start/end of disk):
-    /// <code>
-    ///   LBA 0        Protective MBR
-    ///   LBA 1        Primary GPT header
-    ///   LBA 2–33     Primary partition entries (128 × 128 B = 16 384 B)
-    ///   LBA 34 …     Usable space (FirstUsableLBA … LastUsableLBA)
-    ///   …–33 from end  Backup partition entries
-    ///   last LBA     Backup GPT header  (AlternateLBA)
-    /// </code>
-    /// </para>
-    /// </summary>
     private bool TryExtendGptToFullDisk(SafeFileHandle diskHandle, long diskSizeBytes)
     {
         if (diskSizeBytes <= 0)
@@ -323,12 +278,6 @@ public sealed partial class UsbWriterService
         return NativeMethods.WriteFile(h, buf, 512, out int n, nint.Zero) && n == 512;
     }
 
-    /// <summary>
-    /// Standard CRC32 (IEEE 802.3 / Ethernet) used by the GPT specification.
-    /// Polynomial 0xEDB88320 (bit-reversed), seed 0xFFFFFFFF, final XOR 0xFFFFFFFF.
-    /// The CRC is computed over the first <paramref name="length"/> bytes of
-    /// <paramref name="data"/>, with the header's own CRC field zeroed before calling.
-    /// </summary>
     internal static uint GptCrc32(byte[] data, int length)
     {
         uint crc = 0xFFFF_FFFFu;
@@ -343,19 +292,6 @@ public sealed partial class UsbWriterService
 
     //   Volume locking / dismounting                      
 
-    /// <summary>
-    /// Locks and force-dismounts every volume that resides on <paramref name="diskIndex"/>
-    /// so that Windows permits raw <c>WriteFile</c> calls to <c>\\.\PhysicalDriveN</c>.
-    ///
-    /// <para>
-    /// Windows returns <c>ERROR_ACCESS_DENIED</c> (Win32 error 5) for any raw write to a
-    /// physical disk that has at least one mounted volume, even from an elevated process.
-    /// The fix is to open each volume device, issue <c>FSCTL_LOCK_VOLUME</c> (advisory -
-    /// may fail if files are open) and then <c>FSCTL_DISMOUNT_VOLUME</c> (forceful - flushes
-    /// and takes the volume offline).  Keeping the returned handles open prevents Windows
-    /// from silently re-mounting the volumes during the write; dispose them when done.
-    /// </para>
-    /// </summary>
     // Returns one open handle per dismounted volume; ownership passes to the caller, who
     // keeps each handle open (releasing it re-allows mounting) and disposes it when done.
     private List<SafeFileHandle> LockAndDismountVolumesOnDisk(int diskIndex)
@@ -390,11 +326,6 @@ public sealed partial class UsbWriterService
         return held;
     }
 
-    /// <summary>
-    /// Opens one volume, verifies it lives on <paramref name="diskIndex"/>, then locks and
-    /// dismounts it. Returns the open handle on success (ownership passes to the caller), or
-    /// <see langword="null"/> — with the handle already disposed — on any failure.
-    /// </summary>
     private SafeFileHandle? TryLockAndDismountVolume(string volumePath, int diskIndex)
     {
         const uint GENERIC_READ = 0x80000000u;
@@ -454,32 +385,6 @@ public sealed partial class UsbWriterService
         return handle;
     }
 
-    /// <summary>
-    /// Returns <see langword="true"/> when <paramref name="volHandle"/> refers to a
-    /// volume that has at least one extent on the physical disk identified by
-    /// <paramref name="diskIndex"/>.
-    ///
-    /// Uses <c>IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS</c> (0x00560000) to query the
-    /// kernel for the disk-extent list.
-    ///
-    /// Struct layout (natural C alignment, no pragma pack override):
-    /// <code>
-    ///   VOLUME_DISK_EXTENTS:
-    ///     offset  0  DWORD  NumberOfDiskExtents  (4 bytes)
-    ///     offset  4  BYTE   _pad[4]              (4 bytes - aligns DISK_EXTENT to 8)
-    ///     offset  8  DISK_EXTENT Extents[N]:     (24 bytes each)
-    ///                  +0  DWORD  DiskNumber     (4 bytes)
-    ///                  +4  BYTE   _pad[4]        (4 bytes - aligns LARGE_INTEGER to 8)
-    ///                  +8  INT64  StartingOffset (8 bytes)
-    ///                 +16  INT64  ExtentLength   (8 bytes)
-    /// </code>
-    /// <para>
-    /// The 4-byte gap between <c>NumberOfDiskExtents</c> and <c>Extents[0]</c> is the
-    /// critical detail: reading from offset 4 yields padding bytes (0x00…), so the
-    /// disk-number comparison silently fails for every drive except disk 0.  The first
-    /// extent's <c>DiskNumber</c> is always at offset <b>8</b>.
-    /// </para>
-    /// </summary>
     private static bool VolumeIsOnDisk(SafeFileHandle volHandle, int diskIndex, uint ioctlGetExtents)
     {
         // Allocate output buffer for up to 8 extents (covers all practical cases).

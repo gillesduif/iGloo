@@ -10,23 +10,6 @@ using System.Windows.Threading;
 
 namespace Igloo.App.Controls;
 
-/// <summary>
-/// A 3D Cover Flow carousel built on <see cref="Viewport3D"/>: textured quads on a path
-/// that recedes into depth, the selected cover centered, facing the camera and lit head-on,
-/// flanking covers rotated away and fading into fog, each with a floor reflection.
-///
-/// Reusable and MVVM-clean: bind <see cref="ItemsSource"/>, <see cref="SelectedItem"/> /
-/// <see cref="SelectedIndex"/>, supply a <see cref="CoverImageResolver"/> for textures and
-/// an optional <see cref="ConfirmCommand"/> (fired by Enter or clicking the centered cover,
-/// gated by <see cref="CanConfirm"/>). Code-behind here is exclusively scene, camera and
-/// animation state.
-///
-/// Animation is a single <see cref="CompositionTarget.Rendering"/> loop easing one scalar
-/// "flow offset" toward the selected index (rather than Storyboards): selection retargets
-/// mid-flight constantly, and one frame callback drives every cover transform plus the
-/// camera dolly without storyboard churn or handoff snapping. The callback detaches as
-/// soon as the scene settles, so idle cost is zero.
-/// </summary>
 public sealed class CoverFlow3DControl : FrameworkElement
 {
     //   Scene constants                            
@@ -151,7 +134,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         set => SetValue(SelectedIndexProperty, value);
     }
 
-    /// <summary>Command fired by Enter / clicking the centered cover, gated by <see cref="CanConfirm"/>.</summary>
+    
     public static readonly DependencyProperty ConfirmCommandProperty = DependencyProperty.Register(
         nameof(ConfirmCommand), typeof(ICommand), typeof(CoverFlow3DControl), new PropertyMetadata(null));
 
@@ -172,7 +155,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     public Func<object, int, ImageSource?>? CoverImageResolver { get; set; }
 
-    /// <summary>Resolves an item to its accessible name (UI Automation / Narrator).</summary>
+    
     public Func<object, string>? ItemNameResolver { get; set; }
 
     //   FrameworkElement plumbing                       
@@ -570,7 +553,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
             _viewport.Children.Add(_covers[i].Visual);
     }
 
-    /// <summary>Positions every cover (and the camera) for the current flow offset.</summary>
+    
     private void LayoutScene()
     {
         var depthCenter = (int)Math.Round(_offset);

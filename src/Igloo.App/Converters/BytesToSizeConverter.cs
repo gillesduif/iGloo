@@ -3,7 +3,7 @@ using System.Windows.Data;
 
 namespace Igloo.App.Converters;
 
-/// <summary>Converts a raw byte count (long) to a human-readable size string (e.g. "512.0 GB", "128 MB").</summary>
+
 [ValueConversion(typeof(long), typeof(string))]
 public sealed class BytesToSizeConverter : IValueConverter
 {

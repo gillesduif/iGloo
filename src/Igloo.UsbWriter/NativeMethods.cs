@@ -11,10 +11,6 @@ namespace Igloo.UsbWriter;
 
 internal static partial class NativeMethods
 {
-    /// <summary>
-    /// Opens a file or device (including raw physical drives such as
-    /// <c>\\.\PHYSICALDRIVE1</c> and volume devices such as <c>\\.\C:</c>).
-    /// </summary>
     [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     internal static partial SafeFileHandle CreateFileW(
         string lpFileName,
@@ -25,13 +21,6 @@ internal static partial class NativeMethods
         uint dwFlagsAndAttributes,
         nint hTemplateFile);
 
-    /// <summary>
-    /// Sends a control code directly to a device driver.
-    /// Used here to issue volume FSCTL codes
-    /// (<c>FSCTL_LOCK_VOLUME</c>, <c>FSCTL_DISMOUNT_VOLUME</c>),
-    /// <c>IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS</c>, and
-    /// <c>IOCTL_DISK_UPDATE_PROPERTIES</c>.
-    /// </summary>
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool DeviceIoControl(
@@ -44,7 +33,7 @@ internal static partial class NativeMethods
         out int lpBytesReturned,
         nint lpOverlapped);
 
-    /// <summary>Moves the file pointer of the specified file.</summary>
+    
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool SetFilePointerEx(
@@ -53,10 +42,6 @@ internal static partial class NativeMethods
         nint lpNewFilePointer,   // may be null/Zero
         uint dwMoveMethod);      // 0 = FILE_BEGIN
 
-    /// <summary>
-    /// Reads data from a file using a synchronous (non-overlapped) handle.
-    /// Pass <see cref="nint.Zero"/> for <c>lpOverlapped</c>.
-    /// </summary>
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool ReadFile(
@@ -66,10 +51,6 @@ internal static partial class NativeMethods
         out int lpNumberOfBytesRead,
         nint lpOverlapped);
 
-    /// <summary>
-    /// Writes data to a file using a synchronous (non-overlapped) handle.
-    /// Pass <see cref="nint.Zero"/> for <c>lpOverlapped</c>.
-    /// </summary>
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool WriteFile(

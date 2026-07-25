@@ -3,11 +3,6 @@ using Xunit;
 
 namespace Igloo.Preflight.Tests;
 
-/// <summary>
-/// Characterization tests for the locale-independent WLANProfile XML parsing in
-/// <see cref="WindowsWifiScanner"/>. The parsed result feeds NetworkManager
-/// keyfiles on the Linux side, so security normalization is contract.
-/// </summary>
 public sealed class WifiProfileParsingTests : IDisposable
 {
     private readonly string _dir = Path.Combine(

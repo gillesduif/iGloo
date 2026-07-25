@@ -6,18 +6,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.Core.Plugins;
 
-/// <summary>
-/// Discovers and loads distro plugins from the <c>distros/</c> directory.
-///
-/// Convention: each distro folder (e.g. <c>distros/fedora-kde/</c>) must contain a DLL named
-/// <c>Igloo.Distro.{PascalCaseFolderName}.dll</c> (e.g. <c>Igloo.Distro.FedoraKde.dll</c>).
-/// The DLL must export exactly one non-abstract class implementing <see cref="IDistroPlugin"/>
-/// with a public parameterless constructor.
-///
-/// The DLL is loaded into <see cref="AssemblyLoadContext.Default"/>. Because the host app already
-/// has <c>Igloo.Core.dll</c> loaded, the plugin's reference to it resolves to the same copy -
-/// no version mismatches or duplicate type registrations.
-/// </summary>
 public sealed partial class DistroRegistry
 {
     private readonly ILogger<DistroRegistry> _logger;
@@ -28,10 +16,10 @@ public sealed partial class DistroRegistry
         _logger = logger;
     }
 
-    /// <summary>All successfully loaded plugins, keyed by their <see cref="IDistroPlugin.Id"/>.</summary>
+    
     public IReadOnlyDictionary<string, IDistroPlugin> Plugins => _plugins;
 
-    /// <summary>Load all plugins from <paramref name="distrosDirectory"/>.</summary>
+    
     public Task LoadAsync(string distrosDirectory, CancellationToken ct = default)
     {
         LogLoadingPlugins(distrosDirectory);
@@ -96,13 +84,13 @@ public sealed partial class DistroRegistry
         return Task.CompletedTask;
     }
 
-    /// <summary>Returns the plugin for <paramref name="id"/>, or throws if not found.</summary>
+    
     public IDistroPlugin Get(string id)
         => _plugins.TryGetValue(id, out var plugin)
             ? plugin
             : throw new KeyNotFoundException($"No distro plugin registered with id '{id}'.");
 
-    /// <summary>Attempts to retrieve the plugin for <paramref name="id"/>.</summary>
+    
     public bool TryGet(string id, [NotNullWhen(true)] out IDistroPlugin? plugin)
         => _plugins.TryGetValue(id, out plugin);
 
@@ -129,7 +117,7 @@ public sealed partial class DistroRegistry
 
     //   Helpers
 
-    /// <summary>Converts "fedora-kde" → "FedoraKde".</summary>
+    
     private static string ToPascalCase(string hyphenated)
         => string.Concat(hyphenated
             .Split('-')

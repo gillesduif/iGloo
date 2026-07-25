@@ -3,11 +3,6 @@ using Xunit;
 
 namespace Igloo.Preflight.Tests;
 
-/// <summary>
-/// Pins <see cref="DirectInstallService.InstallerPartitionFits"/>: whether a leftover installer
-/// partition may be reused for the current install. Reuse skips the shrink+resize, so a partition
-/// carved for a smaller distribution must be rejected - otherwise the ISO copy overflows mid-write.
-/// </summary>
 public class InstallerPartitionReuseTests
 {
     private const long MiB = 1024L * 1024;

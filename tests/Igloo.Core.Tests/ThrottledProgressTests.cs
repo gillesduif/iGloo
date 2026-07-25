@@ -4,15 +4,9 @@ using Xunit;
 
 namespace Igloo.Core.Tests;
 
-/// <summary>
-/// Tests for <see cref="ThrottledProgress{T}"/>. Contract: the first report is
-/// always forwarded (regardless of any force predicate), reports inside the
-/// interval are suppressed, and reports matching the force predicate always pass
-/// through. The predicate is evaluated on every report.
-/// </summary>
 public class ThrottledProgressTests
 {
-    /// <summary>Synchronous recorder; <see cref="Progress{T}"/> would marshal asynchronously.</summary>
+    
     private sealed class Recorder : IProgress<string>
     {
         public List<string> Reports { get; } = [];

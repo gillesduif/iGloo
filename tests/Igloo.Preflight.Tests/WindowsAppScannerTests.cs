@@ -3,10 +3,6 @@ using Xunit;
 
 namespace Igloo.Preflight.Tests;
 
-/// <summary>
-/// Characterization tests for the keyword matching in <see cref="WindowsAppScanner"/>
-/// (registry reading is machine-dependent and exercised only via never-throws).
-/// </summary>
 public class WindowsAppScannerTests
 {
     private static HashSet<string> Installed(params string[] names) =>

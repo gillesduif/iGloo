@@ -6,22 +6,10 @@ using System.Windows.Media.Imaging;
 
 namespace Igloo.App.Controls;
 
-/// <summary>
-/// Builds the square cover textures that <see cref="CoverFlow3DControl"/> maps onto its
-/// 3D planes. Every cover is a rounded dark tile; if the distro ships a logo PNG it is
-/// composed centered onto the tile, otherwise a fallback cover is generated from the
-/// distro's initial on a color derived from a stable hash of its id.
-///
-/// Results are <see cref="RenderTargetBitmap"/>s, frozen and cached per (key, pixel size)
-/// so the carousel can cheaply ask for low-res variants of far-away covers.
-/// </summary>
 public sealed class CoverTextureFactory
 {
     private readonly Dictionary<(string Key, int Pixels), BitmapSource> _cache = [];
 
-    /// <summary>
-    /// Returns a square <paramref name="pixels"/>×<paramref name="pixels"/> cover texture.
-    /// </summary>
     /// <param name="cacheKey">Stable identity of the cover (the distro id).</param>
     /// <param name="logoPath">Absolute path to a PNG logo, or null for the generated fallback.</param>
     /// <param name="displayName">Used for the fallback cover's initial glyph.</param>
@@ -145,7 +133,7 @@ public sealed class CoverTextureFactory
         }
     }
 
-    /// <summary>FNV-1a - stable across processes, unlike string.GetHashCode().</summary>
+    
     private static uint StableHash(string value)
     {
         unchecked

@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Igloo.App.Tests;
 
-/// <summary>Characterization tests for <see cref="BytesToSizeConverter"/> display formatting.</summary>
+
 public class BytesToSizeConverterTests
 {
     private static string Convert(object value)
