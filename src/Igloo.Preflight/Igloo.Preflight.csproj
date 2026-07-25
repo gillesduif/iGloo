@@ -5,6 +5,8 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<RootNamespace>Igloo.Preflight</RootNamespace>
 		<SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+		<!-- The [LibraryImport] source generator emits unsafe marshalling stubs. -->
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="System.Management" Version="8.0.0" />

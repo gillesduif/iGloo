@@ -11,14 +11,14 @@
          Libraries stay net8; a net9 app references them fine. -->
     <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
-    <!-- WPF0001: ThemeMode is marked experimental in .NET 9 — deliberate use. -->
-    <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <RootNamespace>Igloo.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- The [LibraryImport] source generator emits unsafe marshalling stubs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>0.0.1-alpha</Version>
     <AssemblyName>iGloo</AssemblyName>
     <ApplicationIcon>iGloo.ico</ApplicationIcon>

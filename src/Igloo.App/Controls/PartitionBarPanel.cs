@@ -17,8 +17,17 @@ public sealed class PartitionBarPanel : Panel
         new FrameworkPropertyMetadata(0.0,
             FrameworkPropertyMetadataOptions.AffectsParentMeasure | FrameworkPropertyMetadataOptions.AffectsParentArrange));
 
-    public static double GetWeight(DependencyObject obj) => (double)obj.GetValue(WeightProperty);
-    public static void SetWeight(DependencyObject obj, double value) => obj.SetValue(WeightProperty, value);
+    public static double GetWeight(DependencyObject obj)
+    {
+        ArgumentNullException.ThrowIfNull(obj);
+        return (double)obj.GetValue(WeightProperty);
+    }
+
+    public static void SetWeight(DependencyObject obj, double value)
+    {
+        ArgumentNullException.ThrowIfNull(obj);
+        obj.SetValue(WeightProperty, value);
+    }
 
     public static readonly DependencyProperty GapProperty = DependencyProperty.Register(
         nameof(Gap), typeof(double), typeof(PartitionBarPanel),

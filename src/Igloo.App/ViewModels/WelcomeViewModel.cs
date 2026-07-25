@@ -4,6 +4,9 @@ using Igloo.Core.Plugins;
 
 namespace Igloo.App.ViewModels;
 
+/// <summary>One selectable answer in the Welcome-step "find your Linux" quiz.</summary>
+public sealed record QuizOption(string Id, string Label);
+
 /// <summary>
 /// Welcome step. Besides routing to WelcomePage, it hosts the "find your Linux"
 /// quiz: three optional multiple-choice questions whose answers produce a
@@ -16,8 +19,6 @@ public sealed partial class WelcomeViewModel : ObservableObject
     private readonly DistroLoader _loader;
 
     public WelcomeViewModel(DistroLoader loader) => _loader = loader;
-
-    public sealed record QuizOption(string Id, string Label);
 
     public IReadOnlyList<QuizOption> UseOptions { get; } =
     [

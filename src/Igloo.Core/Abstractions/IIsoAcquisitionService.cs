@@ -23,7 +23,7 @@ public interface IIsoAcquisitionService
 /// </param>
 public sealed record IsoSpecification(string DistroId, Uri DownloadUrl, string ExpectedSha256,
     Uri? GpgSignatureUrl, Uri? GpgKeyUrl, Uri? GpgSignedDataUrl = null,
-    byte[]? GpgKeyData = null, string? GpgKeyFingerprint = null);
+    ReadOnlyMemory<byte>? GpgKeyData = null, string? GpgKeyFingerprint = null);
 
 /// <summary>Outcome of a completed acquisition; verification flags are informational only (failure throws).</summary>
 public sealed record IsoAcquisitionResult(string LocalPath, bool Sha256Verified, bool GpgVerified, long SizeBytes);

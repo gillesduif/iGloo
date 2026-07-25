@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a capability, a new distribution, or an improvement.
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation you're in, not just the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - New distribution support
+        - Install pipeline
+        - Migration (files / apps / Wi-Fi / drivers)
+        - UI / wizard flow
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        **New distribution?** Support is added as a self-contained plugin under
+        `distros/`. See [`CONTRIBUTING.md`](../blob/main/CONTRIBUTING.md) and an
+        existing plugin (e.g. `distros/debian/`) for the shape.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

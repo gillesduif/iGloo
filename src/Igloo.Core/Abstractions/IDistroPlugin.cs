@@ -215,7 +215,7 @@ public sealed record HardwareRequirements
 {
     public long MinRamBytes { get; init; } = 2L * 1024 * 1024 * 1024;     // 2 GB
     public long MinDiskBytes { get; init; } = 20L * 1024 * 1024 * 1024;   // 20 GB
-    public bool RequiresUefi { get; init; } = false;
+    public bool RequiresUefi { get; init; }
     public bool Requires64Bit { get; init; } = true;
 }
 
@@ -233,12 +233,12 @@ public enum InstallerType
 /// <summary>Rendered installer-driver configuration, ready to write to OEMDRV.</summary>
 public sealed record InstallerConfig(
     string FileName,
-    byte[] Contents,
+    ReadOnlyMemory<byte> Contents,
     IReadOnlyList<InstallerConfigExtra> Extras);
 
-public sealed record InstallerConfigExtra(string RelativePath, byte[] Contents);
+public sealed record InstallerConfigExtra(string RelativePath, ReadOnlyMemory<byte> Contents);
 
 /// <summary>Files comprising the first-boot agent for a distro.</summary>
 public sealed record AgentPayload(IReadOnlyList<AgentFile> Files);
 
-public sealed record AgentFile(string RelativePath, byte[] Contents, bool Executable);
+public sealed record AgentFile(string RelativePath, ReadOnlyMemory<byte> Contents, bool Executable);

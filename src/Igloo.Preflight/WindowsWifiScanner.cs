@@ -1,5 +1,8 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using System.Security;
+using System.Xml;
 using System.Xml.Linq;
 using Igloo.Core.Models;
 
@@ -57,22 +60,32 @@ public static class WindowsWifiScanner
 
             return results;
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
             return [];
         }
         finally
         {
             if (tmpDir is not null)
-            {
-                try
-                { Directory.Delete(tmpDir, recursive: true); }
-                catch { /* best-effort */ }
-            }
+                TryDeleteDirectory(tmpDir);
         }
     }
 
-    // ── Private ───────────────────────────────────────────────────────────────
+    /// <summary>Best-effort recursive delete of the temporary export folder.</summary>
+    private static bool TryDeleteDirectory(string dir)
+    {
+        try
+        {
+            Directory.Delete(dir, recursive: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    //   Private                                ─
 
     internal static WifiNetwork? ParseProfile(string path, HashSet<string> connectedValues)
     {
@@ -113,7 +126,7 @@ public static class WindowsWifiScanner
                 IsPrimary = connectedValues.Contains(ssid),
             };
         }
-        catch
+        catch (Exception ex) when (ex is XmlException or IOException or UnauthorizedAccessException or SecurityException)
         {
             return null;
         }
@@ -132,7 +145,7 @@ public static class WindowsWifiScanner
             return ("open", null);
 
         // Personal: WPAPSK, WPA2PSK, WPA3SAE - all use a pre-shared key / passphrase.
-        if (a.Contains("PSK") || a.Contains("SAE"))
+        if (a.Contains("PSK", StringComparison.Ordinal) || a.Contains("SAE", StringComparison.Ordinal))
         {
             var psk = string.IsNullOrEmpty(keyMaterial) ? null : keyMaterial;
             // No key recovered (e.g. key not stored) → treat as open-ended; agent
@@ -161,7 +174,7 @@ public static class WindowsWifiScanner
 
         foreach (var line in text.Split('\n'))
         {
-            var idx = line.IndexOf(':');
+            var idx = line.IndexOf(':', StringComparison.Ordinal);
             if (idx < 0 || idx + 1 >= line.Length)
                 continue;
             var value = line[(idx + 1)..].Trim();
@@ -195,16 +208,28 @@ public static class WindowsWifiScanner
             var output = p.StandardOutput.ReadToEnd();
             if (!p.WaitForExit(15_000))
             {
-                try
-                { p.Kill(); }
-                catch { /* ignore */ }
+                TryKill(p);
                 return null;
             }
             return output;
         }
-        catch
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException)
         {
             return null;
+        }
+    }
+
+    /// <summary>Best-effort kill of a netsh process that overran its timeout.</summary>
+    private static bool TryKill(Process p)
+    {
+        try
+        {
+            p.Kill();
+            return true;
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or NotSupportedException)
+        {
+            return false;
         }
     }
 }

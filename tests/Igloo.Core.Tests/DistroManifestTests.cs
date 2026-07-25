@@ -17,7 +17,7 @@ public class DistroManifestTests
             Id = "test",
             DisplayName = "Test",
             Description = "Test distro",
-            Iso = new DistroIsoSpec { DownloadUrl = "https://example.org/x.iso", Sha256 = "abc" },
+            Iso = new DistroIsoSpec { DownloadUrl = new Uri("https://example.org/x.iso"), Sha256 = "abc" },
             Status = status,
             Logo = logo,
             SourceDirectory = sourceDirectory,

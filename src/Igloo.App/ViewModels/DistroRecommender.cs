@@ -59,6 +59,7 @@ public static class DistroRecommender
     public static IReadOnlyList<DistroManifest> Recommend(IReadOnlyList<DistroManifest> catalog,
         string? use, string? style, string? updates)
     {
+        ArgumentNullException.ThrowIfNull(catalog);
         if (use is null || style is null || updates is null || catalog.Count == 0)
             return [];
 

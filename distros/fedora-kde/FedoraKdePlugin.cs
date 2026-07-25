@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -31,7 +32,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     /// Used to render the kickstart install-source directive so the netinstall
     /// knows where to fetch packages without the user configuring it interactively.
     /// </summary>
-    private readonly string? _stage2Url;
+    private readonly Uri? _stage2Url;
 
     /// <summary>
     /// Parameterless constructor - reads <c>distro.json</c> from the same directory as this DLL.
@@ -49,7 +50,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
                 raw = JsonSerializer.Deserialize<DistroManifest>(
                     File.ReadAllText(manifestPath), JsonOpts);
             }
-            catch
+            catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
             {
                 // Fall through to defaults.
             }
@@ -59,10 +60,12 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         _stage2Url = raw?.Iso?.Stage2Url;
     }
 
-    // ── IDistroPlugin ────────────────────────────────────────────────────────
+    //   IDistroPlugin                             
 
     public IReadOnlyList<PreflightFinding> CheckCompatibility(PreflightReport report)
     {
+        ArgumentNullException.ThrowIfNull(report);
+
         var findings = new List<PreflightFinding>();
 
         // Fedora doesn't ship proprietary NVIDIA drivers in-tree.
@@ -104,14 +107,16 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         return findings;
     }
 
-    public Task<InstallerConfig> RenderInstallerConfigAsync(
+    public async Task<InstallerConfig> RenderInstallerConfigAsync(
         MigrationManifest manifest, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(manifest);
+
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var templatePath = Path.Combine(asmDir, "kickstart", "ks.cfg.template");
 
         string ks = File.Exists(templatePath)
-            ? RenderFromTemplate(File.ReadAllText(templatePath), manifest)
+            ? RenderFromTemplate(await File.ReadAllTextAsync(templatePath, ct).ConfigureAwait(false), manifest)
             : RenderInline(manifest);
 
         // Force Unix (LF) line endings. The kickstart is executed by bash (%pre /
@@ -122,14 +127,14 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         // strips the CR and looks for "ks-storage.cfg" → "Unable to open input
         // kickstart file: No such file or directory". Normalising here guarantees a
         // valid file no matter how the template was authored or checked out.
-        ks = ks.Replace("\r\n", "\n").Replace("\r", "\n");
+        ks = ks.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
 
         var config = new InstallerConfig(
             FileName: "ks.cfg",
             Contents: Encoding.UTF8.GetBytes(ks),
             Extras: Array.Empty<InstallerConfigExtra>());
 
-        return Task.FromResult(config);
+        return config;
     }
 
     public Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
@@ -226,7 +231,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         return buf.ToArray();
     }
 
-    // ── Private helpers ──────────────────────────────────────────────────────
+    //   Private helpers                            
 
     private string RenderFromTemplate(string template, MigrationManifest m)
     {
@@ -293,27 +298,27 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         var installSource = BuildInstallSourceLine(_stage2Url);
 
         return template
-            .Replace("{{INSTALL_SOURCE_URL}}", installSource)
-            .Replace("{{LOCALE}}", m.User.Locale)
-            .Replace("{{KEYMAP}}", m.User.Keymap)
-            .Replace("{{XLAYOUT}}", m.User.Keymap)
-            .Replace("{{TIMEZONE}}", m.User.Timezone)
-            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc")
-            .Replace("{{WINDOWS_USERNAME}}", m.User.WindowsUsername)
-            .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername)
-            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername)
-            .Replace("{{PASSWORD_OPTION}}", passwordOption)
+            .Replace("{{INSTALL_SOURCE_URL}}", installSource, StringComparison.Ordinal)
+            .Replace("{{LOCALE}}", m.User.Locale, StringComparison.Ordinal)
+            .Replace("{{KEYMAP}}", m.User.Keymap, StringComparison.Ordinal)
+            .Replace("{{XLAYOUT}}", m.User.Keymap, StringComparison.Ordinal)
+            .Replace("{{TIMEZONE}}", m.User.Timezone, StringComparison.Ordinal)
+            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc", StringComparison.Ordinal)
+            .Replace("{{WINDOWS_USERNAME}}", m.User.WindowsUsername, StringComparison.Ordinal)
+            .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername, StringComparison.Ordinal)
+            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername, StringComparison.Ordinal)
+            .Replace("{{PASSWORD_OPTION}}", passwordOption, StringComparison.Ordinal)
             .Replace("{{TARGET_DISK_BYTES}}", m.Hardware.TargetDiskBytes > 0
-                                                ? m.Hardware.TargetDiskBytes.ToString()
-                                                : "0")
-            .Replace("{{TARGET_DISK_MODEL}}", m.Hardware.TargetDiskModel ?? "")
-            .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode)
-            .Replace("{{INCLUDED_FOLDERS}}", folderList)
-            .Replace("{{FOLDER_MAP}}", folderMap)
-            .Replace("{{BROWSER_MAP}}", browserMap)
-            .Replace("{{WIFI_SSID}}", wifiSsid)
-            .Replace("{{WIFI_PSK}}", wifiPsk)
-            .Replace("{{WIFI_LIST}}", wifiList);
+                                                ? m.Hardware.TargetDiskBytes.ToString(CultureInfo.InvariantCulture)
+                                                : "0", StringComparison.Ordinal)
+            .Replace("{{TARGET_DISK_MODEL}}", m.Hardware.TargetDiskModel ?? "", StringComparison.Ordinal)
+            .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode, StringComparison.Ordinal)
+            .Replace("{{INCLUDED_FOLDERS}}", folderList, StringComparison.Ordinal)
+            .Replace("{{FOLDER_MAP}}", folderMap, StringComparison.Ordinal)
+            .Replace("{{BROWSER_MAP}}", browserMap, StringComparison.Ordinal)
+            .Replace("{{WIFI_SSID}}", wifiSsid, StringComparison.Ordinal)
+            .Replace("{{WIFI_PSK}}", wifiPsk, StringComparison.Ordinal)
+            .Replace("{{WIFI_LIST}}", wifiList, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -330,14 +335,16 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     /// stage2Url is configured at all we emit a commented-out placeholder so the
     /// kickstart still parses (Anaconda will then prompt interactively).
     /// </summary>
-    private static string BuildInstallSourceLine(string? stage2Url)
+    private static string BuildInstallSourceLine(Uri? stage2Url)
     {
-        if (string.IsNullOrWhiteSpace(stage2Url))
+        if (stage2Url is null)
             return "# url: no stage2Url configured in distro.json - Anaconda will prompt for a source";
+
+        var stage2 = stage2Url.AbsoluteUri;
 
         // Extract the Fedora release number from a versioned release tree URL,
         // e.g. https://…/releases/44/Everything/x86_64/os/  →  "44".
-        var match = Regex.Match(stage2Url, @"/releases/(\d+)/", RegexOptions.IgnoreCase);
+        var match = Regex.Match(stage2, @"/releases/(\d+)/", RegexOptions.IgnoreCase);
 
         if (match.Success)
         {
@@ -346,7 +353,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         }
 
         // Non-versioned (e.g. rawhide or a mirror pin): use the tree directly.
-        return $"url --url=\"{stage2Url}\"";
+        return $"url --url=\"{stage2}\"";
     }
 
     /// <summary>
@@ -354,14 +361,14 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     /// (e.g. <c>VAR="…"</c>): backslash, double-quote, dollar and backtick.
     /// </summary>
     private static string ShellDoubleQuote(string value) =>
-        value.Replace("\\", "\\\\")
-             .Replace("\"", "\\\"")
-             .Replace("$", "\\$")
-             .Replace("`", "\\`");
+        value.Replace("\\", "\\\\", StringComparison.Ordinal)
+             .Replace("\"", "\\\"", StringComparison.Ordinal)
+             .Replace("$", "\\$", StringComparison.Ordinal)
+             .Replace("`", "\\`", StringComparison.Ordinal);
 
     private string RenderInline(MigrationManifest m)
     {
-        var diskBytes = m.Hardware.TargetDiskBytes > 0 ? m.Hardware.TargetDiskBytes.ToString() : "0";
+        var diskBytes = m.Hardware.TargetDiskBytes > 0 ? m.Hardware.TargetDiskBytes.ToString(CultureInfo.InvariantCulture) : "0";
         var folderList = string.Join(" ", m.Files.IncludedFolders);
         var username = m.User.PreferredLinuxUsername;
         var fullName = m.User.FullName ?? username;
@@ -453,10 +460,10 @@ chroot ""$SYSIMAGE"" systemctl enable igloo-first-boot.service || \
             Description = raw.Description,
             DefaultDesktopEnvironment = raw.DefaultDesktopEnvironment ?? "KDE Plasma",
             InstallerType = InstallerType.Anaconda,
-            IsoDownloadUrl = new Uri(raw.Iso.DownloadUrl),
+            IsoDownloadUrl = raw.Iso.DownloadUrl,
             IsoSha256 = raw.Iso.Sha256,
-            IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
-            IsoGpgKeyUrl = raw.Iso.GpgKeyUrl is not null ? new Uri(raw.Iso.GpgKeyUrl) : null,
+            IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl,
+            IsoGpgKeyUrl = raw.Iso.GpgKeyUrl,
             Tags = raw.Tags,
             Screenshots = raw.Screenshots,
             MinimumRequirements = req is not null

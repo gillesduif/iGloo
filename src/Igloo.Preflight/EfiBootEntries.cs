@@ -1,7 +1,12 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Extensions.Logging;
+
+// All P/Invokes in this assembly target kernel32/advapi32 (KnownDLLs resolved from
+// System32). Pinning the search path defeats DLL-preloading (hijack) attacks.
+[assembly: DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 
 namespace Igloo.Preflight;
 
@@ -14,13 +19,13 @@ namespace Igloo.Preflight;
 /// All calls require <c>SeSystemEnvironmentPrivilege</c> (elevated process);
 /// every method is best-effort and returns empty/false rather than throwing.
 /// </summary>
-internal static class EfiBootEntries
+internal static partial class EfiBootEntries
 {
     private const string EfiGlobGuid = "{8BE4DF61-93CA-11D2-AA0D-00E098032B8C}";
 
     internal readonly record struct BootEntry(ushort Index, string Description);
 
-    // ── Classification ───────────────────────────────────────────────────────
+    //   Classification                            ─
 
     private static readonly string[] LinuxMarkers =
     [
@@ -35,17 +40,17 @@ internal static class EfiBootEntries
     {
         if (string.IsNullOrWhiteSpace(description))
             return false;
-        var d = description.ToLowerInvariant();
-        if (d.Contains("windows") || d.Contains("igloo"))
+        if (description.Contains("windows", StringComparison.OrdinalIgnoreCase) ||
+            description.Contains("igloo", StringComparison.OrdinalIgnoreCase))
             return false;
-        return LinuxMarkers.Any(d.Contains);
+        return LinuxMarkers.Any(m => description.Contains(m, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>True for iGloo's own one-shot installer entries.</summary>
     internal static bool IsIglooDescription(string description)
         => description.Contains("igloo", StringComparison.OrdinalIgnoreCase);
 
-    // ── Enumeration ──────────────────────────────────────────────────────────
+    //   Enumeration                              
 
     /// <summary>
     /// Returns every resolvable boot entry: the BootOrder list plus a sweep of
@@ -73,14 +78,14 @@ internal static class EfiBootEntries
                     entries.Add(new BootEntry(index, description));
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
         {
             logger.LogWarning(ex, "UEFI boot-entry enumeration failed (non-fatal)");
         }
         return entries;
     }
 
-    // ── Deletion ─────────────────────────────────────────────────────────────
+    //   Deletion                               ─
 
     /// <summary>Deletes one Boot#### variable and drops it from BootOrder.</summary>
     internal static bool Delete(ushort index, ILogger logger)
@@ -110,14 +115,14 @@ internal static class EfiBootEntries
             logger.LogInformation("Deleted UEFI boot entry Boot{Index:X4}", index);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
         {
             logger.LogWarning(ex, "Delete of Boot{Index:X4} failed (non-fatal)", index);
             return false;
         }
     }
 
-    // ── NVRAM plumbing ───────────────────────────────────────────────────────
+    //   NVRAM plumbing                            ─
 
     private static byte[]? ReadVariable(string name)
     {
@@ -188,24 +193,29 @@ internal static class EfiBootEntries
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     private struct TokenPrivileges { public uint PrivilegeCount; public Luid Luid; public uint Attributes; }
 
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern uint GetFirmwareEnvironmentVariableW(
+    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    private static partial uint GetFirmwareEnvironmentVariableW(
         string lpName, string lpGuid, byte[] pBuffer, uint nSize);
 
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool SetFirmwareEnvironmentVariableW(
+    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetFirmwareEnvironmentVariableW(
         string lpName, string lpGuid, byte[]? pValue, uint nSize);
 
-    [DllImport("advapi32.dll", SetLastError = true)]
-    private static extern bool OpenProcessToken(IntPtr processHandle, uint desiredAccess, out IntPtr tokenHandle);
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool OpenProcessToken(IntPtr processHandle, uint desiredAccess, out IntPtr tokenHandle);
 
-    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool LookupPrivilegeValueW(string? systemName, string name, out Luid luid);
+    [LibraryImport("advapi32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool LookupPrivilegeValueW(string? systemName, string name, out Luid luid);
 
-    [DllImport("advapi32.dll", SetLastError = true)]
-    private static extern bool AdjustTokenPrivileges(IntPtr tokenHandle, bool disableAll,
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool AdjustTokenPrivileges(IntPtr tokenHandle, [MarshalAs(UnmanagedType.Bool)] bool disableAll,
         ref TokenPrivileges newState, uint bufferLength, IntPtr previousState, IntPtr returnLength);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool CloseHandle(IntPtr handle);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseHandle(IntPtr handle);
 }

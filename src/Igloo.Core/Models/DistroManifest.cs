@@ -51,17 +51,17 @@ public sealed record DistroManifest
 
 public sealed record DistroIsoSpec
 {
-    [JsonPropertyName("downloadUrl")] public required string DownloadUrl { get; init; }
+    [JsonPropertyName("downloadUrl")] public required Uri DownloadUrl { get; init; }
     [JsonPropertyName("sha256")] public required string Sha256 { get; init; }
-    [JsonPropertyName("gpgSignatureUrl")] public string? GpgSignatureUrl { get; init; }
-    [JsonPropertyName("gpgKeyUrl")] public string? GpgKeyUrl { get; init; }
+    [JsonPropertyName("gpgSignatureUrl")] public Uri? GpgSignatureUrl { get; init; }
+    [JsonPropertyName("gpgKeyUrl")] public Uri? GpgKeyUrl { get; init; }
 
     /// <summary>
     /// Detached-signature model only (Debian / Ubuntu): URL of the plain checksum
     /// data file (<c>SHA256SUMS</c>) that <see cref="GpgSignatureUrl"/> signs. When
     /// null, <see cref="GpgSignatureUrl"/> is a Fedora-style clear-signed CHECKSUM.
     /// </summary>
-    [JsonPropertyName("gpgSignedDataUrl")] public string? GpgSignedDataUrl { get; init; }
+    [JsonPropertyName("gpgSignedDataUrl")] public Uri? GpgSignedDataUrl { get; init; }
 
     /// <summary>
     /// Path (relative to the distro folder) of the bundled, trusted signing key —
@@ -82,7 +82,7 @@ public sealed record DistroIsoSpec
     /// Required for netinstall: without it Anaconda cannot locate the installer payload.
     /// Format: <c>https://…/os/</c> (directory, trailing slash).
     /// </summary>
-    [JsonPropertyName("stage2Url")] public string? Stage2Url { get; init; }
+    [JsonPropertyName("stage2Url")] public Uri? Stage2Url { get; init; }
 }
 
 public sealed record DistroRequirements

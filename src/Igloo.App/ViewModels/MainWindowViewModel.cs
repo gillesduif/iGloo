@@ -35,7 +35,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private object _currentPage;
 
-    // ── Computed navigation state ────────────────────────────────────────────
+    //   Computed navigation state                       
 
     public bool CanGoBack => _stepIndex > 0;
 
@@ -48,9 +48,23 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MigrationSetupViewModel setup => setup.CanProceed,
         DiskSelectionViewModel disk => disk.CanProceed,
         FileStagingViewModel fs => fs.IsComplete && !fs.HasError,
-        DirectInstallViewModel => false,  // user reboots - no "Next"
+        // The dual-boot path ends by rebooting into the installer: the forward
+        // button becomes "Reboot" once preparation succeeds (and locks while it fires).
+        DirectInstallViewModel di => di.IsComplete && !di.HasError && !di.IsRebooting,
         UsbWriterViewModel usb => usb.IsComplete && !usb.HasError,
         _ => false,
+    };
+
+    /// <summary>
+    /// Label on the wizard's forward button. Rebooting into the installer is the last
+    /// navigation step of the dual-boot path, not a separate action, so the button is
+    /// simply renamed rather than duplicated by a second one on the page.
+    /// </summary>
+    public string PrimaryActionLabel => CurrentPage switch
+    {
+        DirectInstallViewModel di => di.IsRebooting ? "Rebooting…" : "Reboot  ↻",
+        _ when IsLastStep => "Finish",
+        _ => "Next  →",
     };
 
     public string StepDescription => CurrentPage switch
@@ -72,11 +86,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CurrentPage is UsbWriterViewModel && _diskSelection.InstallMode == DiskInstallMode.ReplaceDisk
         || CurrentPage is DirectInstallViewModel;
 
-    // ── Step indicator (display only) ────────────────────────────────────────
+    //   Step indicator (display only)                     
     // The two install pages share the final slot, so the user-visible journey is
     // always 8 steps regardless of which install path is taken.
 
-    public int StepCount => 8;
+    public static int StepCount => 8;
 
     public int StepNumber => CurrentPage switch
     {
@@ -113,7 +127,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                                         n < StepNumber, n == StepNumber))
             .ToList();
 
-    // ── Constructor ──────────────────────────────────────────────────────────
+    //   Constructor                              
 
     public MainWindowViewModel(
         WelcomeViewModel welcome,
@@ -126,6 +140,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
         DirectInstallViewModel directInstall,
         UsbWriterViewModel usbWriter)
     {
+        ArgumentNullException.ThrowIfNull(welcome);
+        ArgumentNullException.ThrowIfNull(preflight);
+        ArgumentNullException.ThrowIfNull(distroSelection);
+        ArgumentNullException.ThrowIfNull(isoAcquisition);
+        ArgumentNullException.ThrowIfNull(migrationSetup);
+        ArgumentNullException.ThrowIfNull(diskSelection);
+        ArgumentNullException.ThrowIfNull(fileStaging);
+        ArgumentNullException.ThrowIfNull(directInstall);
+        ArgumentNullException.ThrowIfNull(usbWriter);
+
         _welcome = welcome;
         _preflight = preflight;
         _distroSelection = distroSelection;
@@ -152,6 +176,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         RefreshCanGoNextWhenChanged(diskSelection, nameof(DiskSelectionViewModel.CanProceed));
         RefreshCanGoNextWhenChanged(fileStaging,
             nameof(FileStagingViewModel.IsComplete), nameof(FileStagingViewModel.HasError));
+        RefreshCanGoNextWhenChanged(directInstall,
+            nameof(DirectInstallViewModel.IsComplete),
+            nameof(DirectInstallViewModel.HasError),
+            nameof(DirectInstallViewModel.IsRebooting));
         RefreshCanGoNextWhenChanged(usbWriter,
             nameof(UsbWriterViewModel.IsComplete), nameof(UsbWriterViewModel.HasError));
     }
@@ -160,10 +188,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         => stepViewModel.PropertyChanged += (_, e) =>
         {
             if (propertyNames.Contains(e.PropertyName))
+            {
                 OnPropertyChanged(nameof(CanGoNext));
+                OnPropertyChanged(nameof(PrimaryActionLabel));
+            }
         };
 
-    // ── Commands ─────────────────────────────────────────────────────────────
+    //   Commands                               ─
 
     [RelayCommand]
     private static void Quit() => Application.Current.Shutdown();
@@ -194,6 +225,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
+        // Last step of the dual-boot path: "Reboot" hands the machine to the installer.
+        if (CurrentPage is DirectInstallViewModel directInstall && directInstall.IsComplete)
+        {
+            await directInstall.RebootToInstallCommand.ExecuteAsync(null);
+            return;
+        }
+
         // Lock in the chosen distro before advancing. CanGoNext gates the distro
         // step on a valid selection, so this captures the user's pick the moment
         // they leave it — and keeps it even if the list later rebuilds.
@@ -202,7 +240,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         _stepIndex++;
 
-        // ── Branch: after FileStagingViewModel, jump to the right install step ──
+        //   Branch: after FileStagingViewModel, jump to the right install step  
         if (_steps[_stepIndex - 1] is FileStagingViewModel)
         {
             if (_diskSelection.InstallMode == DiskInstallMode.DualBoot)
@@ -267,12 +305,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    // ── Property-change hooks ─────────────────────────────────────────────────
+    //   Property-change hooks                         ─
 
     partial void OnCurrentPageChanged(object value)
     {
         OnPropertyChanged(nameof(CanGoBack));
         OnPropertyChanged(nameof(CanGoNext));
+        OnPropertyChanged(nameof(PrimaryActionLabel));
         OnPropertyChanged(nameof(StepDescription));
         OnPropertyChanged(nameof(IsLastStep));
         OnPropertyChanged(nameof(StepNumber));

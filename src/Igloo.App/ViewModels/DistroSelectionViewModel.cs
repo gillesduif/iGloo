@@ -15,7 +15,7 @@ namespace Igloo.App.ViewModels;
 /// <see cref="PreflightReport"/> from <c>MainWindowViewModel</c>.
 ///
 /// Current compatibility rules
-/// ───────────────────────────
+///              ─
 /// • Secure Boot ON  → distro must declare the <c>secure-boot-supported</c> tag.
 /// • Plugin findings → each distro plugin's <c>CheckCompatibility</c> runs against
 ///   the preflight report; any <c>Blocker</c> finding (BitLocker locked, RAM below
@@ -37,7 +37,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     private string _lastCategory = AllCategory;
     private IReadOnlyList<string> _recommendedIds = [];
 
-    // ── Observable state ────────────────────────────────────────────────────
+    //   Observable state                           
 
     [ObservableProperty]
     private IReadOnlyList<DistroListItem> _distroItems = [];
@@ -47,7 +47,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanProceed))]
     private DistroListItem? _selectedItem;
 
-    // ── Derived ──────────────────────────────────────────────────────────────
+    //   Derived                                
 
     /// <summary>The manifest of the currently selected (and compatible) distro; null otherwise.</summary>
     public DistroManifest? SelectedDistro => SelectedItem?.Manifest;
@@ -58,7 +58,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     /// </summary>
     public bool CanProceed => SelectedItem is { IsCompatible: true, IsComingSoon: false };
 
-    // ── Constructor ──────────────────────────────────────────────────────────
+    //   Constructor                              
 
     public DistroSelectionViewModel(DistroLoader loader, DistroRegistry registry,
         ILogger<DistroSelectionViewModel> logger)
@@ -70,7 +70,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         RefreshCompatibility(null);
     }
 
-    // ── API ──────────────────────────────────────────────────────────────────
+    //   API                                  
 
     /// <summary>The quiz-driven filter chip, shown only when recommendations exist.</summary>
     public const string RecommendedCategory = "Recommended";
@@ -84,6 +84,8 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
     /// </summary>
     public void SetRecommendation(IReadOnlyList<string> distroIds)
     {
+        ArgumentNullException.ThrowIfNull(distroIds);
+
         if (_recommendedIds.SequenceEqual(distroIds, StringComparer.OrdinalIgnoreCase))
             return;
         _recommendedIds = distroIds;
@@ -173,7 +175,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                      : null;
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    //   Helpers                                
 
     private DistroListItem EvaluateItem(DistroManifest m, bool secureBootOn, PreflightReport? report)
     {
@@ -208,7 +210,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                         IncompatibilityReason: reason, IsComingSoon: comingSoon);
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // A buggy plugin must not take down the catalog; fail open with a log.
                 _logger.LogWarning(ex, "CheckCompatibility failed for {DistroId}", m.Id);

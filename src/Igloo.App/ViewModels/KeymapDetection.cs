@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.IO;
+using System.Security;
 using Microsoft.Win32;
 
 namespace Igloo.App.ViewModels;
@@ -16,17 +18,27 @@ namespace Igloo.App.ViewModels;
 internal static class KeymapDetection
 {
     internal static string DetectCurrent()
+        => TryDetectFromRegistry() ?? FromCulture(CultureInfo.CurrentUICulture.Name);
+
+    /// <summary>
+    /// Reads the installed keyboard's KLID from the registry and maps it, or returns
+    /// <c>null</c> when the key is missing/unreadable so the caller falls back to culture.
+    /// </summary>
+    private static string? TryDetectFromRegistry()
     {
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(@"Keyboard Layout\Preload");
-            var klid = key?.GetValue("1")?.ToString()?.ToLowerInvariant().TrimStart('0');
-            if (!string.IsNullOrEmpty(klid) && KlidMap.TryGetValue(klid, out var mapped))
-                return mapped;
+            // KlidMap uses OrdinalIgnoreCase, so no manual lower-casing is needed.
+            var klid = key?.GetValue("1")?.ToString()?.TrimStart('0');
+            return !string.IsNullOrEmpty(klid) && KlidMap.TryGetValue(klid, out var mapped)
+                ? mapped
+                : null;
         }
-        catch { /* registry unavailable - fall through */ }
-
-        return FromCulture(CultureInfo.CurrentUICulture.Name);
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -104,30 +116,30 @@ internal static class KeymapDetection
     /// </summary>
     internal static string FromCulture(string cultureName) => cultureName switch
     {
-        _ when cultureName.EndsWith("-BE") => "be",
-        _ when cultureName.StartsWith("nl") => "nl",
-        _ when cultureName.StartsWith("fr-CH") => "ch",
-        _ when cultureName.StartsWith("fr") => "fr",
-        _ when cultureName.StartsWith("de-CH") => "ch",
-        _ when cultureName.StartsWith("de") => "de",
-        _ when cultureName.StartsWith("es") => "es",
-        _ when cultureName.StartsWith("pt-BR") => "br",
-        _ when cultureName.StartsWith("pt") => "pt",
-        _ when cultureName.StartsWith("it") => "it",
-        _ when cultureName.StartsWith("ru") => "ru",
-        _ when cultureName.StartsWith("pl") => "pl",
-        _ when cultureName.StartsWith("cs") => "cz",
-        _ when cultureName.StartsWith("hu") => "hu",
-        _ when cultureName.StartsWith("ro") => "ro",
-        _ when cultureName.StartsWith("sk") => "sk",
-        _ when cultureName.StartsWith("sv") => "se",
-        _ when cultureName.StartsWith("nb") ||
-               cultureName.StartsWith("nn") => "no",
-        _ when cultureName.StartsWith("da") => "dk",
-        _ when cultureName.StartsWith("fi") => "fi",
-        _ when cultureName.StartsWith("tr") => "tr",
-        _ when cultureName.StartsWith("el") => "gr",
-        _ when cultureName.StartsWith("uk") => "ua",
+        _ when cultureName.EndsWith("-BE", StringComparison.Ordinal) => "be",
+        _ when cultureName.StartsWith("nl", StringComparison.Ordinal) => "nl",
+        _ when cultureName.StartsWith("fr-CH", StringComparison.Ordinal) => "ch",
+        _ when cultureName.StartsWith("fr", StringComparison.Ordinal) => "fr",
+        _ when cultureName.StartsWith("de-CH", StringComparison.Ordinal) => "ch",
+        _ when cultureName.StartsWith("de", StringComparison.Ordinal) => "de",
+        _ when cultureName.StartsWith("es", StringComparison.Ordinal) => "es",
+        _ when cultureName.StartsWith("pt-BR", StringComparison.Ordinal) => "br",
+        _ when cultureName.StartsWith("pt", StringComparison.Ordinal) => "pt",
+        _ when cultureName.StartsWith("it", StringComparison.Ordinal) => "it",
+        _ when cultureName.StartsWith("ru", StringComparison.Ordinal) => "ru",
+        _ when cultureName.StartsWith("pl", StringComparison.Ordinal) => "pl",
+        _ when cultureName.StartsWith("cs", StringComparison.Ordinal) => "cz",
+        _ when cultureName.StartsWith("hu", StringComparison.Ordinal) => "hu",
+        _ when cultureName.StartsWith("ro", StringComparison.Ordinal) => "ro",
+        _ when cultureName.StartsWith("sk", StringComparison.Ordinal) => "sk",
+        _ when cultureName.StartsWith("sv", StringComparison.Ordinal) => "se",
+        _ when cultureName.StartsWith("nb", StringComparison.Ordinal) ||
+               cultureName.StartsWith("nn", StringComparison.Ordinal) => "no",
+        _ when cultureName.StartsWith("da", StringComparison.Ordinal) => "dk",
+        _ when cultureName.StartsWith("fi", StringComparison.Ordinal) => "fi",
+        _ when cultureName.StartsWith("tr", StringComparison.Ordinal) => "tr",
+        _ when cultureName.StartsWith("el", StringComparison.Ordinal) => "gr",
+        _ when cultureName.StartsWith("uk", StringComparison.Ordinal) => "ua",
         _ => "us",
     };
 }

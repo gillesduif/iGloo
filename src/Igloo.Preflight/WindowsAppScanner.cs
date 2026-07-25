@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using System.Security;
 using Igloo.Core.Models;
 using Microsoft.Win32;
 
@@ -14,7 +15,7 @@ namespace Igloo.Preflight;
 [SupportedOSPlatform("windows")]
 public static class WindowsAppScanner
 {
-    // ── Registry paths that list installed applications ───────────────────────
+    //   Registry paths that list installed applications            ─
 
     private static readonly string[] HklmUninstallPaths =
     [
@@ -25,7 +26,7 @@ public static class WindowsAppScanner
     private const string HkcuUninstallPath =
         @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
 
-    // ── Mapping: Windows keyword(s) → Linux equivalent ────────────────────────
+    //   Mapping: Windows keyword(s) → Linux equivalent             
     //
     // Each entry is:   (string[] keywords, linuxAppName, flatpakId, nativePackage)
     //
@@ -34,7 +35,7 @@ public static class WindowsAppScanner
 
     private static readonly AppMapping[] Mappings =
     [
-        // ── Media ─────────────────────────────────────────────────────────────
+        //   Media                               ─
         new(["vlc"],
             "VLC media player",     "org.videolan.VLC",                  null),
         new(["spotify"],
@@ -46,11 +47,11 @@ public static class WindowsAppScanner
         new(["mpc-hc", "media player classic"],
             "MPV",                  "io.mpv.Mpv",                        null),
 
-        // ── Gaming ────────────────────────────────────────────────────────────
+        //   Gaming                               
         new(["steam"],
             "Steam",                "com.valvesoftware.Steam",           null),
 
-        // ── Communication ─────────────────────────────────────────────────────
+        //   Communication                           ─
         new(["discord"],
             "Discord",              "com.discordapp.Discord",            null),
         new(["slack"],
@@ -62,7 +63,7 @@ public static class WindowsAppScanner
         new(["zoom"],
             "Zoom",                 "us.zoom.Zoom",                      null),
 
-        // ── Productivity ──────────────────────────────────────────────────────
+        //   Productivity                            
         new(["libreoffice"],
             "LibreOffice",          "org.libreoffice.LibreOffice",       null),
         new(["thunderbird"],
@@ -72,7 +73,7 @@ public static class WindowsAppScanner
         new(["bitwarden"],
             "Bitwarden",            "com.bitwarden.desktop",             null),
 
-        // ── Graphics / Creative ───────────────────────────────────────────────
+        //   Graphics / Creative                        ─
         new(["gimp"],
             "GIMP",                 "org.gimp.GIMP",                     null),
         new(["inkscape"],
@@ -84,15 +85,15 @@ public static class WindowsAppScanner
         new(["krita"],
             "Krita",                "org.kde.krita",                     null),
 
-        // ── Developer tools ───────────────────────────────────────────────────
+        //   Developer tools                          ─
         new(["visual studio code", "vscode"],
             "Visual Studio Code",   "com.visualstudio.code",             null),
 
-        // ── File / Network ────────────────────────────────────────────────────
+        //   File / Network                           
         new(["filezilla"],
             "FileZilla",            "org.filezillaproject.Filezilla",    null),
 
-        // ── Web browsers ────────────────────────────────────────────────────────
+        //   Web browsers                             
         // Firefox and Falkon ship with Fedora KDE, so they are not listed here.
         // These are third-party browsers the user installed on Windows.
         new(["zen browser", "zen-browser"],
@@ -107,28 +108,22 @@ public static class WindowsAppScanner
             "Google Chrome",        "com.google.Chrome",                 null),
     ];
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    //   Public API                               
 
     /// <summary>
     /// Scans the Windows registry for installed applications and returns a list
     /// of <see cref="SuggestedPackage"/> entries for any that have a known Linux
     /// equivalent. Defensive: never throws; returns an empty list on any error.
     /// </summary>
-    public static IReadOnlyList<DetectedSuggestion> Scan()
-    {
-        try
-        {
-            var installed = ReadInstalledDisplayNames();
-            return Match(installed);
-        }
-        catch
-        {
-            // Registry access can fail in restricted environments - never crash the wizard.
-            return [];
-        }
-    }
+    /// <summary>
+    /// Scans the Windows registry for installed applications and returns a list
+    /// of <see cref="SuggestedPackage"/> entries for any that have a known Linux
+    /// equivalent. Inaccessible registry keys are skipped, so a locked-down
+    /// machine simply yields fewer suggestions.
+    /// </summary>
+    public static IReadOnlyList<DetectedSuggestion> Scan() => Match(ReadInstalledDisplayNames());
 
-    // ── Private ───────────────────────────────────────────────────────────────
+    //   Private                                ─
 
     private static HashSet<string> ReadInstalledDisplayNames()
     {
@@ -146,24 +141,56 @@ public static class WindowsAppScanner
 
     private static void AddDisplayNames(RegistryKey hive, string uninstallPath, HashSet<string> names)
     {
+        using var root = TryOpenSubKey(hive, uninstallPath);
+        if (root is null)
+            return;
+
+        foreach (var subName in TryGetSubKeyNames(root))
+        {
+            if (TryReadDisplayName(root, subName) is string dn && !string.IsNullOrWhiteSpace(dn))
+                names.Add(dn);
+        }
+    }
+
+    // Registry reads throw SecurityException/UnauthorizedAccessException/IOException for keys
+    // the current user can't reach; each helper reports that as "nothing here" (null / empty)
+    // so one locked key trims the results instead of aborting the whole scan.
+
+    private static RegistryKey? TryOpenSubKey(RegistryKey hive, string path)
+    {
         try
         {
-            using var root = hive.OpenSubKey(uninstallPath);
-            if (root is null)
-                return;
-            foreach (var subName in root.GetSubKeyNames())
-            {
-                try
-                {
-                    using var sub = root.OpenSubKey(subName);
-                    if (sub?.GetValue("DisplayName") is string dn
-                        && !string.IsNullOrWhiteSpace(dn))
-                        names.Add(dn);
-                }
-                catch { /* skip inaccessible subkey */ }
-            }
+            return hive.OpenSubKey(path);
         }
-        catch { /* skip inaccessible hive */ }
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
+        {
+            return null;
+        }
+    }
+
+    private static string[] TryGetSubKeyNames(RegistryKey key)
+    {
+        try
+        {
+            return key.GetSubKeyNames();
+        }
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
+        {
+            return [];
+        }
+    }
+
+    private static string? TryReadDisplayName(RegistryKey root, string subName)
+    {
+        try
+        {
+            using var sub = root.OpenSubKey(subName);
+            return sub?.GetValue("DisplayName") as string;
+        }
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
+        {
+            return null;
+        }
     }
 
     internal static IReadOnlyList<DetectedSuggestion> Match(HashSet<string> installed)
@@ -190,7 +217,7 @@ public static class WindowsAppScanner
         return results;
     }
 
-    // ── Private types ─────────────────────────────────────────────────────────
+    //   Private types                             ─
 
     private sealed record AppMapping(
         string[] Keywords,

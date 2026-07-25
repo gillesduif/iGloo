@@ -214,7 +214,7 @@ def install_suggested_packages(manifest: dict[str, Any]) -> None:
     logger.info("Suggested packages installed")
 
 
-# ── User-file migration from the Windows NTFS partition ──────────────────────
+#   User-file migration from the Windows NTFS partition            
 
 def _find_windows_home(win_username: str) -> Path | None:
     """Mount NTFS partitions read-only until one with Users/<win_username> is found."""
@@ -304,7 +304,7 @@ def migrate_user_files(manifest: dict[str, Any]) -> None:
         run_cmd(["umount", "/mnt/igloo_ntfs"], check=False)
 
 
-# ── Wi-Fi (NetworkManager keyfiles) — distro-agnostic, reused from Fedora ────
+#   Wi-Fi (NetworkManager keyfiles) — distro-agnostic, reused from Fedora   
 
 def set_user_password(manifest: dict[str, Any]) -> None:
     """Guarantee the user's password is set, via chpasswd, from the manifest.

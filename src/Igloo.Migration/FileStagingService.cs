@@ -10,7 +10,7 @@ namespace Igloo.Migration;
 /// The staging directory is consumed by <c>FileStagingViewModel</c> which also writes the
 /// migration manifest and installer config there before everything is burned to OEMDRV.
 /// </summary>
-public sealed class FileStagingService : IFileStagingService
+public sealed partial class FileStagingService : IFileStagingService
 {
     private readonly ILogger<FileStagingService> _logger;
 
@@ -38,6 +38,8 @@ public sealed class FileStagingService : IFileStagingService
         IProgress<FileStagingProgress>? progress,
         CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         var stagingRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Igloo", "staging", request.DistroId);
@@ -45,7 +47,7 @@ public sealed class FileStagingService : IFileStagingService
         // Clean up any leftover staging from a previous run.
         if (Directory.Exists(stagingRoot))
         {
-            _logger.LogDebug("Removing previous staging at {Dir}", stagingRoot);
+            LogRemovingPreviousStaging(stagingRoot);
             Directory.Delete(stagingRoot, recursive: true);
         }
         Directory.CreateDirectory(stagingRoot);
@@ -53,14 +55,11 @@ public sealed class FileStagingService : IFileStagingService
         progress?.Report(new FileStagingProgress(FileStagingPhase.Scanning, 0, 0, "Scanning files…"));
         var (jobs, totalBytes) = ScanFolders(request.FolderPaths, stagingRoot, ct);
 
-        _logger.LogInformation(
-            "Staging {Count} file(s) (~{Bytes} bytes) from {Folders} folder(s) to {Dir}",
-            jobs.Count, totalBytes, request.FolderPaths.Count, stagingRoot);
+        LogStagingStart(jobs.Count, totalBytes, request.FolderPaths.Count, stagingRoot);
 
-        long bytesCopied = await CopyJobsAsync(jobs, totalBytes, progress, ct);
+        long bytesCopied = await CopyJobsAsync(jobs, totalBytes, progress, ct).ConfigureAwait(false);
 
-        _logger.LogInformation(
-            "Staging complete: {Bytes} bytes copied in {Count} file(s)", bytesCopied, jobs.Count);
+        LogStagingComplete(bytesCopied, jobs.Count);
 
         return new FileStagingResult(stagingRoot, bytesCopied, jobs.Count);
     }
@@ -78,7 +77,7 @@ public sealed class FileStagingService : IFileStagingService
 
             if (!Directory.Exists(folder))
             {
-                _logger.LogDebug("Skipping non-existent folder {Folder}", folder);
+                LogSkippingMissingFolder(folder);
                 continue;
             }
 
@@ -92,13 +91,24 @@ public sealed class FileStagingService : IFileStagingService
                 var relPath = Path.GetRelativePath(folder, file);
                 jobs.Add((file, Path.Combine(destRoot, relPath)));
 
-                try
-                { totalBytes += new FileInfo(file).Length; }
-                catch { /* file may be locked or gone - size estimate only */ }
+                totalBytes += TryGetFileLength(file);
             }
         }
 
         return (jobs, totalBytes);
+    }
+
+    /// <summary>File size for the pre-copy estimate, or 0 if the file is locked or gone.</summary>
+    private static long TryGetFileLength(string file)
+    {
+        try
+        {
+            return new FileInfo(file).Length;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return 0;
+        }
     }
 
     /// <summary>Copies every job, skipping (with a warning) files that became inaccessible since the scan.</summary>
@@ -124,26 +134,45 @@ public sealed class FileStagingService : IFileStagingService
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
 
-                await using var inStream = new FileStream(
+                var inStream = new FileStream(
                     src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite,
                     BufSize, useAsync: true);
-                await using var outStream = new FileStream(
+                await using var inCfg = inStream.ConfigureAwait(false);
+                var outStream = new FileStream(
                     dst, FileMode.Create, FileAccess.Write, FileShare.None,
                     BufSize, useAsync: true);
+                await using var outCfg = outStream.ConfigureAwait(false);
 
                 int read;
-                while ((read = await inStream.ReadAsync(buffer, ct)) > 0)
+                while ((read = await inStream.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
                 {
-                    await outStream.WriteAsync(buffer.AsMemory(0, read), ct);
+                    await outStream.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                     bytesCopied += read;
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _logger.LogWarning(ex, "Skipping inaccessible file {Path}", src);
+                LogSkippingInaccessibleFile(ex, src);
             }
         }
 
         return bytesCopied;
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Removing previous staging at {Dir}")]
+    private partial void LogRemovingPreviousStaging(string dir);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Staging {Count} file(s) (~{Bytes} bytes) from {Folders} folder(s) to {Dir}")]
+    private partial void LogStagingStart(int count, long bytes, int folders, string dir);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Staging complete: {Bytes} bytes copied in {Count} file(s)")]
+    private partial void LogStagingComplete(long bytes, int count);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Skipping non-existent folder {Folder}")]
+    private partial void LogSkippingMissingFolder(string folder);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Skipping inaccessible file {Path}")]
+    private partial void LogSkippingInaccessibleFile(Exception ex, string path);
 }

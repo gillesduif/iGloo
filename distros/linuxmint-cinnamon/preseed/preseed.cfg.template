@@ -13,7 +13,7 @@
 # three to drive unattended).
 # ============================================================================
 
-# ── Localization ────────────────────────────────────────────────────────────
+#   Localization                               
 d-i debian-installer/locale string {{LOCALE}}
 d-i keyboard-configuration/xkb-keymap select {{KEYMAP}}
 # Ubiquity's keyboard page reads layoutcode, NOT xkb-keymap (d-i only). Without
@@ -22,13 +22,13 @@ d-i keyboard-configuration/layoutcode select {{KEYMAP}}
 d-i keyboard-configuration/variantcode string
 d-i console-setup/ask_detect boolean false
 
-# ── Network / clock ─────────────────────────────────────────────────────────
+#   Network / clock                             ─
 d-i netcfg/get_hostname string {{HOSTNAME}}
 d-i netcfg/get_domain string local
 d-i time/zone string {{TIMEZONE}}
 d-i clock-setup/utc boolean true
 
-# ── Accounts ────────────────────────────────────────────────────────────────
+#   Accounts                                 
 d-i passwd/user-fullname string {{FULL_NAME}}
 d-i passwd/username string {{LINUX_USERNAME}}
 d-i passwd/user-password password {{PASSWORD}}
@@ -36,7 +36,7 @@ d-i passwd/user-password-again password {{PASSWORD}}
 d-i user-setup/allow-password-weak boolean true
 d-i user-setup/encrypt-home boolean false
 
-# ── Partitioning ────────────────────────────────────────────────────────────
+#   Partitioning                               
 # dual-boot → install into the free space Igloo created beside Windows.
 # replace   → use the whole disk.
 # CRITICAL (data-loss): "biggest_free" (install ONLY into the free space, preserving
@@ -51,15 +51,15 @@ d-i partman/choose_partition select finish
 d-i partman/confirm boolean true
 d-i partman/confirm_nooverwrite boolean true
 
-# ── Package selection / extras ──────────────────────────────────────────────
+#   Package selection / extras                        
 d-i pkgsel/include string ntfs-3g python3 python3-apt rsync git network-manager
 d-i pkgsel/update-policy select none
 
-# ── Bootloader (os-prober adds Windows to the menu) ─────────────────────────
+#   Bootloader (os-prober adds Windows to the menu)             ─
 d-i grub-installer/only_debian boolean true
 d-i grub-installer/with_other_os boolean true
 
-# ── Ubiquity behaviour ──────────────────────────────────────────────────────
+#   Ubiquity behaviour                            
 ubiquity ubiquity/summary note
 ubiquity ubiquity/reboot boolean true
 ubiquity ubiquity/poweroff boolean false
@@ -68,7 +68,7 @@ ubiquity ubiquity/poweroff boolean false
 # (the first-boot agent's codecs step then becomes a no-op safety net).
 ubiquity ubiquity/use_nonfree boolean true
 
-# ── Bootstrap the Igloo first-boot agent ────────────────────────────────────
+#   Bootstrap the Igloo first-boot agent                   
 # success_command runs at the end of the install with /target = installed system,
 # but in a chroot whose RUNNING kernel (the live/casper kernel) does NOT match
 # /target's installed-kernel modules — so `modprobe vfat` fails and the OEMDRV

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
@@ -5,6 +6,7 @@ using System.Management;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security;
 using System.Text;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -37,7 +39,7 @@ namespace Igloo.Preflight;
 /// every startup.
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class DirectInstallService : IDirectInstallService
+public sealed partial class DirectInstallService : IDirectInstallService
 {
     private const string StorageNs = @"root\Microsoft\Windows\Storage";
     private const string EfiGlobGuid = "{8be4df61-93ca-11d2-aa0d-00e098032b8c}";
@@ -120,32 +122,37 @@ public sealed class DirectInstallService : IDirectInstallService
     private readonly IPartitionResizeService _resizer;
     private readonly ILogger<DirectInstallService> _logger;
 
-    // ── P/Invoke ──────────────────────────────────────────────────────────────
+    //   P/Invoke                                
 
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern uint GetFirmwareEnvironmentVariableW(
+    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    private static partial uint GetFirmwareEnvironmentVariableW(
         string lpName, string lpGuid, byte[] pBuffer, uint nSize);
 
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool SetFirmwareEnvironmentVariableW(
+    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetFirmwareEnvironmentVariableW(
         string lpName, string lpGuid, byte[]? pValue, uint nSize);
 
-    [DllImport("advapi32.dll", SetLastError = true)]
-    private static extern bool OpenProcessToken(
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool OpenProcessToken(
         IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
 
-    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool LookupPrivilegeValueW(
+    [LibraryImport("advapi32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool LookupPrivilegeValueW(
         string? lpSystemName, string lpName, out long lpLuid);
 
-    [DllImport("advapi32.dll", SetLastError = true)]
-    private static extern bool AdjustTokenPrivileges(
-        IntPtr TokenHandle, bool DisableAllPrivileges,
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool AdjustTokenPrivileges(
+        IntPtr TokenHandle, [MarshalAs(UnmanagedType.Bool)] bool DisableAllPrivileges,
         ref TokenPrivileges NewState, uint Length,
         IntPtr PreviousState, IntPtr ReturnLength);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool CloseHandle(IntPtr handle);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool CloseHandle(IntPtr handle);
 
     // Pack=4 is critical: on x64 .NET, LayoutKind.Sequential without Pack inserts
     // 4 bytes of padding after uint PrivilegeCount to align the long Luid field to
@@ -161,7 +168,7 @@ public sealed class DirectInstallService : IDirectInstallService
         public uint Attributes;      // SE_PRIVILEGE_ENABLED = 2, at offset 12
     }
 
-    // ── Constructor ───────────────────────────────────────────────────────────
+    //   Constructor                              ─
 
     public DirectInstallService(
         IPartitionResizeService resizer,
@@ -171,12 +178,12 @@ public sealed class DirectInstallService : IDirectInstallService
         _logger = logger;
     }
 
-    // ── IDirectInstallService ─────────────────────────────────────────────────
+    //   IDirectInstallService                         ─
 
     public Task PrepareAsync(
         int diskNumber, long linuxSizeBytes, string isoPath, string stagingDirectory,
         InstallerBootSpec bootSpec,
-        string? stage2Url = null,
+        Uri? stage2Url = null,
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
         => Task.Run(() => Prepare(diskNumber, linuxSizeBytes, isoPath, stagingDirectory, bootSpec, stage2Url, progress, ct), ct);
 
@@ -184,17 +191,17 @@ public sealed class DirectInstallService : IDirectInstallService
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
         => Task.Run(() => RegisterBootEntry(progress, ct), ct);
 
-    // ── Private - Prepare ─────────────────────────────────────────────────────
+    //   Private - Prepare                           ─
 
     private void Prepare(
         int diskNumber, long linuxSizeBytes, string isoPath, string stagingDirectory,
-        InstallerBootSpec bootSpec, string? stage2Url,
+        InstallerBootSpec bootSpec, Uri? stage2Url,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         _diskNumber = diskNumber;
         _bootSpec = bootSpec;
 
-        // ── Step 1: Measure ISO content to size the OEMDRV partition ─────────
+        //   Step 1: Measure ISO content to size the OEMDRV partition     ─
         // Mount the ISO just long enough to stat kernel + initrd + install.img sizes.
         // install.img is Anaconda's stage2 squashfs (~870 MiB on Fedora 44).
         // We copy it to OEMDRV so that inst.stage2=hd:LABEL=OEMDRV: avoids
@@ -207,7 +214,7 @@ public sealed class DirectInstallService : IDirectInstallService
             kernelBytes / MiB, initrdBytes / MiB, installImgBytes / MiB);
         ct.ThrowIfCancellationRequested();
 
-        // ── Step 2: Shrink Windows partition (skip if OEMDRV already exists) ──
+        //   Step 2: Shrink Windows partition (skip if OEMDRV already exists)  
         // Distros whose installer loop-mounts the whole ISO (Debian iso-scan,
         // Ubuntu/Mint casper) need room for the ISO too. But the seed/boot
         // partition MUST be FAT32 (UEFI firmware only boots FAT), and FAT32 cannot
@@ -223,11 +230,30 @@ public sealed class DirectInstallService : IDirectInstallService
         char driveLetter;
 
         var existing = FindExistingOemDrv(diskNumber);
-        if (existing is not null)
+
+        // Reuse only a leftover big enough for THIS install. Reuse skips the shrink + creation,
+        // so a partition sized for a different, smaller distro (e.g. Fedora stages an ~870 MiB
+        // install.img, while a casper distro needs the whole ISO on the volume) cannot be reused.
+        // An unsuitable leftover is a disposable installer partition, matched by the OEMDRV label,
+        // so remove it and carve a correctly-sized one from a fresh shrink instead of dead-ending.
+        var canReuse = existing is not null
+            && InstallerPartitionFits(new DriveInfo($"{existing.Value.letter}:").TotalSize, oemDrvBytes);
+
+        if (existing is not null && !canReuse)
         {
-            // A previous run already created the OEMDRV partition on this disk.
+            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Removing an unusable installer partition…");
+            _logger.LogWarning(
+                "Existing installer partition {L}: is too small for this install (~{Need} MiB needed) - " +
+                "removing it before creating a correctly-sized one", existing.Value.letter, oemDrvBytes / MiB);
+            DeleteInstallerVolume(existing.Value.letter);
+            ct.ThrowIfCancellationRequested();
+        }
+
+        if (canReuse)
+        {
+            // A previous run already created a large-enough OEMDRV partition on this disk.
             // Skip shrink + partition creation and reuse it - just re-copy the files.
-            driveLetter = existing.Value.letter;
+            driveLetter = existing!.Value.letter;
             _oemDrvLetter = driveLetter;
             _partitionNumber = existing.Value.partitionNumber;
             _logger.LogInformation(
@@ -257,13 +283,13 @@ public sealed class DirectInstallService : IDirectInstallService
             _resizer.ShrinkAsync(diskNumber, totalShrink, shrinkProg, ct).GetAwaiter().GetResult();
             ct.ThrowIfCancellationRequested();
 
-            // ── Step 3: Create FAT32 OEMDRV partition (boot + seed) ──────────
+            //   Step 3: Create FAT32 OEMDRV partition (boot + seed)      
             Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating installer partition…");
             driveLetter = CreateOemDrvPartition(diskNumber, oemDrvBytes, ct);
             _oemDrvLetter = driveLetter;
             ct.ThrowIfCancellationRequested();
 
-            // ── Step 3b: Create NTFS ISO partition for a >4 GiB ISO ──────────
+            //   Step 3b: Create NTFS ISO partition for a >4 GiB ISO      
             if (isoOnOwnPartition)
             {
                 Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating ISO partition…");
@@ -271,7 +297,7 @@ public sealed class DirectInstallService : IDirectInstallService
                 ct.ThrowIfCancellationRequested();
             }
 
-            // ── Step 3c: Pre-create the Linux root partition (subiquity path) ──
+            //   Step 3c: Pre-create the Linux root partition (subiquity path)  
             if (_bootSpec.PreCreateRootPartition)
             {
                 Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating Linux partition…");
@@ -280,7 +306,7 @@ public sealed class DirectInstallService : IDirectInstallService
             }
         }
 
-        // ── Step 4: Extract boot content from ISO onto OEMDRV ─────────────────
+        //   Step 4: Extract boot content from ISO onto OEMDRV         ─
         // Extracts: igloo-boot/linux, igloo-boot/initrd,
         //           igloo-boot/shimx64.efi, igloo-boot/grubx64.efi
         //           images/install.img   (Anaconda stage2, ~870 MiB)
@@ -289,7 +315,7 @@ public sealed class DirectInstallService : IDirectInstallService
         ConfigureBootFiles(isoPath, driveLetter, stagingDirectory, initrdBytes, installImgBytes, prog, ct);
         ct.ThrowIfCancellationRequested();
 
-        // ── Step 4b: Copy the whole ISO (iso-scan / casper need it) ──────────
+        //   Step 4b: Copy the whole ISO (iso-scan / casper need it)      
         // Small ISOs land on the FAT32 seed partition; an oversized ISO lands on
         // its dedicated NTFS partition (see Step 3b). iso-scan finds it either way.
         if (_bootSpec.CopyFullIsoToVolume && _bootSpec.IsoVolumeFileName is { } isoName)
@@ -302,7 +328,7 @@ public sealed class DirectInstallService : IDirectInstallService
             _logger.LogInformation("Full ISO copied to {Dst}", isoDst);
         }
 
-        // ── Step 5: Copy staging artefacts (ks.cfg, manifest, agent) ─────────
+        //   Step 5: Copy staging artefacts (ks.cfg, manifest, agent)     ─
         Report(prog, DirectInstallPhase.CopyingFiles, message: "Copying migration files…");
         CopyStagingArtefacts(stagingDirectory, $"{driveLetter}:\\", ct);
         ct.ThrowIfCancellationRequested();
@@ -351,7 +377,7 @@ public sealed class DirectInstallService : IDirectInstallService
         }
     }
 
-    // ── Step 2 helpers ────────────────────────────────────────────────────────
+    //   Step 2 helpers                             
 
     private char CreateOemDrvPartition(int diskNumber, long sizeBytes, CancellationToken ct)
     {
@@ -430,9 +456,7 @@ public sealed class DirectInstallService : IDirectInstallService
 
             if (!exited)
             {
-                try
-                { p.Kill(); }
-                catch { /* best effort */ }
+                TryKill(p);
                 throw new InvalidOperationException(
                     $"diskpart timed out after 60 s.\n\nOutput:\n{combined}");
             }
@@ -446,9 +470,35 @@ public sealed class DirectInstallService : IDirectInstallService
         }
         finally
         {
-            try
-            { File.Delete(tmp); }
-            catch { /* best effort */ }
+            TryDeleteFile(tmp);
+        }
+    }
+
+    /// <summary>Best-effort kill of a diskpart process that overran its timeout.</summary>
+    private static bool TryKill(Process p)
+    {
+        try
+        {
+            p.Kill();
+            return true;
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Best-effort delete of the temporary diskpart script.</summary>
+    private static bool TryDeleteFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 
@@ -462,11 +512,14 @@ public sealed class DirectInstallService : IDirectInstallService
             foreach (ManagementBaseObject p in results)
             {
                 char dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
-                if (char.ToUpper(dl) == char.ToUpper(letter))
-                    return Convert.ToUInt32(p["PartitionNumber"]);
+                if (char.ToUpperInvariant(dl) == char.ToUpperInvariant(letter))
+                    return Convert.ToUInt32(p["PartitionNumber"], CultureInfo.InvariantCulture);
             }
         }
-        catch (Exception ex) { _logger.LogWarning(ex, "FindPartitionByLetter failed"); }
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "FindPartitionByLetter failed");
+        }
         return 0;
     }
 
@@ -488,9 +541,10 @@ public sealed class DirectInstallService : IDirectInstallService
                     if (!string.Equals(di.VolumeLabel, _bootSpec.VolumeLabel, StringComparison.OrdinalIgnoreCase))
                         continue;
                 }
-                catch { continue; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+                { continue; }
 
-                var letter = char.ToUpper(di.Name[0]);
+                var letter = char.ToUpperInvariant(di.Name[0]);
                 var pn = FindPartitionByLetter(diskNumber, letter);
                 if (pn == 0)
                     continue; // not on this disk
@@ -501,17 +555,62 @@ public sealed class DirectInstallService : IDirectInstallService
                 return (letter, pn);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
             _logger.LogWarning(ex, "FindExistingOemDrv scan failed (non-fatal)");
         }
         return null;
     }
 
+    /// <summary>
+    /// True when an existing installer partition is large enough to reuse for the current
+    /// install. Reuse skips the shrink+resize step, so a leftover partition sized for a
+    /// different (smaller) distribution must be rejected rather than overflowed on copy.
+    /// </summary>
+    internal static bool InstallerPartitionFits(long capacityBytes, long requiredBytes)
+        => capacityBytes >= requiredBytes;
+
+    /// <summary>
+    /// Deletes a leftover installer volume by drive letter so a correctly-sized one can replace it.
+    /// This is destructive, so it is deliberately paranoid: it re-confirms the volume still carries
+    /// the OEMDRV installer label immediately before deleting (guarding against a drive-letter change
+    /// since detection), and selects the target in diskpart by letter - which is unambiguous - never
+    /// by partition number. Such a partition is disposable installer seed storage, never a data volume.
+    /// </summary>
+    private void DeleteInstallerVolume(char letter)
+    {
+        string label;
+        try
+        {
+            var di = new DriveInfo($"{letter}:");
+            if (!di.IsReady)
+                throw new InvalidOperationException($"Installer volume {letter}: is not ready; refusing to delete it.");
+            label = di.VolumeLabel;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            throw new InvalidOperationException(
+                $"Could not confirm volume {letter}: before deletion; aborting rather than risk the wrong partition.", ex);
+        }
+
+        if (!string.Equals(label, _bootSpec.VolumeLabel, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Refusing to delete volume {letter}: - its label '{label}' is not the '{_bootSpec.VolumeLabel}' " +
+                "installer partition we detected.");
+
+        var script = $"""
+            select volume {letter}
+            delete volume
+            exit
+            """;
+        var output = RunDiskpart(script);
+        _logger.LogInformation("Removed stale installer volume {L}: (diskpart output:\n{Output})", letter, output);
+    }
+
     private static char FindAvailableDriveLetter()
     {
         var used = DriveInfo.GetDrives()
-            .Select(d => char.ToUpper(d.Name[0]))
+            .Select(d => char.ToUpperInvariant(d.Name[0]))
             .ToHashSet();
         foreach (var c in "IJKLMNOPQRSTUVWXYZ")
             if (!used.Contains(c))
@@ -580,9 +679,10 @@ public sealed class DirectInstallService : IDirectInstallService
                     if (!string.Equals(di.VolumeLabel, IsoPartitionLabel, StringComparison.OrdinalIgnoreCase))
                         continue;
                 }
-                catch { continue; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+                { continue; }
 
-                var letter = char.ToUpper(di.Name[0]);
+                var letter = char.ToUpperInvariant(di.Name[0]);
                 if (FindPartitionByLetter(diskNumber, letter) == 0)
                     continue; // not on this disk
 
@@ -590,14 +690,14 @@ public sealed class DirectInstallService : IDirectInstallService
                 return letter;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
             _logger.LogWarning(ex, "FindExistingIsoPartition scan failed (non-fatal)");
         }
         return null;
     }
 
-    // ── Step 3 - copy ISO with progress ──────────────────────────────────────
+    //   Step 3 - copy ISO with progress                    
 
     private static void CopyWithProgress(
         string src, string dst, long totalBytes,
@@ -634,7 +734,7 @@ public sealed class DirectInstallService : IDirectInstallService
         resp.EnsureSuccessStatusCode();
         long total = resp.Content.Headers.ContentLength ?? 0;
 
-        using var src = resp.Content.ReadAsStream();
+        using var src = resp.Content.ReadAsStream(ct);
         using var dst = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20);
         var buf = new byte[1 << 20];
         long done = 0;
@@ -648,7 +748,7 @@ public sealed class DirectInstallService : IDirectInstallService
         }
     }
 
-    // ── Step 4 - copy artefacts ───────────────────────────────────────────────
+    //   Step 4 - copy artefacts                        ─
 
     private void CopyStagingArtefacts(string stagingDir, string oemDrvRoot, CancellationToken ct)
     {
@@ -701,7 +801,8 @@ public sealed class DirectInstallService : IDirectInstallService
         string text;
         try
         { text = File.ReadAllText(src); }
-        catch { return false; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+        { return false; }
         // Any igloo geometry token ({{IGLOO_STORAGE_PARTITIONS}}, historic
         // {{IGLOO_ROOT_*}}, …) — prefix match so the guard can never silently
         // diverge from the template again: an unsubstituted token means user-data
@@ -729,7 +830,7 @@ public sealed class DirectInstallService : IDirectInstallService
             throw new InvalidOperationException("Disk number unknown; cannot resolve install geometry.");
 
         var block = BuildStoragePartitionList(disk);
-        var resolved = content.Replace("{{IGLOO_STORAGE_PARTITIONS}}", block);
+        var resolved = content.Replace("{{IGLOO_STORAGE_PARTITIONS}}", block, StringComparison.Ordinal);
         if (resolved.Contains("{{IGLOO_", StringComparison.Ordinal))
             throw new InvalidOperationException(
                 "Installer config still contains an unresolved {{IGLOO_*}} token after " +
@@ -794,9 +895,9 @@ public sealed class DirectInstallService : IDirectInstallService
             $"SELECT PartitionNumber, Offset, Size, GptType, Guid FROM MSFT_Partition WHERE DiskNumber = {diskNumber}"))
         using (var results = searcher.Get())
             foreach (ManagementBaseObject p in results)
-                parts.Add((Convert.ToUInt32(p["PartitionNumber"]),
-                           Convert.ToInt64(p["Offset"]),
-                           Convert.ToInt64(p["Size"]),
+                parts.Add((Convert.ToUInt32(p["PartitionNumber"], CultureInfo.InvariantCulture),
+                           Convert.ToInt64(p["Offset"], CultureInfo.InvariantCulture),
+                           Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture),
                            p["GptType"]?.ToString() ?? string.Empty,
                            p["Guid"]?.ToString() ?? string.Empty));
 
@@ -851,7 +952,7 @@ public sealed class DirectInstallService : IDirectInstallService
         return string.Join("\n", lines);
     }
 
-    // ── Step 5 - extract kernel + initrd from ISO ────────────────────────────
+    //   Step 5 - extract kernel + initrd from ISO               
 
     /// <summary>
     /// Mounts the netinstall ISO and extracts the boot files onto OEMDRV:
@@ -883,7 +984,7 @@ public sealed class DirectInstallService : IDirectInstallService
 
             var isoRoot = $"{mountedLetter}:\\";
 
-            // ── 1. Extract kernel + initrd ─────────────────────────────────────
+            //   1. Extract kernel + initrd                   ─
             var kernelDst = Path.Combine(bootDst, KernelFile);
             var initrdDst = Path.Combine(bootDst, InitrdFile);
             if (_bootSpec.KernelUrl is { } kernelUrl && _bootSpec.InitrdUrl is { } initrdUrl)
@@ -923,7 +1024,7 @@ public sealed class DirectInstallService : IDirectInstallService
                 }
             }
 
-            // ── 2. Copy shim + GRUB EFI binaries ──────────────────────────────
+            //   2. Copy shim + GRUB EFI binaries                
             var (shimSrc, grubSrc) = FindEfiFiles(isoRoot);
             _logger.LogInformation("ISO shim: {S}", shimSrc);
             _logger.LogInformation("ISO grub: {G}", grubSrc);
@@ -942,7 +1043,7 @@ public sealed class DirectInstallService : IDirectInstallService
             CopyFileRobust(grubSrc, Path.Combine(fallbackDst, GrubFile));
             _logger.LogInformation("shim + grubx64.efi also staged at fallback path {Dir}", fallbackDst);
 
-            // ── 3. Copy images/install.img (Anaconda stage2 squashfs) ─────────
+            //   3. Copy images/install.img (Anaconda stage2 squashfs)     ─
             // The Fedora netinstall ISO contains images/install.img - the squashfs
             // that holds Anaconda and all installer tools (~870 MiB on Fedora 44).
             // Without inst.stage2= the initrd hangs; with inst.stage2=<network-url>
@@ -974,7 +1075,7 @@ public sealed class DirectInstallService : IDirectInstallService
                 DismountIso(isoPath);
         }
 
-        // ── 4. Write grub.cfg ──────────────────────────────────────────────────
+        //   4. Write grub.cfg                          
         // grubx64.efi has a compiled-in prefix that determines where it looks for
         // grub.cfg. Fedora ISOs ship two variants:
         //   • EFI/fedora/grubx64.efi  → prefix /EFI/fedora  → looks for /EFI/fedora/grub.cfg
@@ -1066,9 +1167,9 @@ public sealed class DirectInstallService : IDirectInstallService
     /// Full desktop/live ISOs and installed systems use the named path.
     /// This method checks the most common locations in priority order.
     /// </summary>
-    private (string shimPath, string grubPath) FindEfiFiles(string isoRoot)
+    private static (string shimPath, string grubPath) FindEfiFiles(string isoRoot)
     {
-        // ── Shim candidates (in priority order) ─────────────────────────────
+        //   Shim candidates (in priority order)               ─
         string[] shimCandidates =
         [
             Path.Combine(isoRoot, "EFI", "fedora", "shimx64.efi"),   // Fedora live/full ISO
@@ -1083,7 +1184,7 @@ public sealed class DirectInstallService : IDirectInstallService
                 "shimx64.efi not found on ISO. Checked: " +
                 string.Join(", ", shimCandidates.Select(p => p[(isoRoot.Length)..])));
 
-        // ── GRUB candidates ──────────────────────────────────────────────────
+        //   GRUB candidates                          
         string[] grubCandidates =
         [
             Path.Combine(isoRoot, "EFI", "fedora", "grubx64.efi"),   // Fedora
@@ -1115,7 +1216,7 @@ public sealed class DirectInstallService : IDirectInstallService
         fsIn.CopyTo(fsOut);
     }
 
-    // ── initrd config injection ──────────────────────────────────────────────
+    //   initrd config injection                        
 
     /// <summary>
     /// Appends <paramref name="fileData"/> as a single-file gzipped cpio (newc)
@@ -1147,7 +1248,7 @@ public sealed class DirectInstallService : IDirectInstallService
 
     private static void WriteCpioEntry(MemoryStream ms, string name, byte[] data, uint mode, uint nlink)
     {
-        static string H(uint v) => v.ToString("X8");
+        static string H(uint v) => v.ToString("X8", CultureInfo.InvariantCulture);
         var nameBytes = Encoding.ASCII.GetBytes(name);
         uint namesize = (uint)nameBytes.Length + 1; // include trailing NUL
 
@@ -1200,7 +1301,7 @@ public sealed class DirectInstallService : IDirectInstallService
     private string BuildGrubConfig()
     {
         var label = _bootSpec.VolumeLabel;
-        var cmdline = _bootSpec.KernelCmdline.Replace("{LABEL}", label);
+        var cmdline = _bootSpec.KernelCmdline.Replace("{LABEL}", label, StringComparison.Ordinal);
         return $$"""
             insmod part_gpt
             insmod fat
@@ -1273,7 +1374,8 @@ public sealed class DirectInstallService : IDirectInstallService
     {
         try
         { RunPowerShell($"Dismount-DiskImage -ImagePath \"{isoPath}\""); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Dismount-DiskImage failed (non-fatal)"); }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException)
+        { _logger.LogWarning(ex, "Dismount-DiskImage failed (non-fatal)"); }
     }
 
     private static string RunPowerShell(string command)
@@ -1297,7 +1399,7 @@ public sealed class DirectInstallService : IDirectInstallService
         return output;
     }
 
-    // ── RegisterBootEntry ─────────────────────────────────────────────────────
+    //   RegisterBootEntry                           ─
 
     private void RegisterBootEntry(
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
@@ -1391,7 +1493,7 @@ public sealed class DirectInstallService : IDirectInstallService
             key.SetValue("RealTimeIsUniversal", 1L, RegistryValueKind.QWord);
             _logger.LogInformation("RealTimeIsUniversal=1 - Windows now reads the RTC as UTC");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
         {
             _logger.LogWarning(ex,
                 "Could not set RealTimeIsUniversal (non-fatal) - the Windows clock " +
@@ -1424,7 +1526,7 @@ public sealed class DirectInstallService : IDirectInstallService
             else
                 _logger.LogInformation("BootOrder prepended with {Idx:X4}", idx);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
         {
             _logger.LogWarning(ex, "PrependBootOrder failed (non-fatal)");
         }
@@ -1482,19 +1584,20 @@ public sealed class DirectInstallService : IDirectInstallService
             using var results = searcher.Get();
             var mo = results.Cast<ManagementBaseObject>().First();
 
-            var offset = Convert.ToUInt64(mo["Offset"]);
-            var size = Convert.ToUInt64(mo["Size"]);
+            var offset = Convert.ToUInt64(mo["Offset"], CultureInfo.InvariantCulture);
+            var size = Convert.ToUInt64(mo["Size"], CultureInfo.InvariantCulture);
             var guid = Guid.Parse((string)mo["Guid"]);
             return (offset / 512, size / 512, guid);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException
+                                   or OverflowException or InvalidCastException or InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(ex, "GetPartitionGeometry failed - using zeros (boot may not work)");
             return (0, 0, Guid.Empty);
         }
     }
 
-    private ushort FindFreeBootIndex()
+    private static ushort FindFreeBootIndex()
     {
         for (ushort i = 0x0080; i < 0x00FF; i++)
         {
@@ -1566,7 +1669,7 @@ public sealed class DirectInstallService : IDirectInstallService
         return result;
     }
 
-    // ── Utility ───────────────────────────────────────────────────────────────
+    //   Utility                                ─
 
     internal static long RoundUpMiB(long bytes) =>
         ((bytes + MiB - 1) / MiB) * MiB;

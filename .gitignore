@@ -79,3 +79,13 @@ appsettings.local.json
 appsettings.Development.json
 /.claude
 /docs/dev-vault
+
+# Python bytecode caches (the first-boot agents are plain .py; caches are regenerated)
+__pycache__/
+*.py[cod]
+
+# OS / editor metadata
+.DS_Store
+Thumbs.db
+*.user
+*.suo

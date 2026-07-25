@@ -19,6 +19,8 @@ namespace Igloo.Iso;
 /// </summary>
 internal static class PgpCleartextVerifier
 {
+    private static readonly string[] LineSeparators = ["\r\n", "\r", "\n"];
+
     /// <summary>
     /// Returns <c>true</c> when at least one signature in <paramref name="cleartextMessage"/>
     /// is valid for a key present in <paramref name="publicKeyRingBytes"/>.
@@ -29,19 +31,19 @@ internal static class PgpCleartextVerifier
     {
         try
         {
-            // ── Load public key ring ─────────────────────────────────────────
+            //   Load public key ring                     ─
             using var keyInput = new MemoryStream(publicKeyRingBytes);
             var keyDecoder = PgpUtilities.GetDecoderStream(keyInput);
             var keyRing = new PgpPublicKeyRingBundle(keyDecoder);
 
-            // ── Split into body and signature block ──────────────────────────
+            //   Split into body and signature block              
             if (!TrySplit(cleartextMessage, out var body, out var sigBlock))
             {
                 logger.LogWarning("Could not parse cleartext PGP message structure");
                 return false;
             }
 
-            // ── Parse signature list ─────────────────────────────────────────
+            //   Parse signature list                     ─
             using var sigInput = new MemoryStream(Encoding.ASCII.GetBytes(sigBlock));
             var sigDecoder = PgpUtilities.GetDecoderStream(sigInput);
             var factory = new PgpObjectFactory(sigDecoder);
@@ -53,10 +55,10 @@ internal static class PgpCleartextVerifier
                 return false;
             }
 
-            // ── Canonicalize body: strip trailing WS, CRLF line endings ─────
+            //   Canonicalize body: strip trailing WS, CRLF line endings   ─
             var bodyBytes = Encoding.UTF8.GetBytes(Canonicalize(body));
 
-            // ── Try each signature until one validates ───────────────────────
+            //   Try each signature until one validates            ─
             for (int i = 0; i < sigList.Count; i++)
             {
                 var sig = sigList[i];
@@ -85,14 +87,17 @@ internal static class PgpCleartextVerifier
             logger.LogWarning("GPG verification failed - no valid signature matched");
             return false;
         }
-        catch (Exception ex)
+        // Fail closed on any malformed key ring / signature block: BouncyCastle surfaces
+        // corrupt OpenPGP input through these types. An unverifiable checksum is never trusted.
+        catch (Exception ex) when (ex is PgpException or IOException or FormatException
+            or ArgumentException or InvalidOperationException or InvalidDataException)
         {
             logger.LogWarning(ex, "GPG verification threw an unexpected exception");
             return false;
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    //   Helpers                                
 
     private static bool TrySplit(string message, out string body, out string sigBlock)
     {
@@ -134,7 +139,7 @@ internal static class PgpCleartextVerifier
     /// </summary>
     private static string Canonicalize(string body)
     {
-        var lines = body.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        var lines = body.Split(LineSeparators, StringSplitOptions.None);
         return string.Join("\r\n", lines.Select(l => l.TrimEnd(' ', '\t')));
     }
 

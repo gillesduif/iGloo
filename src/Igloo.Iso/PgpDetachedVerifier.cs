@@ -69,7 +69,10 @@ internal static class PgpDetachedVerifier
             logger.LogWarning("Detached GPG verification failed - no valid signature matched");
             return false;
         }
-        catch (Exception ex)
+        // Fail closed on any malformed key ring / signature: BouncyCastle surfaces corrupt
+        // OpenPGP input through these types. An unverifiable checksum is never trusted.
+        catch (Exception ex) when (ex is PgpException or IOException or FormatException
+            or ArgumentException or InvalidOperationException or InvalidDataException)
         {
             logger.LogWarning(ex, "Detached GPG verification threw an unexpected exception");
             return false;

@@ -11,7 +11,7 @@ namespace Igloo.Core.Plugins;
 /// Directories whose names start with an underscore (e.g. <c>_template</c>, <c>_schema</c>)
 /// are skipped. A single malformed manifest emits a warning and does not abort loading.
 /// </summary>
-public sealed class DistroLoader
+public sealed partial class DistroLoader
 {
     private readonly ILogger<DistroLoader> _logger;
 
@@ -36,7 +36,7 @@ public sealed class DistroLoader
     {
         if (!Directory.Exists(distrosDirectory))
         {
-            _logger.LogWarning("Distros directory not found: {Dir}", distrosDirectory);
+            LogDistrosDirectoryNotFound(distrosDirectory);
             _distros = [];
             return;
         }
@@ -65,19 +65,35 @@ public sealed class DistroLoader
                 manifest = manifest with { SourceDirectory = Path.GetFullPath(dir) };
 
                 if (!string.Equals(manifest.Id, name, StringComparison.OrdinalIgnoreCase))
-                    _logger.LogWarning("Distro id '{Id}' does not match folder name '{Folder}'",
-                        manifest.Id, name);
+                    LogIdFolderMismatch(manifest.Id, name);
 
                 loaded.Add(manifest);
-                _logger.LogDebug("Loaded distro: {Id} ({DisplayName})", manifest.Id, manifest.DisplayName);
+                LogLoadedDistro(manifest.Id, manifest.DisplayName);
             }
-            catch (Exception ex)
+            // A single malformed manifest must not abort the whole catalog: these are the
+            // only failures File.ReadAllText + JsonSerializer.Deserialize can raise here.
+            catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
             {
-                _logger.LogWarning(ex, "Failed to load distro manifest from {Path}", manifestPath);
+                LogManifestLoadFailed(ex, manifestPath);
             }
         }
 
         _distros = loaded;
-        _logger.LogInformation("Distro catalog loaded: {Count} distro(s)", loaded.Count);
+        LogCatalogLoaded(loaded.Count);
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Distros directory not found: {Dir}")]
+    private partial void LogDistrosDirectoryNotFound(string dir);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Distro id '{Id}' does not match folder name '{Folder}'")]
+    private partial void LogIdFolderMismatch(string id, string folder);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Loaded distro: {Id} ({DisplayName})")]
+    private partial void LogLoadedDistro(string id, string displayName);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to load distro manifest from {Path}")]
+    private partial void LogManifestLoadFailed(Exception ex, string path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Distro catalog loaded: {Count} distro(s)")]
+    private partial void LogCatalogLoaded(int count);
 }

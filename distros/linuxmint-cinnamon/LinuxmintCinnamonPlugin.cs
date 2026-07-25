@@ -32,18 +32,32 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var path = Path.Combine(asmDir, "distro.json");
-        DistroManifest? raw = null;
-        if (File.Exists(path))
-        {
-            try
-            { raw = JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(path), JsonOpts); }
-            catch { /* defaults */ }
-        }
+        var raw = TryLoadManifest(path);
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
+    }
+
+    /// <summary>
+    /// Loads the co-located <c>distro.json</c>, or returns <c>null</c> when it is
+    /// absent or unreadable so the constructor uses <see cref="FallbackMetadata"/>.
+    /// </summary>
+    private static DistroManifest? TryLoadManifest(string path)
+    {
+        if (!File.Exists(path))
+            return null;
+        try
+        {
+            return JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(path), JsonOpts);
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return null;
+        }
     }
 
     public IReadOnlyList<PreflightFinding> CheckCompatibility(PreflightReport report)
     {
+        ArgumentNullException.ThrowIfNull(report);
+
         var findings = new List<PreflightFinding>();
         if (string.Equals(report.GpuVendor, "nvidia", StringComparison.OrdinalIgnoreCase))
             findings.Add(new PreflightFinding(FindingSeverity.Info, "MINT_NVIDIA",
@@ -61,21 +75,23 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
         return findings;
     }
 
-    public Task<InstallerConfig> RenderInstallerConfigAsync(MigrationManifest manifest, CancellationToken ct = default)
+    public async Task<InstallerConfig> RenderInstallerConfigAsync(MigrationManifest manifest, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(manifest);
+
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var templatePath = Path.Combine(asmDir, "preseed", "preseed.cfg.template");
         if (!File.Exists(templatePath))
             throw new FileNotFoundException("preseed.cfg.template missing from the Mint plugin output.");
 
-        var preseed = RenderFromTemplate(File.ReadAllText(templatePath), manifest)
-            .Replace("\r\n", "\n").Replace("\r", "\n");
+        var preseed = RenderFromTemplate(await File.ReadAllTextAsync(templatePath, ct).ConfigureAwait(false), manifest)
+            .Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
 
         var config = new InstallerConfig("preseed.cfg", Encoding.UTF8.GetBytes(preseed), Array.Empty<InstallerConfigExtra>());
-        return Task.FromResult(config);
+        return config;
     }
 
-    public Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
+    public async Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var agentDir = Directory.Exists(Path.Combine(asmDir, "agent"))
@@ -87,9 +103,9 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
         {
             var p = Path.Combine(agentDir, name);
             if (File.Exists(p))
-                files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
+                files.Add(new AgentFile(name, NormalizeCrLf(await File.ReadAllBytesAsync(p, ct).ConfigureAwait(false)), exe));
         }
-        return Task.FromResult(new AgentPayload(files));
+        return new AgentPayload(files);
     }
 
     public InstallerBootSpec GetInstallerBootSpec() => new()
@@ -112,17 +128,17 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
         InitrdConfigPath = "preseed.cfg",
     };
 
-    // ── Rendering ──────────────────────────────────────────────────────────────
+    //   Rendering                                
 
     private static string RenderFromTemplate(string template, MigrationManifest m) => template
-        .Replace("{{LOCALE}}", m.User.Locale)
-        .Replace("{{KEYMAP}}", m.User.Keymap)
-        .Replace("{{TIMEZONE}}", m.User.Timezone)
-        .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc")
-        .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername)
-        .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername)
-        .Replace("{{PASSWORD}}", m.User.LinuxPassword ?? "")
-        .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode);
+        .Replace("{{LOCALE}}", m.User.Locale, StringComparison.Ordinal)
+        .Replace("{{KEYMAP}}", m.User.Keymap, StringComparison.Ordinal)
+        .Replace("{{TIMEZONE}}", m.User.Timezone, StringComparison.Ordinal)
+        .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc", StringComparison.Ordinal)
+        .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername, StringComparison.Ordinal)
+        .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername, StringComparison.Ordinal)
+        .Replace("{{PASSWORD}}", m.User.LinuxPassword ?? "", StringComparison.Ordinal)
+        .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode, StringComparison.Ordinal);
 
     private static byte[] NormalizeCrLf(byte[] bytes)
     {
@@ -145,10 +161,10 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
         Description = raw.Description,
         DefaultDesktopEnvironment = raw.DefaultDesktopEnvironment ?? "Cinnamon",
         InstallerType = InstallerType.Ubiquity,
-        IsoDownloadUrl = new Uri(raw.Iso.DownloadUrl),
+        IsoDownloadUrl = raw.Iso.DownloadUrl,
         IsoSha256 = raw.Iso.Sha256,
-        IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
-        IsoGpgKeyUrl = raw.Iso.GpgKeyUrl is not null ? new Uri(raw.Iso.GpgKeyUrl) : null,
+        IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl,
+        IsoGpgKeyUrl = raw.Iso.GpgKeyUrl,
         Tags = raw.Tags,
         Screenshots = raw.Screenshots,
         MinimumRequirements = raw.MinimumRequirements is { } req

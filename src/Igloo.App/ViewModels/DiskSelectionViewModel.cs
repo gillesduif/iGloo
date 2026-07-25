@@ -20,7 +20,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     private const long MinDiskBytes = 20L * 1024 * 1024 * 1024; // 20 GB
     private const int MinLinuxGb = 25;                        // Fedora minimum
 
-    // ── Observable state ──────────────────────────────────────────────────────
+    //   Observable state                            
 
     [ObservableProperty]
     private IReadOnlyList<DiskListItem> _diskItems = [];
@@ -47,7 +47,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(WindowsKeepsGb))]
     private int _linuxSizeGb = 50;
 
-    // ── Derived ───────────────────────────────────────────────────────────────
+    //   Derived                                ─
 
     public DiskInfo? SelectedDisk => SelectedItem?.Disk;
     public bool IsInstallModeReplace => !IsInstallModeDualBoot;
@@ -68,7 +68,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     public bool CanProceed => SelectedItem is not null
                                         && (!IsInstallModeDualBoot || LinuxSizeGb >= MinLinuxGb);
 
-    // ── Display-only helpers for the proportional allocation bar ─────────────
+    //   Display-only helpers for the proportional allocation bar       ─
 
     /// <summary>The chosen Linux allocation in bytes (same unit as DiskInfo.TotalBytes).</summary>
     public long LinuxSizeBytes => (long)LinuxSizeGb << 30;
@@ -77,12 +77,12 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     public int WindowsKeepsGb => Math.Max(0,
         (int)((SelectedItem?.Disk.TotalBytes ?? 0) >> 30) - LinuxSizeGb);
 
-    // ── Commands ──────────────────────────────────────────────────────────────
+    //   Commands                                
 
     [RelayCommand] void SetDualBoot() { IsInstallModeDualBoot = true; }
     [RelayCommand] void SetReplace() { IsInstallModeDualBoot = false; }
 
-    // ── API ───────────────────────────────────────────────────────────────────
+    //   API                                  ─
 
     /// <summary>
     /// Populates the disk list and pre-selects the system disk.
@@ -90,6 +90,8 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     /// </summary>
     public void Prepare(PreflightReport report)
     {
+        ArgumentNullException.ThrowIfNull(report);
+
         DiskItems = report.Disks
             .Where(d => d.TotalBytes >= MinDiskBytes)
             .OrderByDescending(d => d.Partitions.Any(p => p.IsSystem || p.IsBoot))
@@ -98,7 +100,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
             .ToList();
 
         SelectedItem = DiskItems.FirstOrDefault(d => d.IsSystemDisk)
-                    ?? DiskItems.FirstOrDefault();
+                    ?? (DiskItems.Count > 0 ? DiskItems[0] : null);
 
         // Default to dual boot when viable, replace when not.
         IsInstallModeDualBoot = CanDualBoot;
@@ -146,6 +148,8 @@ public sealed class DiskListItem
 
     public DiskListItem(DiskInfo disk)
     {
+        ArgumentNullException.ThrowIfNull(disk);
+
         Disk = disk;
         IsSystemDisk = disk.Partitions.Any(p => p.IsSystem || p.IsBoot);
         MaxShrinkableBytes = disk.Partitions.Count > 0

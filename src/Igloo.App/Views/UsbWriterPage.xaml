@@ -14,7 +14,7 @@
                       HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
 
-                <!-- ── Drive picker ─────────────────────────────────────────── -->
+                <!--   Drive picker                      ─ -->
                 <TextBlock Text="TARGET USB DRIVE" Style="{StaticResource Text.Section}" Margin="2,0,0,4" />
                 <DockPanel LastChildFill="True" Margin="0,0,0,12">
                     <Button DockPanel.Dock="Right"
@@ -83,7 +83,7 @@
                     No USB drives detected. Plug in a drive of 8 GB or larger and click Refresh.
                 </TextBlock>
 
-                <!-- ── Erase warning: gravity preserved ─────────────────────── -->
+                <!--   Erase warning: gravity preserved            ─ -->
                 <Border>
                     <Border.Style>
                         <Style TargetType="Border" BasedOn="{StaticResource Card.Warning}">
@@ -114,7 +114,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ── RUNNING: hero progress ───────────────────────────────── -->
+                <!--   RUNNING: hero progress                 ─ -->
                 <StackPanel Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
                             Width="460" HorizontalAlignment="Center" Margin="0,12,0,0">
 
@@ -175,7 +175,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- ── ERROR ─────────────────────────────────────────────────── -->
+                <!--   ERROR                          ─ -->
                 <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
                         Style="{StaticResource Card.Danger}" Margin="0,8,0,0">
                     <StackPanel>
@@ -200,7 +200,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ── COMPLETE: receipt ─────────────────────────────────────── -->
+                <!--   COMPLETE: receipt                    ─ -->
                 <Border Visibility="{Binding IsComplete, Converter={StaticResource BoolToVis}}"
                         Style="{StaticResource Card}" Padding="26,22" Margin="0,8,0,0">
                     <StackPanel>
@@ -245,7 +245,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- ── Bottom strip: Write (primary) / Cancel ───────────────────────── -->
+        <!--   Bottom strip: Write (primary) / Cancel             ─ -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center"
                     Margin="0,16,0,0">
 

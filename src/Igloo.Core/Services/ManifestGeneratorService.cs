@@ -8,10 +8,10 @@ namespace Igloo.Core.Services;
 /// staging into a <see cref="MigrationManifest"/> that is written to the staging directory.
 /// The manifest is the wire format read by the first-boot agent on the freshly-installed system.
 /// </summary>
-public sealed class ManifestGeneratorService
+public static class ManifestGeneratorService
 {
     /// <summary>Builds a <see cref="MigrationManifest"/> from the provided inputs.</summary>
-    public MigrationManifest Generate(
+    public static MigrationManifest Generate(
         string distroId,
         UserSetup userSetup,
         PreflightReport hardware,
@@ -20,6 +20,10 @@ public sealed class ManifestGeneratorService
         DiskInstallMode installMode = DiskInstallMode.ReplaceDisk,
         int linuxSizeGb = 0)
     {
+        ArgumentNullException.ThrowIfNull(userSetup);
+        ArgumentNullException.ThrowIfNull(hardware);
+        ArgumentNullException.ThrowIfNull(staging);
+
         // Prefer the richly-resolved browser list (engine + source/dest paths) built on the
         // Windows side. Fall back to bare names for back-compat when only names are supplied.
         var browsers = userSetup.SelectedBrowsers.Count > 0

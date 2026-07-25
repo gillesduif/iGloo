@@ -35,18 +35,32 @@ public sealed class UbuntuPlugin : IDistroPlugin
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var path = Path.Combine(asmDir, "distro.json");
-        DistroManifest? raw = null;
-        if (File.Exists(path))
-        {
-            try
-            { raw = JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(path), JsonOpts); }
-            catch { /* defaults */ }
-        }
+        var raw = TryLoadManifest(path);
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
+    }
+
+    /// <summary>
+    /// Loads the co-located <c>distro.json</c>, or returns <c>null</c> when it is
+    /// absent or unreadable so the constructor uses <see cref="FallbackMetadata"/>.
+    /// </summary>
+    private static DistroManifest? TryLoadManifest(string path)
+    {
+        if (!File.Exists(path))
+            return null;
+        try
+        {
+            return JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(path), JsonOpts);
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return null;
+        }
     }
 
     public IReadOnlyList<PreflightFinding> CheckCompatibility(PreflightReport report)
     {
+        ArgumentNullException.ThrowIfNull(report);
+
         var findings = new List<PreflightFinding>();
         if (string.Equals(report.GpuVendor, "nvidia", StringComparison.OrdinalIgnoreCase))
             findings.Add(new PreflightFinding(FindingSeverity.Info, "UBUNTU_NVIDIA",
@@ -83,15 +97,17 @@ public sealed class UbuntuPlugin : IDistroPlugin
     // working set. 10 GiB is the tested floor; below it the installer OOMs.
     private const long ToramMinRamBytes = 10L * 1024 * 1024 * 1024;
 
-    public Task<InstallerConfig> RenderInstallerConfigAsync(MigrationManifest manifest, CancellationToken ct = default)
+    public async Task<InstallerConfig> RenderInstallerConfigAsync(MigrationManifest manifest, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(manifest);
+
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var templatePath = Path.Combine(asmDir, "autoinstall", "user-data.template");
         if (!File.Exists(templatePath))
             throw new FileNotFoundException("user-data.template missing from the Ubuntu plugin output.");
 
-        var userData = RenderFromTemplate(File.ReadAllText(templatePath), manifest)
-            .Replace("\r\n", "\n").Replace("\r", "\n");
+        var userData = RenderFromTemplate(await File.ReadAllTextAsync(templatePath, ct).ConfigureAwait(false), manifest)
+            .Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
 
         // cloud-init NoCloud needs both user-data and a (possibly empty) meta-data.
         var metaData = $"instance-id: igloo-{Guid.NewGuid():N}\nlocal-hostname: {manifest.User.PreferredLinuxUsername}-pc\n";
@@ -100,10 +116,10 @@ public sealed class UbuntuPlugin : IDistroPlugin
             FileName: "user-data",
             Contents: Encoding.UTF8.GetBytes(userData),
             Extras: [new InstallerConfigExtra("meta-data", Encoding.UTF8.GetBytes(metaData))]);
-        return Task.FromResult(config);
+        return config;
     }
 
-    public Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
+    public async Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var agentDir = Directory.Exists(Path.Combine(asmDir, "agent"))
@@ -115,9 +131,9 @@ public sealed class UbuntuPlugin : IDistroPlugin
         {
             var p = Path.Combine(agentDir, name);
             if (File.Exists(p))
-                files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
+                files.Add(new AgentFile(name, NormalizeCrLf(await File.ReadAllBytesAsync(p, ct).ConfigureAwait(false)), exe));
         }
-        return Task.FromResult(new AgentPayload(files));
+        return new AgentPayload(files);
     }
 
     public InstallerBootSpec GetInstallerBootSpec() => new()
@@ -156,20 +172,20 @@ public sealed class UbuntuPlugin : IDistroPlugin
         ConfigDelivery = ConfigDelivery.OemDrvLabel,
     };
 
-    // ── Rendering ──────────────────────────────────────────────────────────────
+    //   Rendering                                
 
     private static string RenderFromTemplate(string template, MigrationManifest m)
     {
         var storage = BuildStorage(m);
         return template
-            .Replace("{{LOCALE}}", m.User.Locale)
-            .Replace("{{KEYMAP}}", m.User.Keymap)
-            .Replace("{{TIMEZONE}}", m.User.Timezone)
-            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc")
-            .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername)
-            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername)
-            .Replace("{{PASSWORD}}", m.User.LinuxPassword ?? "")
-            .Replace("{{STORAGE}}", storage);
+            .Replace("{{LOCALE}}", m.User.Locale, StringComparison.Ordinal)
+            .Replace("{{KEYMAP}}", m.User.Keymap, StringComparison.Ordinal)
+            .Replace("{{TIMEZONE}}", m.User.Timezone, StringComparison.Ordinal)
+            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc", StringComparison.Ordinal)
+            .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername, StringComparison.Ordinal)
+            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername, StringComparison.Ordinal)
+            .Replace("{{PASSWORD}}", m.User.LinuxPassword ?? "", StringComparison.Ordinal)
+            .Replace("{{STORAGE}}", storage, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -214,18 +230,21 @@ public sealed class UbuntuPlugin : IDistroPlugin
         //  * root (recognised by its Linux-filesystem GPT type) gets wipe:
         //    superblock + a fresh ext4 format + mount at / — contents replaced,
         //    table entry untouched.
-        return string.Join("\n", new[]
-        {
-            "  storage:",
-            "    config:",
-            "      - {type: disk, id: disk0, match: {size: largest}, preserve: true, ptable: gpt}",
-            "{{IGLOO_STORAGE_PARTITIONS}}",
-            "      - {type: format, id: esp-fs, volume: esp, fstype: fat32, preserve: true}",
-            "      - {type: format, id: root-fs, volume: root, fstype: ext4}",
-            "      - {type: mount, id: root-mnt, device: root-fs, path: /}",
-            "      - {type: mount, id: esp-mnt, device: esp-fs, path: /boot/efi}",
-        });
+        return string.Join("\n", AutoinstallStorageLines);
     }
+
+    /// <summary>Static curtin storage skeleton; the token line is expanded per-disk at install time.</summary>
+    private static readonly string[] AutoinstallStorageLines =
+    [
+        "  storage:",
+        "    config:",
+        "      - {type: disk, id: disk0, match: {size: largest}, preserve: true, ptable: gpt}",
+        "{{IGLOO_STORAGE_PARTITIONS}}",
+        "      - {type: format, id: esp-fs, volume: esp, fstype: fat32, preserve: true}",
+        "      - {type: format, id: root-fs, volume: root, fstype: ext4}",
+        "      - {type: mount, id: root-mnt, device: root-fs, path: /}",
+        "      - {type: mount, id: esp-mnt, device: esp-fs, path: /boot/efi}",
+    ];
 
     private static byte[] NormalizeCrLf(byte[] bytes)
     {
@@ -248,10 +267,10 @@ public sealed class UbuntuPlugin : IDistroPlugin
         Description = raw.Description,
         DefaultDesktopEnvironment = raw.DefaultDesktopEnvironment ?? "GNOME",
         InstallerType = InstallerType.Subiquity,
-        IsoDownloadUrl = new Uri(raw.Iso.DownloadUrl),
+        IsoDownloadUrl = raw.Iso.DownloadUrl,
         IsoSha256 = raw.Iso.Sha256,
-        IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
-        IsoGpgKeyUrl = raw.Iso.GpgKeyUrl is not null ? new Uri(raw.Iso.GpgKeyUrl) : null,
+        IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl,
+        IsoGpgKeyUrl = raw.Iso.GpgKeyUrl,
         Tags = raw.Tags,
         Screenshots = raw.Screenshots,
         MinimumRequirements = raw.MinimumRequirements is { } req

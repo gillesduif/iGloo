@@ -1,9 +1,13 @@
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
+// All P/Invokes below target kernel32, a KnownDLL always resolved from System32.
+// Pinning the search path to System32 defeats DLL-preloading (hijack) attacks.
+[assembly: DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+
 namespace Igloo.UsbWriter;
 
-// ── Native helpers ────────────────────────────────────────────────────────────
+//   Native helpers
 
 internal static partial class NativeMethods
 {
@@ -11,8 +15,8 @@ internal static partial class NativeMethods
     /// Opens a file or device (including raw physical drives such as
     /// <c>\\.\PHYSICALDRIVE1</c> and volume devices such as <c>\\.\C:</c>).
     /// </summary>
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, ExactSpelling = true)]
-    internal static extern SafeFileHandle CreateFileW(
+    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial SafeFileHandle CreateFileW(
         string lpFileName,
         uint dwDesiredAccess,
         uint dwShareMode,
@@ -28,9 +32,9 @@ internal static partial class NativeMethods
     /// <c>IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS</c>, and
     /// <c>IOCTL_DISK_UPDATE_PROPERTIES</c>.
     /// </summary>
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool DeviceIoControl(
+    internal static partial bool DeviceIoControl(
         SafeFileHandle hDevice,
         uint dwIoControlCode,
         nint lpInBuffer,
@@ -41,9 +45,9 @@ internal static partial class NativeMethods
         nint lpOverlapped);
 
     /// <summary>Moves the file pointer of the specified file.</summary>
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool SetFilePointerEx(
+    internal static partial bool SetFilePointerEx(
         SafeFileHandle hFile,
         long liDistanceToMove,
         nint lpNewFilePointer,   // may be null/Zero
@@ -53,9 +57,9 @@ internal static partial class NativeMethods
     /// Reads data from a file using a synchronous (non-overlapped) handle.
     /// Pass <see cref="nint.Zero"/> for <c>lpOverlapped</c>.
     /// </summary>
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool ReadFile(
+    internal static partial bool ReadFile(
         SafeFileHandle hFile,
         byte[] lpBuffer,
         int nNumberOfBytesToRead,
@@ -66,9 +70,9 @@ internal static partial class NativeMethods
     /// Writes data to a file using a synchronous (non-overlapped) handle.
     /// Pass <see cref="nint.Zero"/> for <c>lpOverlapped</c>.
     /// </summary>
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool WriteFile(
+    internal static partial bool WriteFile(
         SafeFileHandle hFile,
         byte[] lpBuffer,
         int nNumberOfBytesToWrite,

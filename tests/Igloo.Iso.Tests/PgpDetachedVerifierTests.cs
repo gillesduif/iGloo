@@ -73,7 +73,7 @@ public class PgpDetachedVerifierTests : IClassFixture<PgpDetachedVerifierTests.S
             Enumerable.Range(0, _key.Fingerprint.Length / 4)
                 .Select(i => _key.Fingerprint.Substring(i * 4, 4)));
 
-        Verify(fingerprint: _key.Fingerprint.ToLowerInvariant()).Should().BeTrue();
+        Verify(fingerprint: new string(_key.Fingerprint.Select(char.ToLowerInvariant).ToArray())).Should().BeTrue();
         Verify(fingerprint: spaced).Should().BeTrue();
     }
 

@@ -18,7 +18,7 @@ public class DistroRecommenderTests
         DisplayName = id,
         Description = id,
         Status = status,
-        Iso = new DistroIsoSpec { DownloadUrl = "https://example.org/x.iso", Sha256 = "abc" },
+        Iso = new DistroIsoSpec { DownloadUrl = new Uri("https://example.org/x.iso"), Sha256 = "abc" },
     };
 
     private static readonly IReadOnlyList<DistroManifest> Catalog =

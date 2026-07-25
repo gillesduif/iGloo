@@ -2,6 +2,10 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 
+// The P/Invokes below target dwmapi/user32 (system DLLs resolved from System32).
+// Pinning the search path defeats DLL-preloading (hijack) attacks.
+[assembly: DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+
 namespace Igloo.App;
 
 /// <summary>
@@ -15,9 +19,9 @@ namespace Igloo.App;
 ///   3. Restore the native system menu (Alt+Space, caption right-click) that
 ///      <c>WindowStyle=None</c> otherwise removes — <see cref="ShowSystemMenu"/>.
 /// </summary>
-internal static class ChromeInterop
+internal static partial class ChromeInterop
 {
-    // ── Window messages ───────────────────────────────────────────────────────
+    //   Window messages                            ─
     public const int WM_GETMINMAXINFO = 0x0024;
     public const int WM_NCHITTEST = 0x0084;
     public const int WM_NCMOUSEMOVE = 0x00A0;
@@ -31,7 +35,7 @@ internal static class ChromeInterop
     public const int HTMAXBUTTON = 9;
     public const int VK_SPACE = 0x20;
 
-    // ── Dark title bar ────────────────────────────────────────────────────────
+    //   Dark title bar                             
 
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20; // Win10 2004+ / Win11
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE_PRE_20H1 = 19; // Win10 1809–1909
@@ -49,7 +53,7 @@ internal static class ChromeInterop
             DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_PRE_20H1, ref enabled, sizeof(int));
     }
 
-    // ── Mica backdrop (the real thing, not a painted imitation) ──────────────
+    //   Mica backdrop (the real thing, not a painted imitation)        
 
     private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;    // Win11 22H2+
     private const int DWMWA_MICA_EFFECT = 1029;  // Win11 21H2 (undocumented)
@@ -71,7 +75,7 @@ internal static class ChromeInterop
         return DwmSetWindowAttribute(hwnd, DWMWA_MICA_EFFECT, ref on, sizeof(int)) == 0;
     }
 
-    // ── Maximize bounds (the classic WindowStyle=None bug) ────────────────────
+    //   Maximize bounds (the classic WindowStyle=None bug)           
 
     /// <summary>
     /// Handles <c>WM_GETMINMAXINFO</c>: pins a maximized window to the current monitor's
@@ -106,7 +110,7 @@ internal static class ChromeInterop
         Marshal.StructureToPtr(mmi, lParam, true);
     }
 
-    // ── System menu ───────────────────────────────────────────────────────────
+    //   System menu                              ─
 
     private const uint WM_SYSCOMMAND = 0x0112;
     private const uint MF_ENABLED = 0x0000, MF_GRAYED = 0x0001;
@@ -128,16 +132,19 @@ internal static class ChromeInterop
             return;
 
         var maximized = window.WindowState == WindowState.Maximized;
-        EnableMenuItem(menu, SC_RESTORE, maximized ? MF_ENABLED : MF_GRAYED);
-        EnableMenuItem(menu, SC_MOVE, maximized ? MF_GRAYED : MF_ENABLED);
-        EnableMenuItem(menu, SC_SIZE, maximized ? MF_GRAYED : MF_ENABLED);
-        EnableMenuItem(menu, SC_MINIMIZE, MF_ENABLED);
-        EnableMenuItem(menu, SC_MAXIMIZE, maximized ? MF_GRAYED : MF_ENABLED);
-        EnableMenuItem(menu, SC_CLOSE, MF_ENABLED);
+        // EnableMenuItem returns the item's PREVIOUS enabled/greyed state, not an error
+        // code; the standard system-menu items always exist, so the prior state is of no
+        // use here. Discard explicitly rather than silently dropping the result.
+        _ = EnableMenuItem(menu, SC_RESTORE, maximized ? MF_ENABLED : MF_GRAYED);
+        _ = EnableMenuItem(menu, SC_MOVE, maximized ? MF_GRAYED : MF_ENABLED);
+        _ = EnableMenuItem(menu, SC_SIZE, maximized ? MF_GRAYED : MF_ENABLED);
+        _ = EnableMenuItem(menu, SC_MINIMIZE, MF_ENABLED);
+        _ = EnableMenuItem(menu, SC_MAXIMIZE, maximized ? MF_GRAYED : MF_ENABLED);
+        _ = EnableMenuItem(menu, SC_CLOSE, MF_ENABLED);
 
         var cmd = TrackPopupMenuEx(menu, TPM_RETURNCMD | TPM_LEFTBUTTON, screenX, screenY, hwnd, IntPtr.Zero);
-        if (cmd != 0)
-            PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)cmd, IntPtr.Zero);
+        if (cmd != 0 && !PostMessage(hwnd, WM_SYSCOMMAND, (IntPtr)cmd, IntPtr.Zero))
+            System.Diagnostics.Debug.WriteLine($"PostMessage(WM_SYSCOMMAND {cmd:X}) failed: {Marshal.GetLastWin32Error()}");
     }
 
     /// <summary>Splits the screen coordinates packed into an NC mouse-message lParam.</summary>
@@ -153,33 +160,40 @@ internal static class ChromeInterop
         return dpi == 0 ? 1.0 : dpi / 96.0;
     }
 
-    // ── P/Invoke ──────────────────────────────────────────────────────────────
+    //   P/Invoke                                
 
     private const int MONITOR_DEFAULTTONEAREST = 2;
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
 
-    [DllImport("user32.dll")]
-    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+    // user32 exports GetMonitorInfoA/W, not "GetMonitorInfo". [DllImport] auto-probed the
+    // suffix (ExactSpelling=false); [LibraryImport] is always ExactSpelling=true, so the
+    // W entry point must be named explicitly or the call throws EntryPointNotFoundException.
+    // Plain MONITORINFO has no string fields, so the W variant needs no extra marshalling.
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(IntPtr hwnd);
+    [LibraryImport("user32.dll")]
+    private static partial uint GetDpiForWindow(IntPtr hwnd);
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetSystemMenu(IntPtr hwnd, bool revert);
+    [LibraryImport("user32.dll")]
+    private static partial IntPtr GetSystemMenu(IntPtr hwnd, [MarshalAs(UnmanagedType.Bool)] bool revert);
 
-    [DllImport("user32.dll")]
-    private static extern int EnableMenuItem(IntPtr hMenu, uint item, uint enable);
+    [LibraryImport("user32.dll")]
+    private static partial int EnableMenuItem(IntPtr hMenu, uint item, uint enable);
 
-    [DllImport("user32.dll")]
-    private static extern uint TrackPopupMenuEx(IntPtr hMenu, uint flags, int x, int y, IntPtr hwnd, IntPtr tpm);
+    [LibraryImport("user32.dll")]
+    private static partial uint TrackPopupMenuEx(IntPtr hMenu, uint flags, int x, int y, IntPtr hwnd, IntPtr tpm);
 
-    [DllImport("user32.dll")]
-    private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+    // Same A/W entry-point rule as GetMonitorInfo: user32 exports PostMessageA/W only.
+    [LibraryImport("user32.dll", EntryPoint = "PostMessageW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT { public int X; public int Y; }

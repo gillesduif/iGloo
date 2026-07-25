@@ -9,7 +9,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ── RUNNING: one fact matters - the hero number ──────────────────── -->
+        <!--   RUNNING: one fact matters - the hero number            -->
         <StackPanel Grid.Row="0"
                     Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
                     VerticalAlignment="Center" HorizontalAlignment="Center"
@@ -134,7 +134,7 @@
 
         </StackPanel>
 
-        <!-- ── ERROR ────────────────────────────────────────────────────────── -->
+        <!--   ERROR                               -->
         <Border Grid.Row="0"
                 Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
                 Style="{StaticResource Card.Danger}" VerticalAlignment="Top">
@@ -147,8 +147,8 @@
             </StackPanel>
         </Border>
 
-        <!-- ── COMPLETE: hero logo above the verification receipt — the logo
-             fills the vertical emptiness and answers "ready for WHAT?". ─────── -->
+        <!--   COMPLETE: hero logo above the verification receipt — the logo
+             fills the vertical emptiness and answers "ready for WHAT?".    ─ -->
         <StackPanel Grid.Row="0"
                     Visibility="{Binding IsComplete, Converter={StaticResource BoolToVis}}"
                     VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -262,7 +262,7 @@
             </Border>
         </StackPanel>
 
-        <!-- ── Cancel (running only) ────────────────────────────────────────── -->
+        <!--   Cancel (running only)                       -->
         <Button Grid.Row="1"
                 Content="Cancel download"
                 Command="{Binding AcquireCancelCommand}"

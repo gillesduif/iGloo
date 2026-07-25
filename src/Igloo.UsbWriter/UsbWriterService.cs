@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Management;
 using System.Runtime.InteropServices;
@@ -43,7 +44,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
     public UsbWriterService(ILogger<UsbWriterService> logger) => _logger = logger;
 
-    // ── Enumerate ─────────────────────────────────────────────────────────────
+    //   Enumerate                               ─
 
     public Task<IReadOnlyList<UsbDriveInfo>> EnumerateDrivesAsync(
         CancellationToken ct = default)
@@ -62,10 +63,10 @@ public sealed partial class UsbWriterService : IUsbWriterService
             ct.ThrowIfCancellationRequested();
 
             var deviceId = obj["DeviceID"]?.ToString() ?? string.Empty;
-            var index = Convert.ToInt32(obj["Index"]);
+            var index = Convert.ToInt32(obj["Index"], CultureInfo.InvariantCulture);
             var model = obj["Model"]?.ToString() ?? "Unknown USB Drive";
             var sizeStr = obj["Size"]?.ToString();
-            var sizeBytes = sizeStr is not null ? long.Parse(sizeStr) : 0L;
+            var sizeBytes = sizeStr is not null ? long.Parse(sizeStr, CultureInfo.InvariantCulture) : 0L;
 
             drives.Add(new UsbDriveInfo(index, model, sizeBytes, deviceId));
             _logger.LogDebug("USB drive found: [{Index}] {Model} ({Size:N0} bytes)", index, model, sizeBytes);
@@ -74,7 +75,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         return Task.FromResult<IReadOnlyList<UsbDriveInfo>>(drives);
     }
 
-    // ── Write (orchestration) ─────────────────────────────────────────────────
+    //   Write (orchestration)                         ─
 
     public async Task WriteAsync(
         UsbDriveInfo drive,
@@ -83,6 +84,8 @@ public sealed partial class UsbWriterService : IUsbWriterService
         IProgress<UsbWriteProgress>? progress,
         CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(drive);
+
         if (!IsCurrentProcessElevated())
             throw new UnauthorizedAccessException(
                 "Writing to a physical drive requires administrator rights. " +
@@ -95,10 +98,10 @@ public sealed partial class UsbWriterService : IUsbWriterService
         // Partition must hold all staging files plus a 256 MB buffer; minimum 512 MB.
         var partSizeMb = (int)Math.Max(512L, stagingSize / (1024 * 1024) + 256);
 
-        // ── Pre-flight: does the drive have enough room? ──────────────────────
+        //   Pre-flight: does the drive have enough room?            
         ValidateFit(drive, isoSize, partSizeMb);
 
-        // ── Dismount volumes on target disk ───────────────────────────────────
+        //   Dismount volumes on target disk                  ─
         // Windows refuses raw WriteFile to \\.\PhysicalDriveN while any volume on
         // that disk is mounted, even from an elevated process (Win32 error 5 /
         // ERROR_ACCESS_DENIED).  We lock and force-dismount every volume on the
@@ -107,7 +110,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         var heldVolumeHandles = LockAndDismountVolumesOnDisk(drive.DriveIndex);
         try
         {
-            // ── Phase 1: raw ISO write - cancelable ───────────────────────────
+            //   Phase 1: raw ISO write - cancelable              ─
 
             _logger.LogInformation(
                 "Phase 1 - writing ISO {Path} ({Size:N0} bytes) to {Device}",
@@ -116,12 +119,12 @@ public sealed partial class UsbWriterService : IUsbWriterService
             progress?.Report(new UsbWriteProgress(
                 UsbWritePhase.WritingIso, 0, isoSize, "Writing installer image…"));
 
-            await WriteIsoRawAsync(drive.DeviceId, isoPath, isoSize, progress, ct);
+            await WriteIsoRawAsync(drive.DeviceId, isoPath, isoSize, progress, ct).ConfigureAwait(false);
 
             // Cancellation point: checked between Phase 1 and Phase 2.
             ct.ThrowIfCancellationRequested();
 
-            // ── GRUB config patch - must run BEFORE EnsureProtectiveMbrAsync ──
+            //   GRUB config patch - must run BEFORE EnsureProtectiveMbrAsync  
             // EnsureProtectiveMbrAsync ends with IOCTL_DISK_UPDATE_PROPERTIES, which
             // tells Windows to re-scan the partition table.  Once Windows sees the
             // new partitions it may auto-mount them, after which raw WriteFile calls
@@ -130,9 +133,10 @@ public sealed partial class UsbWriterService : IUsbWriterService
             // has no idea the partition layout has changed - raw writes always succeed.
             try
             {
-                await PatchGrubConfigAsync(drive, progress);
+                await PatchGrubConfigAsync(drive, progress).ConfigureAwait(false);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or Win32Exception or InvalidOperationException)
             {
                 _logger.LogWarning(ex,
                     "GRUB config patch failed (non-fatal) - boot may require " +
@@ -142,15 +146,15 @@ public sealed partial class UsbWriterService : IUsbWriterService
                     "⚠ GRUB patch failed - you may see a media check error on first boot."));
             }
 
-            // ── MBR → GPT fix (runs before diskpart, no separate UI phase) ──
+            //   MBR → GPT fix (runs before diskpart, no separate UI phase)  
             // Fedora Live ISOs embed a hybrid MBR that fills all 4 primary
             // partition slots, so diskpart cannot create a 5th.  The disk has
             // a valid GPT at LBA 1.  Replace the hybrid MBR partition entries
             // with a single protective-MBR entry (type 0xEE) so Windows exposes
             // the GPT view and diskpart gains room to add the OEMDRV partition.
-            await EnsureProtectiveMbrAsync(drive.DeviceId, drive.SizeBytes);
+            await EnsureProtectiveMbrAsync(drive.DeviceId, drive.SizeBytes).ConfigureAwait(false);
 
-            // ── Phase 2: create OEMDRV partition - atomic (not cancelable) ────
+            //   Phase 2: create OEMDRV partition - atomic (not cancelable)   
 
             _logger.LogInformation("Phase 2 - creating OEMDRV partition on disk {Index}", drive.DriveIndex);
 
@@ -161,10 +165,10 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
             // CancellationToken.None is intentional: interrupting diskpart mid-run can
             // leave the partition table in an inconsistent state.
-            await RunDiskpartAsync(drive.DriveIndex, partSizeMb, driveLetter, CancellationToken.None);
+            await RunDiskpartAsync(drive.DriveIndex, partSizeMb, driveLetter, CancellationToken.None).ConfigureAwait(false);
 
             // Give Windows a moment to mount the new FAT32 volume before we validate.
-            await Task.Delay(2500, CancellationToken.None);
+            await Task.Delay(2500, CancellationToken.None).ConfigureAwait(false);
 
             // Verify that diskpart actually created and mounted the partition.
             // diskpart returns exit code 0 even when individual commands fail silently.
@@ -173,7 +177,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
             // Cancellation point: checked between Phase 2 and Phase 3.
             ct.ThrowIfCancellationRequested();
 
-            // ── Phase 3: copy staging files - cancelable ──────────────────────
+            //   Phase 3: copy staging files - cancelable            
 
             _logger.LogInformation(
                 "Phase 3 - copying staging directory {Dir} to {Letter}:\\",
@@ -182,7 +186,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
             progress?.Report(new UsbWriteProgress(
                 UsbWritePhase.CopyingFiles, 0, stagingSize, "Copying migration files…"));
 
-            await CopyStagingFilesAsync(driveLetter, stagingDirectory, stagingSize, progress, ct);
+            await CopyStagingFilesAsync(driveLetter, stagingDirectory, stagingSize, progress, ct).ConfigureAwait(false);
 
             progress?.Report(new UsbWriteProgress(UsbWritePhase.Complete, 0, 0, "USB drive is ready."));
             _logger.LogInformation("USB write complete - drive {Index} is ready", drive.DriveIndex);
@@ -195,7 +199,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         }
     }
 
-    // ── Pre-flight validation ─────────────────────────────────────────────────
+    //   Pre-flight validation                         ─
 
     /// <summary>
     /// Throws <see cref="InvalidOperationException"/> with a human-readable message
@@ -242,7 +246,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
             "and re-run the writer from the beginning.");
     }
 
-    // ── Phase 1 implementation ────────────────────────────────────────────────
+    //   Phase 1 implementation                         
 
     private async Task WriteIsoRawAsync(
         string deviceId,
@@ -260,7 +264,9 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
         // FILE_FLAG_OVERLAPPED is in dwFlagsAndAttributes (not dwDesiredAccess), so the
         // 0x40000000 value does not conflict with GENERIC_WRITE which is in a different param.
-        var handle = NativeMethods.CreateFileW(
+        // The handle is scoped with 'using': FileStream adopts and closes it, and this
+        // outer using is an idempotent second close that also covers a FileStream ctor throw.
+        using var handle = NativeMethods.CreateFileW(
             deviceId,
             GENERIC_WRITE,
             FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -279,8 +285,8 @@ public sealed partial class UsbWriterService : IUsbWriterService
                 : $"Failed to open physical drive '{deviceId}' (Win32 error {err}).");
         }
 
-        // FileStream takes ownership of the SafeFileHandle and closes it on Dispose.
-        await using var dest = new FileStream(handle, FileAccess.Write, bufferSize: BufferSize, isAsync: true);
+        var dest = new FileStream(handle, FileAccess.Write, bufferSize: BufferSize, isAsync: true);
+        await using var destCfg = dest.ConfigureAwait(false);
         using var src = new FileStream(isoPath, FileMode.Open, FileAccess.Read,
                                          FileShare.Read, bufferSize: BufferSize, useAsync: true);
 
@@ -288,14 +294,14 @@ public sealed partial class UsbWriterService : IUsbWriterService
         var written = 0L;
         int bytesRead;
 
-        while ((bytesRead = await src.ReadAsync(buffer, ct)) > 0)
+        while ((bytesRead = await src.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
         {
             // Physical-drive writes must be sector-aligned (512 bytes); pad last chunk.
             var toWrite = RoundUpToSector(bytesRead);
             if (toWrite != bytesRead)
                 Array.Clear(buffer, bytesRead, toWrite - bytesRead);
 
-            await dest.WriteAsync(buffer.AsMemory(0, toWrite), ct);
+            await dest.WriteAsync(buffer.AsMemory(0, toWrite), ct).ConfigureAwait(false);
             written += bytesRead;
 
             progress?.Report(new UsbWriteProgress(
@@ -303,14 +309,14 @@ public sealed partial class UsbWriterService : IUsbWriterService
                 $"Writing… {written / (1024 * 1024):N0} MB / {isoSize / (1024 * 1024):N0} MB"));
         }
 
-        await dest.FlushAsync(ct);
+        await dest.FlushAsync(ct).ConfigureAwait(false);
         _logger.LogInformation("ISO write complete: {Written:N0} bytes written to {Device}", written, deviceId);
     }
 
     internal static int RoundUpToSector(int bytes, int sectorSize = 512) =>
         ((bytes + sectorSize - 1) / sectorSize) * sectorSize;
 
-    // ── Phase 2 implementation ────────────────────────────────────────────────
+    //   Phase 2 implementation                         
 
     private async Task RunDiskpartAsync(
         int diskIndex,
@@ -318,7 +324,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         char driveLetter,
         CancellationToken ct)
     {
-        // ── TODO v1.1 ──────────────────────────────────────────────────────────
+        //   TODO v1.1                              
         // Consider replacing this diskpart shell-out with the Windows Storage
         // Management API.  Two concrete options:
         //
@@ -337,7 +343,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         //     binary API would surface the error directly.
         //   • stdout is locale-dependent; we do NOT parse it (no English string
         //     matching), but any future diagnostic improvement would be blocked on it.
-        // ──────────────────────────────────────────────────────────────────────
+        //                                    
 
         var script = $"""
             select disk {diskIndex}
@@ -353,7 +359,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
         try
         {
-            await File.WriteAllTextAsync(scriptPath, script, ct);
+            await File.WriteAllTextAsync(scriptPath, script, ct).ConfigureAwait(false);
 
             var psi = new ProcessStartInfo("diskpart.exe", $"/s \"{scriptPath}\"")
             {
@@ -369,10 +375,10 @@ public sealed partial class UsbWriterService : IUsbWriterService
             // Read stdout/stderr concurrently to avoid blocking on large output.
             var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
             var stderrTask = proc.StandardError.ReadToEndAsync(ct);
-            await proc.WaitForExitAsync(ct);
+            await proc.WaitForExitAsync(ct).ConfigureAwait(false);
 
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
+            var stdout = await stdoutTask.ConfigureAwait(false);
+            var stderr = await stderrTask.ConfigureAwait(false);
 
             _logger.LogDebug("diskpart stdout: {Out}", stdout);
             if (!string.IsNullOrWhiteSpace(stderr))
@@ -386,13 +392,25 @@ public sealed partial class UsbWriterService : IUsbWriterService
         }
         finally
         {
-            try
-            { File.Delete(scriptPath); }
-            catch { /* best-effort cleanup */ }
+            TryDeleteFile(scriptPath);
         }
     }
 
-    // ── Phase 3 implementation ────────────────────────────────────────────────
+    /// <summary>Best-effort delete of the temporary diskpart script.</summary>
+    private static bool TryDeleteFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    //   Phase 3 implementation
 
     private async Task CopyStagingFilesAsync(
         char driveLetter,
@@ -415,14 +433,16 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
             Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 
-            await using var srcStream = new FileStream(
+            var srcStream = new FileStream(
                 srcPath, FileMode.Open, FileAccess.Read, FileShare.Read,
                 bufferSize: BufferSize, useAsync: true);
-            await using var destStream = new FileStream(
+            await using var srcStreamCfg = srcStream.ConfigureAwait(false);
+            var destStream = new FileStream(
                 destPath, FileMode.Create, FileAccess.Write, FileShare.None,
                 bufferSize: BufferSize, useAsync: true);
+            await using var destStreamCfg = destStream.ConfigureAwait(false);
 
-            await srcStream.CopyToAsync(destStream, ct);
+            await srcStream.CopyToAsync(destStream, ct).ConfigureAwait(false);
 
             written += fileSize;
             progress?.Report(new UsbWriteProgress(
@@ -433,7 +453,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         _logger.LogInformation("Staging copy complete: {Written:N0} bytes copied to {Root}", written, destRoot);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    //   Helpers                                ─
 
     private static bool IsCurrentProcessElevated() =>
         new WindowsPrincipal(WindowsIdentity.GetCurrent())

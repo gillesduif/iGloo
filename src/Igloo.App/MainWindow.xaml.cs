@@ -19,7 +19,7 @@ public sealed partial class MainWindow : Window
         SourceInitialized += OnSourceInitialized;
     }
 
-    // ── Custom chrome plumbing ────────────────────────────────────────────────
+    //   Custom chrome plumbing                         
 
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
@@ -131,14 +131,14 @@ public sealed partial class MainWindow : Window
     private void ToggleMaximizeRestore() =>
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
 
-    private static Brush Frozen(Color color)
+    private static SolidColorBrush Frozen(Color color)
     {
         var brush = new SolidColorBrush(color);
         brush.Freeze();
         return brush;
     }
 
-    // ── Caption buttons ───────────────────────────────────────────────────────
+    //   Caption buttons                            ─
 
     private void OnMinimizeClick(object sender, RoutedEventArgs e) =>
         WindowState = WindowState.Minimized;
@@ -147,7 +147,7 @@ public sealed partial class MainWindow : Window
 
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
 
-    // ── Step transition ───────────────────────────────────────────────────────
+    //   Step transition                            ─
 
     /// <summary>
     /// Light fade/slide when the wizard step changes (200 ms, ease-out). Purely

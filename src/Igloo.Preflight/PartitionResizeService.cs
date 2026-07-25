@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Management;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -22,7 +24,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
 
     public PartitionResizeService(ILogger<PartitionResizeService> logger) => _logger = logger;
 
-    // ── IPartitionResizeService ───────────────────────────────────────────────
+    //   IPartitionResizeService                        ─
 
     public Task<long> GetShrinkableSpaceAsync(int diskNumber, CancellationToken ct = default)
         => Task.Run(() => GetShrinkableSpace(diskNumber), ct);
@@ -31,7 +33,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
         IProgress<string>? progress = null, CancellationToken ct = default)
         => Task.Run(() => Shrink(diskNumber, linuxSizeBytes, progress, ct), ct);
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    //   Private helpers                            ─
 
     private long GetShrinkableSpace(int diskNumber)
     {
@@ -69,8 +71,8 @@ public sealed class PartitionResizeService : IPartitionResizeService
 
         // Obtain precise size limits.
         var outSizes = mo.InvokeMethod("GetSupportedSize", null, null)!;
-        var sizeMin = Convert.ToInt64(outSizes["SizeMin"]);
-        var sizeMax = Convert.ToInt64(outSizes["SizeMax"]);
+        var sizeMin = Convert.ToInt64(outSizes["SizeMin"], CultureInfo.InvariantCulture);
+        var sizeMax = Convert.ToInt64(outSizes["SizeMax"], CultureInfo.InvariantCulture);
 
         // New size = current size − linux allocation, aligned down to 1 MiB.
         long newSize = sizeMax - linuxSizeBytes;
@@ -95,7 +97,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
         var inParams = mo.GetMethodParameters("Resize");
         inParams["Size"] = (ulong)newSize;
         var result = mo.InvokeMethod("Resize", inParams, null)!;
-        var returnVal = Convert.ToUInt32(result["ReturnValue"]);
+        var returnVal = Convert.ToUInt32(result["ReturnValue"], CultureInfo.InvariantCulture);
 
         if (returnVal != 0)
             throw new InvalidOperationException(
@@ -138,12 +140,12 @@ public sealed class PartitionResizeService : IPartitionResizeService
                     if (outSizes is null)
                         continue;
 
-                    var returnValue = Convert.ToUInt32(outSizes["ReturnValue"]);
+                    var returnValue = Convert.ToUInt32(outSizes["ReturnValue"], CultureInfo.InvariantCulture);
                     if (returnValue != 0)
                         continue;
 
-                    var sizeMin = Convert.ToInt64(outSizes["SizeMin"]);
-                    var sizeMax = Convert.ToInt64(outSizes["SizeMax"]);
+                    var sizeMin = Convert.ToInt64(outSizes["SizeMin"], CultureInfo.InvariantCulture);
+                    var sizeMax = Convert.ToInt64(outSizes["SizeMax"], CultureInfo.InvariantCulture);
                     var shrinkable = sizeMax - sizeMin;
 
                     if (shrinkable > bestShrinkable)
@@ -153,7 +155,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
                         bestShrinkable = shrinkable;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
                 {
                     _logger.LogDebug(ex, "GetSupportedSize skipped for drive {Letter}", dl);
                 }
@@ -165,7 +167,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
 
             return (best, bestShrinkable);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "FindNtfsPartition failed for disk {Disk}", diskNumber);
             return (null, 0);

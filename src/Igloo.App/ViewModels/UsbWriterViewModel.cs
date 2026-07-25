@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Text;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -31,7 +32,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     private DiskInstallMode _installMode = DiskInstallMode.ReplaceDisk;
     private int _linuxSizeGb;
 
-    // ── Observable state ──────────────────────────────────────────────────────
+    //   Observable state                            
 
     [ObservableProperty]
     private ObservableCollection<UsbDriveInfo> _drives = [];
@@ -96,7 +97,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
     private long _bytesTotal;
 
-    // ── Derived ───────────────────────────────────────────────────────────────
+    //   Derived                                ─
 
     /// <summary>
     /// <c>true</c> when the user has selected a drive and no write is in progress.
@@ -113,7 +114,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     public double ProgressPercent => BytesTotal > 0 ? BytesWritten * 100.0 / BytesTotal : 0;
     public bool IsProgressIndeterminate => BytesTotal == 0;
 
-    // ── Constructor ───────────────────────────────────────────────────────────
+    //   Constructor                              ─
 
     public UsbWriterViewModel(
         IUsbWriterService writer,
@@ -125,7 +126,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         _logger = logger;
     }
 
-    // ── API called by MainWindowViewModel ─────────────────────────────────────
+    //   API called by MainWindowViewModel                   ─
 
     /// <summary>
     /// Stores paths produced by prior wizard steps and resets all observable state.
@@ -138,6 +139,9 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         DiskInstallMode installMode = DiskInstallMode.ReplaceDisk,
         int linuxSizeGb = 0)
     {
+        ArgumentNullException.ThrowIfNull(isoResult);
+        ArgumentNullException.ThrowIfNull(stagingResult);
+
         _isoPath = isoResult.LocalPath;
         _stagingDirectory = stagingResult.StagingDirectory;
         _targetDisk = targetDisk;
@@ -156,7 +160,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         GrubPatchNote = null;
     }
 
-    // ── Commands ──────────────────────────────────────────────────────────────
+    //   Commands                                
 
     /// <summary>Populates <see cref="Drives"/> by querying WMI for USB mass-storage devices.</summary>
     [RelayCommand]
@@ -175,8 +179,11 @@ public sealed partial class UsbWriterViewModel : ObservableObject
 
             _logger.LogInformation("Drive enumeration complete: {Count} USB drive(s) found", Drives.Count);
         }
-        catch (OperationCanceledException) { /* navigation away */ }
-        catch (Exception ex)
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug("USB drive enumeration cancelled (navigated away)");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to enumerate USB drives");
         }
@@ -226,7 +233,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
 
         try
         {
-            // ── Step 0: Shrink Windows partition (dual-boot only) ─────────────
+            //   Step 0: Shrink Windows partition (dual-boot only)       ─
             if (_installMode == DiskInstallMode.DualBoot && _targetDisk is not null && _linuxSizeGb > 0)
             {
                 CurrentPhase = UsbWritePhase.ShrinkingPartition;
@@ -234,7 +241,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
 
                 const string prefix = "\\\\.\\PHYSICALDRIVE";
                 int diskNumber = int.Parse(
-                    _targetDisk.DeviceId.AsSpan()[prefix.Length..]);
+                    _targetDisk.DeviceId.AsSpan()[prefix.Length..], CultureInfo.InvariantCulture);
 
                 long linuxBytes = (long)_linuxSizeGb * 1024 * 1024 * 1024;
 
@@ -251,7 +258,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
                 await _resizer.ShrinkAsync(diskNumber, linuxBytes, shrinkProgress, ct);
             }
 
-            // ── Step 1-4: Write USB ───────────────────────────────────────────
+            //   Step 1-4: Write USB                      ─
             await _writer.WriteAsync(
                 SelectedDrive, _isoPath, _stagingDirectory, progress, ct);
 
@@ -279,7 +286,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
             ErrorMessage = ex.Message;
             ErrorDetail = BuildErrorDetail(ex);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "USB write failed");
             HasError = true;
@@ -296,7 +303,7 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     [RelayCommand]
     private static void Finish() => Application.Current.Shutdown();
 
-    // ── Error formatting ──────────────────────────────────────────────────────
+    //   Error formatting                            
 
     /// <summary>
     /// Builds a multi-line technical dump suitable for display and copy-paste.
@@ -311,14 +318,14 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         while (current is not null)
         {
             if (depth > 0)
-                sb.AppendLine().AppendLine("── inner exception ───────────────────────────────");
+                sb.AppendLine().AppendLine("  inner exception                ─");
 
             sb.Append('[').Append(current.GetType().FullName).AppendLine("]");
             sb.AppendLine(current.Message);
 
             if (current is System.ComponentModel.Win32Exception w32)
                 sb.Append("Win32 error code: ").Append(w32.NativeErrorCode)
-                  .Append(" (0x").Append(w32.NativeErrorCode.ToString("X8")).AppendLine(")");
+                  .Append(" (0x").Append(w32.NativeErrorCode.ToString("X8", CultureInfo.InvariantCulture)).AppendLine(")");
 
             if (!string.IsNullOrWhiteSpace(current.StackTrace))
             {

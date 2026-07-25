@@ -12,7 +12,7 @@ namespace Igloo.UsbWriter.Tests;
 /// </summary>
 public class UsbWriterPureLogicTests
 {
-    // ── PatchGrubCfgContent ──────────────────────────────────────────────────
+    //   PatchGrubCfgContent                          
 
     [Fact]
     public void Kernel_lines_get_nomodeset_and_lose_rd_live_check()
@@ -61,7 +61,7 @@ public class UsbWriterPureLogicTests
         patched.Should().Be("\tlinux /vmlinuz quiet nomodeset\r\nboot\r\n");
     }
 
-    // ── Fat32Make83 ──────────────────────────────────────────────────────────
+    //   Fat32Make83                              
 
     [Theory]
     [InlineData("grub.cfg", "GRUB    CFG")]
@@ -72,7 +72,7 @@ public class UsbWriterPureLogicTests
         Encoding.ASCII.GetString(UsbWriterService.Fat32Make83(name)).Should().Be(expected);
     }
 
-    // ── GptCrc32 ─────────────────────────────────────────────────────────────
+    //   GptCrc32                               ─
 
     [Fact]
     public void Crc32_matches_the_ieee_check_value()
@@ -83,7 +83,7 @@ public class UsbWriterPureLogicTests
         UsbWriterService.GptCrc32(data, data.Length).Should().Be(0xCBF43926u);
     }
 
-    // ── RoundUpToSector ──────────────────────────────────────────────────────
+    //   RoundUpToSector                            
 
     [Theory]
     [InlineData(0, 0)]
@@ -95,7 +95,7 @@ public class UsbWriterPureLogicTests
         UsbWriterService.RoundUpToSector(bytes).Should().Be(expected);
     }
 
-    // ── ValidateFit ──────────────────────────────────────────────────────────
+    //   ValidateFit                              
 
     private static UsbDriveInfo Drive(long sizeBytes) =>
         new(1, "Test Stick", sizeBytes, @"\\.\PHYSICALDRIVE1");

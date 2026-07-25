@@ -105,6 +105,47 @@ dotnet_naming_style.begins_with_i.capitalization = pascal_case
 # Async methods: PascalCaseAsync suffix is a convention, not enforced here
 # (public plugin contract is frozen; see REFACTOR_NOTES.md).
 
+# ── Analyzer policy ─────────────────────────────────────────────────────────
+# CA1848 (use LoggerMessage delegates) is a micro-optimisation aimed at hot
+# logging paths. iGloo's logging is low-frequency desktop-installer telemetry,
+# so the source-generated-delegate ceremony is not worth the churn on every call
+# site. Suppressed by policy (a handful of services already use LoggerMessage;
+# that is fine, it is just not required).
+dotnet_diagnostic.CA1848.severity = none
+
+# ── Igloo.App (WPF) analyzer policy ─────────────────────────────────────────
+# CA2007 (call ConfigureAwait) is a library concern. Igloo.App is a WPF UI app:
+# ConfigureAwait(false) drops the caller off the UI thread, so any await that is
+# followed by UI access (a very common pattern in view-models) would throw a
+# cross-thread InvalidOperationException. App project templates disable CA2007 for
+# exactly this reason; the library projects keep it on.
+[src/Igloo.App/**.cs]
+dotnet_diagnostic.CA2007.severity = none
+
+# CA1515 (make public types internal) targets library API hygiene. Igloo.App is the
+# leaf WinExe entry assembly — no external consumers — and its public types are
+# referenced from XAML (x:Class code-behind, {x:Type}, <local:Converter/>, DataTemplate
+# DataType). Forcing them internal risks breaking XAML compilation and the designer for
+# no benefit, so this rule is disabled for the app.
+dotnet_diagnostic.CA1515.severity = none
+
+# ── Test projects analyzer policy ───────────────────────────────────────────
+# CA1707 (no underscores in member names) fights the xUnit Method_Scenario_Expected
+# naming convention that documents each test's intent; CA2007 (ConfigureAwait) is a
+# library concern with no meaning in test code. Both are disabled under tests/.
+[tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA2007.severity = none
+# Public-API-hygiene rules that carry no weight in test code: tests have no external
+# callers (CA1062 arg validation), their fixtures are plain data holders (CA1819
+# array properties), and xUnit IClassFixture/theory-data types are conventionally
+# nested (CA1034).
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1819.severity = none
+dotnet_diagnostic.CA1034.severity = none
+# xUnit requires public test classes for discovery, so they cannot be made internal.
+dotnet_diagnostic.CA1515.severity = none
+
 # Generated code: leave alone
 [**/obj/**.cs]
 generated_code = true

@@ -75,7 +75,7 @@
 
     <Grid>
 
-        <!-- ── 1. RUNNING ─────────────────────────────────────────────────── -->
+        <!--   1. RUNNING                          ─ -->
         <StackPanel Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
                     VerticalAlignment="Center" HorizontalAlignment="Center">
 
@@ -142,7 +142,7 @@
                        Margin="0,6,0,0" HorizontalAlignment="Center" />
         </StackPanel>
 
-        <!-- ── 2. ERROR ───────────────────────────────────────────────────── -->
+        <!--   2. ERROR                           ─ -->
         <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
                 Style="{StaticResource Card.Danger}" VerticalAlignment="Top">
             <StackPanel>
@@ -154,7 +154,7 @@
             </StackPanel>
         </Border>
 
-        <!-- ── 3. RESULTS: the instrument panel ───────────────────────────── -->
+        <!--   3. RESULTS: the instrument panel               ─ -->
         <ScrollViewer Visibility="{Binding HasReport, Converter={StaticResource BoolToVis}}"
                       VerticalScrollBarVisibility="Auto">
             <StackPanel>
@@ -292,7 +292,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ── Existing Linux installations ─────────────────────────── -->
+                <!--   Existing Linux installations              ─ -->
                 <TextBlock Text="LINUX ON THIS PC" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
                            Visibility="{Binding HasLinux, Converter={StaticResource BoolToVis}}" />
 
@@ -323,7 +323,7 @@
                             </TextBlock>
                         </StackPanel>
 
-                        <Button Grid.Column="2" Content="Remove Linux…"
+                        <Button Grid.Column="2" Content="Remove Linux"
                                 Style="{StaticResource Button.Danger}"
                                 Command="{Binding RemoveLinuxCommand}"
                                 VerticalAlignment="Center" />
@@ -371,7 +371,7 @@
                                  Text="{Binding SeedLeftoverSummary, Mode=OneWay}" />
                         </TextBlock>
 
-                        <Button Content="Remove selected…"
+                        <Button Content="Remove selection"
                                 Style="{StaticResource Button.Danger}"
                                 Command="{Binding RemoveSelectedLinuxCommand}"
                                 HorizontalAlignment="Left" Margin="4,10,0,2" />
@@ -395,7 +395,7 @@
                                  Text="{Binding SeedLeftoverSummary, Mode=OneWay}" /><Run
                                  Text=". They are safe to remove; the space becomes unallocated." />
                         </TextBlock>
-                        <Button Grid.Column="1" Content="Remove…"
+                        <Button Grid.Column="1" Content="Remove"
                                 Style="{StaticResource Button.Danger}"
                                 Command="{Binding RemoveSeedLeftoversCommand}"
                                 VerticalAlignment="Center" />

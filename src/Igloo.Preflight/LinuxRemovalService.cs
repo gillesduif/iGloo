@@ -1,6 +1,9 @@
+using System.Globalization;
 using System.IO;
 using System.Management;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
@@ -114,7 +117,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
         progress?.Report("Removal complete.");
     }
 
-    // ── Reclaim freed space ──────────────────────────────────────────────────
+    //   Reclaim freed space                          
 
     /// <summary>
     /// Extends the disk's main lettered partition (C: on the Windows disk) into
@@ -139,7 +142,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             foreach (var p in results.Cast<ManagementObject>())
             {
                 var dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
-                var size = dl == '\0' ? 0 : Convert.ToInt64(p["Size"]);
+                var size = dl == '\0' ? 0 : Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture);
                 if (size > bestSize)
                 {
                     best?.Dispose();
@@ -157,10 +160,10 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             {
                 var supported = best.InvokeMethod("GetSupportedSize",
                     best.GetMethodParameters("GetSupportedSize"), null)!;
-                if (Convert.ToUInt32(supported["ReturnValue"]) != 0)
+                if (Convert.ToUInt32(supported["ReturnValue"], CultureInfo.InvariantCulture) != 0)
                     return;
 
-                var sizeMax = Convert.ToInt64(supported["SizeMax"]);
+                var sizeMax = Convert.ToInt64(supported["SizeMax"], CultureInfo.InvariantCulture);
                 var gainBytes = sizeMax - bestSize;
                 if (gainBytes < 64 * MiB)
                     return;   // no adjacent space to grow into
@@ -171,7 +174,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 var inParams = best.GetMethodParameters("Resize");
                 inParams["Size"] = (ulong)sizeMax;
                 var result = best.InvokeMethod("Resize", inParams, null)!;
-                var returnValue = Convert.ToUInt32(result["ReturnValue"]);
+                var returnValue = Convert.ToUInt32(result["ReturnValue"], CultureInfo.InvariantCulture);
                 if (returnValue != 0)
                     _logger.LogWarning(
                         "Resize({Letter}:) to reclaim freed space returned {Code} (non-fatal) - " +
@@ -181,14 +184,14 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                         bestLetter, diskNumber, gainGb);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex,
                 "Could not reclaim freed space on disk {Disk} (non-fatal)", diskNumber);
         }
     }
 
-    // ── EFI System Partition cleanup ─────────────────────────────────────────
+    //   EFI System Partition cleanup                     ─
 
     /// <summary>
     /// Loader folders under \EFI\ that belong to Linux boot chains. STRICT
@@ -235,7 +238,8 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 CleanOneEsp(volumePath);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or InvalidCastException
+                                   or InvalidOperationException or IOException or UnauthorizedAccessException or SecurityException)
         {
             _logger.LogWarning(ex, "ESP cleanup failed (non-fatal) - Linux boot " +
                 "folders may remain on the EFI partition");
@@ -272,7 +276,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             Directory.Delete(dir, recursive: true);
             _logger.LogInformation("Deleted Linux boot folder {Dir} from the ESP", dir);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
             _logger.LogWarning(ex, "Could not delete {Dir} (non-fatal)", dir);
         }
@@ -292,7 +296,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 _logger.LogInformation("RealTimeIsUniversal removed - Windows RTC back to local time");
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
         {
             _logger.LogWarning(ex, "Could not remove RealTimeIsUniversal (non-fatal)");
         }
@@ -317,7 +321,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             using (partition)
             {
                 var result = partition.InvokeMethod("DeleteObject", partition.GetMethodParameters("DeleteObject"), null)!;
-                var returnValue = Convert.ToUInt32(result["ReturnValue"]);
+                var returnValue = Convert.ToUInt32(result["ReturnValue"], CultureInfo.InvariantCulture);
                 if (returnValue != 0)
                 {
                     _logger.LogError("MSFT_Partition.DeleteObject({Disk}:{Part}) returned {Code}",
@@ -329,7 +333,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             _logger.LogInformation("Deleted partition {Disk}:{Part}", diskNumber, partitionNumber);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogError(ex, "DeletePartition({Disk}:{Part}) failed", diskNumber, partitionNumber);
             return false;

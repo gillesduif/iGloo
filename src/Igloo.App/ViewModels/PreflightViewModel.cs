@@ -14,7 +14,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     private readonly ILogger<PreflightViewModel> _logger;
     private readonly ILinuxRemovalService _linuxRemoval;
 
-    // ── Observable state ────────────────────────────────────────────────────
+    //   Observable state                           
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -26,7 +26,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     [ObservableProperty]
     private PreflightReport? _report;
 
-    // ── Derived / display properties (all recomputed when Report changes) ──
+    //   Derived / display properties (all recomputed when Report changes)  
 
     public bool HasReport => Report is not null;
     public bool HasError => ErrorMessage is not null;
@@ -74,7 +74,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     /// <summary>Presentation model for the Disk Management-style partition bars.</summary>
     public IReadOnlyList<DiskView> DiskViews => BuildDiskViews();
 
-    // ── Constructor ─────────────────────────────────────────────────────────
+    //   Constructor                             ─
 
     public PreflightViewModel(IPreflightChecker checker, ILinuxRemovalService linuxRemoval,
         ILogger<PreflightViewModel> logger)
@@ -85,7 +85,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     }
 
 
-    // ── Action-status banners (shown after one-click fixes) ──────────────────
+    //   Action-status banners (shown after one-click fixes)          
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasBitLockerActionStatus))]
@@ -93,7 +93,7 @@ public sealed partial class PreflightViewModel : ObservableObject
 
     public bool HasBitLockerActionStatus => BitLockerActionStatus is not null;
 
-    // ── Existing Linux installations (detect + remove) ───────────────────────
+    //   Existing Linux installations (detect + remove)            ─
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasLinuxActionStatus))]
@@ -175,14 +175,14 @@ public sealed partial class PreflightViewModel : ObservableObject
                 await RunCheckCommand.ExecuteAsync(null);
             LinuxActionStatus = null;   // the refreshed report speaks for itself
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Linux removal failed");
             LinuxActionStatus = $"Removal failed: {ex.Message}";
         }
     }
 
-    // ── Commands ─────────────────────────────────────────────────────────────
+    //   Commands                               ─
 
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task RunCheckAsync(CancellationToken ct)
@@ -199,7 +199,7 @@ public sealed partial class PreflightViewModel : ObservableObject
         {
             _logger.LogInformation("Pre-flight check cancelled");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Pre-flight check failed");
             ErrorMessage = $"System check failed: {ex.Message}";
@@ -252,7 +252,7 @@ public sealed partial class PreflightViewModel : ObservableObject
                     "Try running 'manage-bde -off C:' in an elevated command prompt.";
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "DisableBitLocker failed");
             BitLockerActionStatus = $"Error: {ex.Message}";
@@ -287,7 +287,7 @@ public sealed partial class PreflightViewModel : ObservableObject
                 CreateNoWindow = true,
             });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "RestartToFirmware failed");
             MessageBox.Show(
@@ -297,7 +297,7 @@ public sealed partial class PreflightViewModel : ObservableObject
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    //   Helpers                                
 
     /// <summary>
     /// Returns the full path to a System32 executable, bypassing WOW64 file-system
@@ -317,7 +317,7 @@ public sealed partial class PreflightViewModel : ObservableObject
             : Path.Combine(winRoot, "System32", exeName);
     }
 
-    // ── Partition-bar presentation model ─────────────────────────────────────
+    //   Partition-bar presentation model                   ─
 
     /// <summary>
     /// Gaps below this size are alignment noise (the ~1 MiB GPT lead-in, sector
@@ -325,7 +325,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     /// </summary>
     private const long UnallocatedThresholdBytes = 32L * 1024 * 1024;
 
-    private IReadOnlyList<DiskView> BuildDiskViews()
+    private List<DiskView> BuildDiskViews()
     {
         if (Report is null)
             return [];
@@ -371,13 +371,13 @@ public sealed partial class PreflightViewModel : ObservableObject
 
     // GPT partition-type GUIDs, lowercase and unbraced to match the normalization
     // in ClassifyPartition.
-    private const string GptTypeEfi = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b";
-    private const string GptTypeMsr = "e3c9e316-0b5c-4db8-817d-f92df00215ae";
-    private const string GptTypeWindowsRecovery = "de94bba4-06d1-4d40-a16a-bfd50179d6ac";
-    private const string GptTypeLinuxFilesystem = "0fc63daf-8483-4772-8e79-3d69d8477de4";
-    private const string GptTypeLinuxSwap = "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f";
-    private const string GptTypeLinuxLvm = "e6d6d379-f507-44c2-a23c-238f2a3df928";
-    private const string GptTypeLinuxHome = "933ac7e1-2eb4-4f13-b844-0e14e2aef915";
+    private const string GptTypeEfi = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B";
+    private const string GptTypeMsr = "E3C9E316-0B5C-4DB8-817D-F92DF00215AE";
+    private const string GptTypeWindowsRecovery = "DE94BBA4-06D1-4D40-A16A-BFD50179D6AC";
+    private const string GptTypeLinuxFilesystem = "0FC63DAF-8483-4772-8E79-3D69D8477DE4";
+    private const string GptTypeLinuxSwap = "0657FD6D-A4AB-43C4-84E5-0933C84B4F4F";
+    private const string GptTypeLinuxLvm = "E6D6D379-F507-44C2-A23C-238F2A3DF928";
+    private const string GptTypeLinuxHome = "933AC7E1-2EB4-4F13-B844-0E14E2AEF915";
 
     /// <summary>
     /// Names label-less service partitions by their GPT type GUID (the reason
@@ -386,7 +386,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     /// </summary>
     private static (string Kind, string Name) ClassifyPartition(PartitionInfo p)
     {
-        var gpt = p.GptType?.Trim('{', '}').ToLowerInvariant();
+        var gpt = p.GptType?.Trim('{', '}').ToUpperInvariant();
         switch (gpt)
         {
             case GptTypeEfi:
@@ -418,7 +418,7 @@ public sealed partial class PreflightViewModel : ObservableObject
         return ("Unknown", p.Label ?? "Partition");
     }
 
-    // ── Property-change hooks ────────────────────────────────────────────────
+    //   Property-change hooks                         
 
     partial void OnReportChanged(PreflightReport? value)
     {

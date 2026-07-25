@@ -26,12 +26,12 @@
 # validation on hardware, exactly as the Fedora path did.
 # ============================================================================
 
-# ── Localization ────────────────────────────────────────────────────────────
+#   Localization                               
 d-i debian-installer/locale string {{LOCALE}}
 d-i keyboard-configuration/xkb-keymap select {{KEYMAP}}
 d-i console-setup/ask_detect boolean false
 
-# ── Network ─────────────────────────────────────────────────────────────────
+#   Network                                 ─
 d-i netcfg/choose_interface select auto
 d-i netcfg/get_hostname string {{HOSTNAME}}
 d-i netcfg/get_domain string local
@@ -39,7 +39,7 @@ d-i netcfg/hostname string {{HOSTNAME}}
 # Allow non-free firmware to load (Wi-Fi/GPU firmware on real hardware).
 d-i hw-detect/load_firmware boolean true
 
-# ── Mirror / apt ────────────────────────────────────────────────────────────
+#   Mirror / apt                               
 d-i mirror/country string manual
 d-i mirror/http/hostname string deb.debian.org
 d-i mirror/http/directory string /debian
@@ -48,12 +48,12 @@ d-i apt-setup/non-free-firmware boolean true
 d-i apt-setup/non-free boolean true
 d-i apt-setup/contrib boolean true
 
-# ── Clock / timezone ────────────────────────────────────────────────────────
+#   Clock / timezone                             
 d-i clock-setup/utc boolean true
 d-i time/zone string {{TIMEZONE}}
 d-i clock-setup/ntp boolean true
 
-# ── Accounts ────────────────────────────────────────────────────────────────
+#   Accounts                                 
 # Lock the root account; the new user gets sudo via the "sudo" group.
 d-i passwd/root-login boolean false
 d-i passwd/user-fullname string {{FULL_NAME}}
@@ -63,7 +63,7 @@ d-i passwd/user-password-again password {{PASSWORD}}
 d-i user-setup/allow-password-weak boolean true
 d-i user-setup/encrypt-home boolean false
 
-# ── Partitioning ────────────────────────────────────────────────────────────
+#   Partitioning                               
 # Igloo already shrank Windows before boot, leaving unallocated free space.
 # dual-boot → install into the biggest free region, preserving Windows + ESP.
 # replace   → use the whole disk.
@@ -84,7 +84,7 @@ d-i partman/choose_partition select finish
 d-i partman/confirm boolean true
 d-i partman/confirm_nooverwrite boolean true
 
-# ── Base + desktop ──────────────────────────────────────────────────────────
+#   Base + desktop                              
 d-i base-installer/install-recommends boolean true
 tasksel tasksel/first multiselect standard, gnome-desktop
 # ntfs-3g so the first-boot agent can read the Windows partition; the rest is
@@ -93,16 +93,16 @@ d-i pkgsel/include string ntfs-3g python3 python3-apt rsync git network-manager
 d-i pkgsel/upgrade select full-upgrade
 popularity-contest popularity-contest/participate boolean false
 
-# ── Bootloader ──────────────────────────────────────────────────────────────
+#   Bootloader                                
 # os-prober adds the Windows entry so dual-boot users get a menu every startup.
 d-i grub-installer/only_debian boolean true
 d-i grub-installer/with_other_os boolean true
 d-i grub-installer/bootdev string default
 
-# ── Finish ──────────────────────────────────────────────────────────────────
+#   Finish                                  
 d-i finish-install/reboot_in_progress note
 
-# ── Bootstrap the Igloo first-boot agent ────────────────────────────────────
+#   Bootstrap the Igloo first-boot agent                   
 # Runs in the installer (busybox) environment; /target is the new system.
 # Mounts OEMDRV (FAT32), copies the agent + manifest + systemd unit into the
 # installed system, blacklists nouveau for a clean first boot on NVIDIA, and

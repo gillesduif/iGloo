@@ -1,0 +1,81 @@
+name: Bug report
+description: Something went wrong during a check, install, migration, or removal.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. iGloo changes disk layout, so details matter.
+        **Please redact any Wi-Fi passphrase or account password** before pasting logs or a manifest.
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Environment
+      options:
+        - label: This happened on a test machine / VM, not a system with data I couldn't lose.
+        - label: I ran iGloo as Administrator.
+
+  - type: input
+    id: version
+    attributes:
+      label: iGloo version or commit
+      placeholder: "0.0.1-alpha, or the commit hash"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: distro
+    attributes:
+      label: Distribution
+      options:
+        - Fedora KDE
+        - Debian
+        - Linux Mint Cinnamon
+        - Ubuntu
+        - Other / not distro-specific
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Install mode
+      options:
+        - Dual-boot (keep Windows)
+        - Replace disk (Linux only)
+        - USB writer
+        - N/A — failed before choosing
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version and hardware
+      placeholder: "e.g. Windows 11 23H2 · Gigabyte B650 · NVIDIA RTX 4070 · NVMe"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what actually occurred.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Windows: `%LOCALAPPDATA%\iGloo\logs\`. Target Linux (if it got that far):
+        `bootstrap.log` / `agent.log`, or `first-boot.log` on Fedora. Redact secrets.
+      render: text
+
+  - type: textarea
+    id: data-loss
+    attributes:
+      label: Did this involve data loss or an unbootable machine?
+      description: If yes, describe what was lost or what state the machine was left in. These are our highest priority.

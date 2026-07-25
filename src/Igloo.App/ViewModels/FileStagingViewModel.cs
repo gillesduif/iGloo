@@ -24,7 +24,6 @@ namespace Igloo.App.ViewModels;
 public sealed partial class FileStagingViewModel : ObservableObject
 {
     private readonly IFileStagingService _stagingService;
-    private readonly ManifestGeneratorService _manifestGenerator;
     private readonly DistroRegistry _registry;
     private readonly ILogger<FileStagingViewModel> _logger;
 
@@ -39,7 +38,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
     private static readonly JsonSerializerOptions PrettyJson =
         new() { WriteIndented = true };
 
-    // ── Observable state ────────────────────────────────────────────────────
+    //   Observable state                           
 
     [ObservableProperty] private FileStagingPhase _phase = FileStagingPhase.Scanning;
 
@@ -60,7 +59,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private FileStagingResult? _result;
 
-    // ── Derived ──────────────────────────────────────────────────────────────
+    //   Derived                                
 
     public double ProgressPercent => BytesTotal > 0 ? BytesCopied * 100.0 / BytesTotal : 0;
     public bool IsProgressIndeterminate => BytesTotal == 0;
@@ -74,21 +73,19 @@ public sealed partial class FileStagingViewModel : ObservableObject
         _ => string.Empty,
     };
 
-    // ── Constructor ──────────────────────────────────────────────────────────
+    //   Constructor                              
 
     public FileStagingViewModel(
         IFileStagingService stagingService,
-        ManifestGeneratorService manifestGenerator,
         DistroRegistry registry,
         ILogger<FileStagingViewModel> logger)
     {
         _stagingService = stagingService;
-        _manifestGenerator = manifestGenerator;
         _registry = registry;
         _logger = logger;
     }
 
-    // ── API called by MainWindowViewModel ────────────────────────────────────
+    //   API called by MainWindowViewModel                   
 
     /// <summary>
     /// Stores the user's choices and resets all observable state.
@@ -102,6 +99,9 @@ public sealed partial class FileStagingViewModel : ObservableObject
         DiskInstallMode installMode = DiskInstallMode.ReplaceDisk,
         int linuxSizeGb = 0)
     {
+        ArgumentNullException.ThrowIfNull(setup);
+        ArgumentNullException.ThrowIfNull(distro);
+
         _setup = setup;
         _preflightReport = report;
         _distroId = distro.Id;
@@ -120,7 +120,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
         CurrentFile = null;
     }
 
-    // ── Command ──────────────────────────────────────────────────────────────
+    //   Command                                
 
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task StageAsync(CancellationToken ct)
@@ -143,10 +143,10 @@ public sealed partial class FileStagingViewModel : ObservableObject
 
         try
         {
-            // ── Step 1: Copy files ───────────────────────────────────────────
+            //   Step 1: Copy files                      ─
             var stagingResult = await _stagingService.StageAsync(_request, progress, ct);
 
-            // ── Step 2: Generate migration manifest ──────────────────────────
+            //   Step 2: Generate migration manifest              
             Phase = FileStagingPhase.Generating;
             OnPropertyChanged(nameof(PhaseDisplay));
 
@@ -172,7 +172,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
                 WifiNetworks = wifiNetworks,
             };
 
-            var manifest = _manifestGenerator.Generate(
+            var manifest = ManifestGeneratorService.Generate(
                 _distroId, userSetup, _preflightReport, stagingResult,
                 _targetDisk, _installMode, _linuxSizeGb);
 
@@ -183,7 +183,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
                 ct);
             _logger.LogInformation("Migration manifest written to {Path}", manifestPath);
 
-            // ── Step 3: Plugin renders installer config + agent ──────────────
+            //   Step 3: Plugin renders installer config + agent        
             if (_registry.TryGet(_distroId, out var plugin))
             {
                 // Kickstart (or preseed / Calamares config, depending on the distro).
@@ -228,7 +228,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
         {
             _logger.LogInformation("File staging cancelled");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "File staging failed");
             HasError = true;
@@ -240,7 +240,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
         }
     }
 
-    // ── Property-change hooks ─────────────────────────────────────────────────
+    //   Property-change hooks                         ─
 
     partial void OnPhaseChanged(FileStagingPhase value) =>
         OnPropertyChanged(nameof(PhaseDisplay));

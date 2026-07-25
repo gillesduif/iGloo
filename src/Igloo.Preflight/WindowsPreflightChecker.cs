@@ -1,5 +1,8 @@
+using System.Globalization;
 using System.Management;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
@@ -44,7 +47,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         };
     }
 
-    // ── Linux inventory ──────────────────────────────────────────────────────
+    //   Linux inventory                            
 
     /// <summary>GPT type GUIDs that mark a partition as belonging to a Linux install.</summary>
     private static readonly HashSet<string> LinuxGptTypes = new(StringComparer.OrdinalIgnoreCase)
@@ -111,33 +114,192 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             .Where(e => EfiBootEntries.IsLinuxDescription(e.Description))
             .ToList();
 
+        // A UEFI boot entry maps to a partition group with certainty only when there is
+        // exactly one Linux install and one Linux boot entry. BootOrder is unrelated to
+        // partition (disk-offset) order, and a machine that has installed/removed distros
+        // before carries stale entries - so pairing groups to entries by list index
+        // mislabels installs and, worse, would delete the wrong boot entry on removal.
+        // When the match is ambiguous every group gets a generic name and no entry; the
+        // removal path's boot-menu hygiene still clears iGloo's own entries and (when all
+        // Linux is going) every Linux entry, so nothing is left orphaned.
         var installs = new List<LinuxInstallation>();
-        for (var i = 0; i < groups.Count; i++)
+        foreach (var (diskNumber, model, parts) in groups)
         {
-            var (diskNumber, model, parts) = groups[i];
-            string name;
-            ushort? entryIndex = null;
+            var espDistros = DetectEspDistros(diskNumber);
+            var perDistro = SplitRunByDistro(parts);
 
-            if (groups.Count == linuxEntries.Count && linuxEntries.Count > 0)
+            // Present separate, individually-removable installs only when the split lines up
+            // one-to-one with the distros the ESP reports and each maps to a distinct name.
+            // Otherwise keep the run whole so a removal can never target the wrong OS.
+            if (TryAttributeDistros(perDistro, espDistros, out var attributed))
             {
-                name = Prettify(linuxEntries[i].Description);
-                entryIndex = linuxEntries[i].Index;
-            }
-            else if (groups.Count == 1 && linuxEntries.Count > 0)
-            {
-                name = Prettify(linuxEntries[0].Description);
-                entryIndex = linuxEntries.Count == 1 ? linuxEntries[0].Index : null;
+                foreach (var (subParts, distroName) in attributed)
+                    installs.Add(new LinuxInstallation(
+                        distroName, diskNumber, model, subParts,
+                        subParts.Sum(p => p.SizeBytes), EntryIndexFor(distroName, linuxEntries)));
             }
             else
             {
-                name = "Linux installation";
+                var (fallbackName, entryIndex) = ResolveInstallIdentity(groups.Count, linuxEntries);
+                var name = espDistros.Count > 0 ? string.Join(" + ", espDistros) : fallbackName;
+                installs.Add(new LinuxInstallation(
+                    name, diskNumber, model, parts, parts.Sum(p => p.SizeBytes), entryIndex));
             }
-
-            installs.Add(new LinuxInstallation(
-                name, diskNumber, model, parts, parts.Sum(p => p.SizeBytes), entryIndex));
         }
 
         return (installs, leftovers);
+    }
+
+    private const string LinuxLvmGptType = "{e6d6d379-f507-44c2-a23c-238f2a3df928}";
+
+    // Installers that put the root filesystem inside LVM by default. This is the one
+    // structural signal Windows can read (the GPT type) that separates the RHEL/Fedora
+    // family from the Debian/Ubuntu family, which use a plain partition.
+    private static readonly HashSet<string> LvmFamilyDistros = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Fedora", "Nobara",
+    };
+
+    /// <summary>
+    /// Splits a contiguous Linux run into one partition group per distribution. Each root-sized
+    /// partition (>= 4 GiB) anchors a distro; smaller partitions (/boot, swap) attach to the root
+    /// they precede. Order-independent, so it does not matter which distro was installed first.
+    /// </summary>
+    internal static List<List<PartitionInfo>> SplitRunByDistro(IReadOnlyList<PartitionInfo> run)
+    {
+        const long RootMinBytes = 4L * 1024 * 1024 * 1024;
+        var groups = new List<List<PartitionInfo>>();
+        var pending = new List<PartitionInfo>();
+
+        foreach (var part in run)
+        {
+            pending.Add(part);
+            if (part.SizeBytes >= RootMinBytes)
+            {
+                groups.Add(pending);
+                pending = [];
+            }
+        }
+
+        if (pending.Count > 0 && groups.Count > 0)
+            groups[^1].AddRange(pending);
+        else if (pending.Count > 0)
+            groups.Add(pending);
+
+        return groups;
+    }
+
+    /// <summary>
+    /// Maps split partition groups to distro names, but only in the one case Windows can resolve
+    /// safely: exactly two distros, one LVM-based (RHEL/Fedora family) and one not, with one group
+    /// carrying LVM and the other not. Anything else returns <see langword="false"/> so the caller
+    /// keeps the run as a single install rather than risk labelling - and deleting - the wrong OS.
+    /// </summary>
+    internal static bool TryAttributeDistros(
+        List<List<PartitionInfo>> groups, IReadOnlyList<string> espDistros,
+        out List<(List<PartitionInfo> Parts, string Name)> attributed)
+    {
+        attributed = [];
+        if (groups.Count != 2 || espDistros.Count != 2)
+            return false;
+
+        var lvmFamily = espDistros.Where(LvmFamilyDistros.Contains).ToList();
+        var otherFamily = espDistros.Where(d => !LvmFamilyDistros.Contains(d)).ToList();
+        if (lvmFamily.Count != 1 || otherFamily.Count != 1)
+            return false;
+
+        var lvmGroups = groups.Where(g => g.Any(IsLvm)).ToList();
+        var plainGroups = groups.Where(g => !g.Any(IsLvm)).ToList();
+        if (lvmGroups.Count != 1 || plainGroups.Count != 1)
+            return false;
+
+        attributed.Add((lvmGroups[0], lvmFamily[0]));
+        attributed.Add((plainGroups[0], otherFamily[0]));
+        return true;
+    }
+
+    private static bool IsLvm(PartitionInfo p) =>
+        string.Equals(p.GptType, LinuxLvmGptType, StringComparison.OrdinalIgnoreCase);
+
+    private static ushort? EntryIndexFor(string distroName, IReadOnlyList<EfiBootEntries.BootEntry> linuxEntries)
+    {
+        var matches = linuxEntries
+            .Where(e => string.Equals(Prettify(e.Description), distroName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return matches.Count == 1 ? matches[0].Index : null;
+    }
+
+    private static readonly Dictionary<string, string> EfiFolderDistroNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["fedora"] = "Fedora",
+        ["ubuntu"] = "Ubuntu",
+        ["debian"] = "Debian",
+        ["linuxmint"] = "Linux Mint",
+        ["opensuse"] = "openSUSE",
+        ["manjaro"] = "Manjaro",
+        ["zorin"] = "Zorin OS",
+        ["nobara"] = "Nobara",
+        ["garuda"] = "Garuda",
+        ["neon"] = "KDE neon",
+    };
+
+    /// <summary>
+    /// The distributions installed on <paramref name="diskNumber"/>, read from the ESP's
+    /// \EFI\&lt;distro&gt; loader folders. Ubuntu-derived distros (Mint, Pop!_OS, …) all install
+    /// under \EFI\ubuntu, so they are reported as "Ubuntu". Returns an empty list if the ESP
+    /// cannot be read.
+    /// </summary>
+    private List<string> DetectEspDistros(uint diskNumber)
+    {
+        var distros = new List<string>();
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                @"root\Microsoft\Windows\Storage",
+                $"SELECT AccessPaths FROM MSFT_Partition WHERE DiskNumber = {diskNumber} " +
+                "AND GptType = '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'");
+            using var results = searcher.Get();
+
+            foreach (var esp in results.Cast<ManagementBaseObject>())
+            {
+                var volumePath = (esp["AccessPaths"] as string[])?
+                    .FirstOrDefault(p => p.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
+                if (volumePath is null)
+                    continue;
+
+                var efiRoot = Path.Combine(volumePath, "EFI");
+                if (!Directory.Exists(efiRoot))
+                    continue;
+
+                foreach (var dir in Directory.EnumerateDirectories(efiRoot))
+                {
+                    if (EfiFolderDistroNames.TryGetValue(Path.GetFileName(dir), out var display)
+                        && !distros.Contains(display))
+                        distros.Add(display);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or InvalidCastException
+                                   or InvalidOperationException or IOException or UnauthorizedAccessException or SecurityException)
+        {
+            _logger.LogDebug(ex, "Could not read ESP loader folders on disk {Disk}", diskNumber);
+        }
+        return distros;
+    }
+
+    /// <summary>
+    /// The display name and firmware boot-entry index for a detected Linux install, asserted
+    /// only when it can be known for certain: one install paired with one Linux boot entry.
+    /// Anything else (multiple installs, or stale/missing entries) returns a generic name and
+    /// no entry rather than guess - so the removal UI never shows the wrong distribution and
+    /// never deletes an unrelated boot entry.
+    /// </summary>
+    internal static (string name, ushort? entryIndex) ResolveInstallIdentity(
+        int groupCount, IReadOnlyList<EfiBootEntries.BootEntry> linuxEntries)
+    {
+        if (groupCount == 1 && linuxEntries.Count == 1)
+            return (Prettify(linuxEntries[0].Description), linuxEntries[0].Index);
+        return ("Linux installation", null);
     }
 
     private static bool TryParseDiskNumber(string deviceId, out uint number)
@@ -182,7 +344,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             if (results.Cast<ManagementBaseObject>().Any())
                 return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogDebug(ex, "Win32_Tpm query inaccessible - trying PnP fallback");
         }
@@ -198,7 +360,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             using var results = searcher.Get();
             return results.Cast<ManagementBaseObject>().Any();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "TPM PnP fallback query failed");
             return false;
@@ -219,8 +381,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
             // ConversionStatus 0 = FullyDecrypted, 1 = FullyEncrypted, 2+ = in transition.
             // ProtectionStatus 0 = Off (protection suspended or no key protector), 1 = On.
-            var conversion = Convert.ToUInt32(obj["ConversionStatus"]);
-            var protection = Convert.ToUInt32(obj["ProtectionStatus"]);
+            var conversion = Convert.ToUInt32(obj["ConversionStatus"], CultureInfo.InvariantCulture);
+            var protection = Convert.ToUInt32(obj["ProtectionStatus"], CultureInfo.InvariantCulture);
 
             // ConversionStatus values from Win32_EncryptableVolume:
             //   0 = FullyDecrypted  1 = FullyEncrypted  2 = EncryptionInProgress
@@ -235,14 +397,14 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 return BitLockerState.SuspendedProtection;
             return BitLockerState.Unknown;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "BitLocker WMI query failed");
             return BitLockerState.Unknown;
         }
     }
 
-    private IReadOnlyList<DiskInfo> QueryDisks()
+    private List<DiskInfo> QueryDisks()
     {
         var disks = new List<DiskInfo>();
         try
@@ -253,12 +415,12 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             using var results = searcher.Get();
             foreach (ManagementBaseObject disk in results)
             {
-                var number = Convert.ToUInt32(disk["Number"]);
+                var number = Convert.ToUInt32(disk["Number"], CultureInfo.InvariantCulture);
                 var model = (string?)disk["FriendlyName"] ?? "Unknown";
-                var total = Convert.ToInt64(disk["Size"]);
-                var allocated = Convert.ToInt64(disk["AllocatedSize"]);
+                var total = Convert.ToInt64(disk["Size"], CultureInfo.InvariantCulture);
+                var allocated = Convert.ToInt64(disk["AllocatedSize"], CultureInfo.InvariantCulture);
                 // PartitionStyle: 0=Unknown, 1=MBR, 2=GPT
-                var style = Convert.ToInt32(disk["PartitionStyle"]) switch
+                var style = Convert.ToInt32(disk["PartitionStyle"], CultureInfo.InvariantCulture) switch
                 {
                     1 => "MBR",
                     2 => "GPT",
@@ -269,14 +431,14 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                     $"\\\\.\\PHYSICALDRIVE{number}", model, total, total - allocated, style, partitions));
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "MSFT_Disk query failed");
         }
         return disks;
     }
 
-    private IReadOnlyList<PartitionInfo> QueryPartitionsForDisk(uint diskNumber)
+    private List<PartitionInfo> QueryPartitionsForDisk(uint diskNumber)
     {
         var partitions = new List<PartitionInfo>();
         try
@@ -288,9 +450,9 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             using var results = searcher.Get();
             foreach (ManagementBaseObject p in results)
             {
-                var index = Convert.ToInt32(p["PartitionNumber"]);
-                var size = Convert.ToInt64(p["Size"]);
-                var offset = p["Offset"] is null ? -1L : Convert.ToInt64(p["Offset"]);
+                var index = Convert.ToInt32(p["PartitionNumber"], CultureInfo.InvariantCulture);
+                var size = Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture);
+                var offset = p["Offset"] is null ? -1L : Convert.ToInt64(p["Offset"], CultureInfo.InvariantCulture);
                 var gptType = (p["GptType"] as string)?.Trim();
                 var isSystem = p["IsSystem"] is bool bs && bs;
                 var isBoot = p["IsBoot"] is bool bb && bb;
@@ -303,7 +465,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                                                  offset, gptType));
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "MSFT_Partition query failed for disk {DiskNumber}", diskNumber);
         }
@@ -333,15 +495,15 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             if (outParams is null)
                 return 0;
 
-            var returnValue = Convert.ToUInt32(outParams["ReturnValue"]);
+            var returnValue = Convert.ToUInt32(outParams["ReturnValue"], CultureInfo.InvariantCulture);
             if (returnValue != 0)
                 return 0;   // 0 = success
 
-            var sizeMin = Convert.ToInt64(outParams["SizeMin"]);
-            var sizeMax = Convert.ToInt64(outParams["SizeMax"]);
+            var sizeMin = Convert.ToInt64(outParams["SizeMin"], CultureInfo.InvariantCulture);
+            var sizeMax = Convert.ToInt64(outParams["SizeMax"], CultureInfo.InvariantCulture);
             return Math.Max(0, sizeMax - sizeMin);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogDebug(ex, "GetSupportedSize failed for disk {Disk} partition {Part}",
                 diskNumber, partitionNumber);
@@ -361,7 +523,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             var vol = results.Cast<ManagementBaseObject>().FirstOrDefault();
             return ((string?)vol?["FileSystem"] ?? "Unknown", (string?)vol?["Label"]);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "Win32_Volume query failed for drive {DriveLetter}", driveLetter);
             return ("Unknown", null);
@@ -378,7 +540,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             var gpu = results.Cast<ManagementBaseObject>().FirstOrDefault();
             return (string?)gpu?["AdapterCompatibility"] ?? "Unknown";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "GPU WMI query failed");
             return "Unknown";
@@ -393,16 +555,16 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 "SELECT TotalPhysicalMemory FROM Win32_ComputerSystem");
             using var results = searcher.Get();
             var cs = results.Cast<ManagementBaseObject>().FirstOrDefault();
-            return cs == null ? 0 : Convert.ToInt64(cs["TotalPhysicalMemory"]);
+            return cs == null ? 0 : Convert.ToInt64(cs["TotalPhysicalMemory"], CultureInfo.InvariantCulture);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "RAM WMI query failed");
             return 0;
         }
     }
 
-    private static IReadOnlyList<PreflightFinding> BuildFindings(
+    private static List<PreflightFinding> BuildFindings(
         bool isUefi, bool secureBoot, bool tpmPresent, BitLockerState bitLocker, long totalRam)
     {
         var findings = new List<PreflightFinding>();

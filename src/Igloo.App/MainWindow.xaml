@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="iGloo"
     MinWidth="760" MinHeight="580"
-    Width="920" Height="660"
+    Width="930" Height="660"
     WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     Background="{StaticResource Brush.Window}"
@@ -27,14 +27,21 @@
     </WindowChrome.WindowChrome>
 
     <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="91*"/>
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="44"   />  <!-- Title bar   -->
-            <RowDefinition Height="*"    />  <!-- Rail + page -->
-            <RowDefinition Height="Auto" />  <!-- Command bar -->
+            <RowDefinition Height="44"   />
+            <!-- Title bar   -->
+            <RowDefinition Height="*"    />
+            <!-- Rail + page -->
+            <RowDefinition Height="Auto" />
+            <!-- Command bar -->
         </Grid.RowDefinitions>
 
-        <!-- ── Title bar ────────────────────────────────────────────────────── -->
-        <Grid Grid.Row="0" Background="Transparent">
+        <!--   Title bar                             -->
+        <Grid Grid.Row="0" Background="Transparent" Grid.ColumnSpan="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -85,8 +92,8 @@
             </StackPanel>
         </Grid>
 
-        <!-- ── Rail + content ───────────────────────────────────────────────── -->
-        <Grid Grid.Row="1">
+        <!--   Rail + content                         ─ -->
+        <Grid Grid.Row="1" Grid.ColumnSpan="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="212" />
                 <ColumnDefinition Width="*" />
@@ -211,12 +218,12 @@
             </Grid>
         </Grid>
 
-        <!-- ── Command bar ──────────────────────────────────────────────────── -->
+        <!--   Command bar                            -->
         <Border Grid.Row="2"
                 BorderBrush="{StaticResource Brush.Stroke.Card}"
                 BorderThickness="0,1,0,0"
                 Background="{StaticResource Brush.Layer.Card}"
-                Margin="0,12,0,0">
+                Margin="0,12,0,0" Grid.ColumnSpan="2">
             <Grid Margin="24,12,28,14">
                 <Button Content="←  Back"
                         Command="{Binding BackCommand}"
@@ -225,20 +232,13 @@
                         HorizontalAlignment="Left" />
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <!-- One forward button for the whole wizard: "Next", then "Finish"
+                         or "Reboot" on the last step depending on the install path. -->
                     <Button Command="{Binding NextCommand}"
                             IsEnabled="{Binding CanGoNext}"
-                            MinWidth="120" Background="#0DFFFFFF" Foreground="White">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource Button.Primary}">
-                                <Setter Property="Content" Value="Next  →" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsLastStep}" Value="True">
-                                        <Setter Property="Content" Value="Finish" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+                            Content="{Binding PrimaryActionLabel}"
+                            Style="{StaticResource Button.Primary}"
+                            MinWidth="120" Background="#0DFFFFFF" Foreground="White" />
                 </StackPanel>
             </Grid>
         </Border>

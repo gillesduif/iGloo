@@ -19,7 +19,7 @@ public interface IDirectInstallService
         string isoPath,
         string stagingDirectory,
         InstallerBootSpec bootSpec,
-        string? stage2Url = null,
+        Uri? stage2Url = null,
         IProgress<DirectInstallProgress>? progress = null,
         CancellationToken ct = default);
 

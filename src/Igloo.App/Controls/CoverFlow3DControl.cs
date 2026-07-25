@@ -29,38 +29,34 @@ namespace Igloo.App.Controls;
 /// </summary>
 public sealed class CoverFlow3DControl : FrameworkElement
 {
-    // ── Scene constants ──────────────────────────────────────────────────────
+    //   Scene constants                            
 
-    private const double FlankAngleDeg = 56;    // Y rotation of side covers
-    private const double FirstFlankX = 2.05;  // gap between center and first flank
-    private const double FlankSpacingX = 0.62;  // spacing between subsequent flanks
-    private const double FlankDepthZ = 1.30;  // how far the first flank drops back
-    private const double FlankRecedeZ = 0.34;  // additional depth per further flank
-    private const double CenterScale = 1.16;  // the centered cover is slightly larger
+    private const double FlankAngleDeg = 56;         // Y rotation of side covers
+    private const double FirstFlankX = 2.05;        // gap between center and first flank
+    private const double FlankSpacingX = 0.62;     // spacing between subsequent flanks
+    private const double FlankDepthZ = 1.30;      // how far the first flank drops back
+    private const double FlankRecedeZ = 0.34;    // additional depth per further flank
+    private const double CenterScale = 1.16;    // the centered cover is slightly larger
     private const double CameraBaseZ = 6.1;
     private const double CameraDollyMax = 0.85;  // dolly-out at high transition speed
-    private const double EaseRate = 9.0;   // exponential ease-out (~330 ms to settle)
+    private const double EaseRate = 9.0;        // exponential ease-out (~330 ms to settle)
 
-    private const int FullResPixels = 512;   // texture size near center
-    private const int LowResPixels = 144;   // texture size beyond the window
-    private const int FullResWindow = 4;     // ± positions that get full-res textures
+    private const int FullResPixels = 512;      // texture size near center
+    private const int LowResPixels = 144;      // texture size beyond the window
+    private const int FullResWindow = 4;      // ± positions that get full-res textures
 
-    private static readonly Color BackgroundColor = Color.FromRgb(0x07, 0x0B, 0x16);
 
-    /// <summary>Cover quad spans x,y ∈ [-1,1] at z=0; rotation pivots its own center.</summary>
+  
     private static readonly MeshGeometry3D FrontMesh = BuildQuad(
         new Point3D(-1, -1, 0), new Point3D(1, -1, 0), new Point3D(1, 1, 0), new Point3D(-1, 1, 0),
         new Point(0, 1), new Point(1, 1), new Point(1, 0), new Point(0, 0));
 
-    /// <summary>
-    /// Floor-reflection quad below the cover. Texture coordinates run bottom-up so the
-    /// (unflipped) cover brush appears vertically mirrored.
-    /// </summary>
+
     private static readonly MeshGeometry3D ReflectionMesh = BuildQuad(
         new Point3D(-1, -2.92, 0), new Point3D(1, -2.92, 0), new Point3D(1, -0.92, 0), new Point3D(-1, -0.92, 0),
         new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(0, 1));
 
-    // ── Visual tree ──────────────────────────────────────────────────────────
+    //   Visual tree                              
 
     private readonly Grid _root;
     private readonly Border _focusRing;
@@ -68,13 +64,13 @@ public sealed class CoverFlow3DControl : FrameworkElement
     private readonly PerspectiveCamera _camera;
     private readonly ModelVisual3D _lightsVisual;
 
-    // ── Scene/animation state (the only state this control owns) ────────────
+    //   Scene/animation state       
 
     private readonly List<Cover> _covers = [];
     private readonly Dictionary<Model3D, int> _modelToIndex = [];
     private readonly List<CoverItemAutomationPeer> _itemPeers = [];
     private List<object> _items = [];
-    private double _offset;          // continuous flow position, eased toward _target
+    private double _offset;        
     private double _target;
     private bool _animating;
     private bool _syncingSelection;
@@ -83,7 +79,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
     public CoverFlow3DControl()
     {
         Focusable = true;
-        FocusVisualStyle = null; // replaced by the custom focus ring below
+        FocusVisualStyle = null; 
 
         _camera = new PerspectiveCamera
         {
@@ -93,10 +89,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
             LookDirection = new Vector3D(0, -0.10, -1),
         };
 
-        // AmbientLight keeps everything readable; the DirectionalLight points straight
-        // down the camera axis, so the centered (camera-facing) cover catches it fully
-        // while rotated flanks fall off by the cosine of their angle - the selected
-        // distro literally glows brighter than the rest.
+     
         var lights = new Model3DGroup();
         lights.Children.Add(new AmbientLight(Color.FromRgb(0x5C, 0x5E, 0x6A)));
         lights.Children.Add(new DirectionalLight(Color.FromRgb(0xF2, 0xF2, 0xFA), new Vector3D(-0.06, -0.22, -1)));
@@ -124,7 +117,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         Unloaded += (_, _) => StopAnimation();
     }
 
-    // ── Public surface ───────────────────────────────────────────────────────
+    //   Public surface                            ─
 
     public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(
         nameof(ItemsSource), typeof(IEnumerable), typeof(CoverFlow3DControl),
@@ -177,17 +170,12 @@ public sealed class CoverFlow3DControl : FrameworkElement
         set => SetValue(CanConfirmProperty, value);
     }
 
-    /// <summary>
-    /// Resolves an item to a cover texture at the requested pixel edge length. The control
-    /// asks for <see cref="FullResPixels"/> near the center and <see cref="LowResPixels"/>
-    /// beyond ±<see cref="FullResWindow"/> positions.
-    /// </summary>
     public Func<object, int, ImageSource?>? CoverImageResolver { get; set; }
 
     /// <summary>Resolves an item to its accessible name (UI Automation / Narrator).</summary>
     public Func<object, string>? ItemNameResolver { get; set; }
 
-    // ── FrameworkElement plumbing ────────────────────────────────────────────
+    //   FrameworkElement plumbing                       
 
     protected override int VisualChildrenCount => 1;
     protected override Visual GetVisualChild(int index) => _root;
@@ -205,16 +193,12 @@ public sealed class CoverFlow3DControl : FrameworkElement
         _root.Arrange(new Rect(finalSize));
         return finalSize;
     }
-
-    // ── Selection plumbing ───────────────────────────────────────────────────
+                        
 
     private void OnItemsSourceChanged()
     {
         _items = ItemsSource?.Cast<object>().ToList() ?? [];
 
-        // Keep the bound SelectedItem when it survives the refresh; otherwise open
-        // on the middle of the shelf — starting at the far-left cover wastes half
-        // the carousel and reads as an empty stage.
         var index = SelectedItem is { } current ? _items.IndexOf(current) : -1;
         if (index < 0 && _items.Count > 0)
             index = _items.Count / 2;
@@ -246,10 +230,6 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
         if (newValue is null)
         {
-            // External null (initial binding activation, or the previous selection became
-            // incompatible): the carousel always keeps a centered cover, so re-assert it
-            // as the selection. Deferred - a write-back during the binding's own value
-            // transfer is swallowed by WPF and would never reach the source.
             Dispatcher.InvokeAsync(() =>
             {
                 if (SelectedItem is null && SelectedIndex >= 0 && SelectedIndex < _items.Count)
@@ -289,10 +269,11 @@ public sealed class CoverFlow3DControl : FrameworkElement
         AnnounceSelection(index);
     }
 
-    // ── Input ────────────────────────────────────────────────────────────────
+    // Input                                 
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        ArgumentNullException.ThrowIfNull(e);
         base.OnKeyDown(e);
         if (_items.Count == 0)
             return;
@@ -325,6 +306,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
+        ArgumentNullException.ThrowIfNull(e);
         base.OnMouseWheel(e);
         if (_items.Count == 0)
             return;
@@ -335,6 +317,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
+        ArgumentNullException.ThrowIfNull(e);
         base.OnMouseLeftButtonDown(e);
         Focus();
 
@@ -344,9 +327,9 @@ public sealed class CoverFlow3DControl : FrameworkElement
             && _modelToIndex.TryGetValue(meshHit.ModelHit, out var index))
         {
             if (index == SelectedIndex)
-                Confirm();   // click the centered cover → proceed
+                Confirm();  
             else
-                SelectedIndex = index;              // click a flank → animate it to center
+                SelectedIndex = index;             
             e.Handled = true;
         }
     }
@@ -359,12 +342,10 @@ public sealed class CoverFlow3DControl : FrameworkElement
             command.Execute(null);
     }
 
-    // No perimeter ring: the centered, lit cover IS the focus affordance for
-    // this full-bleed control; a frame around the stage reads as an artifact.
     private void UpdateFocusRing() =>
         _focusRing.BorderBrush = Brushes.Transparent;
 
-    // ── Scene construction ───────────────────────────────────────────────────
+    // Scene construction                         
 
     private void BuildScene()
     {
@@ -389,14 +370,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
             peer.ResetChildrenCache();
     }
 
-    private Cover CreateCover(object item)
+    private static Cover CreateCover(object item)
     {
-        // Depth fog is applied by fading the cover's OWN brushes (opacity), never
-        // by painting a dark layer over the quad: an overlay scrim covers the full
-        // square and shows as a dark slab wherever the texture is transparent —
-        // which frameless (logo-only) covers are everywhere outside the artwork.
-
-        // Emissive boost on/near the center cover, on top of the directional key light.
         var emissiveBrush = new ImageBrush { Opacity = 0 };
 
         var frontDiffuse = new DiffuseMaterial();
@@ -440,13 +415,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
         };
     }
 
-    // ── Texture management ───────────────────────────────────────────────────
+    //   Texture management                          ─
 
-    /// <summary>
-    /// Full-resolution textures only near the center; cheap low-res ones beyond
-    /// ±<see cref="FullResWindow"/>. Runs at background priority so wheel-spamming
-    /// through a 30+ distro catalog never blocks a frame.
-    /// </summary>
     private void ScheduleTextureRefresh() =>
         Dispatcher.InvokeAsync(() =>
         {
@@ -463,8 +433,6 @@ public sealed class CoverFlow3DControl : FrameworkElement
     {
         var source = CoverImageResolver?.Invoke(cover.Item, pixels);
 
-        // Front and reflection brushes stay UNFROZEN: the render loop fades their
-        // Opacity per frame (that IS the depth fog — see LayoutScene).
         Brush front = source is not null ? new ImageBrush(source) : FallbackFrontBrush.Clone();
         var reflection = BuildReflectionBrush(source);
 
@@ -477,7 +445,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         ApplyFog(cover);   // re-apply the cover's current fog to the fresh brushes
     }
 
-    /// <summary>Depth fog = fading the cover's own brushes; no overlay layers.</summary>
+
     private static void ApplyFog(Cover cover)
     {
         var visibility = 1 - cover.Fog;
@@ -489,19 +457,14 @@ public sealed class CoverFlow3DControl : FrameworkElement
 
     private static readonly Brush FallbackFrontBrush = CreateFallbackFrontBrush();
 
-    private static Brush CreateFallbackFrontBrush()
+    private static LinearGradientBrush CreateFallbackFrontBrush()
     {
         var brush = new LinearGradientBrush(Color.FromRgb(0x2A, 0x31, 0x47), Color.FromRgb(0x14, 0x18, 0x26), 90);
         brush.Freeze();
         return brush;
     }
 
-    /// <summary>
-    /// The mirrored cover with an opacity-gradient fade baked in: near the cover the image
-    /// shows through faintly, further down it dissolves into the background - a specular
-    /// floor hint, not a mirror.
-    /// </summary>
-    private static Brush BuildReflectionBrush(ImageSource? source)
+    private static ImageBrush BuildReflectionBrush(ImageSource? source)
     {
         var bounds = new Rect(0, 0, 1, 1);
         var group = new DrawingGroup();
@@ -511,14 +474,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         else
             group.Children.Add(new GeometryDrawing(FallbackFrontBrush, null, new RectangleGeometry(bounds)));
 
-        // True alpha fade (no background-colored plate, so it works over ANY
-        // backdrop incl. mica): fully transparent at the far end, a faint
-        // specular hint near the cover. Brush-space y=0 is the far end.
-        //
-        // PERFORMANCE: the fade is BAKED ONCE into a bitmap here. An unfrozen
-        // DrawingBrush with an OpacityMask would be re-realized every frame the
-        // fog animates — that cost a visible frame-rate hit. A plain ImageBrush
-        // over a frozen pre-faded bitmap animates Opacity for near-free.
+
         group.OpacityMask = new LinearGradientBrush
         {
             StartPoint = new Point(0, 0),
@@ -547,7 +503,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         return new ImageBrush(baked) { Stretch = Stretch.Fill };
     }
 
-    // ── Animation ────────────────────────────────────────────────────────────
+    // Animation                               
 
     private void StartAnimation()
     {
@@ -589,8 +545,6 @@ public sealed class CoverFlow3DControl : FrameworkElement
         if (dt <= 0)
             return;
 
-        // Exponential ease-out toward the target - equivalent feel to a ~330 ms
-        // CubicEase Storyboard, but retargetable every frame without a restart.
         _offset += (_target - _offset) * (1 - Math.Exp(-EaseRate * dt));
 
         if (Math.Abs(_target - _offset) < 0.002)
@@ -602,14 +556,6 @@ public sealed class CoverFlow3DControl : FrameworkElement
         LayoutScene();
     }
 
-    /// <summary>
-    /// Transparent 3D quads render in CHILD ORDER and z-write their full square,
-    /// so covers must be added back-to-front around the current center. With a
-    /// fixed order the right flank draws near-to-far: the near quad's depth
-    /// writes cull everything behind it inside its square, which shows up as a
-    /// dark "plate" of raw background around frameless logos. Re-sorting when
-    /// the center changes keeps both flanks compositing correctly.
-    /// </summary>
     private int _lastDepthCenter = int.MinValue;
 
     private void ReorderForDepth(int center)
@@ -670,7 +616,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         _camera.LookDirection = new Vector3D(-lean * 0.04, -0.10, -1);
     }
 
-    // ── Geometry ─────────────────────────────────────────────────────────────
+    //   Geometry                               ─
 
     private static MeshGeometry3D BuildQuad(
         Point3D p0, Point3D p1, Point3D p2, Point3D p3,
@@ -700,17 +646,15 @@ public sealed class CoverFlow3DControl : FrameworkElement
         public required DiffuseMaterial ReflectionDiffuse;
         public int TexturePixels;
 
-        // Depth-fog state: 0 = centered/fully visible … 0.88 = far flank. Applied
-        // by fading FrontBrush/ReflectionBrush opacity (never an overlay layer).
+        /* Depth-fog state: 0 = centered/fully visible … 0.88 = far flank. Applied
+        by fading FrontBrush/ReflectionBrush opacity (never an overlay layer).*/
+
         public double Fog;
         public Brush FrontBrush = Brushes.Transparent;
         public Brush ReflectionBrush = Brushes.Transparent;
     }
 
-    // ── UI Automation ────────────────────────────────────────────────────────
-    // The rendering is 3D, but Narrator users get a plain selectable list: the control
-    // is a List whose children are ListItems named after the distros, with selection
-    // changes announced via SelectionItemPatternOnElementSelected.
+    //   UI Automation                   
 
     protected override AutomationPeer OnCreateAutomationPeer() => new CoverFlowAutomationPeer(this);
 

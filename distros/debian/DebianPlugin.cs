@@ -35,21 +35,34 @@ public sealed class DebianPlugin : IDistroPlugin
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var manifestPath = Path.Combine(asmDir, "distro.json");
 
-        DistroManifest? raw = null;
-        if (File.Exists(manifestPath))
-        {
-            try
-            { raw = JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(manifestPath), JsonOpts); }
-            catch { /* fall through to defaults */ }
-        }
-
+        var raw = TryLoadManifest(manifestPath);
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
     }
 
-    // ── IDistroPlugin ────────────────────────────────────────────────────────
+    /// <summary>
+    /// Loads the co-located <c>distro.json</c>, or returns <c>null</c> when it is
+    /// absent or unreadable so the constructor uses <see cref="FallbackMetadata"/>.
+    /// </summary>
+    private static DistroManifest? TryLoadManifest(string manifestPath)
+    {
+        if (!File.Exists(manifestPath))
+            return null;
+        try
+        {
+            return JsonSerializer.Deserialize<DistroManifest>(File.ReadAllText(manifestPath), JsonOpts);
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    //   IDistroPlugin                             
 
     public IReadOnlyList<PreflightFinding> CheckCompatibility(PreflightReport report)
     {
+        ArgumentNullException.ThrowIfNull(report);
+
         var findings = new List<PreflightFinding>();
 
         // Debian ships free firmware by default; the netinst we use includes
@@ -85,26 +98,28 @@ public sealed class DebianPlugin : IDistroPlugin
         return findings;
     }
 
-    public Task<InstallerConfig> RenderInstallerConfigAsync(MigrationManifest manifest, CancellationToken ct = default)
+    public async Task<InstallerConfig> RenderInstallerConfigAsync(MigrationManifest manifest, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(manifest);
+
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         var templatePath = Path.Combine(asmDir, "preseed", "preseed.cfg.template");
 
         var preseed = File.Exists(templatePath)
-            ? RenderFromTemplate(File.ReadAllText(templatePath), manifest)
+            ? RenderFromTemplate(await File.ReadAllTextAsync(templatePath, ct).ConfigureAwait(false), manifest)
             : throw new FileNotFoundException("preseed.cfg.template missing from the Debian plugin output.");
 
         // The preseed is executed by debian-installer (busybox) on Linux. Force LF
         // so a Windows checkout's CRLF never breaks the late_command shell. (Same
         // class of bug that broke the Fedora kickstart.)
-        preseed = preseed.Replace("\r\n", "\n").Replace("\r", "\n");
+        preseed = preseed.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
 
         var config = new InstallerConfig(
             FileName: "preseed.cfg",
             Contents: Encoding.UTF8.GetBytes(preseed),
             Extras: Array.Empty<InstallerConfigExtra>());
 
-        return Task.FromResult(config);
+        return config;
     }
 
     public Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
@@ -176,7 +191,7 @@ public sealed class DebianPlugin : IDistroPlugin
         InitrdConfigPath = "preseed.cfg",
     };
 
-    // ── Rendering ──────────────────────────────────────────────────────────────
+    //   Rendering                                
 
     private static string RenderFromTemplate(string template, MigrationManifest m)
     {
@@ -194,18 +209,18 @@ public sealed class DebianPlugin : IDistroPlugin
         var password = m.User.LinuxPassword;
 
         return template
-            .Replace("{{LOCALE}}", m.User.Locale)
-            .Replace("{{KEYMAP}}", m.User.Keymap)
-            .Replace("{{TIMEZONE}}", m.User.Timezone)
-            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc")
-            .Replace("{{WINDOWS_USERNAME}}", m.User.WindowsUsername)
-            .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername)
-            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername)
-            .Replace("{{PASSWORD}}", password)
-            .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode)
-            .Replace("{{INCLUDED_FOLDERS}}", folderList)
-            .Replace("{{FOLDER_MAP}}", folderMap)
-            .Replace("{{BROWSER_MAP}}", browserMap);
+            .Replace("{{LOCALE}}", m.User.Locale, StringComparison.Ordinal)
+            .Replace("{{KEYMAP}}", m.User.Keymap, StringComparison.Ordinal)
+            .Replace("{{TIMEZONE}}", m.User.Timezone, StringComparison.Ordinal)
+            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc", StringComparison.Ordinal)
+            .Replace("{{WINDOWS_USERNAME}}", m.User.WindowsUsername, StringComparison.Ordinal)
+            .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername, StringComparison.Ordinal)
+            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername, StringComparison.Ordinal)
+            .Replace("{{PASSWORD}}", password, StringComparison.Ordinal)
+            .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode, StringComparison.Ordinal)
+            .Replace("{{INCLUDED_FOLDERS}}", folderList, StringComparison.Ordinal)
+            .Replace("{{FOLDER_MAP}}", folderMap, StringComparison.Ordinal)
+            .Replace("{{BROWSER_MAP}}", browserMap, StringComparison.Ordinal);
     }
 
     private static byte[] NormalizeCrLf(byte[] bytes)
@@ -227,7 +242,7 @@ public sealed class DebianPlugin : IDistroPlugin
         return buf.ToArray();
     }
 
-    // ── Metadata ───────────────────────────────────────────────────────────────
+    //   Metadata                                ─
 
     private static DistroMetadata BuildMetadata(DistroManifest raw) => new()
     {
@@ -235,10 +250,10 @@ public sealed class DebianPlugin : IDistroPlugin
         Description = raw.Description,
         DefaultDesktopEnvironment = raw.DefaultDesktopEnvironment ?? "GNOME",
         InstallerType = InstallerType.DebianInstaller,
-        IsoDownloadUrl = new Uri(raw.Iso.DownloadUrl),
+        IsoDownloadUrl = raw.Iso.DownloadUrl,
         IsoSha256 = raw.Iso.Sha256,
-        IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl is not null ? new Uri(raw.Iso.GpgSignatureUrl) : null,
-        IsoGpgKeyUrl = raw.Iso.GpgKeyUrl is not null ? new Uri(raw.Iso.GpgKeyUrl) : null,
+        IsoGpgSignatureUrl = raw.Iso.GpgSignatureUrl,
+        IsoGpgKeyUrl = raw.Iso.GpgKeyUrl,
         Tags = raw.Tags,
         Screenshots = raw.Screenshots,
         MinimumRequirements = raw.MinimumRequirements is { } req

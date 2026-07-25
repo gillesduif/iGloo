@@ -30,7 +30,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel>
 
-            <!-- ── RUNNING: preparing the installer partition ─────────────────── -->
+            <!--   RUNNING: preparing the installer partition          ─ -->
             <StackPanel>
                 <StackPanel.Style>
                     <Style TargetType="StackPanel">
@@ -89,7 +89,7 @@
                 </Border>
             </StackPanel>
 
-            <!-- ── COMPLETE: the point of no return ───────────────────────────── -->
+            <!--   COMPLETE: the point of no return               ─ -->
             <StackPanel>
                 <StackPanel.Style>
                     <Style TargetType="StackPanel">
@@ -180,33 +180,8 @@
                     </Grid>
                 </Border>
 
-                <!-- THE red button. The only dramatic action in the app. -->
-                <Button Command="{Binding RebootToInstallCommand}"
-                        HorizontalAlignment="Left"
-                        FontSize="14" Padding="24,11"
-                        AutomationProperties.Name="Reboot now and install Linux">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource Button.Danger}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsRebooting}" Value="True">
-                                    <Setter Property="IsEnabled" Value="False" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                    <TextBlock>
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="↺  Reboot to Install" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsRebooting}" Value="True">
-                                        <Setter Property="Text" Value="Rebooting…" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </Button>
+                <!-- No action button here: rebooting is the wizard's last navigation
+                     step, so it lives on the shared forward button in the nav bar. -->
 
                 <TextBlock Style="{StaticResource Text.Caption}" Margin="2,10,0,0" MaxWidth="520"
                            HorizontalAlignment="Left">
@@ -214,7 +189,7 @@
                 </TextBlock>
             </StackPanel>
 
-            <!-- ── ERROR ──────────────────────────────────────────────────────── -->
+            <!--   ERROR                              -->
             <StackPanel>
                 <StackPanel.Style>
                     <Style TargetType="StackPanel">

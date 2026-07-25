@@ -34,13 +34,15 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             "Igloo", "iso-cache");
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    //   Public API                               
 
     public async Task<IsoAcquisitionResult> AcquireAsync(
         IsoSpecification spec,
         IProgress<IsoAcquisitionProgress>? progress,
         CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(spec);
+
         var distroDir = Path.Combine(_cacheDir, spec.DistroId);
         var fileName = Path.GetFileName(spec.DownloadUrl.AbsolutePath);
         var isoPath = Path.Combine(distroDir, fileName);
@@ -48,20 +50,20 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
         Directory.CreateDirectory(distroDir);
 
-        // ── Step 0: Transport policy ──────────────────────────────────────────
+        //   Step 0: Transport policy                      
         // Every artefact URL must be HTTPS. TLS is the outer layer; GPG + SHA-256
         // are the inner layers - none of them is optional when declared.
         RequireHttps(spec);
 
-        // ── Step 1: Resolve the authoritative SHA-256 (GPG-verified when declared) ──
-        var (resolvedSha256, gpgVerified) = await ResolveTrustedSha256Async(spec, fileName, progress, ct);
+        //   Step 1: Resolve the authoritative SHA-256 (GPG-verified when declared)  
+        var (resolvedSha256, gpgVerified) = await ResolveTrustedSha256Async(spec, fileName, progress, ct).ConfigureAwait(false);
 
-        // ── Step 2: Download ISO (resumable) ──────────────────────────────────
+        //   Step 2: Download ISO (resumable)
         _logger.LogInformation("Acquiring ISO for {DistroId} from {Url}", spec.DistroId, spec.DownloadUrl);
-        await DownloadWithResumeAsync(spec.DownloadUrl, isoPath, partialPath, progress, ct);
+        await DownloadWithResumeAsync(spec.DownloadUrl, isoPath, partialPath, progress, ct).ConfigureAwait(false);
 
-        // ── Step 3: Verify SHA-256 (mandatory - resolvedSha256 is never null here) ──
-        string computedHash = await ComputeSha256Async(isoPath, progress, ct);
+        //   Step 3: Verify SHA-256 (mandatory - resolvedSha256 is never null here)
+        string computedHash = await ComputeSha256Async(isoPath, progress, ct).ConfigureAwait(false);
 
         if (!string.Equals(computedHash, resolvedSha256, StringComparison.OrdinalIgnoreCase))
         {
@@ -73,7 +75,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         }
         _logger.LogInformation("SHA-256 OK: {Hash}", computedHash);
 
-        // ── Done ─────────────────────────────────────────────────────────────
+        //   Done                               ─
         progress?.Report(new IsoAcquisitionProgress(IsoAcquisitionPhase.Complete, 0, null, null));
 
         return new IsoAcquisitionResult(isoPath, Sha256Verified: true, gpgVerified, new FileInfo(isoPath).Length);
@@ -116,7 +118,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             progress?.Report(new IsoAcquisitionProgress(
                 IsoAcquisitionPhase.VerifyingGpg, 0, null, "Fetching & verifying CHECKSUM file…"));
 
-            var (checksumContent, gpgOk) = await FetchAndVerifyChecksumAsync(spec, ct);
+            var (checksumContent, gpgOk) = await FetchAndVerifyChecksumAsync(spec, ct).ConfigureAwait(false);
             if (!gpgOk)
                 throw new InvalidOperationException(
                     $"GPG verification failed for {spec.DistroId}: the checksum file could not be " +
@@ -178,7 +180,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         }
     }
 
-    // ── Download ──────────────────────────────────────────────────────────────
+    //   Download                                
 
     private async Task DownloadWithResumeAsync(
         Uri url,
@@ -204,7 +206,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             request.Headers.Range = new RangeHeaderValue(resumeFrom, null);
 
         using var response = await client.SendAsync(
-            request, HttpCompletionOption.ResponseHeadersRead, ct);
+            request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
 
         // Server ignored our Range header → restart
         if (resumeFrom > 0 && response.StatusCode != HttpStatusCode.PartialContent)
@@ -227,25 +229,26 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         bool downloadComplete = false;
         try
         {
-            await using var responseStream = await response.Content.ReadAsStreamAsync(ct);
+            var responseStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            await using var responseStreamCfg = responseStream.ConfigureAwait(false);
             var buffer = new byte[BufferSize];
             long downloaded = resumeFrom;
             int bytesRead;
 
-            while ((bytesRead = await responseStream.ReadAsync(buffer, ct)) > 0)
+            while ((bytesRead = await responseStream.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
             {
-                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
+                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct).ConfigureAwait(false);
                 downloaded += bytesRead;
                 progress?.Report(new IsoAcquisitionProgress(
                     IsoAcquisitionPhase.Downloading, downloaded, totalBytes, null));
             }
 
-            await fileStream.FlushAsync(ct);
+            await fileStream.FlushAsync(ct).ConfigureAwait(false);
             downloadComplete = true;
         }
         finally
         {
-            await fileStream.DisposeAsync();
+            await fileStream.DisposeAsync().ConfigureAwait(false);
         }
 
         if (downloadComplete)
@@ -257,9 +260,9 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         }
     }
 
-    // ── SHA-256 ───────────────────────────────────────────────────────────────
+    //   SHA-256                                ─
 
-    private async Task<string> ComputeSha256Async(
+    private static async Task<string> ComputeSha256Async(
         string filePath,
         IProgress<IsoAcquisitionProgress>? progress,
         CancellationToken ct)
@@ -270,14 +273,15 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         long totalBytes = new FileInfo(filePath).Length;
 
         using var sha256 = SHA256.Create();
-        await using var stream = new FileStream(
+        var stream = new FileStream(
             filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize * 2, useAsync: true);
+        await using var streamCfg = stream.ConfigureAwait(false);
 
         var buffer = new byte[BufferSize * 2];
         long bytesProcessed = 0;
         int bytesRead;
 
-        while ((bytesRead = await stream.ReadAsync(buffer, ct)) > 0)
+        while ((bytesRead = await stream.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
         {
             sha256.TransformBlock(buffer, 0, bytesRead, null, 0);
             bytesProcessed += bytesRead;
@@ -286,10 +290,22 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         }
 
         sha256.TransformFinalBlock([], 0, 0);
-        return Convert.ToHexString(sha256.Hash!).ToLowerInvariant();
+        return ToLowerHex(sha256.Hash!);
     }
 
-    // ── GPG + CHECKSUM ────────────────────────────────────────────────────────
+    /// <summary>Lower-case hex of a byte array, matching the form checksum files use.</summary>
+    private static string ToLowerHex(byte[] bytes) =>
+        string.Create(bytes.Length * 2, bytes, static (chars, src) =>
+        {
+            const string hex = "0123456789abcdef";
+            for (var i = 0; i < src.Length; i++)
+            {
+                chars[i * 2] = hex[src[i] >> 4];
+                chars[i * 2 + 1] = hex[src[i] & 0xF];
+            }
+        });
+
+    //   GPG + CHECKSUM                             
 
     /// <summary>
     /// Downloads the CHECKSUM file and (separately) GPG-verifies it. Failures are
@@ -306,30 +322,31 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         // Fedora uses a single clear-signed CHECKSUM. Branch on which model the
         // distro declared so GPG is verified, never silently skipped.
         if (spec.GpgSignedDataUrl is not null)
-            return await FetchAndVerifyDetachedAsync(spec, client, ct);
+            return await FetchAndVerifyDetachedAsync(spec, client, ct).ConfigureAwait(false);
 
-        // ── Step A: Download CHECKSUM file (required for SHA-256 resolution) ──
+        //   Step A: Download CHECKSUM file (required for SHA-256 resolution)
         string? checksumContent = null;
         try
         {
             _logger.LogInformation("Fetching CHECKSUM from {Url}", spec.GpgSignatureUrl);
-            checksumContent = await client.GetStringAsync(spec.GpgSignatureUrl!, ct);
+            checksumContent = await client.GetStringAsync(spec.GpgSignatureUrl!, ct).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
         {
             _logger.LogWarning(ex, "CHECKSUM download failed for {DistroId}", spec.DistroId);
             return (null, false);
         }
 
-        // ── Step B: GPG verification (result enforced fail-closed by the caller) ──
+        //   Step B: GPG verification (result enforced fail-closed by the caller)
+        // Verify itself never throws; only the key fetch can, so this catch is HTTP-scoped.
         bool gpgVerified = false;
         try
         {
-            var keyBytes = await GetSigningKeyAsync(spec, client, ct);
+            var keyBytes = await GetSigningKeyAsync(spec, client, ct).ConfigureAwait(false);
             gpgVerified = PgpCleartextVerifier.Verify(keyBytes, checksumContent, _logger, spec.GpgKeyFingerprint);
             _logger.LogInformation("GPG verification result for {DistroId}: {Result}", spec.DistroId, gpgVerified);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
         {
             _logger.LogWarning(ex, "GPG key download/verification failed for {DistroId}", spec.DistroId);
         }
@@ -350,25 +367,26 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         try
         {
             _logger.LogInformation("Fetching checksum data from {Url}", spec.GpgSignedDataUrl);
-            dataBytes = await client.GetByteArrayAsync(spec.GpgSignedDataUrl!, ct);
+            dataBytes = await client.GetByteArrayAsync(spec.GpgSignedDataUrl!, ct).ConfigureAwait(false);
             dataText = Encoding.UTF8.GetString(dataBytes);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
         {
             _logger.LogWarning(ex, "SHA256SUMS download failed for {DistroId}", spec.DistroId);
             return (null, false);
         }
 
+        // Verify itself never throws; only the downloads can, so this catch is HTTP-scoped.
         bool gpgVerified = false;
         try
         {
             _logger.LogInformation("Fetching detached signature from {Url}", spec.GpgSignatureUrl);
-            var sigBytes = await client.GetByteArrayAsync(spec.GpgSignatureUrl!, ct);
-            var keyBytes = await GetSigningKeyAsync(spec, client, ct);
+            var sigBytes = await client.GetByteArrayAsync(spec.GpgSignatureUrl!, ct).ConfigureAwait(false);
+            var keyBytes = await GetSigningKeyAsync(spec, client, ct).ConfigureAwait(false);
             gpgVerified = PgpDetachedVerifier.Verify(keyBytes, dataBytes, sigBytes, _logger, spec.GpgKeyFingerprint);
             _logger.LogInformation("Detached GPG verification result for {DistroId}: {Result}", spec.DistroId, gpgVerified);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
         {
             _logger.LogWarning(ex, "Detached GPG download/verification failed for {DistroId}", spec.DistroId);
         }
@@ -386,10 +404,10 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         if (spec.GpgKeyData is { Length: > 0 } bundled)
         {
             _logger.LogInformation("Using bundled signing key for {DistroId}", spec.DistroId);
-            return bundled;
+            return bundled.ToArray();
         }
         _logger.LogInformation("Fetching GPG key from {Url}", spec.GpgKeyUrl);
-        return await client.GetByteArrayAsync(spec.GpgKeyUrl!, ct);
+        return await client.GetByteArrayAsync(spec.GpgKeyUrl!, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -403,6 +421,10 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     internal static string? ParseSha256FromChecksum(string checksumContent, string isoFileName)
     {
         static bool IsSha256(string s) => s.Length == 64 && s.All(Uri.IsHexDigit);
+
+        // Normalise to the lowercase hex that ComputeSha256Async produces, so the two
+        // sides compare equal char-for-char even before the OrdinalIgnoreCase check.
+        static string ToLower(string hex) => new(hex.Select(char.ToLowerInvariant).ToArray());
 
         foreach (var line in checksumContent.Split('\n'))
         {
@@ -419,14 +441,14 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
                 {
                     var hash = trimmed[(eqIdx + 1)..].Trim();
                     if (IsSha256(hash))
-                        return hash.ToLowerInvariant();
+                        return ToLower(hash);
                 }
             }
 
             // Debian/Ubuntu coreutils style:  <hash>  filename.iso
             var firstToken = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)[0];
             if (IsSha256(firstToken))
-                return firstToken.ToLowerInvariant();
+                return ToLower(firstToken);
         }
 
         return null;

@@ -58,9 +58,9 @@ public sealed class FileStagingServiceTests : IDisposable
 
         result.StagingDirectory.Should().Be(StagingRoot);
         result.FileCount.Should().Be(2);
-        File.ReadAllText(Path.Combine(StagingRoot, "files", "Documents", "a.txt"))
+        (await File.ReadAllTextAsync(Path.Combine(StagingRoot, "files", "Documents", "a.txt")))
             .Should().Be("alpha");
-        File.ReadAllText(Path.Combine(StagingRoot, "files", "Documents", "nested", "b.txt"))
+        (await File.ReadAllTextAsync(Path.Combine(StagingRoot, "files", "Documents", "nested", "b.txt")))
             .Should().Be("beta");
     }
 
@@ -92,7 +92,7 @@ public sealed class FileStagingServiceTests : IDisposable
     {
         var leftover = Path.Combine(StagingRoot, "files", "Old");
         Directory.CreateDirectory(leftover);
-        File.WriteAllText(Path.Combine(leftover, "stale.txt"), "old");
+        await File.WriteAllTextAsync(Path.Combine(leftover, "stale.txt"), "old");
 
         var docs = CreateSourceFolder("Documents", ("a.txt", "x"));
         await Service().StageAsync(new FileStagingRequest(_distroId, [docs]), progress: null);

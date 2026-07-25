@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Runtime.Versioning;
 using System.Windows;
@@ -22,7 +23,7 @@ namespace Igloo.App;
 /// Application entry point. Bootstraps the generic host, configures Serilog,
 /// registers all services and view-models, then shows the main window.
 /// </summary>
-public partial class App : Application
+public partial class IglooApp : Application
 {
     private IHost? _host;
 
@@ -88,6 +89,7 @@ public partial class App : Application
                         "Igloo", "logs", "igloo-.log"),
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: 14,
+                    formatProvider: CultureInfo.InvariantCulture,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"))
             .ConfigureServices(RegisterServices)
             .Build();
@@ -110,7 +112,6 @@ public partial class App : Application
         services.AddSingleton<IIsoAcquisitionService, IsoAcquisitionService>();
         services.AddSingleton<IFileStagingService, FileStagingService>();
         services.AddSingleton<IUsbWriterService, UsbWriterService>();
-        services.AddSingleton<ManifestGeneratorService>();
         services.AddSingleton<DistroLoader>();
         services.AddSingleton<DistroRegistry>();
 

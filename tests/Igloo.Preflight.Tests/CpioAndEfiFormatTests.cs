@@ -12,7 +12,7 @@ namespace Igloo.Preflight.Tests;
 /// </summary>
 public class CpioAndEfiFormatTests
 {
-    // ── cpio newc ────────────────────────────────────────────────────────────
+    //   cpio newc                               
 
     [Fact]
     public void Cpio_member_starts_with_newc_magic_and_correct_sizes()
@@ -60,7 +60,7 @@ public class CpioAndEfiFormatTests
         cpio[112].Should().Be(0);
     }
 
-    // ── EFI_LOAD_OPTION ──────────────────────────────────────────────────────
+    //   EFI_LOAD_OPTION                            
 
     private static byte[] LoadOption(string? cmdLine = null) =>
         DirectInstallService.BuildEfiLoadOption(
@@ -122,7 +122,7 @@ public class CpioAndEfiFormatTests
             "FilePathListLength must NOT include the optional data");
     }
 
-    // ── RoundUpMiB ───────────────────────────────────────────────────────────
+    //   RoundUpMiB                              ─
 
     [Theory]
     [InlineData(0, 0)]

@@ -38,7 +38,7 @@ public class ManifestGeneratorServiceTests
     [Fact]
     public void Dual_boot_mode_maps_to_dual_boot_string_and_keeps_linux_size()
     {
-        var manifest = new ManifestGeneratorService().Generate(
+        var manifest = ManifestGeneratorService.Generate(
             "debian", MinimalUser(), UefiReport, Staging,
             targetDisk: new DiskInfo("id", "Samsung SSD", 500_000_000_000L, 0, "GPT", []),
             installMode: DiskInstallMode.DualBoot, linuxSizeGb: 80);
@@ -52,7 +52,7 @@ public class ManifestGeneratorServiceTests
     [Fact]
     public void Replace_mode_maps_to_replace_string_and_zeroes_linux_size()
     {
-        var manifest = new ManifestGeneratorService().Generate(
+        var manifest = ManifestGeneratorService.Generate(
             "debian", MinimalUser(), UefiReport, Staging,
             installMode: DiskInstallMode.ReplaceDisk, linuxSizeGb: 80);
 
@@ -64,10 +64,8 @@ public class ManifestGeneratorServiceTests
     [Fact]
     public void Uefi_and_bios_reports_map_to_firmware_type_strings()
     {
-        var service = new ManifestGeneratorService();
-
-        var uefi = service.Generate("d", MinimalUser(), UefiReport, Staging);
-        var bios = service.Generate("d", MinimalUser(), UefiReport with { IsUefi = false }, Staging);
+        var uefi = ManifestGeneratorService.Generate("d", MinimalUser(), UefiReport, Staging);
+        var bios = ManifestGeneratorService.Generate("d", MinimalUser(), UefiReport with { IsUefi = false }, Staging);
 
         uefi.Hardware.FirmwareType.Should().Be("uefi");
         bios.Hardware.FirmwareType.Should().Be("bios");
@@ -78,7 +76,7 @@ public class ManifestGeneratorServiceTests
     {
         var setup = MinimalUser() with { SelectedBrowserNames = ["Firefox", "Edge"] };
 
-        var manifest = new ManifestGeneratorService().Generate("d", setup, UefiReport, Staging);
+        var manifest = ManifestGeneratorService.Generate("d", setup, UefiReport, Staging);
 
         manifest.Browsers.Should().HaveCount(2);
         manifest.Browsers[0].Name.Should().Be("Firefox");
@@ -96,7 +94,7 @@ public class ManifestGeneratorServiceTests
             SelectedBrowserNames = ["ShouldBeIgnored"],
         };
 
-        var manifest = new ManifestGeneratorService().Generate("d", setup, UefiReport, Staging);
+        var manifest = ManifestGeneratorService.Generate("d", setup, UefiReport, Staging);
 
         manifest.Browsers.Should().ContainSingle().Which.Should().BeSameAs(rich);
     }
@@ -104,7 +102,7 @@ public class ManifestGeneratorServiceTests
     [Fact]
     public void User_identity_and_password_pass_through_unchanged()
     {
-        var manifest = new ManifestGeneratorService().Generate(
+        var manifest = ManifestGeneratorService.Generate(
             "fedora-kde", MinimalUser(), UefiReport, Staging);
 
         manifest.DistroId.Should().Be("fedora-kde");

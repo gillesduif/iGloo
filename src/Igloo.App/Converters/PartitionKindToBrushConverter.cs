@@ -35,7 +35,7 @@ public sealed class PartitionKindToBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 
-    private static Brush Freeze(string hex)
+    private static SolidColorBrush Freeze(string hex)
     {
         var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
         brush.Freeze();

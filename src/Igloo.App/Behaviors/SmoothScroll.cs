@@ -24,8 +24,17 @@ public static class SmoothScroll
             "IsEnabled", typeof(bool), typeof(SmoothScroll),
             new PropertyMetadata(false, OnIsEnabledChanged));
 
-    public static bool GetIsEnabled(DependencyObject o) => (bool)o.GetValue(IsEnabledProperty);
-    public static void SetIsEnabled(DependencyObject o, bool value) => o.SetValue(IsEnabledProperty, value);
+    public static bool GetIsEnabled(DependencyObject o)
+    {
+        ArgumentNullException.ThrowIfNull(o);
+        return (bool)o.GetValue(IsEnabledProperty);
+    }
+
+    public static void SetIsEnabled(DependencyObject o, bool value)
+    {
+        ArgumentNullException.ThrowIfNull(o);
+        o.SetValue(IsEnabledProperty, value);
+    }
 
     // Animated proxy: writing it scrolls the viewer.
     private static readonly DependencyProperty OffsetProperty =

@@ -31,7 +31,7 @@ public sealed class AcquisitionGuardTests : IDisposable
             Directory.Delete(cacheDir, recursive: true);
     }
 
-    private IsoAcquisitionService Service() => new(
+    private static IsoAcquisitionService Service() => new(
         new ExplodingHttpClientFactory(), NullLogger<IsoAcquisitionService>.Instance);
 
     [Fact]

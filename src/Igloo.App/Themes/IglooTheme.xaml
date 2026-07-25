@@ -127,7 +127,7 @@
          3. SURFACES (cards)
          ════════════════════════════════════════════════════════════════════ -->
 
-    <!-- ── Windows 11 design tokens (see docs/design/win11-redesign.md) ──────
+    <!--   Windows 11 design tokens (see docs/design/win11-redesign.md)    
          Solid layered fills + 1px strokes carry depth. No gradients, no glow,
          no drop shadows on controls: hierarchy comes from typography/spacing.
          (Brush.Glass.* keys kept as aliases so existing references keep
@@ -206,9 +206,6 @@
          4. BUTTONS - clear primary / secondary / ghost / danger hierarchy
          ════════════════════════════════════════════════════════════════════ -->
 
-    <!-- Standard button (Win11): solid subtle fill, 1px stroke, radius 4,
-         32px min height. States shift the FILL one layer — no effects, no
-         gradients. Focus = the shared designed ring (never suppressed). -->
     <Style TargetType="Button">
         <Setter Property="Foreground"      Value="{StaticResource Brush.Text.Primary}" />
         <Setter Property="Background"      Value="{StaticResource Brush.Layer.Card}" />
@@ -248,9 +245,7 @@
         </Setter>
     </Style>
 
-    <!-- Primary (accent) button: the one filled-accent action per screen.
-         Dark text on the light accent fill (Win11 dark-mode idiom); states
-         are fill shifts, not glows. -->
+
     <Style x:Key="Button.Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Background"  Value="{StaticResource Brush.AccentW11}" />
         <Setter Property="BorderBrush" Value="#26FFFFFF" />

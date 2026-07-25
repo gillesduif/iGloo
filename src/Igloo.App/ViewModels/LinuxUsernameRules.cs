@@ -39,9 +39,13 @@ internal static class LinuxUsernameRules
     /// <summary>Derives a plausible Linux username from a Windows account name; "user" as last resort.</summary>
     internal static string Sanitize(string windowsName)
     {
+        // useradd only accepts lowercase names, so each character is lowered as it is copied.
         var sb = new StringBuilder();
-        foreach (var c in windowsName.ToLowerInvariant())
+        foreach (var raw in windowsName)
+        {
+            var c = char.ToLowerInvariant(raw);
             sb.Append(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_' || c == '-' ? c : '_');
+        }
 
         var s = sb.ToString();
 

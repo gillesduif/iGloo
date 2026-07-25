@@ -12,7 +12,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     private readonly ILogger<IsoAcquisitionViewModel> _logger;
     private IsoSpecification? _spec;
 
-    // ── Observable state ────────────────────────────────────────────────────
+    //   Observable state                           
 
     [ObservableProperty]
     private IsoAcquisitionPhase _phase = IsoAcquisitionPhase.Downloading;
@@ -36,7 +36,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     /// <summary>The distro being acquired — the page shows its logo on the receipt.</summary>
     [ObservableProperty] private DistroManifest? _distro;
 
-    // ── Derived ──────────────────────────────────────────────────────────────
+    //   Derived                                
 
     public double ProgressPercent =>
         BytesTotal is > 0 ? BytesCompleted * 100.0 / BytesTotal.Value : 0;
@@ -54,7 +54,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         _ => string.Empty,
     };
 
-    // ── Constructor ──────────────────────────────────────────────────────────
+    //   Constructor                              
 
     public IsoAcquisitionViewModel(
         IIsoAcquisitionService service,
@@ -64,7 +64,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         _logger = logger;
     }
 
-    // ── API called by MainWindowViewModel ────────────────────────────────────
+    //   API called by MainWindowViewModel                   
 
     /// <summary>
     /// Builds the <see cref="IsoSpecification"/> from the chosen distro manifest and
@@ -74,11 +74,13 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     /// </summary>
     public void Prepare(DistroManifest distro)
     {
+        ArgumentNullException.ThrowIfNull(distro);
+
         Distro = distro;
 
         // Load the bundled, trusted signing key (if the distro ships one). Preferred
         // over fetching from a keyserver: the trust anchor ships with the app.
-        byte[]? keyData = null;
+        ReadOnlyMemory<byte>? keyData = null;
         if (distro.Iso.GpgKeyFile is { Length: > 0 } keyFile &&
             distro.SourceDirectory is { Length: > 0 } srcDir)
         {
@@ -90,7 +92,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
                 else
                     _logger.LogWarning("Bundled signing key not found at {Path}", keyPath);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Security.SecurityException)
             {
                 _logger.LogWarning(ex, "Could not read bundled signing key {Path}", keyPath);
             }
@@ -98,11 +100,11 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
 
         _spec = new IsoSpecification(
             distro.Id,
-            new Uri(distro.Iso.DownloadUrl),
+            distro.Iso.DownloadUrl,
             distro.Iso.Sha256,
-            distro.Iso.GpgSignatureUrl is not null ? new Uri(distro.Iso.GpgSignatureUrl) : null,
-            distro.Iso.GpgKeyUrl is not null ? new Uri(distro.Iso.GpgKeyUrl) : null,
-            distro.Iso.GpgSignedDataUrl is not null ? new Uri(distro.Iso.GpgSignedDataUrl) : null,
+            distro.Iso.GpgSignatureUrl,
+            distro.Iso.GpgKeyUrl,
+            distro.Iso.GpgSignedDataUrl,
             keyData,
             distro.Iso.GpgKeyFingerprint);
 
@@ -115,7 +117,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         Phase = IsoAcquisitionPhase.Downloading;
     }
 
-    // ── Command ──────────────────────────────────────────────────────────────
+    //   Command                                
 
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task AcquireAsync(CancellationToken ct)
@@ -152,7 +154,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         {
             _logger.LogInformation("ISO acquisition cancelled");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "ISO acquisition failed");
             HasError = true;
@@ -164,7 +166,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         }
     }
 
-    // ── Property-change hooks ─────────────────────────────────────────────────
+    //   Property-change hooks                         ─
 
     partial void OnPhaseChanged(IsoAcquisitionPhase value) =>
         OnPropertyChanged(nameof(PhaseDisplay));

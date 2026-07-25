@@ -16,7 +16,7 @@ namespace Igloo.UsbWriter;
 /// </summary>
 public sealed partial class UsbWriterService
 {
-    // ── Hybrid-MBR → protective-MBR conversion ───────────────────────────────
+    //   Hybrid-MBR → protective-MBR conversion                ─
 
     /// <summary>
     /// Prepares the partition table on <paramref name="deviceId"/> so that
@@ -61,12 +61,13 @@ public sealed partial class UsbWriterService
             _logger.LogWarning(
                 "Cannot open {Dev} for MBR/GPT fix (Win32 error {Err}) - skipping",
                 deviceId, Marshal.GetLastWin32Error());
+            handle.Dispose();
             return;
         }
 
         try
         {
-            // ── Step 1: read LBA 0 (MBR) + LBA 1 (GPT header) ────────────────
+            //   Step 1: read LBA 0 (MBR) + LBA 1 (GPT header)         
             var buf = new byte[1024];
             if (!NativeMethods.ReadFile(handle, buf, 1024, out int bytesRead, nint.Zero)
                 || bytesRead < 1024)
@@ -86,7 +87,7 @@ public sealed partial class UsbWriterService
                     "Please use a Fedora Live ISO.");
             }
 
-            // ── Step 2: write protective MBR if needed ────────────────────────
+            //   Step 2: write protective MBR if needed             
             bool alreadyProtective =
                 buf[446 + 4] == 0xEE &&   // entry 1 type = 0xEE
                 buf[462 + 4] == 0x00 &&   // entry 2 type = empty
@@ -139,14 +140,14 @@ public sealed partial class UsbWriterService
                 _logger.LogInformation("Protective MBR written to {Dev}", deviceId);
             }
 
-            // ── Step 3: extend GPT to the full physical disk size ─────────────
+            //   Step 3: extend GPT to the full physical disk size       ─
             // The ISO's GPT header records AlternateLBA / LastUsableLBA at the
             // end of the ISO file (~4.5 M sectors for a 2.3 GB ISO), not at the
             // end of the 115 GB USB drive.  diskpart respects those boundaries
             // and reports "no free space" even though 112+ GB are unallocated.
             TryExtendGptToFullDisk(handle, diskSizeBytes);
 
-            // ── Step 4: tell the driver to re-read the updated partition table ─
+            //   Step 4: tell the driver to re-read the updated partition table ─
             NativeMethods.DeviceIoControl(
                 handle, IOCTL_DISK_UPDATE_PROPERTIES,
                 nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
@@ -159,10 +160,10 @@ public sealed partial class UsbWriterService
         }
 
         // Give the disk driver time to finish the re-read before diskpart starts.
-        await Task.Delay(1500, CancellationToken.None);
+        await Task.Delay(1500, CancellationToken.None).ConfigureAwait(false);
     }
 
-    // ── GPT size extension ────────────────────────────────────────────────────
+    //   GPT size extension                           
 
     /// <summary>
     /// Updates the primary and backup GPT headers so their
@@ -196,7 +197,7 @@ public sealed partial class UsbWriterService
         long newBackupEntryStart = diskSectors - 1 - BackupEntrySectors;
         long newLastUsableLBA = diskSectors - 1 - BackupEntrySectors - 1;
 
-        // ── Read primary GPT header (LBA 1) ───────────────────────────────────
+        //   Read primary GPT header (LBA 1)                  ─
         var hdr = new byte[512];
         if (!ReadSector(diskHandle, 1L, hdr))
         {
@@ -242,7 +243,7 @@ public sealed partial class UsbWriterService
             "TryExtendGpt: extending GPT from AlternateLBA={Old} to {New} ({GB:F1} GB)",
             currentAlternate, newAlternateLBA, diskSizeBytes / 1073741824.0);
 
-        // ── Read primary partition entries (LBA 2–33) ─────────────────────────
+        //   Read primary partition entries (LBA 2–33)             ─
         var entries = new byte[BackupEntrySectors * 512];
         for (int i = 0; i < BackupEntrySectors; i++)
         {
@@ -255,7 +256,7 @@ public sealed partial class UsbWriterService
             Buffer.BlockCopy(sec, 0, entries, i * 512, 512);
         }
 
-        // ── Update primary GPT header ─────────────────────────────────────────
+        //   Update primary GPT header                     ─
         BitConverter.TryWriteBytes(hdr.AsSpan(32, 8), newAlternateLBA);   // AlternateLBA
         BitConverter.TryWriteBytes(hdr.AsSpan(48, 8), newLastUsableLBA);  // LastUsableLBA
         // PartitionEntryLBA (offset 72) stays at 2.
@@ -265,7 +266,7 @@ public sealed partial class UsbWriterService
         uint newPrimaryCrc = GptCrc32(hdr, (int)headerSize);
         BitConverter.TryWriteBytes(hdr.AsSpan(16, 4), newPrimaryCrc);
 
-        // ── Write backup partition entries at new location ────────────────────
+        //   Write backup partition entries at new location           
         for (int i = 0; i < BackupEntrySectors; i++)
         {
             var sec = new byte[512];
@@ -277,7 +278,7 @@ public sealed partial class UsbWriterService
             }
         }
 
-        // ── Build and write backup GPT header ─────────────────────────────────
+        //   Build and write backup GPT header                 ─
         // Backup header is a mirror of the primary with MyLBA/AlternateLBA swapped
         // and PartitionEntryLBA pointing to the backup entries' new location.
         var backupHdr = (byte[])hdr.Clone();
@@ -295,7 +296,7 @@ public sealed partial class UsbWriterService
             return false;
         }
 
-        // ── Write updated primary GPT header ──────────────────────────────────
+        //   Write updated primary GPT header                  
         if (!WriteSector(diskHandle, 1L, hdr))
         {
             _logger.LogWarning("TryExtendGpt: failed to write primary GPT header");
@@ -340,7 +341,7 @@ public sealed partial class UsbWriterService
         return ~crc;
     }
 
-    // ── Volume locking / dismounting ──────────────────────────────────────────
+    //   Volume locking / dismounting                      
 
     /// <summary>
     /// Locks and force-dismounts every volume that resides on <paramref name="diskIndex"/>
@@ -355,7 +356,46 @@ public sealed partial class UsbWriterService
     /// from silently re-mounting the volumes during the write; dispose them when done.
     /// </para>
     /// </summary>
+    // Returns one open handle per dismounted volume; ownership passes to the caller, who
+    // keeps each handle open (releasing it re-allows mounting) and disposes it when done.
     private List<SafeFileHandle> LockAndDismountVolumesOnDisk(int diskIndex)
+    {
+        var held = new List<SafeFileHandle>();
+
+        foreach (var driveInfo in DriveInfo.GetDrives())
+        {
+            if (driveInfo.DriveType is not (DriveType.Fixed or DriveType.Removable or DriveType.Unknown))
+                continue;
+
+            var letter = char.ToUpperInvariant(driveInfo.Name[0]);
+
+            // Standard CA2000 hand-off: the handle is disposed in 'finally' unless it was
+            // added to 'held', at which point nulling the local passes ownership to the list.
+            SafeFileHandle? handle = null;
+            try
+            {
+                handle = TryLockAndDismountVolume($@"\\.\{letter}:", diskIndex);
+                if (handle is not null)
+                {
+                    held.Add(handle);
+                    handle = null;
+                }
+            }
+            finally
+            {
+                handle?.Dispose();
+            }
+        }
+
+        return held;
+    }
+
+    /// <summary>
+    /// Opens one volume, verifies it lives on <paramref name="diskIndex"/>, then locks and
+    /// dismounts it. Returns the open handle on success (ownership passes to the caller), or
+    /// <see langword="null"/> — with the handle already disposed — on any failure.
+    /// </summary>
+    private SafeFileHandle? TryLockAndDismountVolume(string volumePath, int diskIndex)
     {
         const uint GENERIC_READ = 0x80000000u;
         const uint GENERIC_WRITE = 0x40000000u;
@@ -366,66 +406,52 @@ public sealed partial class UsbWriterService
         const uint FSCTL_LOCK_VOLUME = 0x00090018u;
         const uint FSCTL_DISMOUNT_VOLUME = 0x00090020u;
 
-        var held = new List<SafeFileHandle>();
+        var handle = NativeMethods.CreateFileW(
+            volumePath,
+            GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            nint.Zero,
+            OPEN_EXISTING,
+            0u,
+            nint.Zero);
 
-        foreach (var driveInfo in DriveInfo.GetDrives())
+        if (handle.IsInvalid)
         {
-            if (driveInfo.DriveType is not (DriveType.Fixed or DriveType.Removable or DriveType.Unknown))
-                continue;
-
-            var letter = char.ToUpperInvariant(driveInfo.Name[0]);
-            var volumePath = $@"\\.\{letter}:";
-
-            var handle = NativeMethods.CreateFileW(
-                volumePath,
-                GENERIC_READ | GENERIC_WRITE,
-                FILE_SHARE_READ | FILE_SHARE_WRITE,
-                nint.Zero,
-                OPEN_EXISTING,
-                0u,
-                nint.Zero);
-
-            if (handle.IsInvalid)
-            {
-                _logger.LogDebug("Cannot open volume {Vol} - skipping dismount", volumePath);
-                handle.Dispose();
-                continue;
-            }
-
-            if (!VolumeIsOnDisk(handle, diskIndex, IOCTL_VOLUME_GET_EXTENTS))
-            {
-                handle.Dispose();
-                continue;
-            }
-
-            // Lock: advises Windows no new opens are allowed on this volume.
-            // Non-fatal if files are already open - FSCTL_DISMOUNT_VOLUME forces
-            // it offline regardless.
-            bool locked = NativeMethods.DeviceIoControl(
-                handle, FSCTL_LOCK_VOLUME,
-                nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
-            if (!locked)
-                _logger.LogDebug("Lock advisory failed on {Vol} (will force-dismount)", volumePath);
-
-            // Dismount: flushes dirty buffers and takes the volume offline.
-            bool dismounted = NativeMethods.DeviceIoControl(
-                handle, FSCTL_DISMOUNT_VOLUME,
-                nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
-
-            if (dismounted)
-            {
-                _logger.LogInformation("Dismounted volume {Vol} on disk {Index}", volumePath, diskIndex);
-                held.Add(handle);   // keep open - releasing re-allows mounting
-            }
-            else
-            {
-                _logger.LogWarning("Failed to dismount volume {Vol} (Win32 error {Err})",
-                    volumePath, Marshal.GetLastWin32Error());
-                handle.Dispose();
-            }
+            _logger.LogDebug("Cannot open volume {Vol} - skipping dismount", volumePath);
+            handle.Dispose();
+            return null;
         }
 
-        return held;
+        if (!VolumeIsOnDisk(handle, diskIndex, IOCTL_VOLUME_GET_EXTENTS))
+        {
+            handle.Dispose();
+            return null;
+        }
+
+        // Lock: advises Windows no new opens are allowed on this volume.
+        // Non-fatal if files are already open - FSCTL_DISMOUNT_VOLUME forces
+        // it offline regardless.
+        bool locked = NativeMethods.DeviceIoControl(
+            handle, FSCTL_LOCK_VOLUME,
+            nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
+        if (!locked)
+            _logger.LogDebug("Lock advisory failed on {Vol} (will force-dismount)", volumePath);
+
+        // Dismount: flushes dirty buffers and takes the volume offline.
+        bool dismounted = NativeMethods.DeviceIoControl(
+            handle, FSCTL_DISMOUNT_VOLUME,
+            nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
+
+        if (!dismounted)
+        {
+            _logger.LogWarning("Failed to dismount volume {Vol} (Win32 error {Err})",
+                volumePath, Marshal.GetLastWin32Error());
+            handle.Dispose();
+            return null;
+        }
+
+        _logger.LogInformation("Dismounted volume {Vol} on disk {Index}", volumePath, diskIndex);
+        return handle;
     }
 
     /// <summary>

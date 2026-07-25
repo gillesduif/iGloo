@@ -17,7 +17,7 @@ namespace Igloo.UsbWriter;
 /// </summary>
 public sealed partial class UsbWriterService
 {
-    // ── GRUB config patching ──────────────────────────────────────────────────
+    //   GRUB config patching                          
 
     /// <summary>
     /// Best-effort: opens the physical disk once and patches every grub.cfg it can
@@ -59,6 +59,7 @@ public sealed partial class UsbWriterService
         if (handle.IsInvalid)
         {
             var err = Marshal.GetLastWin32Error();
+            handle.Dispose();
             _logger.LogWarning(
                 "GRUB patch - cannot open {Dev} (Win32 {Err})", drive.DeviceId, err);
             progress?.Report(new UsbWriteProgress(
@@ -72,7 +73,7 @@ public sealed partial class UsbWriterService
 
         try
         {
-            // ── Path 1: EFI FAT32 (UEFI boot) ────────────────────────────────
+            //   Path 1: EFI FAT32 (UEFI boot)                 
             long efiLba = FindEfiPartitionStartLba(handle);
             if (efiLba > 0)
             {
@@ -86,7 +87,7 @@ public sealed partial class UsbWriterService
                 skippedPaths.Add("EFI/*/grub.cfg (ESP not found)");
             }
 
-            // ── Path 2: ISO9660 (BIOS/legacy boot) ───────────────────────────
+            //   Path 2: ISO9660 (BIOS/legacy boot)              ─
             PatchIso9660GrubCfg(handle, patchedPaths, skippedPaths);
         }
         finally { handle.Dispose(); }
@@ -176,7 +177,7 @@ public sealed partial class UsbWriterService
         List<string> patchedPaths,
         List<string> skippedPaths)
     {
-        // ── Parse BPB ────────────────────────────────────────────────────────────
+        //   Parse BPB                               
         var bpb = new byte[512];
         if (!ReadSector(disk, partLba, bpb))
         {
@@ -240,16 +241,15 @@ public sealed partial class UsbWriterService
             partLba, secsPerClust, fatLba, dataLba,
             isFat32 ? $"root-cluster={rootCluster}" : $"root@LBA {fat16RootLba}+{fat16RootSectors}");
 
-        // ── Patch every known grub.cfg location ───────────────────────────────
-        string[][] candidates =
+        //   Patch every known grub.cfg location                ─
+        (string Label, string[] Parts)[] candidates =
         [
-            ["EFI", "BOOT",   "GRUB.CFG"],
-            ["EFI", "FEDORA", "GRUB.CFG"],
+            ("efi/boot/grub.cfg",   ["EFI", "BOOT",   "GRUB.CFG"]),
+            ("efi/fedora/grub.cfg", ["EFI", "FEDORA", "GRUB.CFG"]),
         ];
 
-        foreach (var parts in candidates)
+        foreach (var (label, parts) in candidates)
         {
-            var label = string.Join("/", parts).ToLowerInvariant();
 
             // Start at the root.  For FAT16/12 the root is a fixed linear region;
             // for FAT32 and all subdirectories it is a cluster chain.
@@ -320,8 +320,8 @@ public sealed partial class UsbWriterService
             if (patched == text)
             {
                 var preview = text.Length > 200
-                    ? text[..200].Replace("\n", "↵").Replace("\r", "") + "…"
-                    : text.Replace("\n", "↵").Replace("\r", "");
+                    ? text[..200].Replace("\n", "↵", StringComparison.Ordinal).Replace("\r", "", StringComparison.Ordinal) + "…"
+                    : text.Replace("\n", "↵", StringComparison.Ordinal).Replace("\r", "", StringComparison.Ordinal);
                 _logger.LogInformation(
                     "FAT: {Path} - no linux/linuxefi lines found. Preview: {P}",
                     label, preview);
@@ -358,7 +358,7 @@ public sealed partial class UsbWriterService
         }
     }
 
-    // ── ISO9660 GRUB config patching (BIOS/legacy boot path) ─────────────────
+    //   ISO9660 GRUB config patching (BIOS/legacy boot path)         ─
 
     /// <summary>
     /// Locates and patches <c>/boot/grub2/grub.cfg</c> in the ISO9660 filesystem
@@ -377,7 +377,7 @@ public sealed partial class UsbWriterService
         List<string> patchedPaths,
         List<string> skippedPaths)
     {
-        // ── Validate Primary Volume Descriptor at logical block 16 ────────────
+        //   Validate Primary Volume Descriptor at logical block 16       
         var pvd = ReadIso9660Block(disk, 16);
         if (pvd is null)
         {
@@ -402,7 +402,7 @@ public sealed partial class UsbWriterService
         _logger.LogDebug("ISO9660: PVD OK, root dir at block {B}, {S} bytes",
             rootLba, rootSize);
 
-        // ── Navigate /boot/grub2/ ─────────────────────────────────────────────
+        //   Navigate /boot/grub2/                       ─
         uint dirLba = rootLba;
         uint dirSize = rootSize;
 
@@ -419,7 +419,7 @@ public sealed partial class UsbWriterService
             dirSize = nextSize;
         }
 
-        // ── Find grub.cfg ─────────────────────────────────────────────────────
+        //   Find grub.cfg                           ─
         if (!Iso9660FindEntry(disk, dirLba, dirSize, "grub.cfg", isDir: false,
                 out uint fileLba, out uint fileSize,
                 out uint fileEntryBlock, out int fileEntryOff))
@@ -432,7 +432,7 @@ public sealed partial class UsbWriterService
         _logger.LogInformation(
             "ISO9660: grub.cfg at block {B}, {S} bytes", fileLba, fileSize);
 
-        // ── Read, patch, validate fit ─────────────────────────────────────────
+        //   Read, patch, validate fit                     ─
         var data = Iso9660ReadFile(disk, fileLba, (int)fileSize);
         if (data is null)
         {
@@ -447,8 +447,8 @@ public sealed partial class UsbWriterService
         if (patched == text)
         {
             var preview = text.Length > 200
-                ? text[..200].Replace("\n", "↵").Replace("\r", "") + "…"
-                : text.Replace("\n", "↵").Replace("\r", "");
+                ? text[..200].Replace("\n", "↵", StringComparison.Ordinal).Replace("\r", "", StringComparison.Ordinal) + "…"
+                : text.Replace("\n", "↵", StringComparison.Ordinal).Replace("\r", "", StringComparison.Ordinal);
             _logger.LogInformation(
                 "ISO9660: /boot/grub2/grub.cfg - no linux/linuxefi lines found. Preview: {P}",
                 preview);
@@ -471,7 +471,7 @@ public sealed partial class UsbWriterService
             return;
         }
 
-        // ── Write back ────────────────────────────────────────────────────────
+        //   Write back                             
         if (!Iso9660WriteFile(disk, fileLba, patchedBytes, blocksAllocated))
         {
             _logger.LogWarning("ISO9660: write failed for /boot/grub2/grub.cfg");
@@ -489,10 +489,10 @@ public sealed partial class UsbWriterService
         patchedPaths.Add("/boot/grub2/grub.cfg");
     }
 
-    // ── ISO9660 sector helpers ────────────────────────────────────────────────
+    //   ISO9660 sector helpers                         
 
     /// <summary>Reads one 2048-byte ISO9660 logical block (4 consecutive 512-byte sectors).</summary>
-    private byte[]? ReadIso9660Block(SafeFileHandle disk, uint blockNum)
+    private static byte[]? ReadIso9660Block(SafeFileHandle disk, uint blockNum)
     {
         var buf = new byte[2048];
         long baseLba = (long)blockNum * 4;
@@ -507,7 +507,7 @@ public sealed partial class UsbWriterService
     }
 
     /// <summary>Writes one 2048-byte ISO9660 logical block as 4 consecutive 512-byte sectors.</summary>
-    private bool WriteIso9660Block(SafeFileHandle disk, uint blockNum, byte[] data)
+    private static bool WriteIso9660Block(SafeFileHandle disk, uint blockNum, byte[] data)
     {
         long baseLba = (long)blockNum * 4;
         for (int i = 0; i < 4; i++)
@@ -528,7 +528,7 @@ public sealed partial class UsbWriterService
     /// Returns the entry's extent location, data size, and its position within
     /// the on-disk directory block so the caller can update the file size in-place.
     /// </summary>
-    private bool Iso9660FindEntry(
+    private static bool Iso9660FindEntry(
         SafeFileHandle disk,
         uint dirLba,
         uint dirSize,
@@ -574,7 +574,7 @@ public sealed partial class UsbWriterService
 
                 var id = Encoding.ASCII.GetString(block, off + 33, fileIdLen);
                 // ISO9660 file identifiers carry a version suffix (";1", ";2", …) - strip it.
-                int semi = id.IndexOf(';');
+                int semi = id.IndexOf(';', StringComparison.Ordinal);
                 if (semi >= 0)
                     id = id[..semi];
 
@@ -592,7 +592,7 @@ public sealed partial class UsbWriterService
     }
 
     /// <summary>Reads <paramref name="fileSize"/> bytes of file data from the ISO9660 extent.</summary>
-    private byte[]? Iso9660ReadFile(SafeFileHandle disk, uint fileLba, int fileSize)
+    private static byte[]? Iso9660ReadFile(SafeFileHandle disk, uint fileLba, int fileSize)
     {
         var result = new byte[fileSize];
         uint blocks = ((uint)fileSize + 2047u) / 2048u;
@@ -614,7 +614,7 @@ public sealed partial class UsbWriterService
     /// Writes <paramref name="content"/> into the ISO9660 extent at <paramref name="fileLba"/>,
     /// zero-padding any remaining space in the last 2048-byte block.
     /// </summary>
-    private bool Iso9660WriteFile(
+    private static bool Iso9660WriteFile(
         SafeFileHandle disk, uint fileLba, byte[] content, uint blocksAllocated)
     {
         for (uint b = 0; b < blocksAllocated; b++)
@@ -635,7 +635,7 @@ public sealed partial class UsbWriterService
     /// Writes both the little-endian copy (record offset +10) and the
     /// big-endian copy (record offset +14) as required by the ISO9660 spec.
     /// </summary>
-    private bool Iso9660UpdateEntrySize(
+    private static bool Iso9660UpdateEntrySize(
         SafeFileHandle disk, uint blockNum, int off, uint newSize)
     {
         var block = ReadIso9660Block(disk, blockNum);
@@ -653,13 +653,13 @@ public sealed partial class UsbWriterService
         return WriteIso9660Block(disk, blockNum, block);
     }
 
-    // ── FAT helpers (FAT12 / FAT16 / FAT32) ──────────────────────────────────
+    //   FAT helpers (FAT12 / FAT16 / FAT32)                  
 
     /// <summary>
     /// Scans the FAT16/12 <em>fixed</em> root directory (at a known LBA range,
     /// not managed by the cluster chain) for an entry matching <paramref name="name"/>.
     /// </summary>
-    private bool FatFindInFixedRoot(
+    private static bool FatFindInFixedRoot(
         SafeFileHandle disk,
         long rootLba,
         long rootSectors,
@@ -719,7 +719,7 @@ public sealed partial class UsbWriterService
     /// an entry matching <paramref name="name"/>.
     /// Pass <paramref name="isFat32"/>=<see langword="false"/> for FAT16/12 cluster chains.
     /// </summary>
-    private bool FatFindInClusters(
+    private static bool FatFindInClusters(
         SafeFileHandle disk,
         uint dirCluster,
         string name,
@@ -786,7 +786,7 @@ public sealed partial class UsbWriterService
     }
 
     /// <summary>Reads all bytes of a FAT file by following its cluster chain.</summary>
-    private byte[]? FatReadFile(
+    private static byte[]? FatReadFile(
         SafeFileHandle disk, uint startCluster, int fileSize,
         byte secsPerClust, long fatLba, long dataLba, bool isFat32)
     {
@@ -862,7 +862,7 @@ public sealed partial class UsbWriterService
     /// Returns the next cluster in the FAT chain.
     /// Handles both FAT16 (2-byte entries) and FAT32 (4-byte entries, upper 4 bits reserved).
     /// </summary>
-    private bool FatNextCluster(
+    private static bool FatNextCluster(
         SafeFileHandle disk, long fatLba, uint cluster, bool isFat32, out uint next)
     {
         if (isFat32)
@@ -937,7 +937,7 @@ public sealed partial class UsbWriterService
                 var line = m.Groups[1].Value;
                 var newline = m.Groups[2].Value;
 
-                // ── rd.live.check ─────────────────────────────────────────────
+                //   rd.live.check                       ─
                 // Fedora's dracut live module uses `getarg rd.live.check` which
                 // is a PRESENCE check - even `rd.live.check=0` triggers the media
                 // integrity check.  Because we modified LBA 0/1 (MBR/GPT) and the
@@ -946,7 +946,7 @@ public sealed partial class UsbWriterService
                 // dracut never starts checkisomd5@.service.
                 line = Regex.Replace(line, @"[ \t]+rd\.live\.check(?:=\S*)?", string.Empty);
 
-                // ── nomodeset ─────────────────────────────────────────────────
+                //   nomodeset                         ─
                 // Strip then re-add so it appears exactly once, de-duplicated on
                 // re-runs.  Prevents the black screen on VMs with a virtual GPU.
                 line = Regex.Replace(line, @"[ \t]+nomodeset(?=[ \t]|$)", string.Empty);

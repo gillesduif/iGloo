@@ -1,4 +1,16 @@
 <Project>
   <!-- The AppxMSBuildToolsPath workaround for WinUI 3 CLI builds was removed
        when the project migrated from WinUI 3 to WPF (see docs/decisions/006-wpf-over-winui3.md). -->
+
+  <!-- Solution-wide analyzer policy (2026-07 warning-cleanup pass).
+       AnalysisMode=All turns on the full Roslyn CA ruleset; EnforceCodeStyleInBuild
+       runs the IDE style analyzers at build time. The codebase was brought to zero
+       warnings under these settings; per-rule exceptions and their justifications
+       live in .editorconfig (e.g. CA1848 policy, CA2007/CA1515 off for the WPF app,
+       CA1707/CA2007/CA1515/CA1062/CA1819/CA1034 off for tests) and in scoped
+       [SuppressMessage] attributes on defensive hardware/EFI-probing catches. -->
+  <PropertyGroup>
+    <AnalysisMode>All</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
 </Project>

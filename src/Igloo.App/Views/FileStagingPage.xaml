@@ -9,7 +9,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ── RUNNING: hero number, same visual language as the download ───── -->
+        <!--   RUNNING: hero number, same visual language as the download   ─ -->
         <StackPanel Grid.Row="0"
                     Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
                     VerticalAlignment="Center" HorizontalAlignment="Center"
@@ -81,7 +81,7 @@
 
         </StackPanel>
 
-        <!-- ── ERROR ────────────────────────────────────────────────────────── -->
+        <!--   ERROR                               -->
         <Border Grid.Row="0"
                 Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
                 Style="{StaticResource Card.Danger}" VerticalAlignment="Top">
@@ -94,7 +94,7 @@
             </StackPanel>
         </Border>
 
-        <!-- ── COMPLETE: the migration receipt ──────────────────────────────── -->
+        <!--   COMPLETE: the migration receipt                  -->
         <Border Grid.Row="0"
                 Visibility="{Binding IsComplete, Converter={StaticResource BoolToVis}}"
                 Style="{StaticResource Card}" Padding="26,22"
@@ -156,7 +156,7 @@
             </StackPanel>
         </Border>
 
-        <!-- ── Cancel (running only) ────────────────────────────────────────── -->
+        <!--   Cancel (running only)                       -->
         <Button Grid.Row="1"
                 Content="Cancel"
                 Command="{Binding StageCancelCommand}"

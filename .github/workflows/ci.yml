@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    # WPF + net9.0-windows + System.Management require a Windows runner.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Restore
+        run: dotnet restore Igloo.sln
+
+      # -warnaserror enforces the zero-warning analyzer gate across every project,
+      # not just the ones that set TreatWarningsAsErrors. AnalysisMode=All lives in
+      # Directory.Build.props, so the full CA ruleset runs here too.
+      - name: Build (analyzer gate — warnings fail the build)
+        run: dotnet build Igloo.sln -c Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test Igloo.sln -c Release --no-build --verbosity normal

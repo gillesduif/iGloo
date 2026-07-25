@@ -18,7 +18,7 @@ namespace Igloo.Core.Plugins;
 /// has <c>Igloo.Core.dll</c> loaded, the plugin's reference to it resolves to the same copy -
 /// no version mismatches or duplicate type registrations.
 /// </summary>
-public sealed class DistroRegistry
+public sealed partial class DistroRegistry
 {
     private readonly ILogger<DistroRegistry> _logger;
     private readonly Dictionary<string, IDistroPlugin> _plugins = new(StringComparer.OrdinalIgnoreCase);
@@ -34,11 +34,11 @@ public sealed class DistroRegistry
     /// <summary>Load all plugins from <paramref name="distrosDirectory"/>.</summary>
     public Task LoadAsync(string distrosDirectory, CancellationToken ct = default)
     {
-        _logger.LogInformation("Loading distro plugins from {Dir}", distrosDirectory);
+        LogLoadingPlugins(distrosDirectory);
 
         if (!Directory.Exists(distrosDirectory))
         {
-            _logger.LogWarning("Distros directory not found: {Dir}", distrosDirectory);
+            LogDistrosDirectoryNotFound(distrosDirectory);
             return Task.CompletedTask;
         }
 
@@ -56,7 +56,7 @@ public sealed class DistroRegistry
 
             if (!File.Exists(dllPath))
             {
-                _logger.LogDebug("No plugin DLL at {Path}", dllPath);
+                LogNoPluginDll(dllPath);
                 continue;
             }
 
@@ -72,21 +72,27 @@ public sealed class DistroRegistry
 
                 if (pluginType is null)
                 {
-                    _logger.LogWarning("No IDistroPlugin implementation found in {Dll}", dllPath);
+                    LogNoPluginImplementation(dllPath);
                     continue;
                 }
 
                 var plugin = (IDistroPlugin)Activator.CreateInstance(pluginType)!;
                 _plugins[plugin.Id] = plugin;
-                _logger.LogInformation("Loaded plugin '{Id}' from {Dll}", plugin.Id, dllPath);
+                LogLoadedPlugin(plugin.Id, dllPath);
             }
-            catch (Exception ex)
+            // One faulty plugin assembly must not abort discovery of the rest. This covers the
+            // failure surface of LoadFromAssemblyPath + GetTypes + Activator.CreateInstance:
+            // bad/locked images, unresolved dependencies, and constructor faults.
+            catch (Exception ex) when (ex is IOException or BadImageFormatException
+                or ReflectionTypeLoadException or TypeLoadException or MissingMemberException
+                or TargetInvocationException or MemberAccessException or InvalidOperationException
+                or NotSupportedException)
             {
-                _logger.LogWarning(ex, "Failed to load plugin from {Dll}", dllPath);
+                LogPluginLoadFailed(ex, dllPath);
             }
         }
 
-        _logger.LogInformation("Plugin registry loaded: {Count} plugin(s)", _plugins.Count);
+        LogRegistryLoaded(_plugins.Count);
         return Task.CompletedTask;
     }
 
@@ -100,7 +106,28 @@ public sealed class DistroRegistry
     public bool TryGet(string id, [NotNullWhen(true)] out IDistroPlugin? plugin)
         => _plugins.TryGetValue(id, out plugin);
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    [LoggerMessage(Level = LogLevel.Information, Message = "Loading distro plugins from {Dir}")]
+    private partial void LogLoadingPlugins(string dir);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Distros directory not found: {Dir}")]
+    private partial void LogDistrosDirectoryNotFound(string dir);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "No plugin DLL at {Path}")]
+    private partial void LogNoPluginDll(string path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "No IDistroPlugin implementation found in {Dll}")]
+    private partial void LogNoPluginImplementation(string dll);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Loaded plugin '{Id}' from {Dll}")]
+    private partial void LogLoadedPlugin(string id, string dll);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to load plugin from {Dll}")]
+    private partial void LogPluginLoadFailed(Exception ex, string dll);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Plugin registry loaded: {Count} plugin(s)")]
+    private partial void LogRegistryLoaded(int count);
+
+    //   Helpers
 
     /// <summary>Converts "fedora-kde" → "FedoraKde".</summary>
     private static string ToPascalCase(string hyphenated)

@@ -36,7 +36,7 @@ public sealed class CoverTextureFactory
         return texture;
     }
 
-    private static BitmapSource Render(string? logoPath, string displayName, string hashKey, int pixels)
+    private static RenderTargetBitmap Render(string? logoPath, string displayName, string hashKey, int pixels)
     {
         var visual = new DrawingVisual();
         using (var dc = visual.RenderOpen())
@@ -65,7 +65,7 @@ public sealed class CoverTextureFactory
         return bitmap;
     }
 
-    // ── Drawing helpers ──────────────────────────────────────────────────────
+    //   Drawing helpers                            
 
     private static void DrawTile(DrawingContext dc, int pixels, Color top, Color bottom)
     {
@@ -120,9 +120,9 @@ public sealed class CoverTextureFactory
         dc.DrawRoundedRectangle(null, border, new Rect(0.5, 0.5, pixels - 1, pixels - 1), radius, radius);
     }
 
-    // ── Asset loading / color derivation ────────────────────────────────────
+    //   Asset loading / color derivation                   
 
-    private static BitmapSource? TryLoadLogo(string? path, int decodePixels)
+    private static BitmapImage? TryLoadLogo(string? path, int decodePixels)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return null;

@@ -14,12 +14,12 @@ namespace Igloo.App.ViewModels;
 /// </summary>
 public sealed partial class MigrationSetupViewModel : ObservableObject
 {
-    // ── Auto-detected / read-only context ────────────────────────────────────
+    //   Auto-detected / read-only context                   
 
     /// <summary>Current Windows username shown as context.</summary>
     public string WindowsUsername { get; } = Environment.UserName;
 
-    // ── Linux username ────────────────────────────────────────────────────────
+    //   Linux username                             
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsUsernameValid))]
@@ -28,7 +28,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     public bool IsUsernameValid => LinuxUsernameRules.IsValid(LinuxUsername);
 
-    // ── Linux password ────────────────────────────────────────────────────────
+    //   Linux password                             
 
     /// <summary>
     /// The password the user typed in the first PasswordBox.
@@ -52,7 +52,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         OnPropertyChanged(nameof(CanProceed));
     }
 
-    // ── Folders to migrate ────────────────────────────────────────────────────
+    //   Folders to migrate                           
 
     [ObservableProperty] private bool _includeDocuments = true;
     [ObservableProperty] private bool _includeDownloads = true;
@@ -61,27 +61,27 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     [ObservableProperty] private bool _includeMusic = false;
     [ObservableProperty] private bool _includeVideos = false;
 
-    // ── Browser profiles ─────────────────────────────────────────────────────
+    //   Browser profiles                           ─
 
     public IReadOnlyList<BrowserEntry> DetectedBrowsers { get; }
     public bool HasDetectedBrowsers => DetectedBrowsers.Count > 0;
 
-    // ── Suggested Linux apps ──────────────────────────────────────────────────
+    //   Suggested Linux apps                          
 
     public IReadOnlyList<SuggestedPackageEntry> DetectedSuggestions { get; }
     public bool HasDetectedSuggestions => DetectedSuggestions.Count > 0;
 
-    // ── System settings ───────────────────────────────────────────────────────
+    //   System settings                            ─
 
     [ObservableProperty] private string _timezone;
     [ObservableProperty] private string _keymap;
 
-    // ── CanProceed ────────────────────────────────────────────────────────────
+    //   CanProceed                               
 
     /// <summary>Enables "Next" once the username and password both pass validation.</summary>
     public bool CanProceed => IsUsernameValid && IsPasswordValid && IsPasswordMatch;
 
-    // ── Constructor ──────────────────────────────────────────────────────────
+    //   Constructor                              
 
     public MigrationSetupViewModel()
     {
@@ -105,7 +105,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             .ToList();
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    //   Public API                               
 
     /// <summary>
     /// The selected folders in wizard order, each paired with its absolute source
@@ -257,9 +257,9 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             })
             .ToList();
 
-    // ── Browser detection ─────────────────────────────────────────────────────
+    //   Browser detection                           ─
 
-    private static IReadOnlyList<BrowserEntry> DetectBrowsers()
+    private static List<BrowserEntry> DetectBrowsers()
     {
         var localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -314,6 +314,8 @@ public sealed partial class SuggestedPackageEntry : ObservableObject
 
     public SuggestedPackageEntry(DetectedSuggestion suggestion)
     {
+        ArgumentNullException.ThrowIfNull(suggestion);
+
         WindowsDisplayName = suggestion.WindowsDisplayName;
         LinuxAppName = suggestion.LinuxAppName;
         FlatpakId = suggestion.FlatpakId;

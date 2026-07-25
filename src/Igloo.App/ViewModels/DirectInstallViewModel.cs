@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,10 +30,10 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     private long _linuxSizeBytes;
     private string? _isoPath;
     private string? _stagingDirectory;
-    private string? _stage2Url;
+    private Uri? _stage2Url;
     private string? _distroId;
 
-    // ── Observable state ──────────────────────────────────────────────────────
+    //   Observable state                            
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCancelable))]
@@ -62,7 +63,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     [ObservableProperty] private DirectInstallPhase _currentPhase;
     [ObservableProperty] private bool _isRebooting;
 
-    // ── Derived ───────────────────────────────────────────────────────────────
+    //   Derived                                ─
 
     public double ProgressPercent => BytesTotal > 0 ? BytesWritten * 100.0 / BytesTotal : 0;
     public bool IsProgressIndeterminate => BytesTotal == 0;
@@ -70,7 +71,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     /// <summary>Allow cancel at any point except during the atomic partition creation.</summary>
     public bool IsCancelable => !IsRunning || CurrentPhase != DirectInstallPhase.CreatingPartition;
 
-    // ── Constructor ───────────────────────────────────────────────────────────
+    //   Constructor                              ─
 
     public DirectInstallViewModel(
         IDirectInstallService installer,
@@ -82,7 +83,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         _logger = logger;
     }
 
-    // ── API called by MainWindowViewModel ─────────────────────────────────────
+    //   API called by MainWindowViewModel                   ─
 
     /// <summary>
     /// Stores parameters from prior wizard steps and resets all state.
@@ -94,8 +95,12 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         DiskInfo targetDisk,
         int linuxSizeGb,
         string distroId,
-        string? stage2Url = null)
+        Uri? stage2Url = null)
     {
+        ArgumentNullException.ThrowIfNull(isoResult);
+        ArgumentNullException.ThrowIfNull(stagingResult);
+        ArgumentNullException.ThrowIfNull(targetDisk);
+
         _isoPath = isoResult.LocalPath;
         _stagingDirectory = stagingResult.StagingDirectory;
         _linuxSizeBytes = (long)linuxSizeGb * 1024 * 1024 * 1024;
@@ -104,7 +109,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
         // Extract disk number from DeviceId e.g. "\\.\PHYSICALDRIVE2" → 2
         const string prefix = "\\\\.\\PHYSICALDRIVE";
-        _diskNumber = int.Parse(targetDisk.DeviceId.AsSpan()[prefix.Length..]);
+        _diskNumber = int.Parse(targetDisk.DeviceId.AsSpan()[prefix.Length..], CultureInfo.InvariantCulture);
 
         IsComplete = false;
         HasError = false;
@@ -118,7 +123,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         CurrentPhase = DirectInstallPhase.ShrinkingPartition;
     }
 
-    // ── Commands ──────────────────────────────────────────────────────────────
+    //   Commands                                
 
     /// <summary>Runs the full preparation pipeline (shrink → partition → copy → GRUB).</summary>
     [RelayCommand(IncludeCancelCommand = true)]
@@ -185,7 +190,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
                            "You may need to remove the partial partition manually via Disk Management, " +
                            "then run Igloo again.";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Direct install preparation failed");
             HasError = true;
@@ -230,7 +235,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
             await Task.Delay(2000);
             Application.Current.Shutdown();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "RegisterBootEntry / reboot failed");
             IsRebooting = false;
@@ -240,7 +245,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         }
     }
 
-    // ── Error formatting ──────────────────────────────────────────────────────
+    //   Error formatting                            
 
     private static string BuildErrorDetail(Exception ex)
     {
@@ -250,12 +255,12 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         while (current is not null)
         {
             if (depth > 0)
-                sb.AppendLine().AppendLine("── inner exception ───────────────────────────────");
+                sb.AppendLine().AppendLine("  inner exception                ─");
             sb.Append('[').Append(current.GetType().FullName).AppendLine("]");
             sb.AppendLine(current.Message);
             if (current is System.ComponentModel.Win32Exception w32)
                 sb.Append("Win32 error: ").Append(w32.NativeErrorCode)
-                  .Append(" (0x").Append(w32.NativeErrorCode.ToString("X8")).AppendLine(")");
+                  .Append(" (0x").Append(w32.NativeErrorCode.ToString("X8", CultureInfo.InvariantCulture)).AppendLine(")");
             if (!string.IsNullOrWhiteSpace(current.StackTrace))
             {
                 sb.AppendLine();
