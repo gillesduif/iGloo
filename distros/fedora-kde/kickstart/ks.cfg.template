@@ -53,6 +53,10 @@
 
 graphical
 
+# Suppress the installed system's first-boot initial-setup so it never re-asks language,
+# keyboard or timezone once the kickstart has already set them.
+firstboot --disable
+
 lang {{LOCALE}}
 # Only the XKB layout is given; Anaconda derives a matching virtual-console
 # keymap from it. Do NOT add --vckeymap={{KEYMAP}}: vconsole names differ from
@@ -158,14 +162,17 @@ else
         echo "bootloader --boot-drive=${TARGET_DISK}${BOOT_APPEND}"
         echo "ignoredisk --only-use=${TARGET_DISK}"
         if [ "$INSTALL_MODE" = "dual-boot" ]; then
-            # Windows partition was already shrunk by Igloo before USB boot.
-            # clearpart --linux removes only Linux-type partitions (ext4, xfs,
-            # swap, LVM PVs) while preserving the Windows NTFS and EFI
-            # partitions.  This is safer than --none when re-installing because
-            # --none leaves stale LVM volume-group metadata ("fedora" VG) on
-            # disk; Anaconda detects the duplicate VG name and stops for user
-            # confirmation instead of proceeding unattended.
-            echo "clearpart --linux --drives=${TARGET_DISK}"
+            # Igloo already shrank Windows to carve the free space this install goes into.
+            # clearpart --none keeps EVERY existing partition - Windows AND any sibling Linux
+            # (Mint, Debian, another Fedora, ...) - and autopart fills only the free space.
+            #
+            # DATA-LOSS WARNING: never use "clearpart --linux" here. It deletes EVERY Linux
+            # partition on the disk, destroying sibling distributions the user chose to keep.
+            # The old rationale for --linux (avoiding a stale "fedora" VG that stops an
+            # unattended Fedora-over-Fedora re-install) does NOT justify wiping other OSes:
+            # a re-install stopping for confirmation is an inconvenience; erasing Mint/Debian
+            # is data loss. Preserve first.
+            echo "clearpart --none"
         else
             # Replace mode: wipe the entire disk.
             echo "clearpart --drives=${TARGET_DISK} --all --initlabel"
@@ -263,6 +270,10 @@ fi
 @^kde-desktop-environment
 @standard
 @hardware-support
+# SDDM is the KDE display manager. The environment group pulls Plasma but not always a
+# display manager on the Everything netinst, so request it explicitly - without it the
+# system boots to a text console with no graphical login.
+sddm
 python3
 python3-pip
 rsync
@@ -490,6 +501,26 @@ chroot "$SYSIMAGE" systemctl enable igloo-first-boot.service 2>/dev/null || \
            "$SYSIMAGE/etc/systemd/system/multi-user.target.wants/igloo-first-boot.service"
 
 log "igloo-first-boot.service registered"
+
+#   5b. Boot to the graphical login (Plasma via SDDM)
+# The netinst pull installs Plasma but leaves the default target at multi-user and no
+# display-manager enabled, so the machine comes up to a text console. Set both explicitly.
+chroot "$SYSIMAGE" systemctl enable sddm.service 2>/dev/null || \
+    ln -sf /usr/lib/systemd/system/sddm.service \
+           "$SYSIMAGE/etc/systemd/system/display-manager.service"
+chroot "$SYSIMAGE" systemctl set-default graphical.target 2>/dev/null || \
+    ln -sf /usr/lib/systemd/system/graphical.target \
+           "$SYSIMAGE/etc/systemd/system/default.target"
+log "graphical target + SDDM enabled"
+
+#   5c. Remove the Plasma first-run welcome wizard
+# plasma-welcome auto-launches on first login and re-asks language / keyboard / timezone even
+# though the kickstart already set them - to the user it looks like the unattended install
+# didn't take. iGloo lands the user straight on a configured desktop, so drop it. It is a
+# leaf onboarding app; nothing depends on it, so plain rpm -e is a clean removal.
+chroot "$SYSIMAGE" rpm -e plasma-welcome 2>/dev/null \
+    && log "Removed plasma-welcome (first-run wizard)" \
+    || log "plasma-welcome not installed - nothing to remove"
 
 #   6. Enable os-prober so GRUB detects Windows for dual-boot        ─
 # Fedora 37+ disables os-prober by default (GRUB 2.06 security change).

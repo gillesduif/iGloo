@@ -100,7 +100,8 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
             distro.Iso.GpgKeyUrl,
             distro.Iso.GpgSignedDataUrl,
             keyData,
-            distro.Iso.GpgKeyFingerprint);
+            distro.Iso.GpgKeyFingerprint,
+            distro.Iso.IsoFilePattern);
 
         IsComplete = false;
         HasError = false;
@@ -130,7 +131,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
             BytesTotal = p.BytesTotal;
             OnPropertyChanged(nameof(PhaseDisplay));
         });
-        // The service reports per 80 KB buffer (hundreds/sec on a fast line);
+
         // throttle before the UI thread sees it. Phase changes and the final
         // byte always pass through so the bar never sticks below 100%.
         var progress = new Igloo.Core.Services.ThrottledProgress<IsoAcquisitionProgress>(

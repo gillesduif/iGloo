@@ -147,7 +147,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
                 WindowsUsername = _setup.WindowsUsername,
                 LinuxUsername = _setup.LinuxUsername,
                 LinuxPassword = _setup.LinuxPassword,
-                Locale = "en_US.UTF-8",
+                Locale = _setup.Locale,
                 Timezone = _setup.Timezone,
                 Keymap = _setup.Keymap,
                 SelectedFolderNames = _setup.GetSelectedFolderNames(),

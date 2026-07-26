@@ -115,29 +115,58 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         // When the match is ambiguous every group gets a generic name and no entry; the
         // removal path's boot-menu hygiene still clears iGloo's own entries and (when all
         // Linux is going) every Linux entry, so nothing is left orphaned.
-        var installs = new List<LinuxInstallation>();
-        foreach (var (diskNumber, model, parts) in groups)
-        {
-            var espDistros = DetectEspDistros(diskNumber);
-            var perDistro = SplitRunByDistro(parts);
+        var espDistros = DetectEspDistros(groups[0].DiskNumber);
 
-            // Present separate, individually-removable installs only when the split lines up
-            // one-to-one with the distros the ESP reports and each maps to a distinct name.
-            // Otherwise keep the run whole so a removal can never target the wrong OS.
-            if (TryAttributeDistros(perDistro, espDistros, out var attributed))
+        // A contiguous run can hold more than one distro installed back to back, so expand each
+        // run into its per-distro partition sub-groups: one unit per individually-removable install.
+        var units = new List<(uint DiskNumber, string Model, List<PartitionInfo> Parts)>();
+        foreach (var (diskNumber, model, parts) in groups)
+            foreach (var sub in SplitRunByDistro(parts))
+                units.Add((diskNumber, model, sub));
+
+        // Attribute several installs to specific distros only by a reliable signal, most trustworthy
+        // first: ESP grub.cfg ↔ ext4 superblock UUID (tells same-family installs apart), then the
+        // LVM-vs-plain GPT type (RHEL family vs Debian family). Neither → stay generic below.
+        List<(List<PartitionInfo> Parts, string Name)>? attributed = null;
+        if (units.Count > 1)
+        {
+            if (TryAttributeByEsp(groups[0].DiskNumber, units, out var byEsp))
+                attributed = byEsp;
+            else if (TryAttributeDistros([.. units.Select(u => u.Parts)], espDistros, out var byLvm))
+                attributed = byLvm;
+        }
+
+        var installs = new List<LinuxInstallation>();
+
+        if (units.Count == 1)
+        {
+            // One install can be named with confidence: the sole ESP loader folder, else its
+            // sole matching boot entry (see ResolveInstallIdentity for the stale-entry guard).
+            var (diskNumber, model, parts) = units[0];
+            var (fallbackName, fallbackEntry) = ResolveInstallIdentity(1, linuxEntries);
+            var singleName = espDistros.Count == 1 ? espDistros[0] : fallbackName;
+            var singleEntry = espDistros.Count == 1 ? EntryIndexFor(espDistros[0], linuxEntries) : fallbackEntry;
+            installs.Add(new LinuxInstallation(
+                singleName, diskNumber, model, parts, parts.Sum(p => p.SizeBytes), singleEntry));
+        }
+        else if (attributed is not null)
+        {
+            foreach (var (subParts, distroName) in attributed)
             {
-                foreach (var (subParts, distroName) in attributed)
-                    installs.Add(new LinuxInstallation(
-                        distroName, diskNumber, model, subParts,
-                        subParts.Sum(p => p.SizeBytes), EntryIndexFor(distroName, linuxEntries)));
-            }
-            else
-            {
-                var (fallbackName, entryIndex) = ResolveInstallIdentity(groups.Count, linuxEntries);
-                var name = espDistros.Count > 0 ? string.Join(" + ", espDistros) : fallbackName;
+                var unit = units.First(u => ReferenceEquals(u.Parts, subParts));
                 installs.Add(new LinuxInstallation(
-                    name, diskNumber, model, parts, parts.Sum(p => p.SizeBytes), entryIndex));
+                    distroName, unit.DiskNumber, unit.Model, subParts,
+                    subParts.Sum(p => p.SizeBytes), EntryIndexFor(distroName, linuxEntries)));
             }
+        }
+        else
+        {
+            // Several installs Windows cannot pin to a specific distro. Naming them by guess could
+            // delete the wrong OS, so each stays a plainly-named, individually-sized entry - the size
+            // and disk shown in the UI let the user pick - and no boot entry is attached.
+            foreach (var (diskNumber, model, parts) in units)
+                installs.Add(new LinuxInstallation(
+                    "Linux installation", diskNumber, model, parts, parts.Sum(p => p.SizeBytes), null));
         }
 
         return (installs, leftovers);
@@ -261,6 +290,114 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             _logger.LogDebug(ex, "Could not read ESP loader folders on disk {Disk}", diskNumber);
         }
         return distros;
+    }
+
+    /// <summary>
+    /// Attributes each partition group to a distro by matching the root filesystem UUID in that
+    /// distro's ESP grub.cfg to the UUID in a partition's ext4 superblock. This is the reliable
+    /// way to tell two same-family installs apart (e.g. Ubuntu vs Debian). Returns false - so the
+    /// caller falls back to a safe generic name - unless every group matches a distinct distro.
+    /// </summary>
+    private bool TryAttributeByEsp(
+        uint diskNumber,
+        List<(uint DiskNumber, string Model, List<PartitionInfo> Parts)> units,
+        out List<(List<PartitionInfo> Parts, string Name)> attributed)
+    {
+        attributed = [];
+
+        var grubUuids = ReadEspGrubUuids(diskNumber);   // distro display name -> root fs UUID
+        if (grubUuids.Count < units.Count)
+            return false;
+
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var unit in units)
+        {
+            string? matched = null;
+            foreach (var part in unit.Parts)
+            {
+                var partUuid = ReadPartitionExt4Uuid(unit.DiskNumber, part);
+                if (partUuid is null)
+                    continue;
+                foreach (var (distro, grubUuid) in grubUuids)
+                    if (!used.Contains(distro) && LinuxVolumeId.UuidsMatch(partUuid, grubUuid))
+                    {
+                        matched = distro;
+                        break;
+                    }
+                if (matched is not null)
+                    break;
+            }
+
+            if (matched is null || !used.Add(matched))
+                return false;   // an unmatched group → don't guess; let the caller stay generic
+            attributed.Add((unit.Parts, matched));
+        }
+
+        return true;
+    }
+
+    /// <summary>Root filesystem UUID declared by each ESP <c>\EFI\&lt;distro&gt;\grub.cfg</c>, keyed by display name.</summary>
+    private Dictionary<string, string> ReadEspGrubUuids(uint diskNumber)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                @"root\Microsoft\Windows\Storage",
+                $"SELECT AccessPaths FROM MSFT_Partition WHERE DiskNumber = {diskNumber} " +
+                "AND GptType = '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'");
+            using var results = searcher.Get();
+
+            foreach (var esp in results.Cast<ManagementBaseObject>())
+            {
+                var volumePath = (esp["AccessPaths"] as string[])?
+                    .FirstOrDefault(p => p.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
+                var efiRoot = volumePath is null ? null : Path.Combine(volumePath, "EFI");
+                if (efiRoot is null || !Directory.Exists(efiRoot))
+                    continue;
+
+                foreach (var dir in Directory.EnumerateDirectories(efiRoot))
+                {
+                    if (!EfiFolderDistroNames.TryGetValue(Path.GetFileName(dir), out var display)
+                        || map.ContainsKey(display))
+                        continue;
+                    var grubCfg = Path.Combine(dir, "grub.cfg");
+                    if (File.Exists(grubCfg) &&
+                        LinuxVolumeId.ParseGrubRootFsUuid(File.ReadAllText(grubCfg)) is { } uuid)
+                        map[display] = uuid;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or InvalidCastException
+                                   or InvalidOperationException or IOException or UnauthorizedAccessException or SecurityException)
+        {
+            _logger.LogDebug(ex, "Could not read ESP grub configs on disk {Disk}", diskNumber);
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// The ext4 filesystem UUID of a partition, read straight from its superblock, or null when the
+    /// read fails or the partition is not ext-family. Read-only raw access; failures degrade to null
+    /// so attribution simply falls back to a generic name rather than erroring.
+    /// </summary>
+    private string? ReadPartitionExt4Uuid(uint diskNumber, PartitionInfo part)
+    {
+        if (part.OffsetBytes < 0)
+            return null;
+        try
+        {
+            using var handle = File.OpenHandle(
+                $@"\\.\PHYSICALDRIVE{diskNumber}", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var buffer = new byte[4096];   // sector-aligned read covering the ext4 superblock UUID
+            var read = RandomAccess.Read(handle, buffer, part.OffsetBytes);
+            return LinuxVolumeId.ReadExt4Uuid(buffer.AsSpan(0, read));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            _logger.LogDebug(ex, "Could not read partition {Part} superblock on disk {Disk}", part.Index, diskNumber);
+            return null;
+        }
     }
 
     internal static (string name, ushort? entryIndex) ResolveInstallIdentity(

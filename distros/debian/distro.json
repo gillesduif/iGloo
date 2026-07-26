@@ -9,8 +9,9 @@
   "installerType": "DebianInstaller",
 
   "iso": {
-    "downloadUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-13.6.0-amd64-netinst.iso",
-    "sha256": "65273beed27b2df543b68b65630ba525cfbad8df2b12035732b2dff87d6664e7",
+    "downloadUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/",
+    "sha256": "",
+    "isoFilePattern": "^debian-\\d[\\d.]*-amd64-netinst\\.iso$",
     "gpgSignedDataUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS",
     "gpgSignatureUrl": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS.sign",
     "gpgKeyUrl": "https://keyring.debian.org/pks/lookup?op=get&options=mr&search=0xDF9B9C49EAA9298432589D76DA87E80D6294BE9B",

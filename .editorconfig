@@ -145,6 +145,9 @@ dotnet_diagnostic.CA1819.severity = none
 dotnet_diagnostic.CA1034.severity = none
 # xUnit requires public test classes for discovery, so they cannot be made internal.
 dotnet_diagnostic.CA1515.severity = none
+# Inline arrays of test data/arguments are idiomatic in tests; the caching CA1861 asks for
+# adds noise with no real allocation concern in a one-shot test method.
+dotnet_diagnostic.CA1861.severity = none
 
 # Generated code: leave alone
 [**/obj/**.cs]

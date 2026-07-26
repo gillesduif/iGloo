@@ -39,6 +39,14 @@ public sealed record DistroIsoSpec
 {
     [JsonPropertyName("downloadUrl")] public required Uri DownloadUrl { get; init; }
     [JsonPropertyName("sha256")] public required string Sha256 { get; init; }
+
+    /// <summary>
+    /// Optional regex matching the ISO filename in the signed checksum file. When set, the exact
+    /// download filename is resolved from that (GPG-verified) checksum at acquisition time and the
+    /// URL is rebuilt against <see cref="DownloadUrl"/>'s directory - so distributions that rotate
+    /// their ISO filename each point release (e.g. Debian's "current") keep working with no edit.
+    /// </summary>
+    [JsonPropertyName("isoFilePattern")] public string? IsoFilePattern { get; init; }
     [JsonPropertyName("gpgSignatureUrl")] public Uri? GpgSignatureUrl { get; init; }
     [JsonPropertyName("gpgKeyUrl")] public Uri? GpgKeyUrl { get; init; }
 

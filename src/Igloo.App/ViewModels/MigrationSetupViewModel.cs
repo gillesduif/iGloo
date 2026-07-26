@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Igloo.Core.Models;
@@ -64,6 +65,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     [ObservableProperty] private string _timezone;
     [ObservableProperty] private string _keymap;
+    [ObservableProperty] private string _locale;
 
     //   CanProceed                               
 
@@ -85,6 +87,9 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         // Keyboard: read the actual active layout from the registry, fall back to UI-culture heuristic.
         _keymap = KeymapDetection.DetectCurrent();
 
+        // Display language: Windows culture → Linux locale (e.g. "nl-NL" → "nl_NL.UTF-8").
+        _locale = ToLinuxLocale(CultureInfo.CurrentCulture);
+
         // Detect installed browsers.
         DetectedBrowsers = DetectBrowsers();
 
@@ -94,7 +99,17 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             .ToList();
     }
 
-    //   Public API                               
+    // Maps a Windows culture (e.g. "nl-NL") to a glibc locale ("nl_NL.UTF-8"). A region-less or
+    // invariant culture ("nl", "") has no reliable country to derive, so it falls back to en_US.UTF-8.
+    private static string ToLinuxLocale(CultureInfo culture)
+    {
+        var name = culture.Name;
+        return name.Contains('-', StringComparison.Ordinal)
+            ? name.Replace('-', '_') + ".UTF-8"
+            : "en_US.UTF-8";
+    }
+
+    //   Public API
 
     private IEnumerable<(string Name, string? Absolute)> SelectedFolderSources()
     {
