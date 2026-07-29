@@ -104,10 +104,14 @@ public sealed record BrowserMigration
 
     [JsonPropertyName("destRelativePath")] public string DestRelativePath { get; init; } = "";
 
-    
     [JsonPropertyName("profileStagingPath")] public string ProfileStagingPath { get; init; } = "";
 
     [JsonPropertyName("includesPasswords")] public bool IncludesPasswords { get; init; }
+
+    // Base64 envelope of the browser's decrypted logins, re-encrypted under a
+    // key derived from the user's Linux password (ADR-011). Null when nothing
+    // migratable was found; the first-boot agents null it out during redaction.
+    [JsonPropertyName("credentialsBlob")] public string? CredentialsBlob { get; init; }
 }
 
 public sealed record SuggestedPackage

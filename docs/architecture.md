@@ -48,7 +48,7 @@ flowchart TD
     end
 
     subgraph SVC["Service projects"]
-        PRE["src/Igloo.Preflight<br>hardware detection · partitioning ·<br>DirectInstallService (no-USB pipeline)"]
+        PRE["src/Igloo.Preflight<br>hardware detection · partitioning ·<br>DirectInstallService (no-USB pipeline) ·<br>LinuxRemovalService (removal + space reclaim)"]
         ISO["src/Igloo.Iso<br>resumable download · SHA-256 ·<br>PGP verify (pinned fingerprints)"]
         MIG["src/Igloo.Migration<br>user-file staging"]
         USB["src/Igloo.UsbWriter<br>fallback USB path"]
@@ -248,7 +248,7 @@ Full guide: [`distros/README.md`](../distros/README.md).
 
 ## See also
 
-- [`decisions/`](decisions/) — ADRs (plugin model, GPL-2.0, runtime injection, …)
+- [`decisions/`](decisions/) — ADRs (plugin model, licensing, runtime injection, …)
 - [`../distros/ubuntu/STATUS.md`](../distros/ubuntu/STATUS.md) — the Ubuntu engineering dossier
 - [`whitepaper/igloo-whitepaper.md`](whitepaper/igloo-whitepaper.md) — research-grade write-up
 - [`guide/`](guide/) — visual walkthrough (shot list, beta)

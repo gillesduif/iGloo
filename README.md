@@ -1,175 +1,172 @@
-   
+
 <p align="center">
   <img src="docs/assets/iGloo.svg" alt="iGloo" width="220">
 </p>
 
 <p align="center">
-  <strong>The penguin escapes the iGloo.</strong>
-  <br>
-  <sub>Because nobody owns a working USB stick anymore.</sub>
-</p>
-
-<p align="center">
-  <a href="LICENSE"><img alt="License: GPL v2" src="https://img.shields.io/badge/License-GPL_v2-blue.svg"></a>
+  <a href="LICENSE"><img alt="License: GPL v3" src="https://img.shields.io/badge/License-GPL_v3-blue.svg"></a>
   <a href="#status"><img alt="Status" src="https://img.shields.io/badge/status-alpha-yellow.svg"></a>
-  <a href="https://dotnet.microsoft.com/"><img alt=".NET 8 WPF" src="https://img.shields.io/badge/.NET-8.0%20WPF-512BD4?logo=dotnet&logoColor=white"></a>
-  <a href="#building"><img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2B-0078D6?logo=windows&logoColor=white"></a>
-  <a href="distros/"><img alt="Distros" src="https://img.shields.io/badge/distros-Fedora%20·%20Debian%20·%20Mint%20·%20Ubuntu-51A2DA?logo=linux&logoColor=white"></a>
-  <a href="#supporting-the-project"><img alt="Sponsor" src="https://img.shields.io/badge/❤-Support%20iGloo-ff69b4"></a>
+  <a href="https://dotnet.microsoft.com/"><img alt=".NET WPF" src="https://img.shields.io/badge/.NET-9.0%20WPF-512BD4?logo=dotnet&logoColor=white"></a>
+  <a href="#building-from-source"><img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2B-0078D6?logo=windows&logoColor=white"></a>
+  <a href="distros/"><img alt="Distros" src="https://img.shields.io/badge/distros-4%20pipelines%20%2019%20catalog%20entries-51A2DA?logo=linux&logoColor=white"></a>
 </p>
 
 <p align="center">
-  <a href="docs/">Docs</a> ·
-  <a href="docs/architecture.md">Architecture</a> ·
-  <a href="distros/">Distributions</a> ·
-  <a href="docs/guide/">Step-by-step guide</a> ·
-  <a href="#roadmap">Roadmap</a> ·
-  <a href="#contributing">Contributing</a>
+  <a href="docs/architecture.md">Architecture</a> 
+  <a href="distros/">Distributions</a> 
+  <a href="ROADMAP.md">Roadmap</a> 
+  <a href="CONTRIBUTING.md">Contributing</a> 
+  <a href="SECURITY.md">Security</a>
 </p>
 
----
+# iGloo
 
-iGloo is two products in one Windows app:
+iGloo is a professional deployment and migration engine designed to
+transition Windows environments to Linux natively, without external media.
 
-1. **A Linux installer that needs no USB stick.** Pick a distro from a catalog,
-   answer a short wizard, click install. iGloo shrinks Windows, stages the Linux
-   installer on the internal disk, and reboots straight into a fully unattended
-   installation. Windows stays bootable beside it (dual-boot) unless you choose
-   to replace it.
-2. **A migration assistant.** Your documents, downloads, pictures, browser
-   profiles, and Wi-Fi networks move over automatically. GPU drivers (including
-   NVIDIA), multimedia codecs, your keyboard layout, and Linux replacements for
-   your Windows apps are installed before you ever see the desktop. You don't
-   land on *a* Linux machine — you land on *your* machine.
+Unlike traditional single-purpose installers iGloo unifies automated disk
+partitioning comprehensive user data migration, hardware configuration and
+full system rollback into a single, automated workflow.
 
-No USB stick. No BIOS settings. No partitioning questions. No terminal.
+## Key Capabilities
+
+- **Native Deployment Mechanism:** Automates low-level disk repartitioning to
+  shrink the host Windows partition, allocate a temporary recovery partition,
+  and stage the target Linux installation image directly on internal storage.
+- **Automated Data Migration:** Detects and transfers user profile data,
+  documents, active browser sessions, saved login credentials and localized
+  Wi-Fi configurations directly to the new home directories. Gecko-based
+  browsers (Mozilla Firefox, Zen Browser, Waterfox) migrate at profile level,
+  which carries saved passwords with the profile. Chromium-based browsers
+  (Google Chrome, Microsoft Edge, Brave, Vivaldi, Opera) get saved passwords
+  decrypted on Windows and re-encrypted for the target Linux account. Browsers
+  that enforce App-Bound Encryption (Chrome 127 and later, current Edge and
+  Brave builds) are detected and skipped.
+- **Pre-Configuration Engine:** Configures the target system bootloader,
+  identifies compatible graphics drivers (including NVIDIA), registers native
+  keyboard layouts and queues native Linux alternatives for detected Windows
+  applications.
+- **Bi-Directional Lifecycle Management:** Detects existing iGloo-deployed
+  Linux instances to provide a clean, automated removal pipeline that safely
+  deletes Linux partitions, purges EFI boot entries and reclaims unallocated
+  space back into the Windows partition.
 
 ## Status
 
-Alpha — but well past "does it even boot":
+**iGloo is alpha software. It modifies the partition table and the boot
+configuration. Back up all important data before running it. Do not run it on
+production machines.**
 
-| Distro | Pipeline | Validation |
+| Distribution | Installer stack | Validation state |
 |---|---|---|
-| **Linux Mint Cinnamon** | Ubiquity / preseed (casper) | ✅ Installs end-to-end on **real hardware** — unattended, dual-boot preserved, agent + file migration verified. GPU driver selection was picking the wrong variant on RTX 50-series; fixed, pending re-test |
-| **Fedora KDE** | Anaconda / kickstart | ✅ Installs end-to-end on **real hardware** — dual-boot beside Windows, file + Wi-Fi migration. ⚠️ Open: NVIDIA driver on a multi-kernel install (see below) |
-| **Debian 13** | debian-installer + live-installer / preseed (offline Live image) | 🚧 Reworked to an **offline** install (copies the Live image's squashfs — no network needed until first boot) after the netinst path failed on a Wi-Fi-only machine. Boots and installs on real hardware; under active testing |
-| **Ubuntu** | subiquity / autoinstall (cloud-init) | 🚧 In development — most of the pipeline proven (6 GB ISO staging, casper/toram boot, autoinstall, partition preservation); parked on a final installer/disk-release quirk. Full engineering dossier in [`distros/ubuntu/STATUS.md`](distros/ubuntu/STATUS.md) |
+| **Linux Mint Cinnamon** | Ubiquity / preseed (casper) | Validated end-to-end on physical hardware: unattended installation, dual-boot preservation, first-boot agent execution, file migration. A GPU driver variant selection defect on RTX 50-series GPUs is fixed and awaiting re-test. |
+| **Fedora KDE** | Anaconda / kickstart | Validated end-to-end on physical hardware: dual-boot beside Windows, file and Wi-Fi migration. A nouveau kernel blacklist that removed all display output on NVIDIA systems has been reverted and is awaiting re-test. |
+| **Debian 13** | debian-installer + live-installer / preseed | Uses an offline installation path that copies the Live image squashfs and requires no network until first boot. Boots and installs on physical hardware. Under active testing. |
+| **Ubuntu** | subiquity / autoinstall (cloud-init) | In development. ISO staging, casper/toram boot, autoinstall delivery and partition preservation are individually validated. Parked on an installer disk-release defect. Full analysis in [`distros/ubuntu/STATUS.md`](distros/ubuntu/STATUS.md). |
 
-### Known constraint: Secure Boot + NVIDIA
+The application catalog lists 16 additional distributions with the status
+"coming soon". These entries contain metadata and logos only. Only the four
+distributions listed above implement a complete installation pipeline.
 
-Secure Boot only loads kernel modules signed by a key the firmware trusts. NVIDIA's
-driver is built **on your machine** (DKMS/akmods), so the module it produces is
-unsigned and the kernel refuses it — the install succeeds, then the desktop comes up
-without acceleration, at the wrong resolution, with `nvidia … FAILED` during boot.
-The bootloader is unaffected (shim and GRUB are Microsoft-signed), which is what
-makes this so easy to misread as a driver bug.
+### Secure Boot and NVIDIA GPUs
 
-iGloo warns about this in the system check when it finds an NVIDIA GPU with Secure
-Boot on. Two ways through:
+Secure Boot loads only kernel modules signed by a key that the firmware
+trusts. The NVIDIA driver is compiled locally on the target machine
+(DKMS/akmods), so the resulting module is unsigned and the kernel rejects it.
+The installation completes, but the desktop starts without hardware
+acceleration at a reduced resolution. The bootloader is unaffected because
+shim and GRUB carry Microsoft signatures, so this condition is frequently
+misdiagnosed as a driver defect.
 
-- **Turn Secure Boot off** in firmware — simplest, and what the warning suggests
-- **Enrol a MOK** and sign the module — keeps Secure Boot on; more steps
+The pre-flight check detects the combination of an NVIDIA GPU and enabled
+Secure Boot and displays a warning. Two resolutions are available:
 
-Mint is the exception: Ubuntu ships **pre-built Canonical-signed** NVIDIA modules, so
-with Secure Boot on iGloo installs those instead and no key enrolment is needed.
+- Disable Secure Boot in the firmware setup. This is the recommended option.
+- Enrol a Machine Owner Key (MOK) and sign the module. This retains Secure
+  Boot and requires additional steps.
 
-ISO downloads are verified with SHA-256 **and** GPG signatures checked against
-signing keys pinned by full 160-bit fingerprint (bundled offline where the distro
-permits) — see [Security](#safety--security).
+Linux Mint is an exception. Ubuntu publishes pre-built NVIDIA modules signed
+by Canonical, so iGloo installs those modules when Secure Boot is enabled and
+no key enrolment is required.
 
-Don't run this on a production machine yet. If you've worked on Wubi, Operese,
-Calamares, Anaconda, EasyBCD, or any partition-resize tool and have battle scars
-to share, open an issue — real-hardware testing feedback is currently more
-valuable than new features.
+## Comparison with existing tools
 
-## What makes iGloo different
+Earlier Windows-to-Linux installers were each tied to a single distribution
+and did not migrate user data:
 
-Every previous Windows-to-Linux installer was tied to a single distribution and
-stopped at "Linux is installed":
-
-| Tool | Distro | Migrates your data? | Status |
+| Tool | Distribution | Data migration | Maintenance state |
 |---|---|---|---|
-| Wubi | Ubuntu | No | Discontinued |
-| Operese | Kubuntu | Partially | Active, single-distro |
-| Mint Stick | Mint | No | Active, single-distro |
-| **iGloo** | **Any** | **Files, Wi-Fi, browser, drivers, apps** | **In development** |
+| Wubi | Ubuntu | None | Discontinued |
+| Operese | Kubuntu | Partial | Active, single distribution |
+| Mint Stick | Linux Mint | None | Active, single distribution |
+| **iGloo** | **Any supported distribution** | **Files, Wi-Fi networks, browser profiles, drivers, applications** | **In development** |
 
-iGloo is **distro-agnostic by design**. Each distribution is a self-contained
-plugin in `distros/` — a declarative boot spec, an installer-config template, and
-a first-boot agent. Four distros across three unrelated installer stacks
-(Anaconda, debian-installer, Ubiquity/casper, subiquity) run on the same pipeline
-with zero pipeline changes. Adding a distro is a pull request, not a fork.
+Each distribution is a self-contained plugin under `distros/` that consists of
+a declarative boot specification, an installer configuration template and a
+first-boot agent. Four distributions across four unrelated installer stacks
+(Anaconda, debian-installer, Ubiquity/casper, subiquity) execute on the same
+pipeline without pipeline modifications.
 
-## How it works
+iGloo also supports the reverse operation. It detects an existing Linux
+installation and removes it: it deletes the Linux partitions, removes the EFI
+boot entries, restores the Windows bootloader and extends the Windows volume
+into the resulting unallocated space.
+
+## Operation
 
 ```
 ┌──────────────────────────────────┐         ┌──────────────────────────────┐
 │   Windows (iGloo.exe)            │         │   Linux installer            │
 ├──────────────────────────────────┤         ├──────────────────────────────┤
-│ 1. Pre-flight check              │         │                              │
-│ 2. Pick distro from catalog      │         │                              │
-│ 3. Download ISO; verify SHA-256  │         │                              │
-│    + GPG (pinned fingerprint)    │         │                              │
+│ 1. Pre-flight hardware check     │         │                              │
+│ 2. Distribution selection        │         │                              │
+│ 3. ISO download; SHA-256 and     │         │                              │
+│    GPG verification (pinned      │         │                              │
+│    fingerprint)                  │         │                              │
 │ 4. Wizard → migration manifest   │         │                              │
-│ 5. Shrink Windows partition      │         │                              │
-│ 6. Carve FAT32 staging partition │  ────►  │ 8. UEFI → GRUB → installer   │
-│    (kernel, initrd, installer    │         │ 9. Unattended install        │
-│     config, manifest, agent,     │         │    (kickstart / preseed /    │
-│     full ISO when needed)        │         │     autoinstall)             │
+│ 5. Windows partition shrink      │         │                              │
+│ 6. Staging partition creation    │  ────►  │ 8. UEFI → GRUB → installer   │
+│    (kernel, initrd, installer    │         │ 9. Unattended installation   │
+│     configuration, manifest,     │         │    (kickstart / preseed /    │
+│     agent, full ISO if required) │         │     autoinstall)             │
 │ 7. One-shot UEFI boot entry →    │         │ 10. First boot: agent runs   │
 │    reboot                        │         │     before the login screen  │
-└──────────────────────────────────┘         │     → drivers, codecs, files,│
-                                             │     Wi-Fi, apps, keyboard    │
-                                             └──────────────────────────────┘
+└──────────────────────────────────┘         └──────────────────────────────┘
 ```
 
-A USB path (raw ISO write + staging partition on the stick) also exists for
-machines where direct install isn't possible.
-
-The Windows side and the Linux side communicate through a single
-`migration-manifest.json` on the FAT32 staging volume. The first-boot agent runs
-as a systemd oneshot *before the display manager*, so setup completes before the
-first login. Full details in [`docs/architecture.md`](docs/architecture.md).
-
-## See it in action
-
-*Coming with the beta: a full click-by-click walkthrough with screenshots and
-GIFs of the whole journey — wizard → reboot → unattended install → first login
-with your files in place. Shot list and capture instructions live in
-[`docs/guide/`](docs/guide/).*
+The Windows component and the Linux component exchange state through a single
+`migration-manifest.json` file on the FAT32 staging volume. The first-boot
+agent executes as a systemd oneshot unit ordered before the display manager,
+so configuration completes before the first login. A fallback USB path (raw
+ISO write plus staging partition on removable media) is available for machines
+where direct installation is not possible. The complete description is in
+[`docs/architecture.md`](docs/architecture.md).
 
 ## Roadmap
 
-### Done
-| Milestone | Scope |
-|---|---|
-| M1–M8 | Core pipeline: plugin architecture, preflight, verified ISO acquisition, migration wizard, USB writer, direct install (no USB), Fedora first-boot agent |
-| M9 | Multi-distro expansion: generic distro-driven install pipeline (`InstallerBootSpec`), Debian + Mint + Ubuntu plugins, shared Debian-family agent |
-| M10 | Security hardening: GPG keys pinned by full fingerprint, offline key bundling, keyserver-substitution resistance |
+The full plan with milestone definitions and prioritization criteria is in
+[`ROADMAP.md`](ROADMAP.md). Summary:
 
-### In progress
-| Milestone | Scope |
-|---|---|
-| M15 | **Closed beta**: real-hardware matrix (firmware vendors × Secure Boot × BitLocker × GPU) with the three validated distros |
-| M12 | Step-by-step visual guide (screenshots/GIFs of the full journey) |
+- **Completed:** core pipeline (M1-M8), multi-distribution expansion (M9),
+  ISO verification hardening (M10), open-source readiness including the
+  GPL-3.0 relicensing (M11).
+- **In progress:** Linux detection and removal (M13), closed beta on a
+  physical-hardware matrix (M15), visual step-by-step guide (M12).
+- **Planned:** pre-installation snapshot and rollback (M14), v1.0 public
+  release (M16), Ubuntu validation, wizard localization, accessibility,
+  LUKS encryption option, reproducible builds with signed releases.
 
-### Planned
-| Milestone | Scope |
-|---|---|
-| M13 | **Linux detection & removal.** Detect existing Linux installs and offer clean, safe removal: delete Linux partitions, remove EFI boot entries, restore the Windows bootloader, grow NTFS back. Today this requires a technician; leaving Linux should be as easy as trying it — that's what makes trying it a safe decision. |
-| M14 | Pre-install safety snapshot & rollback (undo a migration in one click) |
-| M16 | v1.0 public release |
-| Later | Ubuntu validation (parked; see [`distros/ubuntu/STATUS.md`](distros/ubuntu/STATUS.md)), wizard localization (NL/FR/DE first), accessibility pass, LUKS full-disk encryption option, reproducible builds + signed releases |
-
-## Building
+## Building from source
 
 ### Requirements
 
-- Windows 10 1809+ or Windows 11
-- .NET 8 SDK (no Windows App SDK required)
-- Administrator privileges (partition resize and UEFI NVRAM writes require elevation)
+- Windows 10 version 1809 or later / Windows 11
+- .NET 9 SDK (the application targets `net9.0-windows`; the libraries target
+  `net8.0` and are built by the same SDK)
+- Administrator privileges (partition resize and UEFI NVRAM writes require
+  elevation)
 
-### Build
+### Build and run
 
 ```powershell
 git clone https://github.com/gillesduif/iGloo.git
@@ -179,149 +176,168 @@ dotnet build
 dotnet run --project src/Igloo.App
 ```
 
-The app requests a UAC elevation prompt at startup because several operations —
-partition resize, UEFI NVRAM entry registration, EFI partition writes — require a
+The application requests UAC elevation at startup because partition resize,
+UEFI NVRAM entry registration and EFI partition writes require a
 high-integrity token.
 
-### Verifying an install (any Debian-family distro)
+### Tests
 
-After first boot:
-
-```bash
-systemctl status igloo-first-boot          # did the agent service run?
-sudo cat /var/log/igloo/bootstrap.log      # first-boot bootstrap trace (Mint/Ubuntu)
-sudo cat /var/log/igloo/first-boot.log     # full agent output
-ls -la ~/Documents ~/Downloads             # migrated files
-sudo grep linuxPassword /var/lib/igloo/manifest.json   # → "linuxPassword": null (redacted)
+```powershell
+dotnet test
 ```
 
-To re-run the agent while iterating:
+Six xUnit test projects cover the safety-critical logic: manifest handling,
+ISO verification, partition calculations, installer configuration rendering
+and progress reporting. CI executes the build and the test suite on every
+push and pull request.
+
+### Verifying an installation
+
+After the first boot of the installed system:
+
+```bash
+systemctl status igloo-first-boot          # agent service state
+sudo cat /var/log/igloo/first-boot.log     # full agent output
+ls -la ~/Documents ~/Downloads             # migrated files
+sudo grep linuxPassword /var/lib/igloo/manifest.json   # expected: null (redacted)
+```
+
+To re-run the agent during development:
 
 ```bash
 sudo rm /var/lib/igloo/.done
 sudo python3 /opt/igloo/agent.py --manifest /var/lib/igloo/manifest.json --log-dir /var/log/igloo
 ```
 
-> **Note:** the C# namespaces use `Igloo` (PascalCase) rather than `iGloo` — C#
-> identifiers don't start lowercase. The product is "iGloo"; the code is `Igloo`.
+> **Naming note:** the C# namespaces use `Igloo` (PascalCase) because C#
+> identifiers cannot start with a lowercase letter. The product name is
+> "iGloo" and the code identifier is `Igloo`.
 
-## Safety & security
+## Safety and security model
 
-iGloo writes to your partition table and your boot manager. That class of
-operation has exactly one acceptable failure mode: clean abort with no damage.
+iGloo writes to the partition table and the boot manager. The design target
+for every failure in this class of operation is a clean abort with no data
+modification. The implementation applies the following measures:
 
-**One-shot UEFI entry.** The installer boots via `BootNext` — a one-time NVRAM
-variable the firmware clears after a single use. If the installer fails to launch,
-the next reboot returns to Windows. No boot loop.
-
-**Windows resize via Windows itself.** Partition shrink uses `Resize-Partition`
-(the same MSFT WMI mechanism Disk Management uses). No custom NTFS logic.
-
-**Free-space-only partitioning.** Unattended installers are configured to install
-*only* into the space iGloo freed — and, after a hard lesson, tested against the
-installer defaults that silently escalate to whole-disk wipes.
-
-**Verified downloads.** Every ISO is checked against its SHA-256 **and** its GPG
-signature; signing keys are pinned by full 160-bit fingerprint and bundled with
-the app where the distro's policy allows. Short key IDs are never trusted.
-
-**Traceable unattended phases.** Every unattended step writes a persistent
-execution trace to disk (`/var/log/igloo*`), so any failure is diagnosable
-after the fact.
-
-All Windows-side operations are logged to `%LOCALAPPDATA%\Igloo\logs`. Sensitive
-data is excluded; the Linux-side manifest redacts the password after first use.
+- **Uses a one-shot UEFI boot entry.** The installer boots through `BootNext`,
+  a one-time NVRAM variable that the firmware clears after a single use. If
+  the installer does not start, the next boot returns to Windows.
+- **Uses Windows-native partition resize.** The shrink operation calls
+  `Resize-Partition`, the same WMI mechanism used by Disk Management. The
+  codebase contains no custom NTFS logic.
+- **Restricts installer partitioning to unallocated space.** Unattended
+  installer configurations target only the unallocated region created by the
+  shrink operation and each distribution is tested against installer defaults
+  that escalate to whole-disk erasure.
+- **Verifies every downloaded ISO image.** Each image is checked against its
+  SHA-256 checksum and its GPG signature. Signing keys are pinned by full
+  160-bit fingerprint and bundled with the application where distribution
+  policy permits. Short key IDs are not accepted. Verification failure aborts
+  the installation.
+- **Retains a functional display driver fallback.** On NVIDIA systems the
+  installed system keeps the nouveau driver active until the proprietary
+  driver is installed. A failed proprietary driver build produces a working
+  desktop with a logged error instead of a system without display output.
+- **Writes persistent execution traces.** Every unattended phase appends to
+  logs under `/var/log/igloo*` on the target system and
+  `%LOCALAPPDATA%\Igloo\logs` on the Windows host, so failures remain
+  diagnosable after the fact.
+- **Redacts credentials after first use.** The migration manifest clears the
+  Linux account password and the encrypted browser credential blobs after the
+  agent consumes them and Wi-Fi key files are written with `0600 root:root`
+  permissions. Browser credentials travel as an AES-256-GCM envelope keyed
+  from the Linux account password; the design is recorded in
+  `docs/decisions/011-chromium-credential-migration.md`.
 
 ## Repository structure
 
 ```
 iGloo/
 ├── src/
-│   ├── Igloo.App/             # WPF desktop app (wizard UI, DI wiring)
+│   ├── Igloo.App/             # WPF application (wizard UI, dependency injection)
 │   ├── Igloo.Core/            # Plugin abstractions (IDistroPlugin, InstallerBootSpec),
 │   │                          #   manifest models, service contracts
-│   ├── Igloo.Preflight/       # Windows detection (WMI) + DirectInstallService:
-│   │                          #   partition carving, kernel/initrd staging, initrd
-│   │                          #   config injection, GRUB config, UEFI registration
-│   ├── Igloo.Iso/             # Resumable download, SHA-256 + GPG verification
-│   │                          #   (pinned fingerprints, bundled keys)
-│   ├── Igloo.Migration/       # File staging (user folders → staging volume)
-│   └── Igloo.UsbWriter/       # USB path: raw ISO write + staging partition
+│   ├── Igloo.Preflight/       # Hardware detection (WMI), DirectInstallService
+│   │                          #   (partitioning, kernel/initrd staging, UEFI
+│   │                          #   registration), LinuxRemovalService
+│   ├── Igloo.Iso/             # Resumable download, SHA-256 and GPG verification
+│   ├── Igloo.Migration/       # User file staging to the staging volume
+│   └── Igloo.UsbWriter/       # USB fallback: raw ISO write + staging partition
 ├── distros/
 │   ├── _schema/               # distro.json JSON Schema (validated in CI)
-│   ├── _template/             # Starting point for new distro contributions
+│   ├── _template/             # Template for new distribution plugins
 │   ├── _debian-family/        # Shared first-boot agent for Debian/Mint/Ubuntu
 │   ├── fedora-kde/            # Anaconda / kickstart (reference implementation)
-│   ├── debian/                # debian-installer + live-installer / preseed (offline Live image)
+│   ├── debian/                # debian-installer + live-installer / preseed
 │   ├── linuxmint-cinnamon/    # Ubiquity / preseed (casper live ISO)
-│   └── ubuntu/                # subiquity / autoinstall (cloud-init NoCloud)
-├── tests/                     # xUnit test suites
+│   ├── ubuntu/                # subiquity / autoinstall (in development)
+│   └── .../                   # 16 "coming soon" catalog entries
+├── tests/                     # Six xUnit test projects
 ├── docs/
-│   ├── architecture.md
-│   ├── guide/                 # Step-by-step visual guide (shot list + captures)
-│   ├── whitepaper/            # Technical white paper (draft)
-│   └── decisions/             # Architecture Decision Records
+│   ├── architecture.md        # System architecture
+│   ├── decisions/             # Architecture Decision Records
+│   ├── guide/                 # Visual step-by-step guide (in progress)
+│   └── whitepaper/            # Technical white paper (draft)
 └── .github/workflows/         # CI
 ```
 
 ## Adding a distribution
 
-The full guide is in [`distros/README.md`](distros/README.md). Short version:
+The complete guide is in [`distros/README.md`](distros/README.md). The
+procedure:
 
-1. Copy `distros/_template/` to `distros/<your-distro-id>/`.
-2. Fill in `distro.json`: name, ISO URL, checksum/signature URLs, GPG key file +
-   **full fingerprint**, hardware tags, screenshots.
-3. Implement `IDistroPlugin` and declare your `InstallerBootSpec` (kernel cmdline,
-   artifact paths, config delivery — see the four existing plugins for patterns
-   across Anaconda, d-i, Ubiquity, and subiquity).
-4. Provide an installer-config template (kickstart / preseed / autoinstall).
-5. Provide (or reuse) a first-boot agent that applies `manifest.json`.
-6. Open a PR.
+1. Copy `distros/_template/` to `distros/<distribution-id>/`.
+2. Complete `distro.json`: display name, ISO URL, checksum and signature URLs,
+   GPG key file with full fingerprint, hardware tags, screenshots.
+3. Implement `IDistroPlugin` and declare an `InstallerBootSpec` (kernel
+   command line, artifact paths, configuration delivery). The four existing
+   plugins provide reference implementations for Anaconda, debian-installer,
+   Ubiquity and subiquity.
+4. Provide an installer configuration template (kickstart, preseed or
+   autoinstall).
+5. Provide or reuse a first-boot agent that applies the migration manifest.
+6. Validate an unattended end-to-end installation in a VM and open a pull
+   request.
 
 ## Contributing
 
-Most useful right now:
+The project currently prioritizes the following contributions:
 
-- **Real-hardware testing** across firmware types (AMI, Phoenix, Insyde),
-  Secure Boot states, and BitLocker configurations.
-- **Distro plugins** — the Debian-family agent makes apt-based distros cheap to add.
-- **Architectural review** by anyone who's shipped an installer, partition tool,
-  or boot-loader code.
-- **ADR contributions** in `docs/decisions/`.
+- **Physical-hardware testing** across firmware vendors (AMI, Phoenix,
+  Insyde), Secure Boot states and BitLocker configurations.
+- **Distribution plugins.** The shared Debian-family agent reduces the cost
+  of apt-based distributions.
+- **Architecture review** from maintainers with installer, partitioning or
+  bootloader experience.
+- **Architecture Decision Records** in `docs/decisions/`.
 
-For substantial changes, open an issue first. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-## Supporting the project
-
-iGloo is built by a single developer, and real-hardware testing eats laptops.
-If you want to help millions of stranded Windows 10 machines find a second life:
-
-- ⭐ **Star the repo** — visibility is currency for a trust-critical tool.
-- 🐛 **Test and report** — a failing install log from your hardware is worth money.
-- 💶 **Donate** — *[GitHub Sponsors / Ko-fi / Liberapay links coming with the
-  public beta — badge placeholders above]*.
-- 🏢 **Partner** — distro maintainer, refurbisher, or public-sector migration
-  project? Open an issue or reach out directly.
+Open an issue before starting substantial changes. Build requirements,
+analyzer policy and validation rules are defined in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-GPL-2.0-only. Same license as the Linux kernel. A tool that repartitions disks
-and rewrites boot managers should not be allowed to become closed-source.
-Full text in [`LICENSE`](LICENSE).
+iGloo is licensed under **GPL-3.0-or-later**. Version 3 was selected because
+it is compatible with the Apache-2.0 dependencies distributed with the
+application (GPL-2.0 is not) and because it provides an explicit patent grant
+and anti-tivoization provisions. The complete rationale is recorded in
+[`docs/decisions/010-relicense-gpl3.md`](docs/decisions/010-relicense-gpl3.md).
 
-## Credits
+- License text: [`LICENSE`](LICENSE)
+- Copyright notice: [`COPYRIGHT`](COPYRIGHT)
+- Third-party dependency licenses: [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
 
-iGloo is maintained by [@gillesduif](https://github.com/gillesduif), an individual
-contributor who got tired of digging through a USB-stick drawer. This is the
-origin story of most good open-source projects.
+## Acknowledgments
 
-Thanks to the Fedora Project, Debian, Linux Mint, and Canonical for the
-distributions and installers; to the shim and GRUB2 communities for the boot
-chain; and to the Linux kernel community for the foundation everything sits on.
+iGloo is maintained by [@gillesduif](https://github.com/gillesduif).
+
+The project depends on the work of the Fedora Project, Debian, Linux Mint and
+Canonical (distributions and installers), the shim and GRUB2 communities
+(boot chain) and the Linux kernel community.
 
 ---
 
-<sub>iGloo is an independent open-source project and is not affiliated with Red
-Hat, Inc., the Fedora Project, Debian, Linux Mint, Canonical Ltd., or Linus
-Torvalds. "Fedora", "Ubuntu", and "Linux" are trademarks of their respective
-owners.</sub>
+<sub>iGloo is an independent open-source project and is not affiliated with
+Red Hat, Inc., the Fedora Project, Debian, Linux Mint, Canonical Ltd. or
+Linus Torvalds. "Fedora", "Ubuntu" and "Linux" are trademarks of their
+respective owners.</sub>

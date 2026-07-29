@@ -66,10 +66,18 @@
                     BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="0,1,0,0"
                     CornerRadius="0,0,7,7" Padding="20,14">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <!-- The Style carries the BACKGROUND, including its hover and pressed
+                         states - setting Background here would be a local value that
+                         outranks the template triggers and freezes the button in one
+                         colour. Foreground is not touched by any trigger, so pinning it
+                         to white is safe and keeps the label legible on every fill. -->
                     <Button x:Name="SecondaryButton" MinWidth="104" Margin="0,0,10,0"
+                            Style="{StaticResource Button.Ghost}"
                             Content="Cancel" IsCancel="True" Click="OnSecondary"
+                            Foreground="White"
                             Visibility="Collapsed" />
                     <Button x:Name="PrimaryButton" MinWidth="104"
+                            Style="{StaticResource Button.Primary}"
                             Content="OK" IsDefault="True" Click="OnPrimary"
                             Foreground="White" />
                 </StackPanel>

@@ -1,11 +1,7 @@
 <!--
-  iGloo theme - the single source of design tokens and control templates.
+  iGloo theme 
 
-  The identity was set by the 3D distro picker: deep near-black-to-blue gradient,
-  dramatic light on the focal element, calm secondary text, glow accents. Every
-  wizard view consumes THIS dictionary; no per-view color/typography duplication.
-
-  Token groups:  Color.* / Brush.*  →  raw palette
+  groups:  Color.* / Brush.*  →  raw palette
                  Text.*             →  typography scale styles
                  Card styles        →  surface containers (neutral / accent / semantic)
                  Control templates  →  implicit dark restyles of the WPF core controls

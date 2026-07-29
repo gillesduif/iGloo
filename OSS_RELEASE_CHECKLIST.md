@@ -4,6 +4,15 @@ Working checklist for taking iGloo public on a rebuilt GitHub repository and
 relicensing GPL-2.0-only → GPL-3.0.
 
 Everything below was verified against this repository on 2026-07-27, not assumed.
+
+**Progress 2026-07-29:** §1.1–§1.5 done (GPL-3.0-or-later chosen; official
+LICENSE text in place; COPYRIGHT added; ADR-010 recorded; all eight GPL-2.0
+references updated and the sweep re-run clean). §1.6 decided: rely on root
+LICENSE + COPYRIGHT + README statement, no per-file SPDX headers. §1.7
+verified (THIRD-PARTY-NOTICES current, FluentAssertions pin warning present).
+§5 README rewritten for a public audience (screenshot/GIF still pending, as
+planned, for the beta captures).
+
 Findings that shape the plan:
 
 - **Sole copyright holder.** `git log` shows exactly one author across all 48

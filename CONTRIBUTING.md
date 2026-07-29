@@ -11,7 +11,7 @@ how to build it, the rules that keep it safe, and how to get a change merged.
   you care about on it.
 - Open an issue before a large change so we can agree on the approach.
 - By contributing, you agree your work is licensed under the project's
-  [GPL-2.0](LICENSE) and you certify the [DCO](#developer-certificate-of-origin).
+  [GPL-3.0-or-later](LICENSE) and you certify the [DCO](#developer-certificate-of-origin).
 
 ## Building
 

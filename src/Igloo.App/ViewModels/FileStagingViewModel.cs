@@ -6,6 +6,7 @@ using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
 using Igloo.Core.Plugins;
 using Igloo.Core.Services;
+using Igloo.Migration.Chromium;
 using Igloo.Preflight;
 using Microsoft.Extensions.Logging;
 
@@ -142,6 +143,16 @@ public sealed partial class FileStagingViewModel : ObservableObject
             _logger.LogInformation("Detected {Count} saved Wi-Fi network(s) for migration",
                 wifiNetworks.Count);
 
+            // Chromium password migration (Phase 2, ADR-011): decrypt on
+            // Windows (DPAPI only unlocks in this user's session) and attach
+            // re-encrypted credential envelopes to the manifest entries.
+            // Off the UI thread: SQLite reads plus a 600k-iteration PBKDF2
+            // per browser. Fail-soft: any browser that cannot be migrated
+            // keeps its recorded-only entry.
+            var selectedBrowsers = await Task.Run(
+                () => BrowserCredentialMigration.AttachCredentials(
+                    _setup.GetSelectedBrowsers(), _setup.LinuxPassword, _logger), ct);
+
             var userSetup = new UserSetup
             {
                 WindowsUsername = _setup.WindowsUsername,
@@ -153,7 +164,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
                 SelectedFolderNames = _setup.GetSelectedFolderNames(),
                 SelectedFolders = _setup.GetSelectedFolders(),
                 SelectedBrowserNames = _setup.GetSelectedBrowserNames(),
-                SelectedBrowsers = _setup.GetSelectedBrowsers(),
+                SelectedBrowsers = selectedBrowsers,
                 SuggestedPackages = _setup.GetSelectedSuggestions(),
                 WifiNetworks = wifiNetworks,
             };

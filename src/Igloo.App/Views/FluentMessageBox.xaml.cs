@@ -3,36 +3,19 @@ using System.Windows.Media;
 
 namespace Igloo.App.Views;
 
-/// <summary>How serious the message is; drives the accent colour and the default button.</summary>
 public enum FluentMessageSeverity
 {
     Info,
     Warning,
-
-    /// <summary>Irreversible and destructive - partitions, boot configuration, data.</summary>
     Danger,
 }
 
-/// <summary>
-/// The application's own modal dialog, in place of Win32's <see cref="MessageBox"/>.
-/// </summary>
-/// <remarks>
-/// A system MessageBox is a light-themed window that appears mid-wizard looking like a
-/// different application - and it appears on exactly the screens where trust matters
-/// most, since those are the destructive confirmations. This keeps the same blocking
-/// semantics and a comparable call shape, so replacing a call site is a one-line change.
-///
-/// On a Danger prompt the default button is deliberately the SAFE one: a reflexive Enter
-/// or Space cancels rather than deletes a partition. The destructive action always has to
-/// be chosen on purpose.
-/// </remarks>
+
 public partial class FluentMessageBox : Window
 {
     private bool _primaryChosen;
 
     private FluentMessageBox() => InitializeComponent();
-
-    /// <summary>Shows a modal message with a single dismissing button.</summary>
     public static void Show(
         string title, string message,
         FluentMessageSeverity severity = FluentMessageSeverity.Info,
@@ -40,9 +23,6 @@ public partial class FluentMessageBox : Window
         Window? owner = null)
         => Build(title, message, severity, primaryText, secondaryText: null, owner).ShowDialog();
 
-    /// <summary>
-    /// Shows a modal confirmation. Returns true only when the user picks the primary action.
-    /// </summary>
     public static bool Confirm(
         string title, string message,
         FluentMessageSeverity severity = FluentMessageSeverity.Warning,
@@ -61,9 +41,6 @@ public partial class FluentMessageBox : Window
     {
         var dialog = new FluentMessageBox
         {
-            // Owner drives CenterOwner placement and keeps the dialog above the wizard.
-            // Falls back to the main window so callers rarely have to pass one; a null
-            // owner would centre on screen and could surface behind the app.
             Owner = owner ?? Application.Current?.MainWindow,
         };
         dialog.TitleText.Text = title;
@@ -76,18 +53,23 @@ public partial class FluentMessageBox : Window
             dialog.SecondaryButton.Visibility = Visibility.Visible;
         }
 
-        var (rule, primaryFill) = severity switch
+        // Severity picks a STYLE for the button, never a Background.
+        //
+        // Assigning Background directly sets a local value, and a local value outranks
+        // every trigger in the control template - so the hover and pressed states can
+        // never take effect. The button then sits permanently in whatever colour was
+        // assigned, which is exactly how it looked: stuck on the hover shade, and dead
+        // to the mouse. Setting the style keeps the template's own state colours intact.
+        var (rule, buttonStyle) = severity switch
         {
-            FluentMessageSeverity.Danger => (Brush("Brush.Danger"), Brush("Brush.Danger")),
-            FluentMessageSeverity.Warning => (Brush("Brush.Warning"), Brush("Brush.Accent")),
-            _ => (Brush("Brush.Accent"), Brush("Brush.Accent")),
+            FluentMessageSeverity.Danger => (Brush("Brush.Danger"), FindStyle("Button.Danger")),
+            FluentMessageSeverity.Warning => (Brush("Brush.Warning"), FindStyle("Button.Primary")),
+            _ => (Brush("Brush.Accent"), FindStyle("Button.Primary")),
         };
         dialog.SeverityRule.Background = rule;
-        dialog.PrimaryButton.Background = primaryFill;
+        if (buttonStyle is not null)
+            dialog.PrimaryButton.Style = buttonStyle;
 
-        // Keyboard safety: on a destructive prompt, Enter must not confirm. The safe
-        // option takes the default and the focus, so the dangerous one requires a
-        // deliberate click or an explicit Tab to reach.
         if (severity == FluentMessageSeverity.Danger && secondaryText is not null)
         {
             dialog.PrimaryButton.IsDefault = false;
@@ -100,6 +82,9 @@ public partial class FluentMessageBox : Window
 
     private static Brush Brush(string key) =>
         Application.Current?.TryFindResource(key) as Brush ?? Brushes.SlateGray;
+
+    private static Style? FindStyle(string key) =>
+        Application.Current?.TryFindResource(key) as Style;
 
     private void OnPrimary(object sender, RoutedEventArgs e)
     {

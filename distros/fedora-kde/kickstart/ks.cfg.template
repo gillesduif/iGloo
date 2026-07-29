@@ -137,25 +137,29 @@ if [ -z "$TARGET_DISK" ]; then
 else
     log "Target disk: /dev/$TARGET_DISK  (mode: $INSTALL_MODE)"
 
-    # NVIDIA GPUs: the open-source nouveau driver does not support very recent
-    # cards (e.g. RTX 50-series / Blackwell) and mis-renders the framebuffer,
-    # leaving a garbled boot screen that looks like a crash. Blacklist nouveau on
-    # the installed kernel cmdline so the FIRST boot uses the simple UEFI
-    # framebuffer (clean). The Igloo first-boot agent then installs the proprietary
-    # NVIDIA driver; nouveau stays blacklisted afterwards, which is exactly what the
-    # proprietary driver expects - so nothing has to be undone later. On non-NVIDIA
-    # machines lspci finds nothing and the cmdline is left untouched.
-    BOOT_APPEND=""
-    if lspci -nn 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -iq nvidia; then
-        BOOT_APPEND=' --append="rd.driver.blacklist=nouveau modprobe.blacklist=nouveau"'
-        log "NVIDIA GPU detected - blacklisting nouveau for a clean first boot"
-    fi
-
+    # NVIDIA GPUs: do NOT blacklist nouveau on the installed kernel cmdline.
+    #
+    # This was tried and produced the exact failure it was meant to prevent.
+    # nouveau drives recent cards fine at native resolution (the installer
+    # itself renders at full 4K on an RTX 5070 through nouveau), so the first
+    # boot of the installed system works with it too. Blacklisting nouveau at
+    # the cmdline leaves the machine with no display driver at all whenever
+    # the proprietary driver is not ready yet: no internet at first boot, an
+    # akmod build failure, or Secure Boot rejecting the unsigned module. The
+    # kernel then falls back to the plain EFI framebuffer, which cannot handle
+    # a 4K Blackwell panel: black screen.
+    #
+    # The success case needs no cmdline entry either: RPM Fusion's nvidia
+    # packages ship their own /etc/modprobe.d/ nouveau blacklist, so once the
+    # first-boot agent installs the driver, nouveau is blocked automatically
+    # from the next boot. Removing the cmdline blacklist turns a driver
+    # failure from "black screen" into "working desktop on nouveau with a
+    # logged driver error", which is the only acceptable fallback.
     {
         # bootloader: omit --location on UEFI systems (Anaconda writes to ESP
         # automatically). --location=mbr on a GPT/UEFI disk triggers a warning
         # that causes Anaconda to stop at the interactive hub.
-        echo "bootloader --boot-drive=${TARGET_DISK}${BOOT_APPEND}"
+        echo "bootloader --boot-drive=${TARGET_DISK}"
         echo "ignoredisk --only-use=${TARGET_DISK}"
         if [ "$INSTALL_MODE" = "dual-boot" ]; then
             # Windows was already shrunk by Igloo before boot; install into that free space.

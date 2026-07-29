@@ -89,3 +89,6 @@ __pycache__/
 Thumbs.db
 *.user
 *.suo
+
+# Local git bundle backups (never publish)
+*.bundle

@@ -110,7 +110,7 @@ PNG, 1920×1080 or 1280×800, under 500 KB each. License the screenshots permiss
 
 ## License
 
-Distro plugin code must be GPL-2.0-only (matching Igloo's license).
+Distro plugin code must be GPL-3.0-or-later (matching Igloo's license).
 Screenshots may be CC-BY or CC0.
 `distro.json` data is project metadata, no copyright.
 

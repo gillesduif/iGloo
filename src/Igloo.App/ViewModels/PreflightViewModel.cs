@@ -175,6 +175,15 @@ public sealed partial class PreflightViewModel : ObservableObject
         }
     }
 
+    /// <summary>Extracts the disk number from a WMI device id ("\\.\PHYSICALDRIVE0" → 0).</summary>
+    private static bool TryGetDiskNumber(string deviceId, out uint number)
+    {
+        const string marker = "PHYSICALDRIVE";
+        var at = deviceId.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        number = 0;
+        return at >= 0 && uint.TryParse(deviceId[(at + marker.Length)..], out number);
+    }
+
     //   Commands                               ─
 
     [RelayCommand(IncludeCancelCommand = true)]
@@ -209,6 +218,38 @@ public sealed partial class PreflightViewModel : ObservableObject
                 {
                     _logger.LogWarning(ex, "Auto-cleanup of leftover installer partitions failed (non-fatal)");
                 }
+            }
+
+            // Hand back any free space sitting directly behind Windows, whoever freed it.
+            //
+            // The block above only covers staging partitions still present on THIS side.
+            // The common case is the other one: the first-boot agent deletes the staging
+            // partition from Linux, where the NTFS volume in front of it cannot be
+            // resized, so the space is correctly left unallocated - and nothing ever
+            // claimed it back. The user was expected to finish up in Disk Management,
+            // which is the manual disk work Igloo exists to remove. Runs every check, so
+            // it also repairs disks left that way by earlier versions.
+            // Deliberately only the disk Windows boots from. That is where Igloo carves
+            // its staging partition, and it keeps the operation away from data disks:
+            // unallocated space on a secondary drive may be there on purpose, and
+            // silently growing someone's backup volume into it would be its own bug.
+            try
+            {
+                var windowsDisk = report.Disks.FirstOrDefault(d => d.Partitions.Any(p => p.IsBoot));
+                if (windowsDisk is not null && TryGetDiskNumber(windowsDisk.DeviceId, out var diskNumber))
+                {
+                    var bytes = await _linuxRemoval.ReclaimFreeSpaceAsync(diskNumber, ct: ct);
+                    if (bytes > 0)
+                    {
+                        _logger.LogInformation("Reclaimed {Gb:N1} GB of unallocated space on disk {Disk}",
+                            bytes / (1024.0 * 1024 * 1024), diskNumber);
+                        report = await _checker.RunAsync(ct);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Could not reclaim adjacent free space (non-fatal)");
             }
 
             Report = report;

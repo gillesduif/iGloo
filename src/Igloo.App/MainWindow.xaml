@@ -241,7 +241,7 @@
                     <Button Command="{Binding NextCommand}"
                             IsEnabled="{Binding CanGoNext}"
                             Content="{Binding PrimaryActionLabel}"
-                            Style="{StaticResource Button.Primary}"
+                          
                             MinWidth="120" Background="#0DFFFFFF" Foreground="White" />
                 </StackPanel>
             </Grid>

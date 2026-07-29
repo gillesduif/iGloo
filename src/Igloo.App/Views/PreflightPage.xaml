@@ -212,7 +212,7 @@
                                        Visibility="{Binding BitLockerBlocked, Converter={StaticResource BoolToVis}}" />
                         </StackPanel>
 
-                        <TextBlock Grid.Row="1" Grid.Column="4" Text="RAM" Style="{StaticResource GaugeLabel}" />
+                        <TextBlock Grid.Row="1" Grid.Column="4" Text="Memory" Style="{StaticResource GaugeLabel}" />
                         <TextBlock Grid.Row="1" Grid.Column="5" Text="{Binding RamDisplay}"
                                    Foreground="{StaticResource Brush.Text.Primary}" FontSize="13" VerticalAlignment="Center" />
 
@@ -336,7 +336,7 @@
                                 <TextBlock Text="Multiple Linux installations found"
                                            FontWeight="SemiBold" FontSize="13"
                                            Foreground="{StaticResource Brush.Text.Primary}" />
-                                <TextBlock Text="Select the installations you want to remove."
+                <TextBlock Text="Select the systems to remove."
                                            FontSize="12" Margin="0,1,0,0"
                                            Foreground="{StaticResource Brush.Text.Tertiary}" />
                             </StackPanel>
@@ -358,7 +358,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <Button Content="Remove selection"
+            <Button Content="Remove Selected"
                                 Style="{StaticResource Button.Danger}"
                                 Command="{Binding RemoveSelectedLinuxCommand}"
                                 HorizontalAlignment="Left" Margin="4,10,0,2" Foreground="White" />

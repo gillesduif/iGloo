@@ -119,8 +119,9 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
     //   Reclaim freed space                          
 
-    private void TryReclaimFreedSpace(uint diskNumber, IProgress<string>? progress)
+    private long TryReclaimFreedSpace(uint diskNumber, IProgress<string>? progress)
     {
+        long reclaimed = 0;
         const long MiB = 1024L * 1024;
         try
         {
@@ -148,19 +149,19 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 }
             }
             if (best is null)
-                return;
+                return reclaimed;
 
             using (best)
             {
                 var supported = best.InvokeMethod("GetSupportedSize",
                     best.GetMethodParameters("GetSupportedSize"), null)!;
                 if (Convert.ToUInt32(supported["ReturnValue"], CultureInfo.InvariantCulture) != 0)
-                    return;
+                    return reclaimed;
 
                 var sizeMax = Convert.ToInt64(supported["SizeMax"], CultureInfo.InvariantCulture);
                 var gainBytes = sizeMax - bestSize;
                 if (gainBytes < 64 * MiB)
-                    return;   // no adjacent space to grow into
+                    return reclaimed;   // no adjacent space to grow into
 
                 var gainGb = gainBytes / (1024.0 * MiB);
                 progress?.Report($"Adding {gainGb:N1} GB back to {bestLetter}:…");
@@ -174,8 +175,11 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                         "Resize({Letter}:) to reclaim freed space returned {Code} (non-fatal) - " +
                         "the space stays unallocated", bestLetter, returnValue);
                 else
+                {
+                    reclaimed = gainBytes;
                     _logger.LogInformation("Extended {Letter}: on disk {Disk} by {Gb:N1} GB",
                         bestLetter, diskNumber, gainGb);
+                }
             }
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
@@ -183,7 +187,12 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             _logger.LogWarning(ex,
                 "Could not reclaim freed space on disk {Disk} (non-fatal)", diskNumber);
         }
+        return reclaimed;
     }
+
+    public Task<long> ReclaimFreeSpaceAsync(uint diskNumber,
+        IProgress<string>? progress = null, CancellationToken ct = default)
+        => Task.Run(() => TryReclaimFreedSpace(diskNumber, progress), ct);
 
     //   EFI System Partition cleanup                     ─
 

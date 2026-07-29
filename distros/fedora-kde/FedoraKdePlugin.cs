@@ -174,6 +174,17 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         MenuTitle = "Install Fedora KDE (Igloo)",
         // Anaconda reads ks.cfg from the OEMDRV label and loads its stage-2
         // (install.img) locally so no 862 MiB network download is needed at boot.
+        // Do NOT blacklist nouveau, here or on the installed system.
+        //
+        // It was tried in both places, on the theory that nouveau mis-renders on
+        // Blackwell. The opposite is true: nouveau drives the installer at full
+        // 4K on an RTX 5070, and blacklisting it drops the machine onto the
+        // plain EFI framebuffer, which cannot handle a 4K panel. On the
+        // installed system the same blacklist turned any proprietary-driver
+        // failure (no internet, akmod build error, Secure Boot rejecting the
+        // unsigned module) into a black first boot. RPM Fusion's nvidia
+        // packages ship their own modprobe.d nouveau blacklist, so the driver
+        // takeover needs no cmdline entry from us.
         KernelCmdline = "inst.stage2=hd:LABEL={LABEL}: inst.ks=hd:LABEL={LABEL}:/ks.cfg inst.geoloc=0",
         KernelIsoPaths =
         [
