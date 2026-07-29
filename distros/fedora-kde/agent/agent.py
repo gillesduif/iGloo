@@ -164,8 +164,82 @@ def install_codecs(manifest: dict[str, Any]) -> None:
     logger.info("Multimedia codecs installed")
 
 
+def installed_kernel_versions() -> list[str]:
+    """Return every installed kernel version, e.g. ['6.19.10-300.fc44.x86_64', ...].
+
+    An install often ends up with TWO kernels: the one on the install media and a
+    newer one pulled from updates during the same run. Anything that builds or
+    repairs per-kernel content has to cover all of them, because GRUB boots the
+    NEWEST one - not the one that happened to be running.
+    """
+    res = run_cmd(["rpm", "-q", "kernel-core"], check=False)
+    return [
+        line.strip()[len("kernel-core-"):]
+        for line in (res.stdout or "").splitlines()
+        if line.strip().startswith("kernel-core-")
+    ]
+
+
+def nvidia_pci_ids() -> list[str]:
+    """Return the PCI device IDs of the NVIDIA display adapters, e.g. ['2c05']."""
+    res = run_cmd(["lspci", "-n", "-d", "10de:"], check=False)
+    ids = []
+    for line in (res.stdout or "").splitlines():
+        # "01:00.0 0300: 10de:2c05 (rev a1)" - class 0300/0302 is display.
+        m = re.search(r"\b10de:([0-9a-fA-F]{4})\b", line)
+        if m and re.search(r"\b03[0-9a-fA-F]{2}:", line):
+            ids.append(m.group(1).lower())
+    return ids
+
+
+def gpu_requires_open_kernel_module() -> bool:
+    """True when this GPU needs NVIDIA's OPEN kernel module.
+
+    Decided from NVIDIA's own machine-readable data - the "kernelopen" feature flag
+    in supported-gpus.json, the same source nvidia-driver-assistant uses - rather
+    than a hardcoded model list.
+
+    This matters because it is not a preference: on Blackwell (RTX 50 series) the
+    PROPRIETARY kernel module does not support the GPU at all, so a default
+    akmod-nvidia build leaves the card with no driver. The reverse is equally true
+    - Pascal/Maxwell (GTX 10xx and older) are not open-capable and must keep the
+    proprietary module - which is why this is decided per machine and never applied
+    blanket. On any doubt we return False and keep the stock behaviour.
+    """
+    ids = nvidia_pci_ids()
+    if not ids:
+        logger.info("No NVIDIA display device found via lspci - using the default module")
+        return False
+
+    for path in ("/usr/share/nvidia/supported-gpus.json",
+                 "/usr/share/nvidia/supported-gpus/supported-gpus.json"):
+        p = Path(path)
+        if not p.is_file():
+            continue
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            logger.exception("Could not parse %s - using the default module", path)
+            return False
+
+        for chip in data.get("chips", []):
+            devid = str(chip.get("devid", "")).lower().removeprefix("0x")
+            if devid in ids:
+                features = [str(f).lower() for f in chip.get("features", [])]
+                needs_open = "kernelopen" in features
+                logger.info("GPU %s (%s): kernelopen=%s",
+                            devid, chip.get("name", "unknown"), needs_open)
+                return needs_open
+        logger.info("GPU %s not listed in %s - using the default module",
+                    ", ".join(ids), path)
+        return False
+
+    logger.info("supported-gpus.json not found - using the default module")
+    return False
+
+
 def install_gpu_drivers(manifest: dict[str, Any]) -> None:
-    """Install NVIDIA proprietary drivers if the GPU is NVIDIA."""
+    """Install NVIDIA drivers if the GPU is NVIDIA."""
     gpu = manifest.get("hardware", {}).get("gpuVendor", "").lower()
     if gpu != "nvidia":
         logger.info("GPU driver: vendor=%r, skipping NVIDIA step", gpu)
@@ -177,9 +251,57 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
         timeout=600,
     )
 
-    # akmods builds the kernel module; wait for it to complete.
-    logger.info("Building NVIDIA kernel module (akmods --force) - may take several minutes")
-    run_cmd(["akmods", "--force"], timeout=900)
+    # Select the open kernel module when this GPU requires it. The check runs AFTER
+    # the driver package is installed because supported-gpus.json ships with it.
+    # The macro is what makes akmods build the open variant; the rebuild below then
+    # replaces whatever the package install already built.
+    if gpu_requires_open_kernel_module():
+        try:
+            Path("/etc/rpm/macros.nvidia-kmod").write_text(
+                "%_with_kmod_nvidia_open 1\n", encoding="utf-8")
+            logger.info("Selected the NVIDIA OPEN kernel module "
+                        "(required by this GPU; the proprietary module does not support it)")
+        except OSError:
+            logger.exception("Could not write /etc/rpm/macros.nvidia-kmod - "
+                             "the open module cannot be selected, the GPU may get no driver")
+
+    # Build the module for EVERY installed kernel, not just the running one.
+    # A bare `akmods --force` builds only for the running kernel. When the install
+    # also pulled a newer kernel from updates, the post-install reboot lands on
+    # that NEWER kernel (GRUB defaults to the newest) - which would then have no
+    # nvidia module at all: no GPU driver, software rendering, and a desktop that
+    # comes up black because the shell cannot paint. Building per-kernel is the fix.
+    kvers = installed_kernel_versions()
+    if kvers:
+        # akmods compiles against kernel headers: without kernel-devel-<kver> the
+        # build for that kernel fails (silently, from the caller's point of view)
+        # and the kernel boots with no GPU driver. The running kernel usually has
+        # its devel package already; a kernel pulled in during the install often
+        # does not - so ensure one per kernel before building.
+        for kver in kvers:
+            if run_cmd(["rpm", "-q", f"kernel-devel-{kver}"], check=False).returncode != 0:
+                logger.info("Installing kernel-devel-%s (needed to build the NVIDIA module)", kver)
+                run_cmd(["dnf", "-y", "install", f"kernel-devel-{kver}"], timeout=600, check=False)
+
+        logger.info("Building NVIDIA kernel module for %d kernel(s): %s - may take several minutes",
+                    len(kvers), ", ".join(kvers))
+        for kver in kvers:
+            # --rebuild: the package install may already have built a module for this
+            # kernel WITHOUT the open macro above; rebuilding is what replaces it.
+            run_cmd(["akmods", "--kernels", kver, "--rebuild"], timeout=1800, check=False)
+    else:
+        logger.warning("Could not list installed kernels - falling back to the running kernel only")
+        run_cmd(["akmods", "--force", "--rebuild"], timeout=1800, check=False)
+
+    # Verify the module actually exists for each kernel; a silent build failure
+    # here is precisely what produces a black desktop on the next boot.
+    for kver in kvers:
+        if Path(f"/lib/modules/{kver}/extra/nvidia").is_dir() or \
+           list(Path(f"/lib/modules/{kver}").glob("extra/nvidia*")):
+            logger.info("nvidia module present for kernel %s", kver)
+        else:
+            logger.error("nvidia module MISSING for kernel %s - that kernel will boot without "
+                         "the GPU driver", kver)
 
     # Installing the NVIDIA driver blacklists nouveau and builds a new kernel
     # module that only loads on the next boot.  Starting the Plasma session now
@@ -209,12 +331,7 @@ def ensure_kernel_modules(manifest: dict[str, Any]) -> None:
     kernel has its matching ``kernel-modules`` so the next boot has full hardware
     support.
     """
-    res = run_cmd(["rpm", "-q", "kernel-core"], check=False)
-    versions = [
-        line.strip()[len("kernel-core-"):]
-        for line in (res.stdout or "").splitlines()
-        if line.strip().startswith("kernel-core-")
-    ]
+    versions = installed_kernel_versions()
     if not versions:
         logger.warning("Could not list installed kernels - skipping kernel-modules check")
         return
@@ -413,6 +530,189 @@ def redact_manifest(manifest: dict[str, Any]) -> None:
         logger.exception("Failed to redact manifest (non-fatal)")
 
 
+#   Display layout migration (resolution / refresh rate / rotation / position)
+
+def _edid_identity(edid: bytes) -> dict[str, str] | None:
+    """Extract vendor, product code, product name and serial from raw EDID bytes.
+
+    Layout (EDID 1.x): bytes 8-9 hold the manufacturer as three 5-bit letters,
+    10-11 the product code (little-endian), 12-15 a numeric serial, and the four
+    18-byte descriptors from 0x36 carry the human-readable name (tag 0xFC) and
+    serial string (tag 0xFF).
+    """
+    if len(edid) < 128:
+        return None
+    raw = (edid[8] << 8) | edid[9]
+    vendor = "".join(chr(((raw >> shift) & 0x1F) + 0x40) for shift in (10, 5, 0))
+    if not vendor.isalpha():
+        return None
+    product_code = edid[10] | (edid[11] << 8)
+    serial_num = int.from_bytes(edid[12:16], "little")
+
+    name, serial_str = "", ""
+    for base in (0x36, 0x48, 0x5A, 0x6C):
+        block = edid[base:base + 18]
+        if len(block) < 18 or block[0:3] != b"\x00\x00\x00":
+            continue
+        text = block[5:18].split(b"\n")[0].decode("ascii", "ignore").strip()
+        if block[3] == 0xFC:
+            name = text
+        elif block[3] == 0xFF:
+            serial_str = text
+
+    return {
+        # Same form Windows reports in its monitor device id, e.g. "GSM5B09" -
+        # this is what pairs a Linux connector with a manifest entry.
+        "pnp_id": f"{vendor}{product_code:04X}",
+        "vendor": vendor,
+        "product": name or f"0x{product_code:04X}",
+        "serial": serial_str or str(serial_num),
+    }
+
+
+def _connected_outputs() -> list[dict[str, str]]:
+    """Every connected DRM connector with its EDID identity (connector name + ids)."""
+    outputs = []
+    for card in sorted(Path("/sys/class/drm").glob("card*-*")):
+        try:
+            if (card / "status").read_text().strip() != "connected":
+                continue
+            edid = (card / "edid").read_bytes()
+        except OSError:
+            continue
+        ident = _edid_identity(edid)
+        if not ident:
+            continue
+        # "card1-DP-1" -> "DP-1", the name compositors use.
+        ident["connector"] = card.name.split("-", 1)[1]
+        outputs.append(ident)
+    return outputs
+
+
+def _mode_is_supported(connector: str, width: int, height: int) -> bool:
+    """Whether the connector advertises this resolution.
+
+    Guard rail: forcing a mode the panel does not advertise is one of the few ways
+    this feature could leave the user staring at a black screen, so an unknown mode
+    means we leave that output alone rather than gamble.
+    """
+    modes_file = next(Path("/sys/class/drm").glob(f"card*-{connector}/modes"), None)
+    if modes_file is None:
+        return True   # cannot tell - do not block on it
+    try:
+        modes = modes_file.read_text().split()
+    except OSError:
+        return True
+    return f"{width}x{height}" in modes
+
+
+def migrate_display_layout(manifest: dict[str, Any]) -> None:
+    """Reproduce the Windows desktop layout (rotation, refresh rate, position).
+
+    Written as GNOME/Cinnamon's monitors.xml, which Mutter and Muffin both read on
+    X11 and Wayland - covering Cinnamon, GNOME and any Mutter-based desktop. KDE
+    keeps its own store and is handled separately below.
+
+    Identity is deliberately taken from the LINUX side: the monitorspec is built
+    from the connector's own EDID, so it always matches what the compositor reads.
+    Only the geometry comes from Windows. Matching the two by PnP id is what keeps a
+    two-monitor setup from rotating the wrong screen - display names and ordering
+    differ between the systems and are not stable across boots.
+    """
+    wanted = manifest.get("displays", [])
+    if not wanted:
+        logger.info("No display layout in the manifest - leaving the desktop defaults")
+        return
+
+    outputs = _connected_outputs()
+    if not outputs:
+        logger.info("No connected outputs with readable EDID - skipping display layout")
+        return
+    for o in outputs:
+        logger.info("Detected output %s: %s (%s)", o["connector"], o["pnp_id"], o["product"])
+
+    by_pnp = {o["pnp_id"]: o for o in outputs}
+    logical: list[str] = []
+    matched = 0
+
+    for want in wanted:
+        pnp = (want.get("pnpId") or "").upper()
+        out = by_pnp.get(pnp)
+        if out is None:
+            logger.info("  Monitor %s from Windows is not attached here - skipped", pnp or "?")
+            continue
+
+        width, height = int(want.get("widthPx", 0)), int(want.get("heightPx", 0))
+        if width <= 0 or height <= 0:
+            continue
+        if not _mode_is_supported(out["connector"], width, height):
+            logger.warning("  %s does not advertise %dx%d - leaving this output alone",
+                           out["connector"], width, height)
+            continue
+
+        # Windows reports whole Hz; panels advertise fractional rates (143.998).
+        # Mutter tolerates a near match, so the integer value is written as-is.
+        rate = int(want.get("refreshHz") or 60) or 60
+        rotation = {0: "normal", 90: "right", 180: "inverted", 270: "left"}.get(
+            int(want.get("rotationDegrees") or 0), "normal")
+
+        logical.append(
+            "    <logicalmonitor>\n"
+            f"      <x>{int(want.get('positionX') or 0)}</x>\n"
+            f"      <y>{int(want.get('positionY') or 0)}</y>\n"
+            "      <scale>1</scale>\n"
+            + ("      <primary>yes</primary>\n" if want.get("isPrimary") else "")
+            + f"      <transform><rotation>{rotation}</rotation></transform>\n"
+            "      <monitor>\n"
+            "        <monitorspec>\n"
+            f"          <connector>{out['connector']}</connector>\n"
+            f"          <vendor>{out['vendor']}</vendor>\n"
+            f"          <product>{out['product']}</product>\n"
+            f"          <serial>{out['serial']}</serial>\n"
+            "        </monitorspec>\n"
+            f"        <mode><width>{width}</width><height>{height}</height>"
+            f"<rate>{rate}</rate></mode>\n"
+            "      </monitor>\n"
+            "    </logicalmonitor>\n")
+        matched += 1
+        logger.info("  %s -> %dx%d@%dHz %s at (%s,%s)", out["connector"], width, height,
+                    rate, rotation, want.get("positionX"), want.get("positionY"))
+
+    if matched == 0:
+        logger.info("No Windows monitors matched the attached outputs - nothing written")
+        return
+
+    xml = ('<monitors version="2">\n  <configuration>\n'
+           + "".join(logical) + "  </configuration>\n</monitors>\n")
+
+    username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
+    home = Path("/home") / username if username else None
+    if home is None or not home.is_dir():
+        logger.warning("User home not found - cannot write the display layout")
+        return
+
+    cfg = home / ".config"
+    cfg.mkdir(parents=True, exist_ok=True)
+    (cfg / "monitors.xml").write_text(xml, encoding="utf-8")
+    run_cmd(["chown", "-R", f"{username}:{username}", str(cfg)], check=False)
+    logger.info("Wrote %s for %d monitor(s)", cfg / "monitors.xml", matched)
+
+    # The greeter runs as its own user and reads its own copy, so a portrait screen
+    # would otherwise still be sideways at the login prompt - the very first thing
+    # the user sees. Best-effort: not every display manager uses this path.
+    for gdm_dir in (Path("/var/lib/gdm3/.config"), Path("/var/lib/gdm/.config"),
+                    Path("/var/lib/lightdm/.config")):
+        if gdm_dir.parent.is_dir():
+            try:
+                gdm_dir.mkdir(parents=True, exist_ok=True)
+                (gdm_dir / "monitors.xml").write_text(xml, encoding="utf-8")
+                owner = gdm_dir.parent.name
+                run_cmd(["chown", "-R", f"{owner}:{owner}", str(gdm_dir)], check=False)
+                logger.info("Applied the same layout to the %s greeter", owner)
+            except OSError:
+                logger.info("Could not write the greeter layout in %s (non-fatal)", gdm_dir)
+
+
 def install_welcome_app(manifest: dict[str, Any]) -> None:
     """
     Drop an XDG autostart entry that launches a simple welcome notification
@@ -495,23 +795,28 @@ IGLOO_SEED_LABELS = ("OEMDRV", "CIDATA", "IGLOOISO")
 def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
     """Remove Igloo's temporary installer artifacts from the machine.
 
-    Once this agent has run, the staging partition(s) — OEMDRV with the
-    kickstart, agent payload and Anaconda stage2 — serve no further purpose.
+    Once this agent has run, the staging partition(s)  OEMDRV with the
+    kickstart, agent payload and Anaconda stage2  serve no further purpose.
     Leaving them wastes space and confuses users ("what is this OEMDRV
     drive?"), so the FINAL agent step deletes them, along with Igloo's
     now-dangling one-shot UEFI boot entry.
 
     Safety rules (BR-01/BR-03, docs/business/business-rules.md):
-      * delete ONLY by exact filesystem-label match on Igloo's staging labels —
+      * delete ONLY by exact filesystem-label match on Igloo's staging labels 
         never by partition number, position, or size;
       * the partition must sit on the same physical disk as the Linux root;
-      * every action is best-effort and logged — any doubt leaves the partition
+      * every action is best-effort and logged  any doubt leaves the partition
         in place, never a broken disk.
     The freed space is intentionally left unallocated: it borders the Windows
     partition, so Windows' own Disk Management can extend C: into it.
     """
-    src = run_cmd(["findmnt", "-rno", "SOURCE", "/"], check=False)
-    root_dev = (src.stdout or "").strip()
+    # --nofsroot strips the subvolume suffix: without it findmnt returns
+    # "/dev/nvme0n1p3[/root]" on Fedora's btrfs root, which is not a valid device
+    # path  lsblk then fails, `disk` stays empty, and the whole cleanup silently
+    # bails, leaving OEMDRV behind to break later installs. (ext4 roots on
+    # Debian/Mint have no suffix, which is why this only ever bit Fedora.)
+    src = run_cmd(["findmnt", "-rno", "SOURCE", "--nofsroot", "/"], check=False)
+    root_dev = re.sub(r"\[.*\]$", "", (src.stdout or "").strip())
     disk = ""
     if root_dev.startswith("/dev/"):
         r = run_cmd(["lsblk", "-rno", "PKNAME", root_dev], check=False)
@@ -591,14 +896,19 @@ def main() -> int:
     # Steps - each is best-effort; a failure is logged and the rest continue.
     # Order matters: RPM Fusion must be enabled before codecs/GPU drivers;
     # Flathub must be registered before suggested-pkgs; redact runs last.
+    # kernel-modules runs BEFORE gpu-drivers: it can install a second, newer
+    # kernel's packages, and the nvidia module has to be built against every
+    # kernel that exists - otherwise the reboot lands on a newer kernel with no
+    # GPU driver (black desktop). Completing the kernels first keeps that honest.
     steps: list[tuple[str, Any]] = [
         ("rpmfusion",       lambda: enable_rpmfusion(manifest)),
         ("codecs",          lambda: install_codecs(manifest)),
+        ("kernel-modules",  lambda: ensure_kernel_modules(manifest)),
         ("gpu-drivers",     lambda: install_gpu_drivers(manifest)),
         ("flathub",         lambda: setup_flathub(manifest)),
         ("suggested-pkgs",  lambda: install_suggested_packages(manifest)),
-        ("kernel-modules",  lambda: ensure_kernel_modules(manifest)),
         ("wifi",            lambda: migrate_wifi(manifest)),
+        ("display-layout",  lambda: migrate_display_layout(manifest)),
         ("welcome-app",     lambda: install_welcome_app(manifest)),
         ("redact-manifest", lambda: redact_manifest(manifest)),
         ("cleanup-seed",    lambda: cleanup_installer_partitions(manifest)),

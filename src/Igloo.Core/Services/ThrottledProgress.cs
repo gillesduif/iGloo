@@ -13,7 +13,7 @@ public sealed class ThrottledProgress<T> : IProgress<T>
     /// <param name="inner">Destination (typically a UI-marshalling <see cref="Progress{T}"/>).</param>
     /// <param name="interval">Minimum time between forwarded reports (default 100 ms).</param>
     /// <param name="forceWhen">
-    /// Given (current, lastForwarded — null before the first forward), returns true to
+    /// Given (current, lastForwarded  null before the first forward), returns true to
     /// bypass the throttle. Use for phase changes and completion reports.
     /// </param>
     public ThrottledProgress(IProgress<T> inner, TimeSpan? interval = null,

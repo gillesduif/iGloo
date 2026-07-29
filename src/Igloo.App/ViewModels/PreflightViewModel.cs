@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Igloo.App.Views;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
 
@@ -66,7 +67,10 @@ public sealed partial class PreflightViewModel : ObservableObject
             ? $"{Report.TotalRamBytes / (1024.0 * 1024 * 1024):N1} GB"
             : $"{Report.TotalRamBytes / (1024L * 1024):N0} MB";
 
-    public string GpuDisplay => Report?.GpuVendor ?? string.Empty;
+    // The model, when WMI gave us one: "NVIDIA GeForce RTX 5070" tells the user (and
+    // a bug report) far more than "NVIDIA", and which driver is correct depends on
+    // the specific chip rather than the vendor.
+    public string GpuDisplay => Report?.GpuModel ?? Report?.GpuVendor ?? string.Empty;
 
     public IReadOnlyList<DiskInfo> Disks => Report?.Disks ?? Array.Empty<DiskInfo>();
     public IReadOnlyList<PreflightFinding> Findings => Report?.Findings ?? Array.Empty<PreflightFinding>();
@@ -109,16 +113,6 @@ public sealed partial class PreflightViewModel : ObservableObject
     public bool HasMultipleLinux => LinuxInstalls.Count > 1;    // several → multiple-choice layout
     public LinuxInstallItem? SingleLinux => LinuxInstalls.Count == 1 ? LinuxInstalls[0] : null;
 
-    public bool HasSeedLeftovers => (Report?.SeedLeftovers.Count ?? 0) > 0;
-
-    
-    public bool ShowLeftoversOnlyCard => !HasLinux && HasSeedLeftovers;
-
-    public string SeedLeftoverSummary => Report is null
-        ? string.Empty
-        : string.Join(" · ", Report.SeedLeftovers.Select(
-            s => $"{s.Partition.Label} ({ByteFormat.Format(s.Partition.SizeBytes)})"));
-
     public bool CanRemoveSelected => LinuxInstalls.Any(i => i.IsSelected);
 
     private void OnLinuxSelectionChanged()
@@ -135,9 +129,6 @@ public sealed partial class PreflightViewModel : ObservableObject
     private Task RemoveSelectedLinuxAsync()
         => RemoveLinuxCoreAsync([.. LinuxInstalls.Where(i => i.IsSelected).Select(i => i.Installation)]);
 
-    [RelayCommand]
-    private Task RemoveSeedLeftoversAsync() => RemoveLinuxCoreAsync([]);
-
     private async Task RemoveLinuxCoreAsync(IReadOnlyList<LinuxInstallation> targets)
     {
         var leftovers = Report?.SeedLeftovers ?? [];
@@ -148,20 +139,22 @@ public sealed partial class PreflightViewModel : ObservableObject
         var removingAllLinux = targets.Count > 0 && targets.Count == LinuxInstalls.Count;
 
         var lines = targets
-            .Select(t => $"•  {t.DisplayName} — {ByteFormat.Format(t.TotalBytes)} on {t.DiskModel} " +
+            .Select(t => $"•  {t.DisplayName}  {ByteFormat.Format(t.TotalBytes)} on {t.DiskModel} " +
                          $"({t.Partitions.Count} partition{(t.Partitions.Count == 1 ? "" : "s")})")
             .Concat(leftovers.Select(s =>
-                $"•  iGloo installer partition {s.Partition.Label} — " +
+                $"•  iGloo installer partition {s.Partition.Label}  " +
                 $"{ByteFormat.Format(s.Partition.SizeBytes)} on {s.DiskModel}"))
             .ToList();
 
-        var confirm = MessageBox.Show(
-            "This will permanently delete:\n\n" + string.Join("\n", lines) + "\n\n" +
-            "All data on these partitions is destroyed. This cannot be undone.\n" +
-            "Freed space next to your Windows partition is added back to it automatically.",
-            targets.Count > 0 ? "Remove Linux from this PC?" : "Remove iGloo leftovers?",
-            MessageBoxButton.OKCancel, MessageBoxImage.Warning);
-        if (confirm != MessageBoxResult.OK)
+        // Danger severity: the safe button takes the default, so Enter cancels rather
+        // than erasing partitions.
+        if (!FluentMessageBox.Confirm(
+                targets.Count > 0 ? "Uninstall Linux operating system?" : "Remove iGloo system components?",
+                 "This action permanently deletes the following components:\n\n" + string.Join("\n", lines) + "\n\n" +
+                 "All data on these partitions will be destroyed. This action cannot be undone.\n" +
+                 "Unallocated space adjacent to your Windows partition will be automatically reclaimed.",
+                FluentMessageSeverity.Danger,
+                primaryText: targets.Count > 0 ? "Uninstall Linux " : "Remove components"))
             return;
 
         try
@@ -178,7 +171,7 @@ public sealed partial class PreflightViewModel : ObservableObject
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Linux removal failed");
-            LinuxActionStatus = $"Removal failed: {ex.Message}";
+            LinuxActionStatus = $"An error occurred during removal: {ex.Message}";
         }
     }
 
@@ -192,8 +185,33 @@ public sealed partial class PreflightViewModel : ObservableObject
         Report = null;
         try
         {
-            Report = await _checker.RunAsync(ct);
-            _logger.LogInformation("Pre-flight complete - {Count} finding(s)", Report.Findings.Count);
+            // Held in a local until everything is settled: assigning the observable
+            // Report mid-run would render the results UNDERNEATH the still-visible
+            // "Reading your hardware…" panel (HasReport and IsRunning both true).
+            var report = await _checker.RunAsync(ct);
+            _logger.LogInformation("Pre-flight complete - {Count} finding(s)", report.Findings.Count);
+
+            // A leftover OEMDRV from an earlier run has no purpose in preflight — the
+            // installer creates a fresh one at install time — and it is iGloo's own
+            // label-matched scratch partition, so clean it silently rather than show
+            // the user a technical prompt. Best-effort: a busy partition is left for
+            // the install phase's delete-and-recreate to handle.
+            if (report.SeedLeftovers.Count > 0)
+            {
+                _logger.LogInformation("Auto-removing {Count} leftover installer partition(s)",
+                    report.SeedLeftovers.Count);
+                try
+                {
+                    await _linuxRemoval.RemoveAsync([], report.SeedLeftovers, removingAllLinux: false, ct: ct);
+                    report = await _checker.RunAsync(ct);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Auto-cleanup of leftover installer partitions failed (non-fatal)");
+                }
+            }
+
+            Report = report;
         }
         catch (OperationCanceledException)
         {
@@ -258,17 +276,15 @@ public sealed partial class PreflightViewModel : ObservableObject
     [RelayCommand]
     private void RestartToFirmware()
     {
-        var confirm = MessageBox.Show(
-            "Your PC will restart into UEFI firmware settings in 10 seconds.\n\n" +
-            "• Find the 'Secure Boot' option\n" +
-            "• Set it to Disabled\n" +
-            "• Save changes and exit\n\n" +
-            "Save all open work before clicking OK.",
-            "Restart to firmware settings?",
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Warning);
-
-        if (confirm != MessageBoxResult.OK)
+        if (!FluentMessageBox.Confirm(
+                "Restart to firmware settings?",
+                "Your PC will restart into UEFI firmware settings in 10 seconds.\n\n" +
+                "• Find the 'Secure Boot' option\n" +
+                "• Set it to Disabled\n" +
+                "• Save changes and exit\n\n" +
+                "Save all open work before continuing.",
+                FluentMessageSeverity.Warning,
+                primaryText: "Restart now"))
             return;
 
         try
@@ -282,10 +298,13 @@ public sealed partial class PreflightViewModel : ObservableObject
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "RestartToFirmware failed");
-            MessageBox.Show(
-                $"Could not schedule restart: {ex.Message}\n\n" +
-                "Run 'shutdown /r /fw /t 0' in an elevated command prompt manually.",
-                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            FluentMessageBox.Show(
+                "Could not restart to firmware",
+                $"{ex.Message}\n\n" +
+                "You can do it manually: run 'shutdown /r /fw /t 0' in an elevated " +
+                "command prompt, or reboot and press the firmware key for your board " +
+                "(usually Del or F2).",
+                FluentMessageSeverity.Danger);
         }
     }
 
@@ -406,9 +425,6 @@ public sealed partial class PreflightViewModel : ObservableObject
         OnPropertyChanged(nameof(HasSingleLinux));
         OnPropertyChanged(nameof(HasMultipleLinux));
         OnPropertyChanged(nameof(SingleLinux));
-        OnPropertyChanged(nameof(HasSeedLeftovers));
-        OnPropertyChanged(nameof(ShowLeftoversOnlyCard));
-        OnPropertyChanged(nameof(SeedLeftoverSummary));
         OnPropertyChanged(nameof(CanRemoveSelected));
         RemoveSelectedLinuxCommand.NotifyCanExecuteChanged();
 

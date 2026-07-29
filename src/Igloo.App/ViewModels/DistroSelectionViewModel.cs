@@ -84,12 +84,12 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
 
         // Only rebuild the list when something that affects it actually changed.
         // Rebuilding reassigns DistroItems, which makes WPF's bound ListBox reset
-        // its SelectedItem to null (the old item is gone from the new list) — so an
+        // its SelectedItem to null (the old item is gone from the new list)  so an
         // unconditional rebuild on every visit silently drops the user's selection
         // when they navigate back to this step, NRE-ing downstream (distro.Id).
         // A new preflight report MUST rebuild: the plugins' hardware findings
         // (RAM floors, BitLocker, …) are evaluated against it. A category switch
-        // must rebuild too — it changes which distros are visible.
+        // must rebuild too  it changes which distros are visible.
         if (_built && secureBootOn == _lastSecureBootOn && ReferenceEquals(report, _lastReport)
                    && string.Equals(category, _lastCategory, StringComparison.OrdinalIgnoreCase))
             return;
@@ -157,7 +157,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         // Plugin-declared hardware requirements (BitLocker state, distro-specific
         // RAM floors such as Ubuntu's in-memory installer, …). A Blocker finding
         // makes the distro unselectable, with the reason shown in the catalog.
-        // This call is the ONLY place plugin CheckCompatibility is enforced —
+        // This call is the ONLY place plugin CheckCompatibility is enforced 
         // before it was wired up, a machine below Ubuntu's RAM floor sailed into
         // an install that could only fail after repartitioning had begun.
         if (report is not null && _registry.TryGet(m.Id, out var plugin))

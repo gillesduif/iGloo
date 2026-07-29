@@ -73,7 +73,7 @@ internal static partial class ChromeInterop
         mmi.ptMaxSize.Y = mi.rcWork.Bottom - mi.rcWork.Top;
 
         // We answer WM_GETMINMAXINFO fully (handled=true), so re-assert the min size
-        // ourselves — otherwise the user could shrink the window past MinWidth/MinHeight.
+        // ourselves  otherwise the user could shrink the window past MinWidth/MinHeight.
         var scale = DpiScale(hwnd);
         mmi.ptMinTrackSize.X = (int)(minWidthDip * scale);
         mmi.ptMinTrackSize.Y = (int)(minHeightDip * scale);

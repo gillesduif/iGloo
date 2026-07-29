@@ -10,7 +10,7 @@
 # and the real password is set by a late-command (chpasswd) before first boot.
 #
 # STATUS: complete config; the dual-boot storage block is the part most likely
-# to need a subiquity-version tweak — validate on hardware (see UbuntuPlugin).
+# to need a subiquity-version tweak  validate on hardware (see UbuntuPlugin).
 # ============================================================================
 autoinstall:
   version: 1
@@ -35,26 +35,26 @@ autoinstall:
   # nothing is leaked; '|| true' keeps them from failing the autoinstall.
   early-commands:
     # Release every holder of the target disk, then PROVE it is released by
-    # running partprobe ourselves — retrying the cleanup until it succeeds.
+    # running partprobe ourselves  retrying the cleanup until it succeeds.
     # curtin's block-meta v2 rewrites the partition table unconditionally (even
     # for an all-preserved config) and then runs partprobe, which fails if ANY
     # partition on the disk is held: the ISO loop device, ntfs-3g's userspace
     # daemon (survives lazy unmounts), desktop automounts (udisks), … These die
-    # asynchronously, so one-shot kills are a race — the verify loop is not.
+    # asynchronously, so one-shot kills are a race  the verify loop is not.
     # NOTE: payloads MUST be single-quoted. subiquity runs each entry through an
     # outer shell; inside double quotes that outer shell expands $vars to empty
-    # BEFORE our script executes — which silently disabled an earlier version of
+    # BEFORE our script executes  which silently disabled an earlier version of
     # this guard (its "[ -n $d ] || exit 0" always exited). Single quotes reach
     # the inner shell verbatim.
     # MASK udisks2, don't just stop it: it is D-Bus activated, so the desktop
-    # session restarts it on demand and re-automounts the seed/ISO partitions —
+    # session restarts it on demand and re-automounts the seed/ISO partitions 
     # our own (successful) partprobe below fires the udev events that trigger
     # exactly that. Masking makes the activation fail; the target disk stays
     # unclaimed all the way to curtin.
     # cloud-init's later stages (cloud-config/cloud-final) re-mount the CIDATA
-    # seed mid-install — the autoinstall is already extracted by now, so they are
+    # seed mid-install  the autoinstall is already extracted by now, so they are
     # masked too. gvfs volume monitors automount independently of udisks: killed.
-    # pkill matches the PROCESS NAME only — never `pkill -f` here: -f matches
+    # pkill matches the PROCESS NAME only  never `pkill -f` here: -f matches
     # full command lines, and this command's own cmdline contains the target
     # string, so -f made pkill SIGTERM its own shell and the whole autoinstall
     # aborted with AutoinstallUserSuppliedCmdError.
@@ -87,12 +87,12 @@ autoinstall:
     - "curtin in-target -- usermod -aG sudo {{LINUX_USERNAME}}"
     # TWO-PHASE BOOTSTRAP (same rule as Mint, proven there the hard way):
     # installer late-hooks run against the LIVE kernel, whose modules may not
-    # match /target — on Mint that made mounting the vfat seed volume outright
+    # match /target  on Mint that made mounting the vfat seed volume outright
     # impossible at install time. So nothing is read from the seed volume here.
     # This step only WRITES a self-contained bootstrap script + oneshot service
     # into /target (echo/cat/ln only, nothing environment-sensitive). On the
-    # first boot of the *installed* system — running its own kernel, where vfat
-    # works — the service mounts the CIDATA seed, copies the agent + manifest,
+    # first boot of the *installed* system  running its own kernel, where vfat
+    # works  the service mounts the CIDATA seed, copies the agent + manifest,
     # and hands over to first-boot.sh (before the display manager starts).
     # Both phases log to disk (igloo-install.log / igloo/bootstrap.log).
     - |

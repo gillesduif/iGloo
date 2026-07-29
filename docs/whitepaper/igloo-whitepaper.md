@@ -119,7 +119,8 @@ extracted-artifact bytes + optional full ISO + overhead, rounded to MiB.
 ### 4.2 Kernel/initrd acquisition
 Two paths, declared per distro: extraction from the ISO (Fedora, casper distros)
 or direct download of alternate installer images (Debian: hd-media kernel+initrd,
-because the netinst initrd's cdrom-detect cannot consume ISO files — §9.2).
+because the standard installer initrd's cdrom-detect cannot consume an ISO *file* —
+these boot the offline install from the Debian Live image via iso-scan; §9.2).
 
 ### 4.3 Initrd configuration injection
 Rendered installer configs are appended to the distro initrd as an additional
@@ -213,8 +214,9 @@ Documented from real development on physical + virtual hardware. Each generalize
    silently escalates to whole-disk wipe. *Rule:* for destructive operations,
    installer automation must be tested against the *absence* of every adjacent key,
    not just the presence of the desired one. (S1/S2.)
-2. **Installer ≠ one thing per distro.** Debian netinst's initrd only supports
-   whole-device CDs (cdrom-detect); ISO-file boot requires the hd-media images.
+2. **Installer ≠ one thing per distro.** Debian's standard installer initrd only
+   supports whole-device CDs (cdrom-detect); booting from an ISO *file* requires the
+   hd-media images, which then drive an offline install off the Debian Live image.
    *Rule:* the artifact that boots is a per-distro decision, not derivable from
    the ISO alone (`KernelUrl` in the boot spec).
 3. **Late-hook environments are hostile.** busybox `mount` without LABEL=

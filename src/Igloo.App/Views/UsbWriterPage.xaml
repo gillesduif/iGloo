@@ -12,7 +12,7 @@
         <ScrollViewer Grid.Row="0"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
+            <StackPanel Margin="{StaticResource Scroll.ContentGutter}">
 
                 <!--   Drive picker                      ─ -->
                 <TextBlock Text="TARGET USB DRIVE" Style="{StaticResource Text.Section}" Margin="2,0,0,4" />

@@ -1,0 +1,79 @@
+<Window
+    x:Class="Igloo.App.Views.FluentMessageBox"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="iGloo"
+    SizeToContent="Height"
+    Width="480"
+    MinHeight="180"
+    WindowStartupLocation="CenterOwner"
+    WindowStyle="None"
+    ResizeMode="NoResize"
+    ShowInTaskbar="False"
+    Background="{StaticResource Brush.Window}"
+    TextElement.Foreground="{StaticResource Brush.Text.Primary}">
+
+    <!--
+      The app's own dialog. Win32's MessageBox is a light-themed system window that
+      lands in the middle of a dark Fluent wizard looking like a different program -
+      exactly the wrong impression on the screens where it appears, which are the
+      destructive ones (removing Linux, wiping a disk).
+
+      Layout follows the WinUI ContentDialog: title, body, then right-aligned actions
+      with the safe choice as the default. Severity is carried by a coloured left rule
+      and the accent on the primary button - colour means something here, it is not
+      decoration.
+    -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="0" GlassFrameThickness="0" CornerRadius="0" />
+    </WindowChrome.WindowChrome>
+
+    <Border BorderBrush="{StaticResource Brush.Stroke.Strong}" BorderThickness="1" CornerRadius="8"
+            Background="{StaticResource Brush.Surface}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Severity rule + title -->
+            <Grid Grid.Row="0" Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border x:Name="SeverityRule" Grid.Column="0"
+                        Width="4" CornerRadius="2" Margin="20,22,0,10"
+                        Background="{StaticResource Brush.Accent}" VerticalAlignment="Stretch" />
+
+                <TextBlock x:Name="TitleText" Grid.Column="1"
+                           Margin="14,20,20,0"
+                           FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap"
+                           Foreground="{StaticResource Brush.Text.Primary}" />
+            </Grid>
+
+            <!-- Body -->
+            <TextBlock x:Name="MessageText" Grid.Row="1"
+                       Margin="38,6,24,20"
+                       FontSize="13.5" TextWrapping="Wrap" LineHeight="20"
+                       Foreground="{StaticResource Brush.Text.Secondary}" />
+
+            <!-- Actions -->
+            <Border Grid.Row="2"
+                    Background="{StaticResource Brush.Layer.Card}"
+                    BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="0,1,0,0"
+                    CornerRadius="0,0,7,7" Padding="20,14">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="SecondaryButton" MinWidth="104" Margin="0,0,10,0"
+                            Content="Cancel" IsCancel="True" Click="OnSecondary"
+                            Visibility="Collapsed" />
+                    <Button x:Name="PrimaryButton" MinWidth="104"
+                            Content="OK" IsDefault="True" Click="OnPrimary"
+                            Foreground="White" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

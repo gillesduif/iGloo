@@ -71,6 +71,66 @@ internal static partial class EfiBootEntries
         return entries;
     }
 
+    /// <summary>
+    /// Every Boot#### index whose load option targets the partition with
+    /// <paramref name="partitionGuid"/>, regardless of how the entry is described.
+    /// </summary>
+    /// <remarks>
+    /// Needed because some firmware (observed on Gigabyte/AMI) DELETES a custom
+    /// Boot#### at POST and silently substitutes its own auto-generated entry -
+    /// typically described "UEFI OS" - pointing at the very same
+    /// \EFI\BOOT\BOOTX64.EFI target. The staged installer is therefore still
+    /// bootable, but under an index we never wrote and did not know to prioritise.
+    /// Matching on the partition rather than the description finds that substitute,
+    /// so the handoff can survive our own entry being culled.
+    ///
+    /// The match looks for the partition's signature GUID inside the load option:
+    /// an EFI device path stores it verbatim in its HARDDRIVE node, so its presence
+    /// identifies the target without needing a full device-path parser.
+    /// </remarks>
+    internal static IReadOnlyList<ushort> FindEntriesTargetingPartition(Guid partitionGuid, ILogger logger)
+    {
+        var matches = new List<ushort>();
+        if (partitionGuid == Guid.Empty)
+            return matches;
+
+        var needle = partitionGuid.ToByteArray();
+        try
+        {
+            EnablePrivilege(logger);
+            for (ushort index = 0; index < 0x0100; index++)
+            {
+                var raw = ReadVariable($"Boot{index:X4}");
+                if (raw is not null && ContainsSequence(raw, needle))
+                    matches.Add(index);
+            }
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
+        {
+            logger.LogWarning(ex, "Could not scan UEFI entries for the installer partition (non-fatal)");
+        }
+        return matches;
+    }
+
+    private static bool ContainsSequence(byte[] haystack, byte[] needle)
+    {
+        for (var start = 0; start + needle.Length <= haystack.Length; start++)
+        {
+            var hit = true;
+            for (var offset = 0; offset < needle.Length; offset++)
+            {
+                if (haystack[start + offset] != needle[offset])
+                {
+                    hit = false;
+                    break;
+                }
+            }
+            if (hit)
+                return true;
+        }
+        return false;
+    }
+
     //   Deletion                               ─
 
     

@@ -59,7 +59,7 @@ public static class SmoothScroll
     {
         var sv = (ScrollViewer)sender;
 
-        // Nothing to scroll, or a nested inner scroller should handle it — let it through.
+        // Nothing to scroll, or a nested inner scroller should handle it  let it through.
         if (sv.ScrollableHeight <= 0)
             return;
 

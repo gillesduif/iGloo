@@ -3,6 +3,7 @@ using System.Management;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security;
+using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
@@ -27,9 +28,10 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         var tpmPresent = QueryTpmPresent();
         var bitLocker = QueryBitLockerState();
         var disks = QueryDisks();
-        var gpuVendor = QueryGpuVendor();
+        var gpu = QueryGpu();
+        var displays = DisplayLayoutReader.Read(_logger);
         var totalRam = QueryTotalRam();
-        var findings = BuildFindings(isUefi, secureBoot, tpmPresent, bitLocker, totalRam);
+        var findings = BuildFindings(isUefi, secureBoot, tpmPresent, bitLocker, totalRam, gpu.Vendor);
         var (linuxInstalls, seedLeftovers) = BuildLinuxInventory(disks);
 
         return new PreflightReport
@@ -39,7 +41,10 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             TpmPresent = tpmPresent,
             BitLocker = bitLocker,
             Disks = disks,
-            GpuVendor = gpuVendor,
+            GpuVendor = gpu.Vendor,
+            GpuModel = gpu.Model,
+            GpuDeviceId = gpu.DeviceId,
+            Displays = displays,
             TotalRamBytes = totalRam,
             Findings = findings,
             LinuxInstallations = linuxInstalls,
@@ -632,21 +637,78 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         }
     }
 
-    private string QueryGpuVendor()
+    /// <summary>
+    /// Identifies the GPU that matters for driver selection: vendor, marketing name, and PCI
+    /// device id (e.g. "10de:2c05").
+    /// </summary>
+    /// <remarks>
+    /// Two things this deliberately does not do naively:
+    /// <list type="bullet">
+    /// <item>It does not take the first adapter. A laptop reports its Intel iGPU alongside the
+    /// discrete NVIDIA/AMD card, often iGPU-first - picking that one would report "Intel" and the
+    /// installer would skip the NVIDIA driver step entirely on exactly the machines that need it.
+    /// Discrete vendors win.</item>
+    /// <item>It does not stop at the vendor. "Which driver is right" depends on the specific chip:
+    /// an RTX 50-series (Blackwell) needs driver 570+ and NVIDIA's open kernel module, while a
+    /// GTX 10-series must keep the proprietary one. The device id is what lets a distro plugin
+    /// answer that before the user commits to an install.</item>
+    /// </list>
+    /// </remarks>
+    private (string Vendor, string? Model, string? DeviceId) QueryGpu()
     {
         try
         {
             using var searcher = new ManagementObjectSearcher(
-                "SELECT AdapterCompatibility FROM Win32_VideoController");
+                "SELECT AdapterCompatibility, Name, PNPDeviceID FROM Win32_VideoController");
             using var results = searcher.Get();
-            var gpu = results.Cast<ManagementBaseObject>().FirstOrDefault();
-            return (string?)gpu?["AdapterCompatibility"] ?? "Unknown";
+
+            var adapters = results.Cast<ManagementBaseObject>().ToList();
+            if (adapters.Count == 0)
+                return ("Unknown", null, null);
+
+            // Prefer a discrete GPU over integrated graphics.
+            var chosen = adapters.FirstOrDefault(a => IsDiscreteVendor((string?)a["AdapterCompatibility"]))
+                         ?? adapters[0];
+
+            var vendor = (string?)chosen["AdapterCompatibility"] ?? "Unknown";
+            var model = (string?)chosen["Name"];
+            var deviceId = ParsePciId((string?)chosen["PNPDeviceID"]);
+
+            _logger.LogInformation("GPU: vendor={Vendor} model={Model} pci={Pci} ({Count} adapter(s))",
+                vendor, model, deviceId, adapters.Count);
+            return (vendor, model, deviceId);
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "GPU WMI query failed");
-            return "Unknown";
+            return ("Unknown", null, null);
         }
+    }
+
+    private static bool IsDiscreteVendor(string? adapterCompatibility) =>
+        adapterCompatibility is { } v &&
+        (v.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) ||
+         v.Contains("Advanced Micro Devices", StringComparison.OrdinalIgnoreCase) ||
+         v.Contains("ATI", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Turns a Windows PNPDeviceID ("PCI\VEN_10DE&amp;DEV_2C05&amp;...") into the lowercase
+    /// "vendor:device" form Linux tools use ("10de:2c05"), so both sides speak the same id.
+    /// </summary>
+    private static string? ParsePciId(string? pnpDeviceId)
+    {
+        if (string.IsNullOrEmpty(pnpDeviceId))
+            return null;
+        var m = Regex.Match(pnpDeviceId, @"VEN_([0-9A-Fa-f]{4})&DEV_([0-9A-Fa-f]{4})");
+        if (!m.Success)
+            return null;
+
+        // Parsed and re-formatted as hex rather than lower-cased: "x4" yields the
+        // lowercase form lspci and NVIDIA's supported-gpus.json both use, and it
+        // rejects anything that is not really hex on the way through.
+        var vendor = int.Parse(m.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        var device = int.Parse(m.Groups[2].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        return string.Create(CultureInfo.InvariantCulture, $"{vendor:x4}:{device:x4}");
     }
 
     private long QueryTotalRam()
@@ -667,7 +729,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
     }
 
     private static List<PreflightFinding> BuildFindings(
-        bool isUefi, bool secureBoot, bool tpmPresent, BitLockerState bitLocker, long totalRam)
+        bool isUefi, bool secureBoot, bool tpmPresent, BitLockerState bitLocker, long totalRam,
+        string gpuVendor)
     {
         var findings = new List<PreflightFinding>();
 
@@ -676,10 +739,33 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 "Machine uses Legacy BIOS. Most Linux installers require UEFI.",
                 "Enable UEFI mode in firmware settings."));
 
-        if (secureBoot)
+        var nvidia = gpuVendor.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase);
+
+        if (secureBoot && nvidia)
+        {
+            // The distro's bootloader is signed, so the INSTALL succeeds and everything
+            // looks fine - but the NVIDIA driver is a third-party kernel module built on
+            // the machine (DKMS/akmod) and therefore unsigned. Secure Boot refuses to
+            // load it, leaving a desktop on software rendering at the wrong resolution
+            // with no obvious cause. Signing it means enrolling a MOK, which is an
+            // interactive firmware prompt at the next boot and cannot be automated.
+            // Windows 11 ships with Secure Boot on, so this is the common case, not a
+            // corner one - it deserves a warning the user sees BEFORE installing.
+            findings.Add(new PreflightFinding(FindingSeverity.Warning, "SECURE_BOOT_NVIDIA",
+                "Secure Boot is enabled and this PC has an NVIDIA graphics card. Linux builds the " +
+                "NVIDIA driver on your machine, and Secure Boot blocks it from loading because it " +
+                "isn't signed by Microsoft. The install will succeed, but the desktop may run at a " +
+                "reduced resolution without graphics acceleration.",
+                "Turn Secure Boot off in your firmware settings (usually Del or F2 during startup) " +
+                "before installing. You can turn it back on afterwards, though the NVIDIA driver " +
+                "will stop loading again if you do."));
+        }
+        else if (secureBoot)
+        {
             findings.Add(new PreflightFinding(FindingSeverity.Info, "SECURE_BOOT_ON",
                 "Secure Boot is enabled. Distributions that don't support Secure Boot will be greyed out in the next step.",
                 null));
+        }
 
         if (bitLocker is BitLockerState.EncryptedAndUnlocked or BitLockerState.SuspendedProtection)
             findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_ACTIVE",

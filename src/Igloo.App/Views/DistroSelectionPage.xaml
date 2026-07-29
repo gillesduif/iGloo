@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="clr-namespace:Igloo.App.Controls">
 
-    <!-- The stage: transparent — the carousel sits directly on the window's
+    <!-- The stage: transparent  the carousel sits directly on the window's
          mica backdrop so the picker belongs to the same material as the shell. -->
     <Border CornerRadius="14" ClipToBounds="True" Background="Transparent">
 
@@ -41,7 +41,7 @@
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
                                     <!-- Win11 pill chip: quiet by default, layer fill on
-                                         hover, accent fill when selected. Flat — no
+                                         hover, accent fill when selected. Flat  no
                                          gradients, no shadows (charter). -->
                                     <Border x:Name="Chip" CornerRadius="14" Padding="14,5"
                                             BorderThickness="1"
@@ -72,7 +72,7 @@
             <!-- 3D Cover Flow. Enter / clicking the centered cover proceeds via the
                  wizard's NextCommand, gated by the view-model's CanProceed. -->
             <!-- No perimeter focus ring on the stage: focus is conveyed by the
-                 centered, lit cover itself — a ring around a full-bleed 3D
+                 centered, lit cover itself  a ring around a full-bleed 3D
                  control reads as a rendering artifact, not an affordance. -->
             <controls:CoverFlow3DControl
                 x:Name="CoverFlow"

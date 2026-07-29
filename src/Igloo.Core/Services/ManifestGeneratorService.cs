@@ -71,6 +71,18 @@ public static class ManifestGeneratorService
                 InstallMode = installMode == DiskInstallMode.DualBoot ? "dual-boot" : "replace",
                 LinuxPartitionSizeGb = installMode == DiskInstallMode.DualBoot ? linuxSizeGb : 0,
             },
+
+            Displays = [.. hardware.Displays.Select(d => new DisplayLayout
+            {
+                PnpId = d.PnpId,
+                WidthPx = d.WidthPx,
+                HeightPx = d.HeightPx,
+                RefreshHz = d.RefreshHz,
+                RotationDegrees = d.RotationDegrees,
+                PositionX = d.PositionX,
+                PositionY = d.PositionY,
+                IsPrimary = d.IsPrimary,
+            })],
         };
     }
 }

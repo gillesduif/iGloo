@@ -53,10 +53,6 @@
 
 graphical
 
-# Suppress the installed system's first-boot initial-setup so it never re-asks language,
-# keyboard or timezone once the kickstart has already set them.
-firstboot --disable
-
 lang {{LOCALE}}
 # Only the XKB layout is given; Anaconda derives a matching virtual-console
 # keymap from it. Do NOT add --vckeymap={{KEYMAP}}: vconsole names differ from
@@ -67,7 +63,7 @@ timezone {{TIMEZONE}} --utc
 
 network --bootproto=dhcp --device=link --activate --hostname={{HOSTNAME}}
 
-#   Install source                               
+# ── Install source ────────────────────────────────────────────────────────────
 # Direct-install boots with a LOCAL stage-2 (inst.stage2=hd:LABEL=OEMDRV) but the
 # RPM packages for a netinstall must come from the network. This line points
 # Anaconda at the Fedora mirror metalink (the "Closest mirror" option) so the
@@ -77,7 +73,7 @@ network --bootproto=dhcp --device=link --activate --hostname={{HOSTNAME}}
 rootpw --lock
 user --name={{LINUX_USERNAME}} --groups=wheel --gecos="{{FULL_NAME}}" {{PASSWORD_OPTION}}
 
-#   Disk detection                              ─
+# ── Disk detection ───────────────────────────────────────────────────────────
 # The %pre script runs before the installer initialises storage. It finds the
 # target disk by matching the exact byte size stored in the manifest at
 # image-build time, writes the bootloader / ignoredisk / clearpart / autopart
@@ -86,7 +82,7 @@ user --name={{LINUX_USERNAME}} --groups=wheel --gecos="{{FULL_NAME}}" {{PASSWORD
 # If no disk matches the expected size (e.g. the disk was replaced since the
 # USB was written) the script falls back to the largest non-removable,
 # non-USB disk so the installation still succeeds rather than hanging.
-#                                       ─
+# ─────────────────────────────────────────────────────────────────────────────
 
 %pre --interpreter=/bin/bash
 set -euo pipefail
@@ -162,28 +158,37 @@ else
         echo "bootloader --boot-drive=${TARGET_DISK}${BOOT_APPEND}"
         echo "ignoredisk --only-use=${TARGET_DISK}"
         if [ "$INSTALL_MODE" = "dual-boot" ]; then
-            # Igloo already shrank Windows to carve the free space this install goes into.
-            # clearpart --none keeps EVERY existing partition - Windows AND any sibling Linux
-            # (Mint, Debian, another Fedora, ...) - and autopart fills only the free space.
+            # Windows was already shrunk by Igloo before boot; install into that free space.
             #
             # DATA-LOSS WARNING: never use "clearpart --linux" here. It deletes EVERY Linux
-            # partition on the disk, destroying sibling distributions the user chose to keep.
-            # The old rationale for --linux (avoiding a stale "fedora" VG that stops an
-            # unattended Fedora-over-Fedora re-install) does NOT justify wiping other OSes:
-            # a re-install stopping for confirmation is an inconvenience; erasing Mint/Debian
-            # is data loss. Preserve first.
+            # partition on the disk - it destroyed sibling Mint and Debian installs on real
+            # hardware. "--none" keeps every existing partition (Windows, EFI, and any other
+            # distribution) and autopart fills only the unallocated space.
             echo "clearpart --none"
         else
             # Replace mode: wipe the entire disk.
             echo "clearpart --drives=${TARGET_DISK} --all --initlabel"
         fi
-        echo "autopart --type=lvm --nohome"
+        # --type=plain, NOT lvm - and this pairing is load-bearing.
+        #
+        # "clearpart --none" preserves the previous install's LVM volume group, so
+        # Anaconda finds a DUPLICATE "fedora" VG name and stops for confirmation -
+        # turning the unattended install interactive (the user is suddenly asked for
+        # language and keyboard). That is the exact trade-off the old "--linux"
+        # comment described; the answer is not to go back to wiping other distros,
+        # but to stop creating a volume group at all. Plain partitions have no VG
+        # namespace, so there is nothing to collide with on a re-install.
+        #
+        # Telltale that this is happening: a root device named
+        # /dev/mapper/fedora_<hostname>-root. Anaconda only appends the hostname
+        # when the plain "fedora" VG name is already taken.
+        echo "autopart --type=plain --nohome"
     } > /tmp/ks-storage.cfg
     log "Storage config written to /tmp/ks-storage.cfg:"
     cat /tmp/ks-storage.cfg >&2
 fi
 
-#   Wi-Fi connectivity for the netinstall                   ─
+# ── Wi-Fi connectivity for the netinstall ─────────────────────────────────────
 # Anaconda's `network --essid --wpakey` kickstart directive is applied very
 # early and is unreliable on real hardware - it frequently fires before the
 # wireless driver/firmware is ready, so association silently never happens and
@@ -264,16 +269,12 @@ fi
 # Pull in the Wi-Fi network command generated by %pre above (may be empty).
 %include /tmp/ks-network.cfg
 
-#   Packages                                  
+# ── Packages ──────────────────────────────────────────────────────────────────
 
 %packages
 @^kde-desktop-environment
 @standard
 @hardware-support
-# SDDM is the KDE display manager. The environment group pulls Plasma but not always a
-# display manager on the Everything netinst, so request it explicitly - without it the
-# system boots to a text console with no graphical login.
-sddm
 python3
 python3-pip
 rsync
@@ -283,13 +284,13 @@ ntfs-3g
 
 reboot
 
-#   Post-install (outside chroot)                       ─
+# ── Post-install (outside chroot) ─────────────────────────────────────────────
 # Runs with access to both the installer environment (/run/install/repo = OEMDRV)
 # and the freshly-installed system (/mnt/sysimage).  This is where we:
 #   1. Copy the Igloo agent + manifest into the new system.
 #   2. Copy the user's staged files (Documents, Downloads, …) into their home dir.
 #   3. Register the igloo-first-boot.service systemd unit.
-#                                       ─
+# ─────────────────────────────────────────────────────────────────────────────
 
 %post --nochroot --interpreter=/bin/bash --log=/mnt/sysimage/var/log/igloo-post.log
 set -euo pipefail
@@ -323,13 +324,13 @@ log "  OEMDRV   : $OEMDRV"
 log "  SYSIMAGE : $SYSIMAGE"
 log "  USERNAME : $USERNAME"
 
-#   1. Create Igloo directories                        
+# ── 1. Create Igloo directories ──────────────────────────────────────────────
 install -d -m 0755 \
     "$SYSIMAGE/opt/igloo" \
     "$SYSIMAGE/var/lib/igloo" \
     "$SYSIMAGE/var/log/igloo"
 
-#   2. Copy the first-boot agent                       
+# ── 2. Copy the first-boot agent ────────────────────────────────────────────
 if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/igloo-agent" ]; then
     # Use 'install' rather than 'cp -a' + 'chmod +x' so that:
     #   a) permissions are set atomically (not dependent on FAT32 mount options),
@@ -347,7 +348,7 @@ else
     log "WARNING: igloo-agent directory not found on OEMDRV"
 fi
 
-#   3. Copy the migration manifest                      
+# ── 3. Copy the migration manifest ──────────────────────────────────────────
 if [ -n "$OEMDRV" ] && [ -f "$OEMDRV/migration-manifest.json" ]; then
     cp "$OEMDRV/migration-manifest.json" "$SYSIMAGE/var/lib/igloo/manifest.json"
     log "Manifest copied to /var/lib/igloo/manifest.json"
@@ -355,7 +356,7 @@ else
     log "WARNING: migration-manifest.json not found on OEMDRV"
 fi
 
-#   4. Copy user files                            ─
+# ── 4. Copy user files ───────────────────────────────────────────────────────
 # Two strategies depending on how Igloo wrote the installer:
 #
 #   USB mode:    OEMDRV/files/<FolderName>/  (user files were staged to USB)
@@ -365,7 +366,7 @@ copy_user_files_done=0
 
 if [ -d "$USER_HOME" ]; then
     if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/files" ]; then
-        #   USB mode                             ─
+        # ── USB mode ─────────────────────────────────────────────────────────
         log "Copying staged user files from OEMDRV/files/ to $USER_HOME"
         for folder_src in "$OEMDRV/files"/*/; do
             [ -d "$folder_src" ] || continue
@@ -377,7 +378,7 @@ if [ -d "$USER_HOME" ]; then
         done
         copy_user_files_done=1
     else
-        #   Direct install mode                        ─
+        # ── Direct install mode ───────────────────────────────────────────────
         log "OEMDRV/files not present - attempting direct copy from Windows NTFS partition"
         NTFS_MNT="/tmp/igloo_ntfs_src"
         mkdir -p "$NTFS_MNT"
@@ -416,7 +417,7 @@ if [ -d "$USER_HOME" ]; then
 {{FOLDER_MAP}}
 FOLDERMAP
 
-                #   Browser profiles (Phase 1: Gecko only)          ─
+                # ── Browser profiles (Phase 1: Gecko only) ───────────────────
                 # BROWSER_MAP holds one "source/relative|dest/relative" entry per
                 # migratable browser. Source is relative to the Windows home (e.g.
                 # "AppData/Roaming/Mozilla/Firefox"); dest is relative to the Linux
@@ -467,7 +468,7 @@ if [ "$copy_user_files_done" = "1" ] && [ -d "$USER_HOME" ]; then
     fi
 fi
 
-#   5. Register the igloo-first-boot systemd service             
+# ── 5. Register the igloo-first-boot systemd service ────────────────────────
 cat > "$SYSIMAGE/etc/systemd/system/igloo-first-boot.service" <<'UNIT'
 [Unit]
 Description=Igloo first-boot migration agent
@@ -489,7 +490,13 @@ Type=oneshot
 ExecStart=/opt/igloo/first-boot.sh
 StandardOutput=append:/var/log/igloo/first-boot.log
 StandardError=append:/var/log/igloo/first-boot.log
-TimeoutStartSec=1800
+# The agent builds the NVIDIA kernel module for EVERY installed kernel (an install
+# commonly ends up with two), and the open-module variant that Blackwell GPUs
+# require is compiled from full source - noticeably slower than the proprietary
+# one. 1800s was sized for a single proprietary build; being killed part-way leaves
+# a kernel with no GPU driver, which is precisely the failure this is meant to
+# prevent. Doubled to give the worst realistic case room.
+TimeoutStartSec=3600
 
 [Install]
 WantedBy=multi-user.target
@@ -502,27 +509,7 @@ chroot "$SYSIMAGE" systemctl enable igloo-first-boot.service 2>/dev/null || \
 
 log "igloo-first-boot.service registered"
 
-#   5b. Boot to the graphical login (Plasma via SDDM)
-# The netinst pull installs Plasma but leaves the default target at multi-user and no
-# display-manager enabled, so the machine comes up to a text console. Set both explicitly.
-chroot "$SYSIMAGE" systemctl enable sddm.service 2>/dev/null || \
-    ln -sf /usr/lib/systemd/system/sddm.service \
-           "$SYSIMAGE/etc/systemd/system/display-manager.service"
-chroot "$SYSIMAGE" systemctl set-default graphical.target 2>/dev/null || \
-    ln -sf /usr/lib/systemd/system/graphical.target \
-           "$SYSIMAGE/etc/systemd/system/default.target"
-log "graphical target + SDDM enabled"
-
-#   5c. Remove the Plasma first-run welcome wizard
-# plasma-welcome auto-launches on first login and re-asks language / keyboard / timezone even
-# though the kickstart already set them - to the user it looks like the unattended install
-# didn't take. iGloo lands the user straight on a configured desktop, so drop it. It is a
-# leaf onboarding app; nothing depends on it, so plain rpm -e is a clean removal.
-chroot "$SYSIMAGE" rpm -e plasma-welcome 2>/dev/null \
-    && log "Removed plasma-welcome (first-run wizard)" \
-    || log "plasma-welcome not installed - nothing to remove"
-
-#   6. Enable os-prober so GRUB detects Windows for dual-boot        ─
+# ── 6. Enable os-prober so GRUB detects Windows for dual-boot ───────────────
 # Fedora 37+ disables os-prober by default (GRUB 2.06 security change).
 # Without this, grub2-mkconfig never scans for Windows Boot Manager and the
 # GRUB menu only shows Fedora - end users cannot get back to Windows.
@@ -537,7 +524,7 @@ chroot "$SYSIMAGE" grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null \
     && log "GRUB config regenerated - Windows entry added" \
     || log "WARNING: grub2-mkconfig failed; run 'sudo grub2-mkconfig -o /boot/grub2/grub.cfg' after first boot"
 
-#   7. Remove EFI bootloader from installer partition (direct install only)  
+# ── 7. Remove EFI bootloader from installer partition (direct install only) ──
 # The OEMDRV partition lives on the internal disk. Strip its EFI boot files so
 # the firmware cannot accidentally restart the installer on the next boot.
 # (BootNext is a one-shot NVRAM variable the firmware clears automatically after

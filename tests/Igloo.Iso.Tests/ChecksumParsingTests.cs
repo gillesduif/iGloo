@@ -23,11 +23,11 @@ public class ChecksumParsingTests
     public void Parses_debian_coreutils_style_lines()
     {
         var content = $"""
-            {Hash}  debian-13.0.0-amd64-netinst.iso
+            {Hash}  debian-live-13.6.0-amd64-gnome.iso
             0000000000000000000000000000000000000000000000000000000000000000  other.iso
             """;
 
-        IsoAcquisitionService.ParseSha256FromChecksum(content, "debian-13.0.0-amd64-netinst.iso")
+        IsoAcquisitionService.ParseSha256FromChecksum(content, "debian-live-13.6.0-amd64-gnome.iso")
             .Should().Be(Hash);
     }
 

@@ -6,7 +6,7 @@
       net8.0-windows10.0.19041.0 matches Igloo.Preflight (System.Management) and keeps
       the Windows 10 2004+ API surface consistent across all projects in the solution.
     -->
-    <!-- net9: unlocks WPF's official Fluent (Win11) theme — native control
+    <!-- net9: unlocks WPF's official Fluent (Win11) theme  native control
          styling, hover states and scrollbars from the WPF team itself.
          Libraries stay net8; a net9 app references them fine. -->
     <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
@@ -26,7 +26,7 @@
 
   <ItemGroup>
     <Content Include="iGloo.ico" />
-    <!-- Microsoft Fluent 3D icons (fluentui-emoji, MIT) — the Settings-style
+    <!-- Microsoft Fluent 3D icons (fluentui-emoji, MIT)  the Settings-style
          3D illustrative icons; embedded so pack URIs work from any location. -->
     <Resource Include="Assets\Fluent3D\*.png" />
   </ItemGroup>
@@ -69,6 +69,7 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.0.2" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
     <PackageReference Include="Svg.Skia" Version="4.9.0" />

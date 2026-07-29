@@ -28,7 +28,7 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel>
+        <StackPanel Margin="{StaticResource Scroll.ContentGutter}">
 
             <!--   RUNNING: preparing the installer partition          ─ -->
             <StackPanel>
@@ -73,18 +73,14 @@
 
                 <Border Style="{StaticResource Card.Accent}" Margin="0,18,0,0">
                     <StackPanel>
-                        <TextBlock Text="What's happening?"
+            <TextBlock Text="System Preparation"
                                    FontWeight="SemiBold" FontSize="13"
                                    Foreground="{StaticResource Brush.Text.Primary}"
                                    Margin="0,0,0,6" />
-                        <TextBlock Style="{StaticResource Text.Body}" FontSize="12.5" Foreground="#FFC4C7D1">
-                            iGloo is carving a small temporary partition on your disk, copying the
-                            installer image onto it, and configuring a bootloader. No USB drive is
-                            needed. After this step you will click
-                            <Run FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}">Reboot to Install</Run> -
-                            Windows restarts directly into the Linux installer, which installs into
-                            the free space created earlier.
-                        </TextBlock>
+            <TextBlock Style="{StaticResource Text.Body}" FontSize="12.5" Foreground="#FFC4C7D1">
+              iGloo creates a temporary partition and copies the installation image. Next it configures the bootloader. Windows will then restart into the Linux installer after clicking   <Run FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}">Reboot</Run>.
+            </TextBlock>
+                       
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -116,7 +112,7 @@
                             <TextBlock Text="Installer partition ready"
                                        FontSize="15" FontWeight="SemiBold"
                                        Foreground="{StaticResource Brush.Success}" />
-                            <TextBlock Text="Everything is in place. The next reboot leaves Windows and lands in the Linux installer."
+              <TextBlock Text="All components are ready. The system will restart directly into the Linux installer."
                                        Style="{StaticResource Text.Body}" FontSize="12" Margin="0,2,0,0" />
                         </StackPanel>
                     </StackPanel>
@@ -151,7 +147,7 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource TimelineText}"
-                                   Text="Linux installs unattended into the free space, alongside Windows (10–20 minutes)." />
+                                   Text="Linux installs automatically into the allocated space alongside Windows (takes 10–20 minutes)." />
                         <Border Grid.Row="3" Grid.Column="0" Style="{StaticResource TimelineRail}" />
 
                         <Border Grid.Row="4" Grid.Column="0" Style="{StaticResource TimelineNode}">
@@ -159,7 +155,7 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource TimelineText}"
-                                   Text="The system reboots into a boot menu where you choose Windows or Linux." />
+                                   Text="The system restarts into a boot menu for operating system selection." />
                         <Border Grid.Row="5" Grid.Column="0" Style="{StaticResource TimelineRail}" />
 
                         <Border Grid.Row="6" Grid.Column="0" Style="{StaticResource TimelineNode}">
@@ -167,7 +163,7 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBlock Grid.Row="6" Grid.Column="1" Style="{StaticResource TimelineText}"
-                                   Text="On first boot, the migration agent restores your files, browsers and apps." />
+                                   Text="The migration agent restores your folders, browser profiles and applications." />
                         <Border Grid.Row="7" Grid.Column="0" Style="{StaticResource TimelineRail}" />
 
                         <Border Grid.Row="8" Grid.Column="0" Style="{StaticResource TimelineNode}"
@@ -176,7 +172,7 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBlock Grid.Row="8" Grid.Column="1" Style="{StaticResource TimelineText}"
-                                   Text="The temporary installer partition removes itself. You've arrived." />
+                                   Text="The temporary installation partition is automatically removed." />
                     </Grid>
                 </Border>
 
@@ -185,7 +181,7 @@
 
                 <TextBlock Style="{StaticResource Text.Caption}" Margin="2,10,0,0" MaxWidth="520"
                            HorizontalAlignment="Left">
-                    Save all open documents first. Windows restarts about 10 seconds after you click.
+                   Save all open documents before proceeding. Windows will restart approximately 10 seconds after clicking "Reboot".
                 </TextBlock>
             </StackPanel>
 

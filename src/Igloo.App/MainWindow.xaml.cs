@@ -65,7 +65,7 @@ public sealed partial class MainWindow : Window
                 SetMaxButtonHover(false);
                 break;
 
-            // Swallow the press, act on release — and toggle maximize/restore ourselves.
+            // Swallow the press, act on release  and toggle maximize/restore ourselves.
             case ChromeInterop.WM_NCLBUTTONDOWN when wParam.ToInt32() == ChromeInterop.HTMAXBUTTON:
                 handled = true;
                 break;

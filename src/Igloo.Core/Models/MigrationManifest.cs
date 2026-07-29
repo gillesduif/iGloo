@@ -34,6 +34,33 @@ public sealed record MigrationManifest
 
     [JsonPropertyName("hardware")]
     public required HardwareProfile Hardware { get; init; }
+
+    /// <summary>The Windows desktop layout, reproduced on Linux by the first-boot agent.</summary>
+    [JsonPropertyName("displays")]
+    public IReadOnlyList<DisplayLayout> Displays { get; init; } = Array.Empty<DisplayLayout>();
+}
+
+/// <summary>One monitor's geometry, as Windows was driving it.</summary>
+/// <remarks>
+/// <c>pnpId</c> is the cross-OS identity: Windows and Linux name and order displays
+/// differently and neither order is stable, but the monitor's EDID reads the same on
+/// both. The agent derives the same id from /sys/class/drm/*/edid to know which physical
+/// screen each entry describes - without it, a two-monitor setup would eventually rotate
+/// the wrong one.
+/// </remarks>
+public sealed record DisplayLayout
+{
+    [JsonPropertyName("pnpId")] public string? PnpId { get; init; }
+    [JsonPropertyName("widthPx")] public int WidthPx { get; init; }
+    [JsonPropertyName("heightPx")] public int HeightPx { get; init; }
+    [JsonPropertyName("refreshHz")] public int RefreshHz { get; init; }
+
+    /// <summary>Clockwise rotation in degrees: 0, 90, 180 or 270.</summary>
+    [JsonPropertyName("rotationDegrees")] public int RotationDegrees { get; init; }
+
+    [JsonPropertyName("positionX")] public int PositionX { get; init; }
+    [JsonPropertyName("positionY")] public int PositionY { get; init; }
+    [JsonPropertyName("isPrimary")] public bool IsPrimary { get; init; }
 }
 
 public sealed record MigrationUser

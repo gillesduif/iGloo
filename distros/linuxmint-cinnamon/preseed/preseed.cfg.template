@@ -71,14 +71,14 @@ ubiquity ubiquity/use_nonfree boolean true
 #   Bootstrap the Igloo first-boot agent                   
 # success_command runs at the end of the install with /target = installed system,
 # but in a chroot whose RUNNING kernel (the live/casper kernel) does NOT match
-# /target's installed-kernel modules — so `modprobe vfat` fails and the OEMDRV
+# /target's installed-kernel modules  so `modprobe vfat` fails and the OEMDRV
 # (FAT32) cannot be mounted here AT ALL. (NTFS works because ntfs3 is built into
 # the kernel; vfat is a module that can't be loaded against the wrong modules dir.)
 #
 # Therefore we do NOT read the OEMDRV at install time. success_command only WRITES
 # a self-contained bootstrap script + oneshot service into /target (no mount
-# needed). On the first boot of the *installed* system — where the running kernel
-# matches its own modules and vfat mounts fine — that service mounts the OEMDRV,
+# needed). On the first boot of the *installed* system  where the running kernel
+# matches its own modules and vfat mounts fine  that service mounts the OEMDRV,
 # copies agent.py + the manifest in, and runs the agent (before the display
 # manager). The script is written line-by-line with echo because the preseed
 # value is one backslash-joined line and cannot contain a heredoc.

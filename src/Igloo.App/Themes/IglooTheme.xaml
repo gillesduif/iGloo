@@ -24,7 +24,7 @@
     <Color x:Key="Color.Bg.Mid">#FF0A1126</Color>
     <Color x:Key="Color.Bg.Bottom">#FF070B16</Color>
 
-    <!-- Surfaces: NEUTRAL Win11 greys — the old navy-tinted surfaces are what
+    <!-- Surfaces: NEUTRAL Win11 greys  the old navy-tinted surfaces are what
          kept legacy controls (scrollbar thumbs, pills, journey nodes) looking
          blue. Neutral surface, semantic-only color (charter). -->
     <Color x:Key="Color.Surface">#FF272727</Color>
@@ -161,8 +161,20 @@
     <DropShadowEffect x:Key="Effect.Glass.Shadow" BlurRadius="0" ShadowDepth="0"
                       Direction="270" Color="#00000000" Opacity="0" />
 
+    <!-- Gutter reserved for the scrollbar on every scrolling page.
+
+         WPF's Fluent theme draws OVERLAY scrollbars: the thumb floats on top of the
+         content instead of the classic template's reserved column. Without a gutter it
+         lands on whatever sits at the right edge  card borders, values, buttons  and
+         gets thicker on hover, so it reads as a rendering fault rather than a scrollbar.
+
+         16px clears the expanded thumb. Applied as a shared resource so scrolling pages
+         stay consistent and the reason is written down once instead of surviving as an
+         unexplained margin on each page. -->
+    <Thickness x:Key="Scroll.ContentGutter">0,0,16,0</Thickness>
+
     <!-- Win11 cards: solid layer fill + 1px stroke, radius 8, no effects.
-         Depth comes from the stroke; hierarchy from typography — not boxes.
+         Depth comes from the stroke; hierarchy from typography  not boxes.
          Tinted variants keep a NEUTRAL fill and mark meaning with a subtle
          semantic stroke + a 3px left rule (InfoBar idiom): color = meaning,
          never decoration. -->
@@ -848,7 +860,7 @@
       thumb looks light. IsHitTestVisible drag state via the Thumb's own IsDragging.
     -->
     <!-- Native Win11 scrollbar colors: neutral translucent greys (the system
-         thumb), no blue tint, no gradient tube — flat like the OS. -->
+         thumb), no blue tint, no gradient tube  flat like the OS. -->
     <!-- ScrollBar/ScrollViewer: custom templates removed; native Fluent scrollbars apply -->
 
     <!-- Read-only mono detail box (error dumps) -->
@@ -866,7 +878,7 @@
     </Style>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         11. 3D DEVICE ICONS (isometric, drawn — no raster assets)
+         11. 3D DEVICE ICONS (isometric, drawn  no raster assets)
          ════════════════════════════════════════════════════════════════════ -->
 
     <!-- Internal drive / SSD: an isometric box, top face lit, right face shadowed,

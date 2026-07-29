@@ -55,11 +55,43 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 failures++;
         }
 
-        // Give the space back: an end user who removes Linux expects their disk
-        // to grow, not a mysterious "unallocated" hole. A partition can only be
-        // extended into ADJACENT trailing space and GetSupportedSize's SizeMax
-        // is exactly that — so this self-guards: when the freed space doesn't
-        // border the Windows partition, SizeMax barely moves and nothing happens.
+        // Boot-menu hygiene: iGloo's one-shot entries are always ours to delete;
+        // every Linux-classified entry goes only when no Linux remains to boot.
+        foreach (var entry in EfiBootEntries.Enumerate(_logger))
+        {
+            if (EfiBootEntries.IsIglooDescription(entry.Description) ||
+                (removingAllLinux && EfiBootEntries.IsLinuxDescription(entry.Description)))
+                EfiBootEntries.Delete(entry.Index, _logger);
+        }
+
+        // ESP hygiene  the "mountvol S: /S && rmdir \EFI\<distro>" step people
+        // otherwise do by hand. Whitelisted Linux loader folders only, and only
+        // when no Linux remains that could still need them.
+        if (removingAllLinux)
+        {
+            progress?.Report("Cleaning Linux boot files from the EFI partition…");
+            CleanEfiSystemPartitions();
+
+            // A distribution that built its OWN ESP instead of reusing Windows' leaves
+            // that partition behind once its root is gone: an empty second EFI
+            // partition that still advertises itself to the firmware. Beyond the wasted
+            // space it confuses the next install's boot handoff, so it goes too - under
+            // the strict rules in the method below.
+            progress?.Report("Removing the leftover EFI partition…");
+            foreach (var disk in installations.Select(i => i.DiskNumber).Distinct())
+                RemoveRedundantEfiPartitions(disk);
+        }
+
+        // Give the space back - and do it LAST, once every partition this removal is
+        // going to delete is actually gone.
+        //
+        // Ordering is load-bearing, not stylistic. A volume can only grow into ADJACENT
+        // trailing free space, so a single surviving partition between Windows and the
+        // freed region caps how far C: can extend. Reclaiming before the leftover ESP
+        // was deleted did exactly that: the ESP sat between Windows and the Linux root,
+        // C: grew by the 4 GB in front of it, and ~50 GB behind it stayed unallocated -
+        // leaving the user to finish the job in Disk Management, which is precisely the
+        // kind of "now go fix it yourself" iGloo exists to avoid.
         if (failures == 0)
         {
             foreach (var disk in installations.Select(i => i.DiskNumber)
@@ -71,26 +103,8 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             }
         }
 
-        // Boot-menu hygiene: iGloo's one-shot entries are always ours to delete;
-        // every Linux-classified entry goes only when no Linux remains to boot.
-        foreach (var entry in EfiBootEntries.Enumerate(_logger))
-        {
-            if (EfiBootEntries.IsIglooDescription(entry.Description) ||
-                (removingAllLinux && EfiBootEntries.IsLinuxDescription(entry.Description)))
-                EfiBootEntries.Delete(entry.Index, _logger);
-        }
-
-        // ESP hygiene — the "mountvol S: /S && rmdir \EFI\<distro>" step people
-        // otherwise do by hand. Whitelisted Linux loader folders only, and only
-        // when no Linux remains that could still need them.
-        if (removingAllLinux)
-        {
-            progress?.Report("Cleaning Linux boot files from the EFI partition…");
-            CleanEfiSystemPartitions();
-        }
-
         // Symmetry with DirectInstallService.SetRtcUniversalTime(): with the last
-        // Linux gone, nothing needs the RTC in UTC anymore — restore Windows'
+        // Linux gone, nothing needs the RTC in UTC anymore  restore Windows'
         // stock local-time behavior so the machine is left exactly as found.
         if (removingAllLinux)
             RestoreRtcLocalTime();
@@ -208,6 +222,138 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
         {
             _logger.LogWarning(ex, "ESP cleanup failed (non-fatal) - Linux boot " +
                 "folders may remain on the EFI partition");
+        }
+    }
+
+    /// <summary>
+    /// Deletes an EFI System Partition left behind by a distribution that created its
+    /// own instead of reusing Windows'.
+    /// </summary>
+    /// <remarks>
+    /// This is the most destructive operation in the service: removing the ESP that
+    /// Windows boots from leaves an unbootable machine. Every rule below exists to make
+    /// that impossible, and all of them must hold before anything is deleted:
+    ///
+    ///   1. The disk must have MORE THAN ONE ESP. A single ESP is always load-bearing.
+    ///   2. Exactly one ESP must be identified as Windows' - it carries
+    ///      \EFI\Microsoft\Boot\bootmgfw.efi, or the storage stack flags it IsSystem.
+    ///      Without a positive identification we delete NOTHING; "probably redundant"
+    ///      is not good enough.
+    ///   3. The candidate must be neither of those things, and must contain no
+    ///      remaining OS loader (the Linux folders were already removed above, so
+    ///      anything still there belongs to something we do not know about).
+    ///
+    /// Size is deliberately NOT a criterion. "Bigger than the usual 99 MB" looks like a
+    /// signal but is not: OEMs ship 300-500 MB Windows ESPs, and a rule based on size
+    /// would eventually delete somebody's boot partition.
+    /// </remarks>
+    private void RemoveRedundantEfiPartitions(uint diskNumber)
+    {
+        try
+        {
+            var esps = QueryEfiPartitions(diskNumber);
+            if (esps.Count < 2)
+            {
+                _logger.LogInformation(
+                    "Disk {Disk}: {Count} EFI partition(s) - nothing to remove (a lone ESP is never touched)",
+                    diskNumber, esps.Count);
+                return;
+            }
+
+            var windowsEsps = esps.Where(e => e.IsSystem || HasWindowsBootManager(e.VolumePath)).ToList();
+            if (windowsEsps.Count == 0)
+            {
+                _logger.LogWarning(
+                    "Disk {Disk}: {Count} EFI partitions but none positively identified as Windows' - " +
+                    "removing none of them", diskNumber, esps.Count);
+                return;
+            }
+
+            foreach (var esp in esps)
+            {
+                if (windowsEsps.Any(w => w.PartitionNumber == esp.PartitionNumber))
+                    continue;
+
+                if (HasRemainingLoader(esp.VolumePath))
+                {
+                    _logger.LogWarning(
+                        "EFI partition {Disk}:{Part} still contains a boot loader - leaving it alone",
+                        diskNumber, esp.PartitionNumber);
+                    continue;
+                }
+
+                if (DeletePartition(diskNumber, esp.PartitionNumber))
+                    _logger.LogInformation(
+                        "Deleted the leftover EFI partition {Disk}:{Part} ({MiB} MiB); Windows' ESP on " +
+                        "partition {WinPart} is untouched",
+                        diskNumber, esp.PartitionNumber, esp.SizeBytes / (1024 * 1024),
+                        windowsEsps[0].PartitionNumber);
+            }
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or InvalidCastException
+                                   or InvalidOperationException or IOException or UnauthorizedAccessException or SecurityException)
+        {
+            _logger.LogWarning(ex, "Leftover-EFI-partition cleanup failed (non-fatal)");
+        }
+    }
+
+    private readonly record struct EspInfo(int PartitionNumber, string VolumePath, bool IsSystem, long SizeBytes);
+
+    private static List<EspInfo> QueryEfiPartitions(uint diskNumber)
+    {
+        var result = new List<EspInfo>();
+        using var searcher = new ManagementObjectSearcher(StorageNs,
+            "SELECT PartitionNumber, AccessPaths, IsSystem, Size FROM MSFT_Partition " +
+            $"WHERE DiskNumber = {diskNumber} AND GptType = '{{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}}'");
+        using var results = searcher.Get();
+
+        foreach (var p in results.Cast<ManagementBaseObject>())
+        {
+            var volumePath = (p["AccessPaths"] as string[])?
+                .FirstOrDefault(a => a.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
+            if (volumePath is null)
+                continue;
+            result.Add(new EspInfo(
+                Convert.ToInt32(p["PartitionNumber"], CultureInfo.InvariantCulture),
+                volumePath,
+                p["IsSystem"] is bool isSystem && isSystem,
+                Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture)));
+        }
+        return result;
+    }
+
+    private static bool HasWindowsBootManager(string volumePath)
+    {
+        try
+        {
+            return File.Exists(Path.Combine(volumePath, "EFI", "Microsoft", "Boot", "bootmgfw.efi"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            // Unreadable means unprovable, and an ESP we cannot inspect is one we treat
+            // as Windows' - the safe direction for this particular question.
+            return true;
+        }
+    }
+
+    /// <summary>True when anything that looks like an OS loader remains on the ESP.</summary>
+    private static bool HasRemainingLoader(string volumePath)
+    {
+        try
+        {
+            var efiRoot = Path.Combine(volumePath, "EFI");
+            if (!Directory.Exists(efiRoot))
+                return false;
+
+            // \EFI\BOOT holds the removable fallback loader, which is not evidence of an
+            // installed OS; anything ELSE with content is.
+            return Directory.EnumerateDirectories(efiRoot)
+                .Any(dir => !string.Equals(Path.GetFileName(dir), "BOOT", StringComparison.OrdinalIgnoreCase)
+                            && Directory.EnumerateFileSystemEntries(dir).Any());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            return true;   // cannot inspect - assume occupied and keep it
         }
     }
 

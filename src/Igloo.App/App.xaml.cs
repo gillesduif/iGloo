@@ -29,7 +29,7 @@ public partial class IglooApp : Application
 
         _host = BuildHost();
 
-        // Log unhandled exceptions so any crash leaves a diagnosable record — but
+        // Log unhandled exceptions so any crash leaves a diagnosable record  but
         // do NOT swallow them, and do NOT force software rendering. An earlier
         // attempt to "survive" WPF render faults that way masked nothing and made
         // the whole UI run on the CPU (slideshow-slow on real GPUs). Reverted:

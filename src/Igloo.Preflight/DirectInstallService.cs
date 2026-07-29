@@ -8,6 +8,8 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security;
 using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
@@ -87,6 +89,11 @@ public sealed partial class DirectInstallService : IDirectInstallService
     // Stored by PrepareAsync, consumed by RegisterBootEntryAsync.
     private char? _oemDrvLetter;
     private char? _isoPartitionLetter;   // separate NTFS partition for a >4 GiB ISO
+
+    // Read from the staged manifest; substituted into the kernel command line so
+    // debian-installer's localechooser never gets a chance to ask.
+    private string _locale = "en_US.UTF-8";
+    private string _keymap = "us";
     private int? _diskNumber;
     private uint? _partitionNumber;
 
@@ -174,8 +181,16 @@ public sealed partial class DirectInstallService : IDirectInstallService
         InstallerBootSpec bootSpec, Uri? stage2Url,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
+        // Creating lettered volumes makes Windows announce them: AutoPlay fires and
+        // Explorer windows open over the wizard, leaving an OEMDRV window sitting there
+        // afterwards. Harmless, but on this screen it looks like something went wrong.
+        // Suppressed for the duration and restored on the way out - including when the
+        // install throws, hence the using.
+        using var shellQuiet = new ShellNoiseSuppressor(_logger);
+
         _diskNumber = diskNumber;
         _bootSpec = bootSpec;
+        ReadLocaleFromStaging(stagingDirectory);
 
         //   Step 1: Measure ISO content to size the OEMDRV partition     ─
         // Mount the ISO just long enough to stat kernel + initrd + install.img sizes.
@@ -197,7 +212,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // hold a file ≥ 4 GiB. So an oversized ISO (Ubuntu desktop ~6 GB) goes on
         // a SEPARATE NTFS partition; casper's iso-scan finds the .iso on any
         // partition it can mount. Small ISOs (Mint, Debian hd-media) stay on the
-        // single FAT32 partition exactly as before — no behaviour change for them.
+        // single FAT32 partition exactly as before  no behaviour change for them.
         long fullIsoBytes = _bootSpec.CopyFullIsoToVolume ? new FileInfo(isoPath).Length : 0;
         bool isoOnOwnPartition = _bootSpec.CopyFullIsoToVolume && fullIsoBytes >= Fat32MaxFileBytes;
         long fat32IsoBytes = (_bootSpec.CopyFullIsoToVolume && !isoOnOwnPartition) ? fullIsoBytes : 0;
@@ -308,6 +323,13 @@ public sealed partial class DirectInstallService : IDirectInstallService
         Report(prog, DirectInstallPhase.CopyingFiles, message: "Copying migration files…");
         CopyStagingArtefacts(stagingDirectory, $"{driveLetter}:\\", ct);
         ct.ThrowIfCancellationRequested();
+
+        // Anything the shell managed to open before suppression took hold - or that a
+        // user double-click opened - is tidied away here, so the wizard is not left
+        // sitting behind a stray OEMDRV window.
+        shellQuiet.CloseExplorerWindowsFor(driveLetter);
+        if (_isoPartitionLetter is { } isoLetter && isoLetter != driveLetter)
+            shellQuiet.CloseExplorerWindowsFor(isoLetter);
 
         Report(prog, DirectInstallPhase.Complete, message: "Installer partition ready.");
         _logger.LogInformation("Direct install partition prepared on {Letter}:", driveLetter);
@@ -684,7 +706,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
     private void CopyStagingArtefacts(string stagingDir, string oemDrvRoot, CancellationToken ct)
     {
         // Copy every top-level staging file to the volume root: the rendered
-        // installer config (ks.cfg / preseed.cfg / user-data + meta-data — name
+        // installer config (ks.cfg / preseed.cfg / user-data + meta-data  name
         // varies per distro) and migration-manifest.json. Ubuntu's subiquity reads
         // user-data/meta-data straight from this (CIDATA-labelled) volume, so a
         // distro-agnostic copy is required, not a hardcoded "ks.cfg".
@@ -728,7 +750,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         { return false; }
         // Any igloo geometry token ({{IGLOO_STORAGE_PARTITIONS}}, historic
-        // {{IGLOO_ROOT_*}}, …) — prefix match so the guard can never silently
+        // {{IGLOO_ROOT_*}}, …)  prefix match so the guard can never silently
         // diverge from the template again: an unsubstituted token means user-data
         // ships as broken YAML and cloud-init quietly ignores the whole autoinstall.
         if (!text.Contains("{{IGLOO_", StringComparison.Ordinal))
@@ -750,7 +772,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         if (resolved.Contains("{{IGLOO_", StringComparison.Ordinal))
             throw new InvalidOperationException(
                 "Installer config still contains an unresolved {{IGLOO_*}} token after " +
-                "substitution — template and DirectInstallService are out of sync.");
+                "substitution  template and DirectInstallService are out of sync.");
         return resolved;
     }
 
@@ -772,7 +794,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         _logger.LogInformation("Creating Linux root partition on disk {D} (fills remaining free space)", diskNumber);
         // No size argument: diskpart fills the largest free region, which is the
         // space the shrink reserved for Linux (seed + ISO partitions are already
-        // carved out of their share). No format, no drive letter — Linux-side.
+        // carved out of their share). No format, no drive letter  Linux-side.
         var script = $"""
             rescan
             select disk {diskNumber}
@@ -805,14 +827,14 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // partition_type + uuid are NOT optional fidelity: curtin REWRITES the
         // whole GPT when it adds a partition, from exactly what the config
         // declares. Declaring only number/offset/size made it stamp every
-        // preserved partition as "Linux filesystem" with fresh PARTUUIDs —
+        // preserved partition as "Linux filesystem" with fresh PARTUUIDs 
         // Windows/MSR/recovery types clobbered and UEFI boot entries (which
         // reference PARTUUIDs) dangling. Feed back the real GUIDs so the
         // rewritten table is byte-faithful for everything we preserve.
-        // EVERY partition is preserved — including root, which Igloo pre-created
+        // EVERY partition is preserved  including root, which Igloo pre-created
         // from Windows (see EnsureRootPartition). curtin therefore has NOTHING to
         // add and performs no partition-table write at all: no disklabel rewrite,
-        // no renumbering, no partprobe — the failure modes that killed every
+        // no renumbering, no partprobe  the failure modes that killed every
         // "let curtin create root" attempt while live media occupied this disk.
         // Root is recognised by its GPT type and only gets wipe+format actions.
         bool sawEsp = false, sawRoot = false;
@@ -840,7 +862,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
                 $"No EFI System Partition (GPT type {EspGptType}) found on disk {diskNumber}.");
         if (!sawRoot)
             throw new InvalidOperationException(
-                $"No pre-created Linux root partition (GPT type {LinuxFsGptType}) found on disk {diskNumber} — " +
+                $"No pre-created Linux root partition (GPT type {LinuxFsGptType}) found on disk {diskNumber}  " +
                 "EnsureRootPartition should have created it before config substitution.");
 
         _logger.LogInformation(
@@ -1129,10 +1151,62 @@ public sealed partial class DirectInstallService : IDirectInstallService
             ms.WriteByte(0);
     }
 
+    /// <summary>
+    /// Picks the user's locale and keymap out of the staged migration manifest.
+    /// </summary>
+    /// <remarks>
+    /// Taken from the manifest that is already being staged rather than threaded
+    /// through the service interface: it is the same file the installer itself reads,
+    /// so the two cannot drift apart.
+    ///
+    /// It matters for the kernel command line because debian-installer asks about
+    /// language and country in localechooser, which runs BEFORE most preseed
+    /// processing. A preseeded debian-installer/locale therefore arrives too late to
+    /// stop the question; the value has to be on the command line, where d-i reads it
+    /// early enough. That is the difference between an unattended install and one that
+    /// stops on the first screen asking the user to pick a country.
+    /// </remarks>
+    private void ReadLocaleFromStaging(string stagingDirectory)
+    {
+        try
+        {
+            var path = Path.Combine(stagingDirectory, "migration-manifest.json");
+            if (!File.Exists(path))
+                return;
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (!doc.RootElement.TryGetProperty("user", out var user))
+                return;
+
+            if (user.TryGetProperty("locale", out var locale))
+            {
+                var value = locale.GetString();
+                if (!string.IsNullOrEmpty(value))
+                    _locale = value;
+            }
+            if (user.TryGetProperty("keymap", out var keymap))
+            {
+                var value = keymap.GetString();
+                if (!string.IsNullOrEmpty(value))
+                    _keymap = value;
+            }
+
+            _logger.LogInformation("Installer locale={Locale} keymap={Keymap}", _locale, _keymap);
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not read locale/keymap from the staged manifest - using defaults");
+        }
+    }
+
     private string BuildGrubConfig()
     {
         var label = _bootSpec.VolumeLabel;
-        var cmdline = _bootSpec.KernelCmdline.Replace("{LABEL}", label, StringComparison.Ordinal);
+        var cmdline = _bootSpec.KernelCmdline
+            .Replace("{LABEL}", label, StringComparison.Ordinal)
+            // Bare language code: localechooser wants "en_US", not "en_US.UTF-8".
+            .Replace("{LOCALE}", _locale.Split('.')[0], StringComparison.Ordinal)
+            .Replace("{KEYMAP}", _keymap, StringComparison.Ordinal);
         return $$"""
             insmod part_gpt
             insmod fat
@@ -1282,13 +1356,51 @@ public sealed partial class DirectInstallService : IDirectInstallService
                 $"SetFirmwareEnvironmentVariable({bootVar}) failed: Win32 error {Marshal.GetLastWin32Error()}. " +
                 "Run Igloo as Administrator to allow UEFI NVRAM writes.");
 
-        // Write BootNext so the firmware uses our entry exactly once.
-        var bootNext = BitConverter.GetBytes(idx);
+        // Choose which entry BootNext should name.
+        //
+        // Preferring our OWN entry is the obvious choice and the wrong one on firmware
+        // that prunes it. Observed on a Gigabyte/AMI board: our Boot#### is deleted at
+        // POST, while an entry the FIRMWARE created for the same
+        // \EFI\BOOT\BOOTX64.EFI target (described "UEFI OS") persists across reboots.
+        // BootNext then names an index that no longer exists, the firmware falls
+        // through BootOrder, and the machine boots Windows - with staging, grub.cfg and
+        // the kernel all perfectly in place.
+        //
+        // So when the firmware already has its own entry for this partition, that one
+        // is named instead: it is the entry proven to survive this firmware's own
+        // validation pass. Ours stays written and stays in BootOrder, so boards that
+        // keep it are unaffected.
+        var bootNextIdx = idx;
+        var firmwareOwn = EfiBootEntries.FindEntriesTargetingPartition(partGuid, _logger)
+            .Where(i => i != idx)
+            .ToList();
+        if (firmwareOwn.Count > 0)
+        {
+            bootNextIdx = firmwareOwn[0];
+            _logger.LogInformation(
+                "Firmware already lists Boot{Own:X4} for the installer partition - pointing BootNext at " +
+                "that instead of our own Boot{Ours:X4}, which this firmware prunes at POST",
+                bootNextIdx, idx);
+        }
+
+        // Write BootNext so the firmware uses that entry exactly once.
+        var bootNext = BitConverter.GetBytes(bootNextIdx);
         if (!SetFirmwareEnvironmentVariableW("BootNext", EfiGlobGuid, bootNext, 2))
             throw new InvalidOperationException(
                 $"SetFirmwareEnvironmentVariable(BootNext) failed: Win32 error {Marshal.GetLastWin32Error()}.");
 
-        _logger.LogInformation("BootNext set to {Idx:X4}", idx);
+        _logger.LogInformation("BootNext set to {Idx:X4}", bootNextIdx);
+
+        // Register the same one-shot through Windows' BCD as well.
+        //
+        // On firmware that prunes our raw NVRAM entry at POST, everything above is
+        // discarded before it is ever honoured. A BCD-managed firmware application is
+        // a different mechanism, not just a second attempt: bcdedit synchronises the
+        // firmware namespace with the BCD store, re-adding entries that are present in
+        // BCD but missing from NVRAM - and it produces the entry the same way Windows
+        // produces its own Boot Manager entry, which this firmware demonstrably keeps.
+        // Purely additive; any failure leaves the NVRAM path above untouched.
+        RegisterBootEntryViaBcdedit();
 
         // Belt-and-suspenders: some firmware ignores BootNext but does respect
         // BootOrder.  Prepend our entry to BootOrder so the installer is first
@@ -1296,6 +1408,19 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // entry is removed from BootOrder by the %post cleanup or on next Windows
         // boot when the Boot#### variable no longer exists.
         PrependBootOrder(idx);
+
+        // ...and prioritise every OTHER entry that targets the same partition.
+        //
+        // Observed on a Gigabyte/AMI board: the firmware DELETES our Boot#### at
+        // POST and substitutes its own auto-generated entry ("UEFI OS") for the same
+        // \EFI\BOOT\BOOTX64.EFI target. Both BootNext and the BootOrder prepend above
+        // then reference an index that no longer exists, so the firmware falls
+        // through BootOrder - and if a Linux distribution is already installed, its
+        // entry is usually first, so the machine boots THAT instead of the installer.
+        // (Symptom: choosing Mint, rebooting, and landing in the previously installed
+        // Debian.) The firmware's substitute points at the correct loader, so raising
+        // it too keeps the handoff working even when our own entry is culled.
+        PrioritiseEntriesTargetingInstallerPartition(partGuid, idx);
 
         // Dual-boot clock fix: Linux keeps the hardware clock in UTC (the
         // technically correct default); Windows assumes local time. Left alone,
@@ -1326,6 +1451,93 @@ public sealed partial class DirectInstallService : IDirectInstallService
         }
     }
 
+    /// <summary>
+    /// Registers the installer as a Windows-managed firmware application and makes it
+    /// the next boot, via bcdedit.
+    /// </summary>
+    /// <remarks>
+    /// The entry is created by copying {bootmgr} - the one entry this machine's firmware
+    /// provably accepts and keeps - then repointing it at our loader. Windows owns the
+    /// result, so it is re-synchronised into NVRAM rather than being a bare variable
+    /// write the firmware can quietly discard.
+    ///
+    /// bootsequence is BCD's one-shot: consumed by the next boot and then forgotten, the
+    /// same contract as BootNext, so nothing has to be undone if the user aborts.
+    ///
+    /// Entirely best-effort. The NVRAM path has already run by this point; a machine
+    /// where bcdedit is unavailable or refuses is no worse off than before.
+    /// </remarks>
+    private void RegisterBootEntryViaBcdedit()
+    {
+        try
+        {
+            var letter = _oemDrvLetter;
+            if (letter is null)
+                return;
+
+            var created = RunBcdedit($"/copy {{bootmgr}} /d \"{BootEntryDescription}\"");
+            // Output: 'The entry was successfully copied to {xxxxxxxx-....}.'
+            var guid = Regex.Match(created ?? string.Empty, @"\{[0-9a-fA-F-]{36}\}").Value;
+            if (guid.Length == 0)
+            {
+                _logger.LogWarning("bcdedit /copy did not return a GUID - skipping the BCD boot entry");
+                return;
+            }
+
+            RunBcdedit($"/set {guid} device partition={letter}:");
+            RunBcdedit($"/set {guid} path \\{FallbackBootDir}\\{FallbackBootFile}");
+            // Remove inherited Windows-loader settings that make no sense for a
+            // third-party EFI application.
+            RunBcdedit($"/deletevalue {guid} locale");
+            RunBcdedit($"/deletevalue {guid} inherit");
+            RunBcdedit($"/set {{fwbootmgr}} bootsequence {guid}");
+
+            _logger.LogInformation(
+                "BCD firmware entry {Guid} registered for {Letter}: and set as the next boot",
+                guid, letter);
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException
+                                      or IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not register the BCD boot entry (non-fatal) - "
+                                   + "the NVRAM BootNext above still applies");
+        }
+    }
+
+    private string? RunBcdedit(string arguments)
+    {
+        using var proc = Process.Start(new ProcessStartInfo(FindNativeExe("bcdedit.exe"), arguments)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        });
+        if (proc is null)
+            return null;
+
+        var stdout = proc.StandardOutput.ReadToEnd();
+        var stderr = proc.StandardError.ReadToEnd();
+        proc.WaitForExit(30_000);
+
+        if (proc.ExitCode != 0)
+            _logger.LogWarning("bcdedit {Args} exited {Code}: {Err}",
+                arguments, proc.ExitCode, (stderr + stdout).Trim());
+        return stdout;
+    }
+
+    /// <summary>
+    /// Resolves a System32 executable, defeating the WOW64 redirect for a 32-bit process.
+    /// </summary>
+    private static string FindNativeExe(string exeName)
+    {
+        var sysnative = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            "Sysnative", exeName);
+        if (File.Exists(sysnative))
+            return sysnative;
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), exeName);
+    }
+
     private void PrependBootOrder(ushort idx)
     {
         try
@@ -1354,6 +1566,59 @@ public sealed partial class DirectInstallService : IDirectInstallService
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
         {
             _logger.LogWarning(ex, "PrependBootOrder failed (non-fatal)");
+        }
+    }
+
+    /// <summary>
+    /// Raises every boot entry that targets the installer partition to the front of
+    /// BootOrder, just behind <paramref name="ownIndex"/>.
+    /// </summary>
+    /// <remarks>
+    /// This is the survival path for firmware that culls our own Boot#### entry: its
+    /// self-created replacement points at the same loader, so promoting it keeps the
+    /// installer ahead of any already-installed Linux. Entirely non-fatal - a boot
+    /// order we could not improve is no worse than the one we found.
+    /// </remarks>
+    private void PrioritiseEntriesTargetingInstallerPartition(Guid partGuid, ushort ownIndex)
+    {
+        try
+        {
+            var siblings = EfiBootEntries.FindEntriesTargetingPartition(partGuid, _logger)
+                .Where(i => i != ownIndex)
+                .ToList();
+            if (siblings.Count == 0)
+                return;
+
+            _logger.LogInformation(
+                "Firmware also lists {Count} entry(s) for the installer partition ({Indices}) - " +
+                "promoting them so the handoff survives if our own entry is pruned",
+                siblings.Count, string.Join(", ", siblings.Select(i => i.ToString("X4", CultureInfo.InvariantCulture))));
+
+            var buf = new byte[256];
+            var size = GetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, buf, (uint)buf.Length);
+            var order = new List<ushort>();
+            for (var i = 0; i + 1 < size; i += 2)
+                order.Add(BitConverter.ToUInt16(buf, i));
+
+            order.RemoveAll(siblings.Contains);
+            // Immediately after our own entry, so ours still wins when it survives.
+            var insertAt = order.IndexOf(ownIndex) + 1;
+            order.InsertRange(Math.Clamp(insertAt, 0, order.Count), siblings);
+
+            var newOrder = new byte[order.Count * 2];
+            for (var i = 0; i < order.Count; i++)
+                BitConverter.GetBytes(order[i]).CopyTo(newOrder, i * 2);
+
+            if (!SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, newOrder, (uint)newOrder.Length))
+                _logger.LogWarning("Could not reorder BootOrder for the firmware's own entries: {Err} (non-fatal)",
+                    Marshal.GetLastWin32Error());
+            else
+                _logger.LogInformation("BootOrder is now {Order}",
+                    string.Join(",", order.Select(i => i.ToString("X4", CultureInfo.InvariantCulture))));
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
+        {
+            _logger.LogWarning(ex, "Could not prioritise the firmware's installer entries (non-fatal)");
         }
     }
 

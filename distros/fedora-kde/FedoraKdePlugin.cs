@@ -46,7 +46,6 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     }
 
     //   IDistroPlugin                             
-
     public IReadOnlyList<PreflightFinding> CheckCompatibility(PreflightReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
@@ -190,7 +189,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         ],
         ExtraIsoFiles =
         [
-            // Anaconda stage-2 squashfs — copied to OEMDRV so inst.stage2=hd:LABEL= works offline.
+            // Anaconda stage-2 squashfs  copied to OEMDRV so inst.stage2=hd:LABEL= works offline.
             new IsoFileStage("images/install.img", "images/install.img", Required: false),
         ],
     };

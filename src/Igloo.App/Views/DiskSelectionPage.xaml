@@ -60,7 +60,7 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel>
+        <StackPanel Margin="{StaticResource Scroll.ContentGutter}">
 
             <!--   Disk cards                          -->
             <TextBlock Text="TARGET DISK" Style="{StaticResource Text.Section}" Margin="2,0,0,4" />
@@ -87,7 +87,7 @@
                                                FontSize="14.5" FontWeight="SemiBold"
                                                Foreground="{StaticResource Brush.Text.Primary}" />
                                     <Border>
-                                        <TextBlock Text="WINDOWS LIVES HERE" FontSize="9.5" FontWeight="Bold"
+                    <TextBlock Text="WINDOWS PARTITION" FontSize="9.5" FontWeight="Bold"
                                                    Foreground="{StaticResource Brush.Accent.Bright}" />
                                         <Border.Style>
                                             <Style TargetType="Border" BasedOn="{StaticResource Pill}">
@@ -159,7 +159,7 @@
                                             </Style.Triggers>
                                         </Style>
                                     </TextBlock.Style>
-                                    <Run Text="up to " /><Run Text="{Binding MaxShrinkableGb, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" GiB can be freed for Linux" />
+                                    <Run Text="up to " /><Run Text="{Binding MaxShrinkableGb, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" GiB available for Linux allocation" />
                                 </TextBlock>
                             </StackPanel>
 
@@ -218,10 +218,10 @@
                                 <StackPanel Margin="4,0,0,0">
                                     <TextBlock FontWeight="SemiBold" FontSize="13.5"
                                                Foreground="{StaticResource Brush.Text.Primary}">
-                                        Dual boot - keep Windows, add Linux alongside
+                                        Dual boot (Install alongside Windows)
                                     </TextBlock>
                                     <TextBlock Style="{StaticResource Text.Caption}" FontSize="12" Margin="0,3,0,0">
-                                        The Windows partition is shrunk to make room. A boot menu lets you choose an OS at startup.
+                                       Shrinks the Windows partition to allocate space. A boot menu manages operating system selection at startup.
                                     </TextBlock>
                                 </StackPanel>
                             </RadioButton>
@@ -234,10 +234,10 @@
                             <StackPanel Margin="4,0,0,0">
                                 <TextBlock FontWeight="SemiBold" FontSize="13.5"
                                            Foreground="{StaticResource Brush.Text.Primary}">
-                                    Replace Windows - erase this disk, Linux only
+                                    Replace Windows (Erase entire disk)
                                 </TextBlock>
                                 <TextBlock Style="{StaticResource Text.Caption}" FontSize="12" Margin="0,3,0,0">
-                                    Every partition and all data on the selected disk are destroyed.
+                                    Permanently deletes all existing partitions and user data on the selected disk.
                                 </TextBlock>
                             </StackPanel>
                         </RadioButton>
@@ -247,7 +247,7 @@
                                 Visibility="{Binding ShowPartitionSizer, Converter={StaticResource BoolToVis}}">
                             <StackPanel>
                                 <DockPanel LastChildFill="True" Margin="0,0,0,8">
-                                    <TextBlock DockPanel.Dock="Left" Text="Space for Linux"
+                  <TextBlock DockPanel.Dock="Left" Text="Allocated space for Linux"
                                                Style="{StaticResource Text.Body}" />
                                     <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right"
                                                Foreground="{StaticResource Brush.Accent.Bright}"

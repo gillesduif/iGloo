@@ -24,7 +24,7 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Finding rows: InfoBar idiom — neutral surface, severity marked by a
+        <!-- Finding rows: InfoBar idiom  neutral surface, severity marked by a
              3px left rule only (color = meaning, never a tinted box). -->
         <Style x:Key="FindingCardStyle" TargetType="Border">
             <Setter Property="Background"      Value="{StaticResource Brush.Layer.Card}" />
@@ -81,7 +81,7 @@
 
             <!-- Searching magnifier: a slow Lissajous wander (two sine axes with
                  different periods, so the path never visibly repeats) plus a
-                 gentle tilt — reads as "scanning the machine". Storyboards are
+                 gentle tilt  reads as "scanning the machine". Storyboards are
                  attached to IsRunning so an idle page animates nothing. -->
             <Image Source="/Assets/Fluent3D/search.png" Width="76" Height="76"
                    HorizontalAlignment="Center" Margin="0,0,0,24"
@@ -134,7 +134,7 @@
             </Image>
 
             <ProgressBar IsIndeterminate="True" Width="340" />
-            <TextBlock Text="Reading your hardware…"
+      <TextBlock Text="Checking system configuration"
                        Style="{StaticResource Text.Body}" FontSize="14"
                        Margin="0,16,0,0" HorizontalAlignment="Center" />
             <TextBlock Text="firmware · secure boot · TPM · BitLocker · memory · storage"
@@ -157,7 +157,7 @@
         <!--   3. RESULTS: the instrument panel               ─ -->
         <ScrollViewer Visibility="{Binding HasReport, Converter={StaticResource BoolToVis}}"
                       VerticalScrollBarVisibility="Auto">
-            <StackPanel>
+            <StackPanel Margin="{StaticResource Scroll.ContentGutter}">
 
                 <!-- System overview -->
                 <TextBlock Text="DEVICE" Style="{StaticResource Text.Section}" Margin="2,0,0,4" />
@@ -229,7 +229,7 @@
                         Visibility="{Binding HasNoFindings, Converter={StaticResource BoolToVis}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{StaticResource Brush.Success}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <TextBlock Text="No issues detected. You are ready to proceed."
+                        <TextBlock Text="System compatible. Ready to proceed."
                                    Foreground="{StaticResource Brush.Success}" FontSize="13" />
                     </StackPanel>
                 </Border>
@@ -315,12 +315,6 @@
                                        Foreground="{StaticResource Brush.Text.Primary}" />
                             <TextBlock Text="{Binding SingleLinux.Detail}" FontSize="12" Margin="0,1,0,0"
                                        Foreground="{StaticResource Brush.Text.Tertiary}" />
-                            <TextBlock FontSize="11.5" Margin="0,4,0,0" TextWrapping="Wrap"
-                                       Foreground="{StaticResource Brush.Text.Tertiary}"
-                                       Visibility="{Binding HasSeedLeftovers, Converter={StaticResource BoolToVis}}">
-                                <Run Text="Removal also clears iGloo's leftover installer partitions: " /><Run
-                                     Text="{Binding SeedLeftoverSummary, Mode=OneWay}" />
-                            </TextBlock>
                         </StackPanel>
 
                         <Button Grid.Column="2" Content="Remove Linux"
@@ -364,13 +358,6 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock FontSize="11.5" Margin="4,6,0,0" TextWrapping="Wrap"
-                                   Foreground="{StaticResource Brush.Text.Tertiary}"
-                                   Visibility="{Binding HasSeedLeftovers, Converter={StaticResource BoolToVis}}">
-                            <Run Text="iGloo's leftover installer partitions are removed as well: " /><Run
-                                 Text="{Binding SeedLeftoverSummary, Mode=OneWay}" />
-                        </TextBlock>
-
                         <Button Content="Remove selection"
                                 Style="{StaticResource Button.Danger}"
                                 Command="{Binding RemoveSelectedLinuxCommand}"
@@ -378,29 +365,9 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Leftover iGloo installer partitions, no Linux install present -->
-                <TextBlock Text="IGLOO LEFTOVERS" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
-                           Visibility="{Binding ShowLeftoversOnlyCard, Converter={StaticResource BoolToVis}}" />
-                <Border Style="{StaticResource Card}" Padding="16,12"
-                        Visibility="{Binding ShowLeftoversOnlyCard, Converter={StaticResource BoolToVis}}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" FontSize="12.5" TextWrapping="Wrap" Margin="0,0,14,0"
-                                   VerticalAlignment="Center"
-                                   Foreground="{StaticResource Brush.Text.Secondary}">
-                            <Run Text="A previous iGloo install left its temporary installer partitions behind: " /><Run
-                                 Text="{Binding SeedLeftoverSummary, Mode=OneWay}" /><Run
-                                 Text=". They are safe to remove; the space becomes unallocated." />
-                        </TextBlock>
-                        <Button Grid.Column="1" Content="Remove"
-                                Style="{StaticResource Button.Danger}"
-                                Command="{Binding RemoveSeedLeftoversCommand}"
-                                VerticalAlignment="Center" Foreground="White" />
-                    </Grid>
-                </Border>
+                <!-- Leftover iGloo installer partitions (OEMDRV) are cleaned silently
+                     during the system check (PreflightViewModel.RunCheckAsync); there
+                     is deliberately no card or button for them - see that method. -->
 
                 <!-- Removal status banner -->
                 <Border Style="{StaticResource Card.Accent}" Padding="14,10" Margin="0,8,0,0"

@@ -5,7 +5,7 @@ After=network-online.target
 Wants=network-online.target
 # Hold the login screen until first-boot setup finishes. The agent performs heavy
 # package operations (drivers, codecs, Flatpaks) that must not race the desktop
-# session — doing so leaves the user on a half-initialised desktop. Ordering
+# session  doing so leaves the user on a half-initialised desktop. Ordering
 # before the display manager means setup completes (and, for NVIDIA, the machine
 # reboots) before any graphical session is created.
 Before=display-manager.service

@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="0,0,8,0">
+        <StackPanel Margin="{StaticResource Scroll.ContentGutter}">
 
             <!--   Linux account                        ─ -->
             <TextBlock Text="LINUX ACCOUNT" Style="{StaticResource Text.Section}" Margin="2,0,0,4" Foreground="White" />
@@ -124,8 +124,8 @@
             <TextBlock Text="FILE TRANSFER" Style="{StaticResource Text.Section}" Margin="2,22,0,8" Foreground="White" />
             <Border Style="{StaticResource Card}">
                 <StackPanel>
-                    <TextBlock Text="These folders are copied to a staging area and restored to your Linux home after install."
-                               Style="{StaticResource Text.Body}" Margin="0,0,0,14" />
+                    <TextBlock
+                               Style="{StaticResource Text.Body}" Margin="0,0,0,14" Text="Select the folders that need to be restored to their corresponding Linux directories." />
                     <WrapPanel>
                         <CheckBox Content="Documents" Style="{StaticResource CheckBox.Chip}" IsChecked="{Binding IncludeDocuments}" Margin="0,0,8,8" />
                         <CheckBox Content="Downloads" Style="{StaticResource CheckBox.Chip}" IsChecked="{Binding IncludeDownloads}" Margin="0,0,8,8" />
@@ -142,7 +142,7 @@
                 <TextBlock Text="SUGGESTED LINUX APPS" Style="{StaticResource Text.Section}" Margin="2,22,0,8" Foreground="White" />
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="These Windows apps were found on your machine. Install their Linux equivalents on first boot?"
+            <TextBlock Text="Select the detected Windows applications that you want to install on Linux."
                                    Style="{StaticResource Text.Body}" Margin="0,0,0,12" />
                         <ItemsControl ItemsSource="{Binding DetectedSuggestions}">
                             <ItemsControl.ItemTemplate>
@@ -170,7 +170,7 @@
                 <TextBlock Text="BROWSER PROFILES" Style="{StaticResource Text.Section}" Margin="2,22,0,8" Foreground="White" />
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-                        <TextBlock Text="Bookmarks and settings are carried across to the Linux equivalents."
+                        <TextBlock Text="Select the detected web browsers that you want to transfer to Linux."
                                    Style="{StaticResource Text.Body}" Margin="0,0,0,12" />
                         <ItemsControl ItemsSource="{Binding DetectedBrowsers}">
                             <ItemsControl.ItemTemplate>

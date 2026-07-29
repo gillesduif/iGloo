@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="iGloo"
     MinWidth="760" MinHeight="580"
-    Width="930" Height="660"
+    Width="930" Height="675"
     WindowStartupLocation="CenterScreen"
     WindowStyle="None"
     Background="{StaticResource Brush.Window}"
@@ -101,7 +101,7 @@
 
             <!-- Step rail: every step by name with done / current / upcoming
                  state. Answers "Where am I? What's done? What's next?" at a
-                 glance. Not interactive — the wizard is linear by design. -->
+                 glance. Not interactive  the wizard is linear by design. -->
             <ItemsControl Grid.Column="0"
                           ItemsSource="{Binding StepMarkers}"
                           Margin="8,8,0,8"
@@ -198,8 +198,11 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
+                <!-- Collapsed (not Hidden) on Welcome, so the Auto row gives its
+                     height back to the page instead of leaving a gap. -->
                 <TextBlock Grid.Row="0"
                            Text="{Binding StepDescription}"
+                           Visibility="{Binding ShowStepTitle, Converter={StaticResource BoolToVis}}"
                            FontSize="28" FontWeight="SemiBold"
                            Foreground="{StaticResource Brush.Text.Primary}"
                            Margin="0,4,0,12" />
@@ -215,6 +218,7 @@
                         <TranslateTransform x:Name="StepTransform" />
                     </ContentControl.RenderTransform>
                 </ContentControl>
+
             </Grid>
         </Grid>
 

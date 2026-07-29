@@ -61,14 +61,14 @@ public sealed class UbuntuPlugin : IDistroPlugin
         // Ubuntu's no-USB path boots the installer with `toram`: the ~6 GB
         // installer image is copied INTO MEMORY so the partition holding it can
         // be released while this same disk is repartitioned. On a machine with
-        // too little RAM that doesn't fail cleanly — the live session OOMs
+        // too little RAM that doesn't fail cleanly  the live session OOMs
         // mid-install, after disk changes have already begun. Block up front:
         // by the time it would fail, the user experience is already ruined.
         // (The floor exists because the no-USB path boots with `toram`: the ~6 GB
         // installer image is copied into memory so its partition can be released
         // while this same disk is repartitioned. Below the floor, casper silently
         // skips toram and the install fails mid-flight. The user-facing text
-        // deliberately omits the mechanism — needs + options only.)
+        // deliberately omits the mechanism  needs + options only.)
         if (report.TotalRamBytes < ToramMinRamBytes)
             findings.Add(new PreflightFinding(FindingSeverity.Blocker, "UBUNTU_RAM_TORAM",
                 $"Ubuntu needs at least {ToramMinRamBytes / (1024L * 1024 * 1024)} GB of memory."));
@@ -130,9 +130,9 @@ public sealed class UbuntuPlugin : IDistroPlugin
         //    CIDATA partition (which is why the full ISO is copied there).
         //  * layerfs-path: 23.04+ desktop ISOs ship LAYERED squashfs images; when
         //    ISO-booting, casper must be told which layer stack to assemble (the
-        //    ISO's own grub.cfg carries the same argument — keep in sync with it).
+        //    ISO's own grub.cfg carries the same argument  keep in sync with it).
         //  * toram: copy the live medium to RAM so the ISO partition can be
-        //    RELEASED before curtin repartitions this same disk — without it,
+        //    RELEASED before curtin repartitions this same disk  without it,
         //    partprobe fails with EBUSY (the medium partition is still mounted)
         //    and the install aborts. casper leaks the loop device + /isodevice
         //    mount even with toram (LP #684280); autoinstall early-commands in
@@ -186,10 +186,10 @@ public sealed class UbuntuPlugin : IDistroPlugin
         // The only way to install alongside is an explicit curtin `config:` list.
         //
         // CRITICAL (data-loss, learned the hard way): curtin storage VERSION 2 is
-        // AUTHORITATIVE — the config describes the disk's complete final state, and
+        // AUTHORITATIVE  the config describes the disk's complete final state, and
         // any partition on the disk that is NOT declared gets DELETED (curtin wipes
         // its superblock and drops it from the table). Declaring only the ESP + root
-        // made curtin start erasing the undeclared partitions — including Windows.
+        // made curtin start erasing the undeclared partitions  including Windows.
         // Therefore the config must list EVERY existing partition, preserve: true,
         // each with its real number/offset/size (subiquity also crashes on any
         // partition lacking offset/size: `int + None` in assign_omitted_offsets).
@@ -198,13 +198,13 @@ public sealed class UbuntuPlugin : IDistroPlugin
         // the FULL partition list (see DirectInstallService.SubstituteGeometryTokens):
         //  * EVERY partition: preserve: true + exact number/offset/size/type/uuid
         //    (Windows ESP/MSR/C:, Igloo's seed + ISO partitions, Windows Recovery,
-        //    AND the root partition Igloo pre-created — PreCreateRootPartition).
+        //    AND the root partition Igloo pre-created  PreCreateRootPartition).
         //    curtin adds nothing → writes no partition table → no disklabel
         //    rewrite, no renumbering, no partprobe on a busy disk.
         //  * the ESP additionally gets id 'esp' + grub_device: true and is reused for
-        //    GRUB (mounted at /boot/efi) — preserved, never reformatted;
+        //    GRUB (mounted at /boot/efi)  preserved, never reformatted;
         //  * root (recognised by its Linux-filesystem GPT type) gets wipe:
-        //    superblock + a fresh ext4 format + mount at / — contents replaced,
+        //    superblock + a fresh ext4 format + mount at /  contents replaced,
         //    table entry untouched.
         return string.Join("\n", AutoinstallStorageLines);
     }

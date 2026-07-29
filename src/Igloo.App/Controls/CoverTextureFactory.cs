@@ -33,13 +33,13 @@ public sealed class CoverTextureFactory
             if (logo is not null)
             {
                 // Frameless: logo art only, on a transparent texture. The 3D
-                // pipeline supports this — depth fog fades brush opacity and the
+                // pipeline supports this  depth fog fades brush opacity and the
                 // reflection uses an alpha mask, so no layer paints the quad.
                 DrawLogo(dc, logo, pixels);
             }
             else
             {
-                // No logo asset: the colored tile IS the artwork — keep it.
+                // No logo asset: the colored tile IS the artwork  keep it.
                 var hue = StableHash(hashKey) % 360;
                 DrawTile(dc, pixels, FromHsv(hue, 0.50, 0.46), FromHsv(hue, 0.62, 0.20));
                 DrawInitial(dc, displayName, pixels);

@@ -1,8 +1,12 @@
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
+using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace Igloo.App.ViewModels;
 
@@ -22,7 +26,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     // Captured the moment the user advances past distro selection. Downstream steps
     // (ISO download, staging, install) must NOT read DistroSelection.SelectedDistro
     // live: it is SelectedItem?.Manifest, and WPF resets the bound SelectedItem to
-    // null whenever the list is rebuilt — which NRE'd fs.Prepare on distro.Id.
+    // null whenever the list is rebuilt  which NRE'd fs.Prepare on distro.Id.
     private DistroManifest? _selectedDistro;
 
     private int _stepIndex;
@@ -30,7 +34,55 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private object _currentPage;
 
-    //   Computed navigation state                       
+    //   Notifications
+    // For results the user should be TOLD but never has to act on - a passing
+    // signature check, for instance. Parking on a "verified" screen just to collect a
+    // Next click adds a step without adding a decision, so the wizard reports the
+    // outcome as a Windows toast and moves on.
+
+    /// <summary>
+    /// Describes what was actually proven about the downloaded image.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately specific about WHICH checks passed. "Verified" alone is the kind of
+    /// reassurance that means nothing; a signature check is the one thing standing
+    /// between the user and a tampered mirror, so it is worth naming.
+    /// </remarks>
+    private static string BuildVerificationMessage(IsoAcquisitionViewModel acq)
+    {
+        var name = acq.Result is null ? "Image" : Path.GetFileName(acq.Result.LocalPath);
+        return acq.Result switch
+        {
+            { Sha256Verified: true, GpgVerified: true } =>
+                $"{name} verified - SHA-256 matched and the GPG signature is valid.",
+            { Sha256Verified: true, GpgVerified: false } =>
+                $"{name} verified - SHA-256 matched (no GPG signature was published).",
+            _ => $"{name} downloaded.",
+        };
+    }
+
+    /// <summary>Raises a Windows toast; never lets a cosmetic failure disturb the wizard.</summary>
+    private static void Notify(string title, string message)
+    {
+        try
+        {
+            new ToastContentBuilder()
+                .AddText(title)
+                .AddText(message)
+                .Show();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or COMException
+                                      or PlatformNotSupportedException or TypeLoadException)
+        {
+            // Toasts depend on machine-level state we do not control - notification
+            // policy, the shell, an unregistered COM server on a stripped-down Windows.
+            // The wizard has already moved on either way, so a missed toast must never
+            // become an exception on the navigation path.
+            Debug.WriteLine($"Toast suppressed: {ex.Message}");
+        }
+    }
+
+    //   Computed navigation state
 
     public bool CanGoBack => _stepIndex > 0;
 
@@ -57,16 +109,27 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _ => "Next  →",
     };
 
+    /// <summary>
+    /// Whether the shell shows its page heading above the current step.
+    /// </summary>
+    /// <remarks>
+    /// Every step gets one except Welcome, which carries its own branded hero - logo,
+    /// wordmark and tagline. A "Welcome" heading directly above a header that already
+    /// says iGloo says the same thing twice and costs vertical space the feature grid
+    /// needs. The rail already marks which step you are on.
+    /// </remarks>
+    public bool ShowStepTitle => CurrentPage is not WelcomeViewModel;
+
     public string StepDescription => CurrentPage switch
     {
         WelcomeViewModel => "Welcome",
-        PreflightViewModel => "System checkpoint",
+        PreflightViewModel => "System Check",
         DistroSelectionViewModel => "Linux distribution",
-        IsoAcquisitionViewModel => "Downloader",
-        MigrationSetupViewModel => "Configurator",
-        DiskSelectionViewModel => "Installation disk",
-        FileStagingViewModel => "File migration",
-        DirectInstallViewModel => "Installer preperation",
+        IsoAcquisitionViewModel => "Download",
+        MigrationSetupViewModel => "Configuration ",
+        DiskSelectionViewModel => "Target Disk",
+        FileStagingViewModel => "Data Migration ",
+        DirectInstallViewModel => "Installation",
         UsbWriterViewModel => "Write to USB",
         _ => string.Empty,
     };
@@ -96,13 +159,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private static readonly (string Title, string Glyph)[] StepTitles =
     [
         ("Welcome", ""),  // Home
-        ("System", ""),  // Diagnostic
-        ("Distribution", ""),  // All apps
+        ("System Check", ""),  // Diagnostic
+        ("Linux Distribution", ""),  // All apps
         ("Download", ""),  // Download
-        ("Setup", ""),  // Settings
-        ("Disk", ""),  // Hard drive
-        ("Files", ""),  // Copy
-        ("Install", ""),  // Play / go
+        ("Configuration", ""),  // Settings
+        ("Target Disk", ""),  // Hard drive
+        ("Data Migration ", ""),  // Copy
+        ("Installation", ""),  // Play / go
     ];
 
     
@@ -219,7 +282,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         // Lock in the chosen distro before advancing. CanGoNext gates the distro
         // step on a valid selection, so this captures the user's pick the moment
-        // they leave it — and keeps it even if the list later rebuilds.
+        // they leave it  and keeps it even if the list later rebuilds.
         if (_distroSelection.SelectedDistro is { } picked)
             _selectedDistro = picked;
 
@@ -256,6 +319,16 @@ public sealed partial class MainWindowViewModel : ObservableObject
             case IsoAcquisitionViewModel acq when !acq.IsRunning && !acq.IsComplete:
                 acq.Prepare(_selectedDistro!);
                 await acq.AcquireCommand.ExecuteAsync(null);
+
+                // A passing verification is information, not a decision: the receipt
+                // screen only ever collects a Next click. Report the outcome in a
+                // banner and carry on. A FAILED check is the opposite - it stays on
+                // screen, because that one the user genuinely must see and act on.
+                if (acq.IsComplete && !acq.HasError)
+                {
+                    Notify("Download verified", BuildVerificationMessage(acq));
+                    await NextAsync();
+                }
                 break;
 
             case DiskSelectionViewModel disk:
@@ -269,6 +342,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     _diskSelection.InstallMode,
                     _diskSelection.LinuxSizeGb);
                 await fs.StageCommand.ExecuteAsync(null);
+
+                // Nothing on the staging page asks the user anything: it reports
+                // progress, and when the package is built the only available action is
+                // Next. Advance automatically so a finished package moves straight on
+                // instead of parking on a dead-end screen waiting for an inevitable
+                // click. On error we stay put, so the failure stays on screen.
+                if (fs.IsComplete && !fs.HasError)
+                    await NextAsync();
                 break;
 
             case DirectInstallViewModel di when !di.IsRunning && !di.IsComplete:
@@ -298,6 +379,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(PrimaryActionLabel));
         OnPropertyChanged(nameof(StepDescription));
+        OnPropertyChanged(nameof(ShowStepTitle));
         OnPropertyChanged(nameof(IsLastStep));
         OnPropertyChanged(nameof(StepNumber));
         OnPropertyChanged(nameof(StepMarkers));

@@ -1,0 +1,120 @@
+===============================================================================
+ iGloo - post-install validation
+ Run these on the freshly installed Linux, then reboot back to Windows.
+ Everything lands on the USB stick, so one reboot is enough.
+===============================================================================
+
+STEP 0 - find the USB stick (run this first, it sets $USB for the rest)
+-------------------------------------------------------------------------------
+USB=$(ls -d /run/media/$USER/* /media/$USER/* 2>/dev/null | head -1); echo "USB=$USB"
+
+  Nothing printed? Plug the stick in, open its folder once in the file manager
+  so it gets mounted, then run the line again.
+
+
+===============================================================================
+ STEP 1 - THE BIG DUMP  (one command, writes everything to the stick)
+===============================================================================
+sudo sh -c "{ echo '### KERNEL'; uname -a; cat /proc/cmdline; echo; echo '### GPU BINDING'; lspci -nnk | grep -A3 -Ei 'vga|3d|display'; echo; echo '### MODULES'; lsmod | grep -Ei 'nvidia|nouveau' || echo NONE; modinfo -n nvidia 2>&1; nvidia-smi 2>&1 | head -12; echo; echo '### RENDERER'; glxinfo -B 2>/dev/null | grep -iE 'opengl renderer|opengl vendor' || echo 'glxinfo missing'; echo; echo '### SECURE BOOT'; mokutil --sb-state 2>&1; echo; echo '### NVIDIA PACKAGES'; (dpkg -l | grep -i nvidia || rpm -qa | grep -i nvidia) 2>&1; echo; echo '### MODULE REJECTIONS'; journalctl -b | grep -iE 'nvidia|module verification|lockdown|taint' | tail -30; echo; echo '### BOOT ENTRIES'; efibootmgr -v; echo; echo '### DISKS'; lsblk -f; findmnt -no SOURCE,FSTYPE /; echo; echo '### GRUB / WINDOWS ENTRY'; grep -ci windows /boot/grub/grub.cfg /boot/grub2/grub.cfg 2>/dev/null; echo; echo '### IGLOO AGENT'; systemctl status igloo-first-boot.service --no-pager 2>&1 | head -15; ls -la /var/lib/igloo/ 2>&1; echo; echo '### WIFI'; nmcli -t -f NAME,TYPE connection show 2>&1; ls /etc/NetworkManager/system-connections/ 2>&1; echo; echo '### MIGRATED FILES'; ls ~/Documents ~/Downloads ~/Pictures 2>&1 | head -20; } > \"$USB/igloo-test-\$(date +%F-%H%M).txt\" 2>&1"
+
+
+ STEP 2 - copy the iGloo logs themselves
+-------------------------------------------------------------------------------
+sudo cp -r /var/log/igloo "$USB/igloo-logs" 2>/dev/null; sudo cp /var/log/igloo-post.log "$USB/" 2>/dev/null; sync; echo DONE
+
+  Wait for "DONE" before unplugging.
+
+
+===============================================================================
+ THE THREE CHECKS WORTH READING ON SCREEN
+===============================================================================
+
+1) IS THE GPU ACTUALLY DRIVEN?   <-- the single most important one
+-------------------------------------------------------------------------------
+lspci -nnk | grep -A3 -Ei 'vga|3d'
+
+  GOOD : "Kernel driver in use: nvidia"
+  BAD  : "Kernel driver in use: nouveau"  -> proprietary/open driver not active
+  BAD  : no "Kernel driver in use" line   -> nothing is driving the card
+
+  Packages can be installed while NOTHING is bound to the card. That exact
+  state is what looked like success all day and was not. This line is the truth.
+
+
+2) HARDWARE OR SOFTWARE RENDERING?
+-------------------------------------------------------------------------------
+glxinfo -B | grep -i "OpenGL renderer"
+
+  GOOD : mentions NVIDIA / GeForce RTX 5070
+  BAD  : "llvmpipe"  -> software rendering; the desktop works but the GPU is idle
+
+  Missing glxinfo?   Mint/Debian: sudo apt install -y mesa-utils
+                     Fedora:      sudo dnf install -y glx-utils
+
+
+3) DID THE BOOT-ORDER FIX HOLD?
+-------------------------------------------------------------------------------
+efibootmgr -v
+
+  Look at the "BootOrder:" line and check iGloo's installer target is AHEAD of
+  any other Linux entry (debian / ubuntu / fedora).
+  This is the bug where picking Mint booted the Debian installer instead.
+
+
+===============================================================================
+ IF ROTATION / REFRESH RATE DID NOT APPLY
+===============================================================================
+The agent logs exactly which stage gave up. Run this first:
+
+sudo grep -iE "display|monitor|output|pnp" /var/log/igloo/agent.log
+
+  "No display layout in the manifest"        -> Windows captured nothing
+  "No connected outputs with readable EDID"  -> Linux could not read the monitors
+  "Monitor XXXX ... is not attached here"    -> the PnP ids did not match  <-- likely
+  "does not advertise WxH"                   -> the mode check rejected it
+
+Then capture both sides of the match, so the ids can be compared:
+
+for c in /sys/class/drm/card*-*; do s=$(cat "$c/status" 2>/dev/null); [ "$s" = connected ] || continue; echo "== $(basename $c)"; xxd -p -l 32 "$c/edid"; done
+
+python3 -c "import json;d=json.load(open('/var/lib/igloo/manifest.json'));print(d.get('displays'))"
+
+cat ~/.config/monitors.xml 2>/dev/null || echo "no monitors.xml written"
+
+  monitors.xml exists but nothing changed? Log out and back in - Muffin/Mutter
+  only read it when a session starts.
+
+
+===============================================================================
+ IF THE DRIVER DID NOT LOAD - the two lines that say why
+===============================================================================
+mokutil --sb-state
+journalctl -b | grep -iE "module verification|lockdown|nvidia"
+
+  "SecureBoot enabled" + a "module verification failed" / "Loading of unsigned
+  module is rejected" line  ==  Secure Boot refused the module.
+  Fix: turn Secure Boot off in firmware, or enrol a MOK and sign the module.
+
+  The iGloo agent now writes this conclusion in plain words - worth checking:
+sudo grep -iE "nvidia|secure boot|refused|module" /var/log/igloo/agent.log | tail -30
+
+
+===============================================================================
+ QUICK PASS / FAIL SHEET   (tick these off)
+===============================================================================
+[ ] Booted the installer for the distro I actually chose
+[ ] Install ran unattended - no language / keyboard / network prompts
+[ ] Windows still boots (check the GRUB menu has a Windows entry)
+[ ] Any other Linux I wanted to keep is still there
+[ ] Desktop reaches the login screen (no black screen / bare cursor)
+[ ] Screen is at native resolution
+[ ] lspci says "Kernel driver in use: nvidia"
+[ ] glxinfo renderer is NOT llvmpipe
+[ ] Wi-Fi connected on its own (migrated profiles)
+[ ] Portrait monitor is rotated correctly
+[ ] Refresh rate matches what Windows used
+[ ] Debian: NO language / country question during install
+[ ] My files are in ~/Documents, ~/Downloads, ~/Pictures
+[ ] OEMDRV installer partition is gone (check with lsblk)
+
+Notes:

@@ -86,11 +86,13 @@
       <Setter Property="Margin" Value="0,10,0,6" />
     </Style>
 
-    <!-- Feature rows: Win11 Settings idiom — card row with a neutral glyph
-             box (Segoe Fluent Icons, no decorative color per the charter). -->
+    <!-- Feature cards: Win11 Settings idiom  neutral glyph box (Segoe Fluent
+             Icons, no decorative color per the charter). Laid out 3x2, so the
+             margin is even on all sides: a grid needs horizontal gutters too, and
+             the six cards divide exactly into three columns. -->
     <Style x:Key="FeatureCard" TargetType="Border" BasedOn="{StaticResource Card}">
-      <Setter Property="Padding" Value="14,12" />
-      <Setter Property="Margin" Value="0,0,0,10" />
+      <Setter Property="Padding" Value="14,14" />
+      <Setter Property="Margin" Value="5" />
     </Style>
     <Style x:Key="FeatureGlyphBox" TargetType="Border">
       <Setter Property="Width" Value="38" />
@@ -148,88 +150,71 @@
       </StackPanel>
 
       <!--   What iGloo does for you: four feature rows (mockup 2026-07)    -->
-      <StackPanel Grid.Row="2" MaxWidth="760" Margin="0,24,37,0">
-
+      <!-- 3x2: exactly six features, so the grid divides evenly with no orphan card
+           on a short final row. UniformGrid also keeps every card the same height
+           regardless of caption length, which a WrapPanel would not. -->
+      <!-- Right margin clears the overlay scrollbar (same 16px as the other
+           scrolling pages); the cards' own 5px margins form the inner gutters. -->
+      <UniformGrid Grid.Row="2" Rows="2" Columns="3" MaxWidth="760" Margin="0,24,16,0">
         <Border Style="{StaticResource FeatureCard}">
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border Style="{StaticResource FeatureGlyphBox}">
+          <StackPanel>
+            <Border HorizontalAlignment="Left" Margin="0,0,0,10" Style="{StaticResource FeatureGlyphBox}">
+              <TextBlock Text="&#xE770;" Style="{StaticResource FeatureGlyph}" />
+            </Border>
+            <TextBlock Style="{StaticResource FeatureTitle}" ><Run Language="nl-be" Text="Linux System"/></TextBlock>
+                            <TextBlock Text="Handles distribution installation and removal with dual-boot configuration." Style="{StaticResource FeatureCaption}" />
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource FeatureCard}">
+          <StackPanel>
+            <Border HorizontalAlignment="Left" Margin="0,0,0,10" Style="{StaticResource FeatureGlyphBox}">
               <TextBlock Text="&#xE8B7;" Style="{StaticResource FeatureGlyph}" />
             </Border>
-            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-              <TextBlock Text="Files &amp; profile migration" Style="{StaticResource FeatureTitle}" />
-              <TextBlock Text="Copied and mapped into your new home directory" Style="{StaticResource FeatureCaption}" />
-            </StackPanel>
-          </Grid>
+            <TextBlock Style="{StaticResource FeatureTitle}" ><Run Text="User "/><Run Language="nl-be" Text="D"/><Run Text="ata"/></TextBlock>
+            <TextBlock Text="Migrating files and user profile data to the corresponding directories" Style="{StaticResource FeatureCaption}" />
+          </StackPanel>
         </Border>
 
         <Border Style="{StaticResource FeatureCard}">
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border Style="{StaticResource FeatureGlyphBox}">
+          <StackPanel>
+            <Border HorizontalAlignment="Left" Margin="0,0,0,10" Style="{StaticResource FeatureGlyphBox}">
               <TextBlock Text="&#xE774;" Style="{StaticResource FeatureGlyph}" />
             </Border>
-            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-              <TextBlock Text="Browser migration" Style="{StaticResource FeatureTitle}" />
-              <TextBlock Text="Tabs and active sessions carry over automatically" Style="{StaticResource FeatureCaption}" />
-            </StackPanel>
-          </Grid>
+            <TextBlock Text="Web Browsers " Style="{StaticResource FeatureTitle}" />
+              <TextBlock Text="Restores active tab sessions and stored login credentials." Style="{StaticResource FeatureCaption}" />
+          </StackPanel>
         </Border>
 
         <Border Style="{StaticResource FeatureCard}">
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border Style="{StaticResource FeatureGlyphBox}">
-              <TextBlock Text="&#xE895;" Style="{StaticResource FeatureGlyph}" />
+          <StackPanel>
+            <Border HorizontalAlignment="Left" Margin="0,0,0,10" Style="{StaticResource FeatureGlyphBox}">
+              <TextBlock Text="&#xE713;" Style="{StaticResource FeatureGlyph}" />
             </Border>
-            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-              <TextBlock Text="Settings synchronization" Style="{StaticResource FeatureTitle}" />
-              <TextBlock Text="keyboard layout &amp; Wi-Fi configuration transfer automatically" Style="{StaticResource FeatureCaption}" />
-            </StackPanel>
-          </Grid>
+            <TextBlock Text="System Settings " Style="{StaticResource FeatureTitle}" />
+                            <TextBlock Style="{StaticResource FeatureCaption}" Text="Synchronizes system configurations and user preferences." />
+          </StackPanel>
         </Border>
 
         <Border Style="{StaticResource FeatureCard}">
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border Style="{StaticResource FeatureGlyphBox}">
+          <StackPanel>
+            <Border HorizontalAlignment="Left" Margin="0,0,0,10" Style="{StaticResource FeatureGlyphBox}">
               <TextBlock Text="&#xE950;" Style="{StaticResource FeatureGlyph}" />
             </Border>
-            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-              <TextBlock Text="GPU driver preparation" Style="{StaticResource FeatureTitle}" />
-              <TextBlock Text="Compatible drivers are flagged and staged in advance" Style="{StaticResource FeatureCaption}" />
-            </StackPanel>
-          </Grid>
+            <TextBlock Style="{StaticResource FeatureTitle}" Text="Graphics Drivers " />
+                            <TextBlock Style="{StaticResource FeatureCaption}" Text="Detecting and installing compatible graphics drivers." />
+          </StackPanel>
         </Border>
 
         <Border Style="{StaticResource FeatureCard}">
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Border Style="{StaticResource FeatureGlyphBox}">
+          <StackPanel>
+            <Border HorizontalAlignment="Left" Margin="0,0,0,10" Style="{StaticResource FeatureGlyphBox}">
               <TextBlock Text="&#xED35;" Style="{StaticResource FeatureGlyph}" />
             </Border>
-            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-              <TextBlock Style="{StaticResource FeatureTitle}"><Run Text="Application "/><Run Language="nl-be" Text="scanner"/></TextBlock>
-              <TextBlock Style="{StaticResource FeatureCaption}"><Run Text="Windows programs that have a native linux v"/><Run Language="nl-be" Text="ariant"/><Run Text=" will be installed"/></TextBlock>
-            </StackPanel>
-          </Grid>
+            <TextBlock Style="{StaticResource FeatureTitle}" Text="Applications "/>
+              <TextBlock Style="{StaticResource FeatureCaption}"><Run Text="Installs native Linux alternatives for detected Windows apps."/></TextBlock>
+          </StackPanel>
         </Border>
-      </StackPanel>
+      </UniformGrid>
 
       <!--   Quiz                              ─ -->
       <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,24,37,0" Grid.RowSpan="3" Visibility="Collapsed">
@@ -254,22 +239,10 @@
         </StackPanel>
       </Border>
 
-      <!--   Pre-alpha warning: stern, no cuteness              ─ -->
-      <Border Style="{StaticResource Card.Warning}" Padding="16,12"
-           MaxWidth="760" Margin="0,1,37,5">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock Text="⚠" FontSize="16" Foreground="{StaticResource Brush.Warning}"
-                      VerticalAlignment="Top" Margin="0,1,12,0" />
-          <TextBlock Style="{StaticResource Text.Body}" MaxWidth="560" Foreground="White">
-               <Run FontWeight="Bold" Foreground="{StaticResource Brush.Warning}">Alpha software.</Run>
-               <Run Foreground="{StaticResource Brush.Text.Tertiary}">
-                   iGloo modifies partition tables and boot configuration.
-                   Do not run this on your main machine that you cannot afford to lose.
-               </Run>
-          </TextBlock>
-        </StackPanel>
-      </Border>
-
+      <!-- The alpha warning is no longer a card here: a banner on a page the user
+           scrolls past is read once and then becomes furniture. It is shown as a modal
+           on startup instead (see WelcomePage.xaml.cs), which has to be acknowledged
+           before anything can touch a disk. -->
 
     </Grid>
   </ScrollViewer>

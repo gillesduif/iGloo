@@ -50,10 +50,28 @@ Alpha — but well past "does it even boot":
 
 | Distro | Pipeline | Validation |
 |---|---|---|
-| **Fedora KDE** | Anaconda / kickstart | ✅ End-to-end on **real hardware** — dual-boot beside Windows, NVIDIA RTX driver, file + Wi-Fi migration |
-| **Debian 13** | debian-installer / preseed (hd-media) | ✅ End-to-end in VM — dual-boot preserved, all agent steps verified |
-| **Linux Mint Cinnamon** | Ubiquity / preseed (casper) | ✅ End-to-end in VM — unattended install, dual-boot preserved, agent + file migration verified |
+| **Linux Mint Cinnamon** | Ubiquity / preseed (casper) | ✅ Installs end-to-end on **real hardware** — unattended, dual-boot preserved, agent + file migration verified. GPU driver selection was picking the wrong variant on RTX 50-series; fixed, pending re-test |
+| **Fedora KDE** | Anaconda / kickstart | ✅ Installs end-to-end on **real hardware** — dual-boot beside Windows, file + Wi-Fi migration. ⚠️ Open: NVIDIA driver on a multi-kernel install (see below) |
+| **Debian 13** | debian-installer + live-installer / preseed (offline Live image) | 🚧 Reworked to an **offline** install (copies the Live image's squashfs — no network needed until first boot) after the netinst path failed on a Wi-Fi-only machine. Boots and installs on real hardware; under active testing |
 | **Ubuntu** | subiquity / autoinstall (cloud-init) | 🚧 In development — most of the pipeline proven (6 GB ISO staging, casper/toram boot, autoinstall, partition preservation); parked on a final installer/disk-release quirk. Full engineering dossier in [`distros/ubuntu/STATUS.md`](distros/ubuntu/STATUS.md) |
+
+### Known constraint: Secure Boot + NVIDIA
+
+Secure Boot only loads kernel modules signed by a key the firmware trusts. NVIDIA's
+driver is built **on your machine** (DKMS/akmods), so the module it produces is
+unsigned and the kernel refuses it — the install succeeds, then the desktop comes up
+without acceleration, at the wrong resolution, with `nvidia … FAILED` during boot.
+The bootloader is unaffected (shim and GRUB are Microsoft-signed), which is what
+makes this so easy to misread as a driver bug.
+
+iGloo warns about this in the system check when it finds an NVIDIA GPU with Secure
+Boot on. Two ways through:
+
+- **Turn Secure Boot off** in firmware — simplest, and what the warning suggests
+- **Enrol a MOK** and sign the module — keeps Secure Boot on; more steps
+
+Mint is the exception: Ubuntu ships **pre-built Canonical-signed** NVIDIA modules, so
+with Secure Boot on iGloo installs those instead and no key enrolment is needed.
 
 ISO downloads are verified with SHA-256 **and** GPG signatures checked against
 signing keys pinned by full 160-bit fingerprint (bundled offline where the distro
@@ -234,7 +252,7 @@ iGloo/
 │   ├── _template/             # Starting point for new distro contributions
 │   ├── _debian-family/        # Shared first-boot agent for Debian/Mint/Ubuntu
 │   ├── fedora-kde/            # Anaconda / kickstart (reference implementation)
-│   ├── debian/                # debian-installer / preseed (hd-media images)
+│   ├── debian/                # debian-installer + live-installer / preseed (offline Live image)
 │   ├── linuxmint-cinnamon/    # Ubiquity / preseed (casper live ISO)
 │   └── ubuntu/                # subiquity / autoinstall (cloud-init NoCloud)
 ├── tests/                     # xUnit test suites

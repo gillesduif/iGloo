@@ -1,7 +1,7 @@
-# Ubuntu plugin — status: IN DEVELOPMENT (parked 2026-07-13)
+# Ubuntu plugin  status: IN DEVELOPMENT (parked 2026-07-13)
 
 Parked after an extended VM debugging campaign to prioritise M15 (closed beta
-with the three validated distros). **Most of the pipeline is proven working** —
+with the three validated distros). **Most of the pipeline is proven working** 
 this file records exactly what is proven, what the one open problem is, and
 where to resume. Do not rediscover any of this.
 
@@ -21,14 +21,14 @@ where to resume. Do not rediscover any of this.
 ## The one open problem
 
 curtin storage v2 **always** rewrites the partition table and runs
-`partprobe` (verified in curtin source — no skip path even for all-preserved
+`partprobe` (verified in curtin source  no skip path even for all-preserved
 configs). partprobe fails with EBUSY if ANY partition on the target disk is
 held. Holders keep reappearing after our release (udisks D-Bus reactivation,
 cloud-init later stages, ntfs-3g FUSE daemon, leaked ISO loop). The current
 template masks + kills + sweeps (watchdog, 3 s interval, logs every holder to
-`/var/log/igloo-watchdog.log`) — **this final combination has never had a
+`/var/log/igloo-watchdog.log`)  **this final combination has never had a
 complete run**: the last attempts died first to a `pkill -f` self-match bug
-(fixed) and then to a VM graphics freeze (vmwgfx, unrelated to iGloo — VMware
+(fixed) and then to a VM graphics freeze (vmwgfx, unrelated to iGloo  VMware
 host had "No 3D support available" at the time).
 
 ## Where to resume (in order)
@@ -37,7 +37,7 @@ host had "No 3D support available" at the time).
    published template contains every fix; the freeze was at vmwgfx init,
    *before* the installer ever started.
 2. If partprobe still fails: `/var/log/igloo-watchdog.log` now names every
-   holder — kill/mask that specific one. No more blind iterations needed.
+   holder  kill/mask that specific one. No more blind iterations needed.
 3. If partitioning passes, expect standard territory (format/extract/GRUB) and
    then first-boot: bootstrap via `igloo-bootstrap.service` (same two-phase
    pattern Mint validated).

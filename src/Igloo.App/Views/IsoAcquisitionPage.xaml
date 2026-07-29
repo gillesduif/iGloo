@@ -128,7 +128,7 @@
                 </TextBlock>
             </StackPanel>
 
-            <TextBlock Text="Every byte is verified against the distro's published checksum before use."
+      <TextBlock Text="The installation image is verified against the official SHA-256 checksum."
                        Style="{StaticResource Text.Caption}"
                        HorizontalAlignment="Center" Margin="0,18,0,0" Foreground="#FF9A9CA1" />
 
@@ -147,7 +147,7 @@
             </StackPanel>
         </Border>
 
-        <!--   COMPLETE: hero logo above the verification receipt — the logo
+        <!--   COMPLETE: hero logo above the verification receipt  the logo
              fills the vertical emptiness and answers "ready for WHAT?".    ─ -->
         <StackPanel Grid.Row="0"
                     Visibility="{Binding IsComplete, Converter={StaticResource BoolToVis}}"
