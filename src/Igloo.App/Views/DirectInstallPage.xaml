@@ -18,13 +18,6 @@
             <Setter Property="Margin" Value="12,1,0,0" />
             <Setter Property="FontSize" Value="12.5" />
         </Style>
-        <Style x:Key="TimelineRail" TargetType="Border">
-            <Setter Property="Width" Value="1.5" />
-            <Setter Property="Background" Value="#332C66C9" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,2,0,2" />
-            <Setter Property="MinHeight" Value="14" />
-        </Style>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -118,63 +111,67 @@
                     </StackPanel>
                 </Border>
 
-                <!-- The journey ahead: glowing timeline -->
+                <!-- The journey ahead: one card per step -->
                 <TextBlock Text="WHAT HAPPENS NEXT" Style="{StaticResource Text.Section}" Margin="2,0,0,4" />
-                <Border Style="{StaticResource Card}" Margin="0,0,0,18">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                <StackPanel Margin="0,0,0,18">
 
-                        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource TimelineNode}">
-                            <TextBlock Text="1" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource TimelineText}"
-                                   Text="Windows restarts into the Linux installer." />
-                        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource TimelineRail}" />
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
+                                <TextBlock Text="1" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                       Text="Windows restarts into the Linux installer." />
+                        </StackPanel>
+                    </Border>
 
-                        <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource TimelineNode}">
-                            <TextBlock Text="2" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource TimelineText}"
-                                   Text="Linux installs automatically into the allocated space alongside Windows (takes 10–20 minutes)." />
-                        <Border Grid.Row="3" Grid.Column="0" Style="{StaticResource TimelineRail}" />
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
+                                <TextBlock Text="2" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                       Text="Linux installs automatically into the allocated space alongside Windows (takes 10–20 minutes)." />
+                        </StackPanel>
+                    </Border>
 
-                        <Border Grid.Row="4" Grid.Column="0" Style="{StaticResource TimelineNode}">
-                            <TextBlock Text="3" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource TimelineText}"
-                                   Text="The system restarts into a boot menu for operating system selection." />
-                        <Border Grid.Row="5" Grid.Column="0" Style="{StaticResource TimelineRail}" />
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
+                                <TextBlock Text="3" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                       Text="The system restarts into a boot menu for operating system selection." />
+                        </StackPanel>
+                    </Border>
 
-                        <Border Grid.Row="6" Grid.Column="0" Style="{StaticResource TimelineNode}">
-                            <TextBlock Text="4" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Grid.Row="6" Grid.Column="1" Style="{StaticResource TimelineText}"
-                                   Text="The migration agent restores your folders, browser profiles and applications." />
-                        <Border Grid.Row="7" Grid.Column="0" Style="{StaticResource TimelineRail}" />
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
+                                <TextBlock Text="4" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                       Text="The migration agent restores your folders, browser profiles and applications." />
+                        </StackPanel>
+                    </Border>
 
-                        <Border Grid.Row="8" Grid.Column="0" Style="{StaticResource TimelineNode}"
-                                Effect="{StaticResource Effect.AccentGlow.Soft}">
-                            <TextBlock Text="5" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Grid.Row="8" Grid.Column="1" Style="{StaticResource TimelineText}"
-                                   Text="The temporary installation partition is automatically removed." />
-                    </Grid>
-                </Border>
+                    <Border Style="{StaticResource Card}"
+                            Effect="{StaticResource Effect.AccentGlow.Soft}">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
+                                <TextBlock Text="5" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                       Text="The temporary installation partition is automatically removed." />
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
 
                 <!-- No action button here: rebooting is the wizard's last navigation
                      step, so it lives on the shared forward button in the nav bar. -->

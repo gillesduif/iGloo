@@ -81,6 +81,7 @@ public static class ManifestGeneratorService
                 RotationDegrees = d.RotationDegrees,
                 PositionX = d.PositionX,
                 PositionY = d.PositionY,
+                ScalePercent = d.ScalePercent,
                 IsPrimary = d.IsPrimary,
             })],
         };

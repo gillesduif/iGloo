@@ -60,6 +60,15 @@ public sealed record DisplayLayout
 
     [JsonPropertyName("positionX")] public int PositionX { get; init; }
     [JsonPropertyName("positionY")] public int PositionY { get; init; }
+
+    /// <summary>
+    /// Windows display scaling in percent (100 = none, 150 = 150%). 0/omitted = unknown,
+    /// treat as 100. The first-boot agent needs it twice: to convert Windows' PHYSICAL
+    /// pixel positions into KWin's LOGICAL ones, and to set the output's scale factor so
+    /// the desktop actually looks the way it did on Windows.
+    /// </summary>
+    [JsonPropertyName("scalePercent")] public int ScalePercent { get; init; }
+
     [JsonPropertyName("isPrimary")] public bool IsPrimary { get; init; }
 }
 

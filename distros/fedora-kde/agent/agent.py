@@ -238,6 +238,99 @@ def gpu_requires_open_kernel_module() -> bool:
     return False
 
 
+def _secure_boot_enabled() -> bool:
+    """True when UEFI Secure Boot is enforcing kernel-module signatures.
+
+    With Secure Boot on, the unsigned akmod-built nvidia module is rejected at
+    load time. That state changes what is safe to put on the kernel cmdline:
+    blacklisting the in-tree drivers would leave the machine with NO display
+    driver at all, so the caller must keep the nouveau/nova_core fallback.
+    """
+    res = run_cmd(["mokutil", "--sb-state"], check=False, timeout=30)
+    out = ((res.stdout or "") + "\n" + (res.stderr or "")).lower()
+    return "secureboot enabled" in out or "secure boot enabled" in out
+
+
+def ensure_nvidia_kernel_cmdline(module_ok_for_all: bool, kvers: list[str]) -> None:
+    """Blacklist nouveau/nova_core on the kernel cmdline - only once the nvidia
+    module is confirmed built for every installed kernel.
+
+    Why the cmdline entry is REQUIRED (kernel panic on RTX 5070 bare metal,
+    July 2026): RPM Fusion's /etc/modprobe.d/ blacklist does NOT reach the
+    initramfs. Dracut builds the initramfs host-only, so the display driver
+    that was loaded at build time (nouveau, or nova_core on Blackwell-capable
+    kernels) is baked in and loads at every boot regardless of modprobe.d.
+    Once the nvidia module is installed, both drivers probe the same GPU:
+    nouveau/nova_core binds first from the initramfs, then nvidia finds the
+    device already owned and initialised - on Blackwell that state conflict
+    escalates to a kernel oops/panic instead of a clean fallback. The only
+    blacklist honoured at the initramfs stage is the kernel command line
+    (rd.driver.blacklist / modprobe.blacklist).
+
+    Why it must NOT be added at install time (the June 2026 regression): the
+    first boot happens BEFORE the driver exists. A cmdline blacklist written
+    by the kickstart leaves that boot with no display driver at all whenever
+    the driver is not ready (no internet yet, akmod build failure, Secure Boot
+    rejecting the unsigned module) - a black screen. Adding the args HERE,
+    after the module is verified on disk for every installed kernel, keeps
+    both properties: first boot has a working display, and every subsequent
+    boot hands the GPU to nvidia alone.
+
+    The same guard covers Secure Boot: if the firmware will reject the
+    unsigned module, keep the fallback drivers loadable and log the
+    remediation instead of bricking the display.
+    """
+    if not module_ok_for_all:
+        logger.error(
+            "nvidia module not present for every installed kernel (%s) - "
+            "leaving nouveau/nova_core loadable so the next boot still has a "
+            "display driver. Re-run the agent after fixing the akmod build.",
+            ", ".join(kvers) or "unknown",
+        )
+        return
+
+    if _secure_boot_enabled():
+        logger.error(
+            "Secure Boot is ENABLED: the unsigned nvidia module will be rejected. "
+            "NOT blacklisting nouveau/nova_core on the cmdline (the machine would "
+            "lose its only working display driver). Fix: disable Secure Boot in "
+            "firmware, or enrol the akmods MOK ('mokutil --import "
+            "/etc/pki/akmods/certs/public_key.der') and re-run the agent."
+        )
+        return
+
+    # Same argument set RPM Fusion's own xorg-x11-drv-nvidia scriptlet uses,
+    # plus nova_core: Fedora kernels ship the in-tree Rust driver for
+    # Blackwell, which binds the GPU exactly like nouveau does. The nomodeset
+    # removal mirrors the scriptlet (a stray nomodeset would kill KMS for
+    # every driver, nvidia included).
+    args = ("rd.driver.blacklist=nouveau,nova_core "
+            "modprobe.blacklist=nouveau,nova_core nvidia-drm.modeset=1")
+    # NEVER replace --update-kernel=ALL with a per-kernel form
+    # (--update-kernel=/boot/vmlinuz-<kver>). ALL is the mechanism RPM Fusion's
+    # own scriptlet uses and the only one hardware-proven to write the
+    # parameters on this path (RTX 5070 bare metal, July 2026). The per-kernel
+    # path form was tried once: grubby exited nonzero for every entry, NO
+    # kernel got the blacklist, and the machine kernel-panicked on the
+    # nouveau/nova_core vs nvidia fight at the next boot - deterministically,
+    # on every run, until this line was restored. If per-kernel granularity is
+    # ever genuinely needed, validate the exact grubby invocation on the
+    # installed system FIRST and keep ALL as the fallback.
+    res = run_cmd(
+        ["grubby", "--update-kernel=ALL", "--remove-args=nomodeset",
+         f"--args={args}"],
+        check=False, timeout=120,
+    )
+    if res.returncode == 0:
+        logger.info("Kernel cmdline updated for ALL kernels: %s", args)
+    else:
+        logger.error(
+            "grubby failed (exit %d) - the next boot may load nouveau/nova_core "
+            "alongside nvidia again. Run manually: sudo grubby --update-kernel=ALL "
+            "--args=\"%s\"", res.returncode, args,
+        )
+
+
 def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     """Install NVIDIA drivers if the GPU is NVIDIA."""
     gpu = manifest.get("hardware", {}).get("gpuVendor", "").lower()
@@ -295,13 +388,23 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
 
     # Verify the module actually exists for each kernel; a silent build failure
     # here is precisely what produces a black desktop on the next boot.
+    module_ok_for_all = bool(kvers)
     for kver in kvers:
         if Path(f"/lib/modules/{kver}/extra/nvidia").is_dir() or \
            list(Path(f"/lib/modules/{kver}").glob("extra/nvidia*")):
             logger.info("nvidia module present for kernel %s", kver)
         else:
+            module_ok_for_all = False
             logger.error("nvidia module MISSING for kernel %s - that kernel will boot without "
                          "the GPU driver", kver)
+
+    # Now that the module is confirmed on disk, take nouveau/nova_core off the
+    # kernel cmdline path: their /etc/modprobe.d blacklist does not apply inside
+    # the initramfs, so without rd.driver.blacklist they keep loading at every
+    # boot and fight nvidia for the GPU (the RTX 5070 bare-metal kernel panic).
+    # Skipped automatically when the module is incomplete or Secure Boot would
+    # reject it - in those states the in-tree driver must stay loadable.
+    ensure_nvidia_kernel_cmdline(module_ok_for_all, kvers)
 
     # Installing the NVIDIA driver blacklists nouveau and builds a new kernel
     # module that only loads on the next boot.  Starting the Plasma session now
@@ -1117,6 +1220,7 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
 
     by_pnp = {o["pnp_id"]: o for o in outputs}
     logical: list[str] = []
+    kde_layout: list[dict[str, Any]] = []
     matched = 0
 
     for want in wanted:
@@ -1129,16 +1233,30 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
         width, height = int(want.get("widthPx", 0)), int(want.get("heightPx", 0))
         if width <= 0 or height <= 0:
             continue
-        if not _mode_is_supported(out["connector"], width, height):
+
+        # Windows reports the ROTATED pixel dimensions (dmPelsWidth/Height in the
+        # current orientation): a portrait monitor arrives as 2160x3840. Panels
+        # only advertise landscape modes - portrait is a rotation transform, not
+        # a mode - so the mode to check and to set is the unrotated one. The old
+        # code checked 2160x3840 against the mode list, found nothing, and left
+        # portrait monitors untouched (bare-metal RTX 5070, July 2026).
+        rotation_deg = int(want.get("rotationDegrees") or 0)
+        mode_w, mode_h = (height, width) if rotation_deg in (90, 270) else (width, height)
+        if not _mode_is_supported(out["connector"], mode_w, mode_h):
             logger.warning("  %s does not advertise %dx%d - leaving this output alone",
-                           out["connector"], width, height)
+                           out["connector"], mode_w, mode_h)
             continue
 
         # Windows reports whole Hz; panels advertise fractional rates (143.998).
         # Mutter tolerates a near match, so the integer value is written as-is.
         rate = int(want.get("refreshHz") or 60) or 60
-        rotation = {0: "normal", 90: "right", 180: "inverted", 270: "left"}.get(
-            int(want.get("rotationDegrees") or 0), "normal")
+
+        # Direction mapping validated on hardware (RTX 5070 dual-Odyssey G70D):
+        # Windows dmDisplayOrientation=270 corresponds to the KDE/xrandr "right"
+        # the user set by hand and confirmed correct - NOT "left" as the earlier
+        # guess had it. 90 is the mirror image.
+        rotation = {0: "normal", 90: "left", 180: "inverted", 270: "right"}.get(
+            rotation_deg, "normal")
 
         logical.append(
             "    <logicalmonitor>\n"
@@ -1154,13 +1272,37 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             f"          <product>{out['product']}</product>\n"
             f"          <serial>{out['serial']}</serial>\n"
             "        </monitorspec>\n"
-            f"        <mode><width>{width}</width><height>{height}</height>"
+            f"        <mode><width>{mode_w}</width><height>{mode_h}</height>"
             f"<rate>{rate}</rate></mode>\n"
             "      </monitor>\n"
             "    </logicalmonitor>\n")
         matched += 1
-        logger.info("  %s -> %dx%d@%dHz %s at (%s,%s)", out["connector"], width, height,
-                    rate, rotation, want.get("positionX"), want.get("positionY"))
+
+        # KDE Plasma ignores monitors.xml entirely (kwin reads its own store),
+        # and connector names are NOT stable across kernels/drivers (the same
+        # port was DP-4 under 6.19.10/nouveau and DP-1 under 7.1.5/nvidia).
+        # So for KDE we record the layout keyed by EDID PnP id; display-apply.py
+        # re-resolves the connector at login time and calls kscreen-doctor.
+        kde_layout.append({
+            "pnpId": pnp,
+            "width": mode_w,
+            "height": mode_h,
+            "rate": rate,
+            "rotation": {0: "none", 90: "left", 180: "inverted", 270: "right"}.get(
+                rotation_deg, "none"),
+            # Windows display scaling as a factor (1.5 = 150%). display-apply.py
+            # needs it twice: to convert Windows' PHYSICAL pixel positions into
+            # KWin's LOGICAL ones (positions below are still physical here), and
+            # to set the output scale so the desktop looks like it did on Windows.
+            # 0/unknown in the manifest becomes 1.0 - no scaling.
+            "scale": (int(want.get("scalePercent") or 100) or 100) / 100.0,
+            "x": int(want.get("positionX") or 0),
+            "y": int(want.get("positionY") or 0),
+            "primary": bool(want.get("isPrimary")),
+        })
+        logger.info("  %s -> %dx%d@%dHz %s at (%s,%s) scale=%s%%", out["connector"],
+                    mode_w, mode_h, rate, rotation, want.get("positionX"),
+                    want.get("positionY"), int(want.get("scalePercent") or 100) or 100)
 
     if matched == 0:
         logger.info("No Windows monitors matched the attached outputs - nothing written")
@@ -1195,6 +1337,50 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
                 logger.info("Applied the same layout to the %s greeter", owner)
             except OSError:
                 logger.info("Could not write the greeter layout in %s (non-fatal)", gdm_dir)
+
+    # ── KDE Plasma path ──────────────────────────────────────────────────────
+    # KWin ignores monitors.xml - on Fedora KDE everything above is inert. The
+    # layout cannot be applied from this root context anyway: kscreen-doctor
+    # needs a running Plasma session. So we persist the wanted layout and
+    # register an autostart hook; display-apply.py runs at the user's first
+    # login, re-resolves PnP ids to whatever the connectors are called THEN
+    # (they change across kernels/drivers), and applies everything in one
+    # atomic kscreen-doctor call.
+    try:
+        layout_path = Path("/opt/igloo/display-layout.json")
+        layout_path.write_text(json.dumps(kde_layout, indent=2), encoding="utf-8")
+        layout_path.chmod(0o644)
+
+        apply_sh = Path("/opt/igloo/display-apply.sh")
+        apply_sh.write_text(
+            "#!/usr/bin/env bash\n"
+            "# iGloo display layout for KDE Plasma - runs once per user at login.\n"
+            "# Retries on later logins until kscreen-doctor reports success.\n"
+            'DONE_MARKER="$HOME/.config/.igloo-display-done"\n'
+            '[ -f "$DONE_MARKER" ] && exit 0\n'
+            "python3 /opt/igloo/display-apply.py --layout /opt/igloo/display-layout.json \\\n"
+            '  && touch "$DONE_MARKER"\n',
+            encoding="utf-8",
+        )
+        apply_sh.chmod(0o755)
+
+        autostart = Path("/etc/xdg/autostart/igloo-display-layout.desktop")
+        autostart.write_text(
+            "[Desktop Entry]\n"
+            "Name=iGloo Display Layout\n"
+            "Comment=Apply the migrated Windows monitor layout (resolution, rotation, position)\n"
+            "Exec=/opt/igloo/display-apply.sh\n"
+            "Icon=preferences-desktop-display\n"
+            "Terminal=false\n"
+            "Type=Application\n"
+            "X-GNOME-Autostart-enabled=true\n"
+            # monitors.xml covers Mutter/Muffin desktops; this hook is KDE-only.
+            "OnlyShowIn=KDE;\n",
+            encoding="utf-8",
+        )
+        logger.info("KDE display layout staged: %s + autostart %s", layout_path, autostart)
+    except OSError:
+        logger.exception("Could not stage the KDE display layout (non-fatal)")
 
 
 def install_welcome_app(manifest: dict[str, Any]) -> None:
@@ -1380,17 +1566,22 @@ def main() -> int:
     # Steps - each is best-effort; a failure is logged and the rest continue.
     # Order matters: RPM Fusion must be enabled before codecs/GPU drivers;
     # Flathub must be registered before suggested-pkgs; redact runs last.
-    # kernel-modules runs BEFORE gpu-drivers: it can install a second, newer
-    # kernel's packages, and the nvidia module has to be built against every
-    # kernel that exists - otherwise the reboot lands on a newer kernel with no
-    # GPU driver (black desktop). Completing the kernels first keeps that honest.
+    # kernel-modules runs AFTER every step whose dnf transaction can pull in a
+    # new kernel (gpu-drivers installs akmod-nvidia, which depends on
+    # kernel-devel-matched -> the LATEST kernel; suggested-pkgs runs dnf too).
+    # It previously ran BEFORE gpu-drivers and certified the kernel set one
+    # minute before akmod-nvidia dragged kernel-core 7.1.5 in: the agent then
+    # rebooted onto that kernel with kernel-modules-core but no kernel-modules
+    # (no Wi-Fi driver - bare-metal RTX 5070 test, July 2026). The check itself
+    # only installs exact-version kernel-modules packages and never pulls a new
+    # kernel, so running it late is safe; running it early is blind.
     steps: list[tuple[str, Any]] = [
         ("rpmfusion",       lambda: enable_rpmfusion(manifest)),
         ("codecs",          lambda: install_codecs(manifest)),
-        ("kernel-modules",  lambda: ensure_kernel_modules(manifest)),
         ("gpu-drivers",     lambda: install_gpu_drivers(manifest)),
         ("flathub",         lambda: setup_flathub(manifest)),
         ("suggested-pkgs",  lambda: install_suggested_packages(manifest)),
+        ("kernel-modules",  lambda: ensure_kernel_modules(manifest)),
         ("wifi",            lambda: migrate_wifi(manifest)),
         ("display-layout",  lambda: migrate_display_layout(manifest)),
         ("welcome-app",     lambda: install_welcome_app(manifest)),

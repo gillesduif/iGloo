@@ -110,8 +110,9 @@ autoinstall:
       done
       cp /run/igloo-seed/igloo-agent/agent.py      /opt/igloo/agent.py
       cp /run/igloo-seed/igloo-agent/first-boot.sh /opt/igloo/first-boot.sh
+      cp /run/igloo-seed/igloo-agent/display-apply.py /opt/igloo/display-apply.py 2>/dev/null || true
       cp /run/igloo-seed/migration-manifest.json   /var/lib/igloo/manifest.json
-      chmod 0755 /opt/igloo/agent.py /opt/igloo/first-boot.sh
+      chmod 0755 /opt/igloo/agent.py /opt/igloo/first-boot.sh /opt/igloo/display-apply.py 2>/dev/null || true
       umount /run/igloo-seed 2>/dev/null || true
       exec /opt/igloo/first-boot.sh
       EOSH

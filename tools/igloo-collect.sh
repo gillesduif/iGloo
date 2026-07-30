@@ -135,8 +135,20 @@ run  display-agent-log.txt   bash -c 'grep -iE "display|monitor|output|pnp" /var
 # files whatever they contain, so a -s test silently skips every monitor on the machine.
 run  display-connectors.txt  bash -c 'for c in /sys/class/drm/card*-*; do [ -r "$c/status" ] || continue; s=$(cat "$c/status" 2>/dev/null); echo "== $(basename "$c")  status=$s"; [ "$s" = connected ] || continue; (edid-decode "$c/edid" 2>/dev/null | grep -iE "manufacturer|model year|serial|Display Product Name") || xxd -p -l 32 "$c/edid" 2>/dev/null; done 2>&1 | head -80'
 run  display-modes.txt       bash -c 'for m in /sys/class/drm/card*-*/modes; do [ -s "$m" ] || continue; echo "== $(basename "$(dirname "$m")")"; head -8 "$m"; done 2>&1'
-run  display-monitors-xml.txt bash -c 'cat "$HOME/.config/monitors.xml" 2>/dev/null || echo "(no monitors.xml - the agent did not write one)"'
+run  display-monitors-xml.txt bash -c 'for h in /home/*/; do echo "== $h"; cat "$h.config/monitors.xml" 2>/dev/null || echo "(no monitors.xml for this user)"; done'
 run  display-manifest.txt    bash -c 'python3 -c "import json;d=json.load(open(\"/var/lib/igloo/manifest.json\"));print(json.dumps(d.get(\"displays\",\"NO displays KEY\"),indent=2))" 2>/dev/null || echo "(manifest unreadable)"'
+
+#   3c. Login-time display hook (the Cinnamon/X11 applier chain)
+# The first-boot agent only stages this hook; it fires inside the user session,
+# so its evidence lives in the user's home and /opt/igloo - NOT in the agent
+# log. A missing display-apply.py here once cost a full debug round.
+echo "[3c/6] Display login hook"
+run  opt-igloo.txt           bash -c 'ls -la /opt/igloo/ 2>/dev/null || echo "(no /opt/igloo)"'
+grab /opt/igloo/display-layout.json display-layout-staged.json
+grab /etc/xdg/autostart/igloo-display-layout.desktop autostart-display-layout.desktop
+run  display-hook-user.txt   bash -c 'for h in /home/*/; do echo "== $h"; cat "$h.local/state/igloo-display.log" 2>/dev/null || echo "(no igloo-display.log - the hook never ran)"; [ -f "$h.config/.igloo-display-done" ] && echo "done-marker: PRESENT" || echo "done-marker: absent"; done'
+run  session-desktop.txt     bash -c 'echo "XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-unset} XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-unset}"; loginctl list-sessions --no-legend 2>/dev/null'
+run  xrandr-verbose.txt      bash -c 'xrandr --verbose 2>/dev/null | head -150'
 
 #   4. Desktop session (the black-screen question)
 echo "[4/6] Desktop session"

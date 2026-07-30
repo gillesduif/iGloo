@@ -53,6 +53,15 @@
 
 graphical
 
+# Do NOT run the post-install setup wizard (initial-setup / the GTK first-boot
+# wizard) on first boot. Without this line the kickstart default is --enable,
+# and Anaconda's "Configure Initial Setup" task leaves initial-setup.service
+# active: the user then gets a wizard asking for language, keyboard layout and
+# timezone - all pre-filled, because every one of them is already configured
+# right here - plus extra Next clicks before the login screen. Pure friction
+# on a migration that promises "boot straight to the desktop".
+firstboot --disable
+
 lang {{LOCALE}}
 # Only the XKB layout is given; Anaconda derives a matching virtual-console
 # keymap from it. Do NOT add --vckeymap={{KEYMAP}}: vconsole names differ from
@@ -137,24 +146,26 @@ if [ -z "$TARGET_DISK" ]; then
 else
     log "Target disk: /dev/$TARGET_DISK  (mode: $INSTALL_MODE)"
 
-    # NVIDIA GPUs: do NOT blacklist nouveau on the installed kernel cmdline.
+    # NVIDIA GPUs: do NOT blacklist nouveau on the installed kernel cmdline
+    # AT INSTALL TIME.
     #
-    # This was tried and produced the exact failure it was meant to prevent.
-    # nouveau drives recent cards fine at native resolution (the installer
-    # itself renders at full 4K on an RTX 5070 through nouveau), so the first
-    # boot of the installed system works with it too. Blacklisting nouveau at
-    # the cmdline leaves the machine with no display driver at all whenever
-    # the proprietary driver is not ready yet: no internet at first boot, an
-    # akmod build failure, or Secure Boot rejecting the unsigned module. The
-    # kernel then falls back to the plain EFI framebuffer, which cannot handle
-    # a 4K Blackwell panel: black screen.
+    # The first boot of the installed system happens BEFORE the NVIDIA driver
+    # exists (the first-boot agent installs and builds it). A cmdline blacklist
+    # written here would leave that boot with no display driver at all whenever
+    # the driver is not ready yet: no internet at first boot, an akmod build
+    # failure, or Secure Boot rejecting the unsigned module. The kernel then
+    # falls back to the plain EFI framebuffer: black screen on a 4K panel.
     #
-    # The success case needs no cmdline entry either: RPM Fusion's nvidia
-    # packages ship their own /etc/modprobe.d/ nouveau blacklist, so once the
-    # first-boot agent installs the driver, nouveau is blocked automatically
-    # from the next boot. Removing the cmdline blacklist turns a driver
-    # failure from "black screen" into "working desktop on nouveau with a
-    # logged driver error", which is the only acceptable fallback.
+    # The blacklist IS still required later - RPM Fusion's /etc/modprobe.d/
+    # nouveau blacklist does NOT apply inside the initramfs (dracut builds it
+    # host-only, baking in whichever display driver was loaded at build time),
+    # so without rd.driver.blacklist= on the cmdline, nouveau/nova_core keeps
+    # loading at every boot and fights nvidia for the GPU - the exact setup
+    # that kernel-panicked on RTX 5070 bare metal. The resolution lives in the
+    # first-boot agent (agent.py, ensure_nvidia_kernel_cmdline): it adds
+    # rd.driver.blacklist / modprobe.blacklist / nvidia-drm.modeset=1 via
+    # grubby ONLY after the nvidia module is verified built for every
+    # installed kernel - never from this kickstart.
     {
         # bootloader: omit --location on UEFI systems (Anaconda writes to ESP
         # automatically). --location=mbr on a GPT/UEFI disk triggers a warning

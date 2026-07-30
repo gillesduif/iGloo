@@ -34,6 +34,10 @@ internal static class DisplayLayoutReader
         var displays = new List<DisplayInfo>();
         try
         {
+            // Scale lives on the HMONITOR, not in EnumDisplayDevices - read it up
+            // front, keyed by the same GDI device name the adapter loop below uses.
+            var scaleByDevice = ReadScaleFactors(logger);
+
             var adaptersSeen = 0;
             for (uint adapterIndex = 0; ; adapterIndex++)
             {
@@ -70,6 +74,7 @@ internal static class DisplayLayoutReader
                     RotationDegrees = (int)mode.dmDisplayOrientation * 90,
                     PositionX = mode.dmPositionX,
                     PositionY = mode.dmPositionY,
+                    ScalePercent = scaleByDevice.TryGetValue(deviceName, out var scale) ? scale : 0,
                     IsPrimary = (adapter.StateFlags & PrimaryDevice) != 0,
                 });
             }
@@ -84,9 +89,11 @@ internal static class DisplayLayoutReader
 
             foreach (var d in displays)
                 logger.LogInformation(
-                    "Display {Pnp}: {W}x{H}@{Hz}Hz rot={Rot} at ({X},{Y}){Primary}",
+                    "Display {Pnp}: {W}x{H}@{Hz}Hz rot={Rot} at ({X},{Y}) scale={Scale}%{Primary}",
                     d.PnpId ?? "unknown", d.WidthPx, d.HeightPx, d.RefreshHz,
-                    d.RotationDegrees, d.PositionX, d.PositionY, d.IsPrimary ? " PRIMARY" : "");
+                    d.RotationDegrees, d.PositionX, d.PositionY,
+                    d.ScalePercent > 0 ? d.ScalePercent : 100,
+                    d.IsPrimary ? " PRIMARY" : "");
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
         {
@@ -109,6 +116,38 @@ internal static class DisplayLayoutReader
         // DeviceID looks like: MONITOR\GSM5B09\{4d36e96e-...}\0001
         var parts = (monitor.DeviceID ?? string.Empty).Split('\\');
         return parts.Length >= 2 && parts[1].Length > 0 ? parts[1] : null;
+    }
+
+    /// <summary>
+    /// Maps each GDI device name (<c>\\.\DISPLAYn</c>) to its Windows display scaling
+    /// in percent. EnumDisplayDevices has no scale information; scale lives on the
+    /// HMONITOR, reached via EnumDisplayMonitors + GetMonitorInfoEx - whose szDevice
+    /// is the same device name the adapter loop uses, so the two join up.
+    /// GetScaleFactorForMonitor returns the SCALE_FACTOR enum, whose values ARE the
+    /// percent (100/125/150/...). Missing entries mean "unknown" - callers treat
+    /// them as 100.
+    /// </summary>
+    private static Dictionary<string, int> ReadScaleFactors(ILogger logger)
+    {
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (hMonitor, _, _, _) =>
+            {
+                var info = new MonitorInfoEx { cbSize = Marshal.SizeOf<MonitorInfoEx>() };
+                if (!GetMonitorInfoW(hMonitor, ref info) || string.IsNullOrEmpty(info.szDevice))
+                    return true; // keep enumerating
+                // HRESULT 0 = S_OK. The enum value is the scale in percent.
+                if (GetScaleFactorForMonitor(hMonitor, out var scale) == 0 && scale > 0)
+                    map[info.szDevice] = scale;
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException or Win32Exception)
+        {
+            logger.LogWarning(ex, "Could not read per-monitor scale factors - assuming 100%");
+        }
+        return map;
     }
 
     //   Struct sizes
@@ -140,6 +179,47 @@ internal static class DisplayLayoutReader
         CharSet = CharSet.Unicode)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool EnumDisplaySettingsW(string deviceName, int modeNum, ref DevMode devMode);
+
+    // Per-monitor scale enumeration. The callback is a plain delegate - classic
+    // runtime marshalling handles it, and the call is synchronous so nothing has to
+    // be kept alive beyond it.
+    private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, IntPtr lprcMonitor, IntPtr dwData);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumDisplayMonitors(
+        IntPtr hdc, IntPtr lprcClip, MonitorEnumProc lpfnEnum, IntPtr dwData);
+
+    [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfoW(IntPtr hMonitor, ref MonitorInfoEx lpmi);
+
+    // SHCore. Returns an HRESULT; the out value is a SCALE_FACTOR enum whose numeric
+    // values are the scale in percent (100, 125, 150, ...).
+    [DllImport("SHCore.dll")]
+    private static extern int GetScaleFactorForMonitor(IntPtr hMon, out int deviceScaleFactor);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    // MONITORINFOEXW. Only szDevice is consumed (it is the same "\\.\DISPLAYn" name
+    // EnumDisplayDevices reports), but the full struct must be marshalled correctly
+    // for cbSize validation to pass.
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct MonitorInfoEx
+    {
+        public int cbSize;
+        public Rect rcMonitor;
+        public Rect rcWork;
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szDevice;
+    }
 
     // ByValTStr, NOT [InlineArray].
     //

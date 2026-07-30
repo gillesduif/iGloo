@@ -54,7 +54,7 @@
                 <Border Background="{StaticResource Brush.Layer.Card}"
                         BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="1"
                         CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="ALPHA" FontSize="9" FontWeight="SemiBold"
+                    <TextBlock Text="ALPHA 0.1 RC" FontSize="9" FontWeight="SemiBold"
                                Foreground="{StaticResource Brush.Text.Tertiary}" />
                 </Border>
             </StackPanel>

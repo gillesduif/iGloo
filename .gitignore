@@ -92,3 +92,13 @@ Thumbs.db
 
 # Local git bundle backups (never publish)
 *.bundle
+
+# Bare-metal test log bundles (may contain user data; regenerated per test)
+test-logs/
+
+# Inno Setup: keep the script, not the toolchain download or built installers
+installer/_dl/
+installer/output/
+
+# Temporary backups of reverted experiments
+_reverted-backup-*/

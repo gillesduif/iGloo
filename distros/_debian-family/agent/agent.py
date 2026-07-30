@@ -36,7 +36,9 @@ from typing import Any
 
 logger = logging.getLogger("igloo.agent")
 
-APT_ENV = {"DEBIAN_FRONTEND": "noninteractive"}
+# LC_ALL=C keeps apt/network error output in English so failure detection
+# ("Failed to fetch", "Could not resolve") is locale-independent.
+APT_ENV = {"DEBIAN_FRONTEND": "noninteractive", "LC_ALL": "C"}
 
 
 # ---------------------------------------------------------------------------
@@ -88,14 +90,74 @@ def apt(args: list[str], *, timeout: int = 600, check: bool = True) -> subproces
     return run_cmd(["apt-get", "-y", *args], timeout=timeout, check=check, env=APT_ENV)
 
 
+# Substrings (LC_ALL=C output) that mean the package index is stale or the
+# network/DNS is broken — both are worth one refresh-and-retry before giving up.
+_APT_TRANSIENT_MARKERS = ("404", "Failed to fetch", "Could not resolve", "Temporary failure")
+
+
+def apt_update_once(*, timeout: int = 300) -> bool:
+    """One honest apt-get update. True only when every index refreshed cleanly.
+
+    apt-get update exits 0 even when some or ALL repositories fail to download
+    (it only prints W: lines), so the return code alone proves nothing.
+    """
+    res = apt(["update"], timeout=timeout, check=False)
+    out = ((res.stdout or "") + (res.stderr or ""))
+    ok = res.returncode == 0 and not any(m in out for m in ("Failed to fetch", "Could not resolve"))
+    if not ok:
+        logger.warning("apt-get update incomplete (rc=%d): %s",
+                       res.returncode, _last_lines(out))
+    return ok
+
+
+def _last_lines(text: str, count: int = 3) -> str:
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    return " | ".join(lines[-count:]) if lines else "(no output)"
+
+
+def apt_install(args: list[str], *, timeout: int = 900, check: bool = True) -> subprocess.CompletedProcess:
+    """apt-get install with one self-healing retry.
+
+    Bare-metal finding (Mint, 2026-07-30): apt fell back to stale indices from
+    the install image, every package URL 404'd, and check=False let the agent
+    report success while nothing was installed. If the failure looks like a
+    stale index or a network hiccup, refresh once and retry before failing.
+    """
+    res = apt(["install", *args], timeout=timeout, check=False)
+    if res.returncode == 0:
+        return res
+    out = (res.stdout or "") + (res.stderr or "")
+    if any(m in out for m in _APT_TRANSIENT_MARKERS):
+        logger.warning("apt install hit a transient/stale-index error (%s) - refreshing indices and retrying once",
+                       _last_lines(out))
+        apt_update_once()
+        res = apt(["install", *args], timeout=timeout, check=False)
+    if check and res.returncode != 0:
+        raise RuntimeError(f"apt-get install {' '.join(args)} failed (rc={res.returncode}): "
+                           f"{_last_lines((res.stdout or '') + (res.stderr or ''))}")
+    return res
+
+
 # ---------------------------------------------------------------------------
 # Migration steps
 # ---------------------------------------------------------------------------
 
 def apt_update(manifest: dict[str, Any]) -> None:
-    """Refresh the package lists before any install step."""
-    apt(["update"], timeout=300, check=False)
-    logger.info("apt package lists refreshed")
+    """Refresh the package lists before any install step, retrying on failure.
+
+    On first boot DNS can still be settling (observed: every repo failed with
+    "Could not resolve" right after nm-online succeeded), so retry a few times.
+    Never log "refreshed" unless the refresh actually succeeded.
+    """
+    for attempt in range(1, 7):
+        if apt_update_once():
+            logger.info("apt package lists refreshed")
+            return
+        if attempt < 6:
+            logger.info("apt update attempt %d/6 failed - retrying in 10s", attempt)
+            time.sleep(10)
+    logger.error("apt package lists could NOT be refreshed - indices may be stale; "
+                 "install steps will self-heal where possible but may fail")
 
 
 def secure_boot_enabled(manifest: dict[str, Any]) -> bool:
@@ -132,8 +194,10 @@ def secure_boot_enabled(manifest: dict[str, Any]) -> bool:
     return True
 
 
-def install_nvidia_driver_ubuntu(manifest: dict[str, Any]) -> None:
+def install_nvidia_driver_ubuntu(manifest: dict[str, Any]) -> bool:
     """Install the NVIDIA driver on Ubuntu/Mint, honouring Secure Boot.
+
+    Returns True when a kernel module actually exists afterwards.
 
     The right package depends on whether Secure Boot is on, because the two goals
     conflict:
@@ -155,7 +219,7 @@ def install_nvidia_driver_ubuntu(manifest: dict[str, Any]) -> None:
     highest version is taken deliberately: Ubuntu's 570-open packaging is known
     broken, while 580-open is the branch that works on RTX 50 series.
     """
-    apt(["install", "ubuntu-drivers-common"], timeout=300, check=False)
+    apt_install(["ubuntu-drivers-common"], timeout=300, check=False)
 
     listing = (run_cmd(["ubuntu-drivers", "devices"], check=False, timeout=300).stdout or "")
     for line in listing.splitlines():
@@ -166,34 +230,37 @@ def install_nvidia_driver_ubuntu(manifest: dict[str, Any]) -> None:
         logger.info("Secure Boot is ENABLED - installing Canonical's pre-built signed driver "
                     "via ubuntu-drivers (a locally built DKMS module would not load)")
         run_cmd(["ubuntu-drivers", "install"], timeout=1800, check=False, env=APT_ENV)
-        _log_nvidia_module_state(manifest)
-        return
+        return _log_nvidia_module_state(manifest)
 
     open_versions = sorted({int(m) for m in re.findall(r"nvidia-driver-(\d+)-open\b", listing)})
     if open_versions:
         pkg = f"nvidia-driver-{open_versions[-1]}-open"
         logger.info("Secure Boot is disabled - installing %s (open kernel module; "
                     "required by RTX 50 series)", pkg)
-        if apt(["install", pkg], timeout=1800, check=False).returncode == 0:
-            _log_nvidia_module_state(manifest)
-            return
+        if apt_install([pkg], timeout=1800, check=False).returncode == 0:
+            return _log_nvidia_module_state(manifest)
         logger.warning("%s failed to install - falling back to ubuntu-drivers autoinstall", pkg)
     else:
         logger.info("No open-module driver offered for this GPU - using ubuntu-drivers autoinstall")
 
     run_cmd(["ubuntu-drivers", "autoinstall"], timeout=1800, check=False, env=APT_ENV)
-    _log_nvidia_module_state(manifest)
+    return _log_nvidia_module_state(manifest)
 
 
-def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> None:
+def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> bool:
     """Record whether a kernel module actually landed AND whether it can load.
 
-    A package-manager exit code of 0 only means packages unpacked; it says nothing
-    about a DKMS module having built, nor about the kernel being willing to load it.
-    Secure Boot rejects locally built (unsigned) modules at load time, which shows up
-    as a red "nvidia ... FAILED" during boot and a desktop stuck on software
-    rendering - with nothing in the install log to explain it. Naming that here is
-    the difference between a five-minute fix and days of guessing.
+    Returns True only when a module file exists on disk. A package-manager exit
+    code of 0 only means packages unpacked; it says nothing about a DKMS module
+    having built, nor about the kernel being willing to load it. Secure Boot
+    rejects locally built (unsigned) modules at load time, which shows up as a
+    red "nvidia ... FAILED" during boot and a desktop stuck on software
+    rendering - with nothing in the install log to explain it. Naming that here
+    is the difference between a five-minute fix and days of guessing.
+
+    Callers treat "no module at all" as a hard failure (the GPU step FAILED),
+    while a present-but-refused module stays an explicit ERROR log, because the
+    fix there is a firmware/MOK decision, not a reinstall.
     """
     present = run_cmd(["bash", "-c",
                        "ls /lib/modules/$(uname -r)/updates/dkms/nvidia*.ko* 2>/dev/null "
@@ -204,7 +271,7 @@ def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> None:
     if not found:
         logger.error("No NVIDIA kernel module found after install - this GPU will run on the "
                      "fallback framebuffer (software rendering, wrong resolution)")
-        return
+        return False
 
     logger.info("NVIDIA kernel module present: %s", found.splitlines()[0])
 
@@ -212,7 +279,7 @@ def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> None:
     # in the way, say so explicitly rather than leaving a generic failure.
     if run_cmd(["modprobe", "nvidia"], check=False, timeout=120).returncode == 0:
         logger.info("NVIDIA kernel module loaded successfully")
-        return
+        return True
 
     if manifest is not None and secure_boot_enabled(manifest):
         logger.error(
@@ -223,6 +290,7 @@ def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> None:
     else:
         logger.error("NVIDIA module is installed but failed to load - the GPU will run on "
                      "the fallback framebuffer")
+    return True
 
 
 def _debian_packaged_driver_supports_gpu() -> bool:
@@ -239,7 +307,7 @@ def _debian_packaged_driver_supports_gpu() -> bool:
     card is too new. Anything unexpected is treated as "supported" so the normal
     packaged path stays the default.
     """
-    apt(["install", "nvidia-detect"], timeout=300, check=False)
+    apt_install(["nvidia-detect"], timeout=300, check=False)
     if shutil.which("nvidia-detect") is None:
         logger.info("nvidia-detect unavailable - assuming the packaged driver is fine")
         return True
@@ -278,8 +346,10 @@ def _add_nvidia_upstream_repo() -> bool:
     return True
 
 
-def install_nvidia_driver_debian(manifest: dict[str, Any]) -> None:
+def install_nvidia_driver_debian(manifest: dict[str, Any]) -> bool:
     """Install an NVIDIA driver that actually supports this GPU on Debian.
+
+    Returns True when a kernel module actually exists afterwards.
 
     Prefers Debian's packaged driver (integrated, signed, maintained by Debian).
     Falls back to NVIDIA's official repository only when the packaged driver is too
@@ -292,25 +362,25 @@ def install_nvidia_driver_debian(manifest: dict[str, Any]) -> None:
     """
     if _debian_packaged_driver_supports_gpu():
         logger.info("Installing NVIDIA driver from Debian non-free")
-        apt(["install", "nvidia-driver", "firmware-misc-nonfree"], timeout=1200, check=False)
-        return
+        apt_install(["nvidia-driver", "firmware-misc-nonfree"], timeout=1200, check=False)
+        return _log_nvidia_module_state(manifest)
 
     logger.info("GPU is newer than Debian's packaged driver - using NVIDIA's official repository")
-    apt(["install", "firmware-misc-nonfree"], timeout=600, check=False)
+    apt_install(["firmware-misc-nonfree"], timeout=600, check=False)
     if not _add_nvidia_upstream_repo():
         logger.error("Falling back to Debian's packaged driver; this GPU will likely "
                      "run without acceleration until a newer driver is installed")
-        apt(["install", "nvidia-driver", "firmware-misc-nonfree"], timeout=1200, check=False)
-        return
+        apt_install(["nvidia-driver", "firmware-misc-nonfree"], timeout=1200, check=False)
+        return _log_nvidia_module_state(manifest)
 
     # nvidia-open pulls the matching userspace; the DKMS module builds against the
     # installed kernel headers, so make sure those are present first.
-    apt(["install", f"linux-headers-{os.uname().release}"], timeout=600, check=False)
-    if apt(["install", "nvidia-open"], timeout=1800, check=False).returncode != 0:
+    apt_install([f"linux-headers-{os.uname().release}"], timeout=600, check=False)
+    if apt_install(["nvidia-open"], timeout=1800, check=False).returncode != 0:
         logger.warning("nvidia-open not available under that name - trying cuda-drivers")
-        apt(["install", "cuda-drivers"], timeout=1800, check=False)
+        apt_install(["cuda-drivers"], timeout=1800, check=False)
 
-    _log_nvidia_module_state(manifest)
+    return _log_nvidia_module_state(manifest)
 
 
 def install_gpu_drivers(manifest: dict[str, Any]) -> None:
@@ -321,9 +391,19 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
         return
 
     if is_ubuntu_like():
-        install_nvidia_driver_ubuntu(manifest)
+        module_found = install_nvidia_driver_ubuntu(manifest)
     else:
-        install_nvidia_driver_debian(manifest)
+        module_found = install_nvidia_driver_debian(manifest)
+
+    # Bare-metal finding (Mint, 2026-07-30): a stale apt index made every package
+    # 404, check=False swallowed it, and the agent reported "gpu-drivers: OK"
+    # while the machine booted into software rendering. No module = this step
+    # FAILED, and the summary must say so.
+    if not module_found:
+        raise RuntimeError(
+            "NVIDIA driver install finished but no kernel module exists - the GPU "
+            "would boot into software rendering. Check the apt output above for "
+            "404/DNS failures or a DKMS build error.")
 
     # The driver blacklists nouveau and builds a new initramfs that only takes
     # effect next boot. Reboot once before the display manager so the first real
@@ -344,15 +424,15 @@ def install_codecs(manifest: dict[str, Any]) -> None:
     if distro_id() == "linuxmint":
         # Mint ships its own codec metapackage  exactly what its first-run
         # "Install Multimedia Codecs" applet installs.
-        apt(["install", "mint-meta-codecs"], timeout=900, check=False)
+        apt_install(["mint-meta-codecs"], timeout=900, check=False)
     elif is_ubuntu_like():
         # EULA-bearing packages need this debconf pre-answer to stay unattended.
         run_cmd(["bash", "-c",
                  "echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula "
                  "select true | debconf-set-selections"], check=False, env=APT_ENV)
-        apt(["install", "ubuntu-restricted-extras"], timeout=900, check=False)
+        apt_install(["ubuntu-restricted-extras"], timeout=900, check=False)
     else:
-        apt(["install", "libavcodec-extra", "gstreamer1.0-libav",
+        apt_install(["libavcodec-extra", "gstreamer1.0-libav",
              "gstreamer1.0-plugins-ugly", "gstreamer1.0-plugins-bad"], timeout=600, check=False)
     logger.info("Multimedia codecs installed")
 
@@ -365,7 +445,7 @@ def ensure_firmware(manifest: dict[str, Any]) -> None:
     which strands the installed system without a usable wireless device.
     """
     pkg = "linux-firmware" if is_ubuntu_like() else "firmware-linux"
-    apt(["install", pkg], timeout=600, check=False)
+    apt_install([pkg], timeout=600, check=False)
     logger.info("Ensured firmware package present: %s", pkg)
 
 
@@ -387,7 +467,7 @@ def enable_os_prober(manifest: dict[str, Any]) -> None:
     except Exception:
         logger.exception("Could not edit /etc/default/grub (non-fatal)")
 
-    apt(["install", "os-prober"], timeout=300, check=False)
+    apt_install(["os-prober"], timeout=300, check=False)
     if shutil.which("update-grub"):
         run_cmd(["update-grub"], check=False, timeout=300)
     else:
@@ -398,7 +478,7 @@ def enable_os_prober(manifest: dict[str, Any]) -> None:
 def setup_flathub(manifest: dict[str, Any]) -> None:
     """Install Flatpak (if needed) and register the Flathub remote."""
     if shutil.which("flatpak") is None:
-        apt(["install", "flatpak"], timeout=300, check=False)
+        apt_install(["flatpak"], timeout=300, check=False)
     run_cmd(["flatpak", "remote-add", "--if-not-exists", "--system",
              "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo"],
             timeout=120, check=False)
@@ -421,7 +501,7 @@ def install_suggested_packages(manifest: dict[str, Any]) -> None:
                 timeout=900, check=False)
     if apt_pkgs:
         logger.info("Installing apt packages: %s", ", ".join(apt_pkgs))
-        apt(["install", *apt_pkgs], timeout=600, check=False)
+        apt_install([*apt_pkgs], timeout=600, check=False)
     logger.info("Suggested packages installed")
 
 
@@ -438,7 +518,7 @@ def ensure_migration_tools(manifest: dict[str, Any]) -> None:
     missing = [pkg for pkg, cmd in (("ntfs-3g", "ntfs-3g"), ("rsync", "rsync"))
                if shutil.which(cmd) is None]
     if missing:
-        apt(["install", *missing], timeout=600, check=False)
+        apt_install([*missing], timeout=600, check=False)
         logger.info("Installed migration tools: %s", ", ".join(missing))
     else:
         logger.info("Migration tools already present")
@@ -661,6 +741,11 @@ def wait_for_network(manifest: dict[str, Any]) -> None:
     best-effort with a hard timeout: if nothing comes up (e.g. a wrong Wi-Fi key)
     we proceed anyway and the network-dependent steps degrade gracefully (they all
     run with check=False).
+
+    Bare-metal finding (Mint, 2026-07-30): nm-online reported "online" while DNS
+    was still broken, so the very next apt-get update failed on "Could not
+    resolve" for every repository and the NVIDIA install fell back to stale
+    install-image indices. Link-up is not enough  verify name resolution too.
     """
     if shutil.which("nm-online"):
         # -s waits for NetworkManager to finish starting (all autoconnect attempts);
@@ -672,7 +757,22 @@ def wait_for_network(manifest: dict[str, Any]) -> None:
                        check=False, timeout=5).returncode == 0:
                 break
             time.sleep(5)
-    logger.info("Network wait complete")
+
+    # Link-up is not the same as usable: wait (bounded) until DNS actually
+    # resolves the archive host, because apt is the very next thing that runs.
+    dns_host = "archive.ubuntu.com" if is_ubuntu_like() else "deb.debian.org"
+    dns_ok = False
+    for attempt in range(1, 7):  # ~60 s
+        if run_cmd(["getent", "hosts", dns_host], check=False, timeout=10).returncode == 0:
+            dns_ok = True
+            break
+        logger.info("DNS not resolving %s yet (attempt %d/6) - waiting 10s", dns_host, attempt)
+        time.sleep(10)
+    if dns_ok:
+        logger.info("Network wait complete (link up, DNS resolves %s)", dns_host)
+    else:
+        logger.error("Network wait complete but DNS still does NOT resolve %s - "
+                     "apt steps will retry/self-heal but may fail; check router/DHCP DNS", dns_host)
 
 
 # === BEGIN AGENT SECTION =================================================
@@ -1283,6 +1383,7 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
 
     by_pnp = {o["pnp_id"]: o for o in outputs}
     logical: list[str] = []
+    cinnamon_layout: list[dict[str, Any]] = []
     matched = 0
 
     for want in wanted:
@@ -1295,16 +1396,31 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
         width, height = int(want.get("widthPx", 0)), int(want.get("heightPx", 0))
         if width <= 0 or height <= 0:
             continue
-        if not _mode_is_supported(out["connector"], width, height):
+
+        # Windows reports the ROTATED pixel dimensions (dmPelsWidth/Height in the
+        # current orientation): a portrait monitor arrives as 2160x3840. Panels
+        # only advertise landscape modes - portrait is a rotation transform, not
+        # a mode - so the mode to check and to set is the unrotated one. Checking
+        # 2160x3840 against the mode list finds nothing and skips portrait
+        # monitors entirely (hardware-validated on the Fedora KDE bare-metal
+        # RTX 5070 test, July 2026).
+        rotation_deg = int(want.get("rotationDegrees") or 0)
+        mode_w, mode_h = (height, width) if rotation_deg in (90, 270) else (width, height)
+        if not _mode_is_supported(out["connector"], mode_w, mode_h):
             logger.warning("  %s does not advertise %dx%d - leaving this output alone",
-                           out["connector"], width, height)
+                           out["connector"], mode_w, mode_h)
             continue
 
         # Windows reports whole Hz; panels advertise fractional rates (143.998).
         # Mutter tolerates a near match, so the integer value is written as-is.
         rate = int(want.get("refreshHz") or 60) or 60
-        rotation = {0: "normal", 90: "right", 180: "inverted", 270: "left"}.get(
-            int(want.get("rotationDegrees") or 0), "normal")
+
+        # Direction mapping validated on hardware (RTX 5070 dual-Odyssey G70D):
+        # Windows dmDisplayOrientation=270 corresponds to the "right" rotation
+        # the user set by hand and confirmed correct - NOT "left" as the earlier
+        # guess had it. 90 is the mirror image.
+        rotation = {0: "normal", 90: "left", 180: "inverted", 270: "right"}.get(
+            rotation_deg, "normal")
 
         logical.append(
             "    <logicalmonitor>\n"
@@ -1320,12 +1436,25 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             f"          <product>{out['product']}</product>\n"
             f"          <serial>{out['serial']}</serial>\n"
             "        </monitorspec>\n"
-            f"        <mode><width>{width}</width><height>{height}</height>"
+            f"        <mode><width>{mode_w}</width><height>{mode_h}</height>"
             f"<rate>{rate}</rate></mode>\n"
             "      </monitor>\n"
             "    </logicalmonitor>\n")
         matched += 1
-        logger.info("  %s -> %dx%d@%dHz %s at (%s,%s)", out["connector"], width, height,
+        # Staged for the Cinnamon (X11) login-time applier - same convention as
+        # the Fedora KDE agent's kde_layout. See the staging block below.
+        cinnamon_layout.append({
+            "pnpId": pnp,
+            "width": mode_w,
+            "height": mode_h,
+            "rate": rate,
+            "rotation": {0: "none", 90: "left", 180: "inverted", 270: "right"}.get(
+                rotation_deg, "none"),
+            "x": int(want.get("positionX") or 0),
+            "y": int(want.get("positionY") or 0),
+            "primary": bool(want.get("isPrimary")),
+        })
+        logger.info("  %s -> %dx%d@%dHz %s at (%s,%s)", out["connector"], mode_w, mode_h,
                     rate, rotation, want.get("positionX"), want.get("positionY"))
 
     if matched == 0:
@@ -1361,6 +1490,63 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
                 logger.info("Applied the same layout to the %s greeter", owner)
             except OSError:
                 logger.info("Could not write the greeter layout in %s (non-fatal)", gdm_dir)
+
+    # ── Cinnamon (X11) path ──────────────────────────────────────────────────
+    # The monitors.xml above uses KERNEL DRM connector names (DP-4) - correct
+    # for Wayland compositors, but Cinnamon on X11 (Linux Mint's default
+    # session) matches monitorspecs against RANDR output names, and the NVIDIA
+    # X driver names those differently (DP-0). The config matched nothing and
+    # Cinnamon discarded it (Mint RTX 5070 bare-metal, July 2026: monitors.xml
+    # gone by first login, layout stuck at 60 Hz without rotation). No X server
+    # exists at this point in boot, so the RandR names cannot be resolved here:
+    # stage the layout keyed by EDID PnP id and let display-apply.py rewrite
+    # the file with RandR names from inside the first user session, applying it
+    # immediately via xrandr. Mirrors the Fedora KDE agent's kscreen hook.
+    try:
+        layout_path = Path("/opt/igloo/display-layout.json")
+        layout_path.write_text(json.dumps(cinnamon_layout, indent=2), encoding="utf-8")
+        layout_path.chmod(0o644)
+
+        apply_sh = Path("/opt/igloo/display-apply.sh")
+        apply_sh.write_text(
+            "#!/usr/bin/env bash\n"
+            "# iGloo display layout for Cinnamon on X11 - runs once per user at login.\n"
+            "# Retries on later logins until xrandr reports success.\n"
+            'DONE_MARKER="$HOME/.config/.igloo-display-done"\n'
+            '[ -f "$DONE_MARKER" ] && exit 0\n'
+            # The helper logs to the same file, but only when python can start it -
+            # a missing/stale /opt/igloo/display-apply.py would otherwise fail
+            # silently at every login (Mint bare-metal, July 2026).
+            'mkdir -p "$HOME/.local/state"\n'
+            'if [ ! -f /opt/igloo/display-apply.py ]; then\n'
+            '  echo "[$(date +%F\\ %T)] ERROR: /opt/igloo/display-apply.py is missing" '
+            '>> "$HOME/.local/state/igloo-display.log"\n'
+            "fi\n"
+            "python3 /opt/igloo/display-apply.py --layout /opt/igloo/display-layout.json \\\n"
+            '  && touch "$DONE_MARKER"\n',
+            encoding="utf-8",
+        )
+        apply_sh.chmod(0o755)
+
+        autostart = Path("/etc/xdg/autostart/igloo-display-layout.desktop")
+        autostart.write_text(
+            "[Desktop Entry]\n"
+            "Name=iGloo Display Layout\n"
+            "Comment=Apply the migrated Windows monitor layout (resolution, rotation, position)\n"
+            "Exec=/opt/igloo/display-apply.sh\n"
+            "Icon=preferences-desktop-display\n"
+            "Terminal=false\n"
+            "Type=Application\n"
+            "X-GNOME-Autostart-enabled=true\n"
+            # monitors.xml covers Wayland desktops; this hook is for Cinnamon on
+            # X11. XDG_CURRENT_DESKTOP is X-Cinnamon on modern Mint, plain
+            # "Cinnamon" on some older releases - list both.
+            "OnlyShowIn=X-Cinnamon;Cinnamon;\n",
+            encoding="utf-8",
+        )
+        logger.info("Staged the Cinnamon display-layout hook (runs at first login)")
+    except OSError:
+        logger.exception("Could not stage the Cinnamon display-layout hook (non-fatal)")
 
 
 def install_welcome_app(manifest: dict[str, Any]) -> None:

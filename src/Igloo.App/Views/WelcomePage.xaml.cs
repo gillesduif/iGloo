@@ -36,10 +36,10 @@ public sealed partial class WelcomePage : UserControl
         // rather than a half-painted one.
         Dispatcher.BeginInvoke(new Action(() =>
             FluentMessageBox.Show(
-                "Pre-Release Software Notice",
-                "iGloo performs low-level modifications to partition tables and the boot configurations.\n\n" +
-                "Running this utility may result in data loss. Do not use this tool on a production machine. " +
-                "Ensure you have a complete system backup before continuing.",
+                "Pre-release software notice ",
+                "\n• iGloo performs low level modifications to partition tables and the   boot configurations.\n\n" +
+                "• Running this utility may result in data loss. Do not use this tool on a   production machine.\n\n" +
+                "• Ensure you have a complete system backup before continuing.",
                 FluentMessageSeverity.Warning,
                 primaryText: "Continue")),
             System.Windows.Threading.DispatcherPriority.ApplicationIdle);

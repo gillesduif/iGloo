@@ -77,6 +77,15 @@ public sealed record DisplayInfo
     public int PositionX { get; init; }
     public int PositionY { get; init; }
 
+    /// <summary>
+    /// Windows display scaling in percent (100 = no scaling, 150 = 150%).
+    /// KWin positions outputs in LOGICAL pixels while Windows positions are PHYSICAL
+    /// pixels; without this the Linux side cannot convert coordinates or reproduce the
+    /// scaling, and a scaled 4K panel ends up with gaps between screens. 0 when unknown
+    /// (API unavailable) - treat as 100.
+    /// </summary>
+    public int ScalePercent { get; init; }
+
     public bool IsPrimary { get; init; }
 }
 

@@ -124,6 +124,7 @@ public sealed class DebianPlugin : IDistroPlugin
         }
         Add("first-boot.sh", true);
         Add("agent.py", true);
+        Add("display-apply.py", true);            // Cinnamon/X11 display-layout applier (Mint)
         Add("igloo-first-boot.service", false);   // shipped to OEMDRV; the late hook installs it
 
         if (files.Count == 0)

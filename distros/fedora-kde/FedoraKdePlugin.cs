@@ -133,9 +133,11 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
         var files = new List<AgentFile>();
 
-        // Include first-boot.sh and agent.py if they exist on disk.
+        // Include first-boot.sh, agent.py and the KDE display-layout applier
+        // if they exist on disk.
         TryAddFile("agent/first-boot.sh", executable: true);
         TryAddFile("agent/agent.py", executable: true);
+        TryAddFile("agent/display-apply.py", executable: true);
 
         // Fallback stub if the scripts aren't bundled.
         if (files.Count == 0)
@@ -174,17 +176,22 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         MenuTitle = "Install Fedora KDE (Igloo)",
         // Anaconda reads ks.cfg from the OEMDRV label and loads its stage-2
         // (install.img) locally so no 862 MiB network download is needed at boot.
-        // Do NOT blacklist nouveau, here or on the installed system.
+        // Do NOT blacklist nouveau on the INSTALLER cmdline or at install
+        // time on the installed system.
         //
-        // It was tried in both places, on the theory that nouveau mis-renders on
-        // Blackwell. The opposite is true: nouveau drives the installer at full
-        // 4K on an RTX 5070, and blacklisting it drops the machine onto the
-        // plain EFI framebuffer, which cannot handle a 4K panel. On the
-        // installed system the same blacklist turned any proprietary-driver
-        // failure (no internet, akmod build error, Secure Boot rejecting the
-        // unsigned module) into a black first boot. RPM Fusion's nvidia
-        // packages ship their own modprobe.d nouveau blacklist, so the driver
-        // takeover needs no cmdline entry from us.
+        // The first boot of the installed system runs before the NVIDIA
+        // driver exists; a premature blacklist drops that boot onto the
+        // plain EFI framebuffer (black screen on a 4K panel) whenever the
+        // driver is not ready yet (no internet, akmod build error, Secure
+        // Boot rejecting the unsigned module).
+        //
+        // The blacklist is still REQUIRED later: RPM Fusion's modprobe.d
+        // nouveau blacklist does not apply inside the initramfs (dracut
+        // builds it host-only), so without rd.driver.blacklist= on the
+        // cmdline nouveau/nova_core keeps loading and fights nvidia for the
+        // GPU - the RTX 5070 bare-metal kernel panic. The first-boot agent
+        // (agent.py, ensure_nvidia_kernel_cmdline) adds the cmdline args via
+        // grubby once the nvidia module is verified built for every kernel.
         KernelCmdline = "inst.stage2=hd:LABEL={LABEL}: inst.ks=hd:LABEL={LABEL}:/ks.cfg inst.geoloc=0",
         KernelIsoPaths =
         [
