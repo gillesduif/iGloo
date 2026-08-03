@@ -173,6 +173,13 @@ public sealed partial class FileStagingViewModel : ObservableObject
                 _distroId, userSetup, _preflightReport, stagingResult,
                 _targetDisk, _installMode, _linuxSizeGb);
 
+            // Wallpaper migration: locate the current desktop image and carry it
+            // next to the manifest (staging root -> seed partition root, mirrored
+            // by both the USB writer and the direct-install artefact copy).
+            // Fail-soft: no image simply means no "wallpaper" key in the manifest.
+            manifest = await Task.Run(
+                () => AttachWallpaper(manifest, stagingResult.StagingDirectory), ct);
+
             var manifestPath = Path.Combine(stagingResult.StagingDirectory, "migration-manifest.json");
             await File.WriteAllTextAsync(
                 manifestPath,
@@ -241,4 +248,37 @@ public sealed partial class FileStagingViewModel : ObservableObject
 
     partial void OnPhaseChanged(FileStagingPhase value) =>
         OnPropertyChanged(nameof(PhaseDisplay));
+
+    /// <summary>
+    /// Copies the current Windows wallpaper into the staging root as
+    /// <c>igloo-wallpaper.&lt;ext&gt;</c> and points the manifest at it. Returns the
+    /// manifest unchanged when there is no migratable image - never throws.
+    /// </summary>
+    private MigrationManifest AttachWallpaper(MigrationManifest manifest, string stagingDirectory)
+    {
+        try
+        {
+            var source = WallpaperReader.TryFindWallpaper(_logger);
+            if (source is null)
+                return manifest;
+
+            // The TranscodedWallpaper fallback has no extension but is JPEG content.
+            var ext = Path.GetExtension(source);
+            if (string.IsNullOrEmpty(ext))
+                ext = ".jpg";
+            var fileName = $"igloo-wallpaper{ext}";
+            File.Copy(source, Path.Combine(stagingDirectory, fileName), overwrite: true);
+            _logger.LogInformation("Wallpaper staged from {Source} as {FileName}", source, fileName);
+
+            return manifest with
+            {
+                Wallpaper = new WallpaperMigration { FileName = fileName, OriginalPath = source },
+            };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            _logger.LogWarning(ex, "Could not stage the wallpaper - skipping (non-fatal)");
+            return manifest;
+        }
+    }
 }

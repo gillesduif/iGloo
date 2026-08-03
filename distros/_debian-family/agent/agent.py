@@ -638,6 +638,29 @@ def set_user_password(manifest: dict[str, Any]) -> None:
         logger.error("chpasswd failed for %r: %s", username, (proc.stderr or "").strip())
 
 
+def _ensure_dconf_local_db() -> None:
+    """Make sure the dconf user profile consults the system-wide `local` db.
+
+    A compiled db under /etc/dconf/db/local.d is only read when the profile
+    names `system-db:local`; without it, seeded defaults compile fine and are
+    then silently ignored (Debian 13 bare-metal: the keyboard seed ran and
+    logged success, the session still came up qwerty).
+    """
+    profile = Path("/etc/dconf/profile/user")
+    try:
+        content = profile.read_text(encoding="utf-8") if profile.exists() else ""
+        if "system-db:local" not in content:
+            profile.parent.mkdir(parents=True, exist_ok=True)
+            if not content.strip():
+                content = "user-db:user\n"
+            elif not content.endswith("\n"):
+                content += "\n"
+            profile.write_text(content + "system-db:local\n", encoding="utf-8")
+            logger.info("Added system-db:local to %s", profile)
+    except OSError:
+        logger.warning("Could not adjust %s - the GNOME default may not apply", profile)
+
+
 def set_keyboard(manifest: dict[str, Any]) -> None:
     """Apply the user's keyboard layout from the manifest.
 
@@ -680,6 +703,35 @@ def set_keyboard(manifest: dict[str, Any]) -> None:
     run_cmd(["dpkg-reconfigure", "-f", "noninteractive", "keyboard-configuration"],
             check=False)
     run_cmd(["setupcon", "--save"], check=False)
+
+    # GNOME (the Debian/Ubuntu desktop) ignores /etc/default/keyboard inside the
+    # user session: input sources live in dconf under
+    # org.gnome.desktop.input-sources, and a fresh user inherits the compiled-in
+    # default ('us') - observed on the Debian 13 bare-metal run, where the
+    # console was correctly 'be' but the GNOME session typed qwerty. Seed a
+    # system-wide dconf default so the first login starts on the migrated
+    # layout. Cinnamon reads /etc/default/keyboard (validated on Mint), so both
+    # mechanisms are written deliberately.
+    try:
+        dconf_dir = Path("/etc/dconf/db/local.d")
+        dconf_dir.mkdir(parents=True, exist_ok=True)
+        (dconf_dir / "00-igloo-keyboard").write_text(
+            "[org/gnome/desktop/input-sources]\n"
+            f"sources=[('xkb', '{keymap}')]\n"
+            "xkb-options=@as []\n",
+            encoding="utf-8")
+
+        # A system dconf db is only consulted when the dconf profile names it
+        # (see _ensure_dconf_local_db).
+        _ensure_dconf_local_db()
+
+        if run_cmd(["dconf", "update"], check=False, timeout=60).returncode == 0:
+            logger.info("Seeded GNOME input source %r via a dconf default", keymap)
+        else:
+            logger.info("dconf not available - GNOME default skipped (non-fatal)")
+    except OSError:
+        logger.info("Could not write the dconf keyboard default (non-fatal)")
+
     logger.info("Keyboard layout set to %r", keymap)
 
 
@@ -1356,6 +1408,58 @@ def _mode_is_supported(connector: str, width: int, height: int) -> bool:
     return f"{width}x{height}" in modes
 
 
+# True when the agent runs via --only (currently: the post-driver display
+# second pass). Lets steps behave differently on a re-run vs the first pass.
+_SECOND_PASS = False
+
+
+def _install_display_second_pass(reason: str) -> None:
+    """Register a one-shot service that re-runs ONLY the display-layout step at
+    the next boot, before the display manager starts.
+
+    Needed whenever the DRM landscape at first-boot time is not the final one:
+
+    * nouveau cannot bind Blackwell before ~kernel 6.14, so on Debian 13's 6.12
+      there is NO DRM connector (hence no EDID) until the NVIDIA driver loads
+      after the driver reboot - the bare-metal Debian run logged "No connected
+      outputs with readable EDID" and the layout never applied;
+    * connector names/numbering can change when the loaded driver changes
+      (nouveau -> nvidia-drm), so a monitors.xml written pre-reboot may name
+      connectors that no longer exist.
+
+    The second pass runs with the final driver in place, writes monitors.xml
+    from the EDIDs visible THEN, and GDM/mutter applies it at the first login.
+    """
+    unit = Path("/etc/systemd/system/igloo-display-layout.service")
+    try:
+        unit.write_text(
+            "[Unit]\n"
+            "Description=iGloo display layout (post-driver second pass)\n"
+            "Before=display-manager.service\n"
+            "ConditionPathExists=/var/lib/igloo/manifest.json\n"
+            "ConditionPathExists=!/var/lib/igloo/.display-done\n"
+            "\n"
+            "[Service]\n"
+            "Type=oneshot\n"
+            "ExecStart=/usr/bin/env python3 /opt/igloo/agent.py "
+            "--manifest /var/lib/igloo/manifest.json --log-dir /var/log/igloo "
+            "--only display-layout\n"
+            "ExecStartPost=/usr/bin/touch /var/lib/igloo/.display-done\n"
+            "RemainAfterExit=yes\n"
+            "\n"
+            "[Install]\n"
+            "WantedBy=multi-user.target\n",
+            encoding="utf-8")
+        wants = Path("/etc/systemd/system/multi-user.target.wants")
+        wants.mkdir(parents=True, exist_ok=True)
+        link = wants / unit.name
+        if not link.exists():
+            link.symlink_to(unit)
+        logger.info("Installed the display-layout second pass (%s)", reason)
+    except OSError:
+        logger.exception("Could not install the display-layout second pass (non-fatal)")
+
+
 def migrate_display_layout(manifest: dict[str, Any]) -> None:
     """Reproduce the Windows desktop layout (rotation, refresh rate, position).
 
@@ -1375,8 +1479,29 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
         return
 
     outputs = _connected_outputs()
+    if not outputs and _SECOND_PASS:
+        # This is the post-driver second pass, yet still no DRM connector with
+        # EDID. On Debian the NVIDIA module can load minutes into boot - the
+        # display stack itself triggers it, so anything ordered
+        # Before=display-manager runs too early (bare-metal: nvidia tainted the
+        # kernel at t=179s). Force the load here and give the connectors a
+        # bounded window to appear.
+        if manifest.get("hardware", {}).get("gpuVendor", "").lower() == "nvidia":
+            logger.info("Second pass: no EDID yet - loading the NVIDIA module explicitly")
+            run_cmd(["modprobe", "nvidia-drm"], check=False, timeout=120)
+            for attempt in range(1, 13):  # ~60 s
+                time.sleep(5)
+                outputs = _connected_outputs()
+                if outputs:
+                    logger.info("DRM connectors appeared after %d attempt(s)", attempt)
+                    break
+                logger.info("Waiting for DRM connectors (attempt %d/12)", attempt)
     if not outputs:
         logger.info("No connected outputs with readable EDID - skipping display layout")
+        # Classic case: nouveau cannot bind this GPU on the running kernel (e.g.
+        # Blackwell on Debian 13's 6.12), so no DRM connector exists yet. The
+        # NVIDIA driver only loads after the pending reboot - try again there.
+        _install_display_second_pass("no EDID-readable outputs on this boot")
         return
     for o in outputs:
         logger.info("Detected output %s: %s (%s)", o["connector"], o["pnp_id"], o["product"])
@@ -1441,10 +1566,16 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             "      </monitor>\n"
             "    </logicalmonitor>\n")
         matched += 1
-        # Staged for the Cinnamon (X11) login-time applier - same convention as
-        # the Fedora KDE agent's kde_layout. See the staging block below.
+        # Staged for the login-time appliers (Cinnamon via xrandr, GNOME via
+        # mutter's D-Bus) - same convention as the Fedora KDE agent's
+        # kde_layout. vendor/product/serial let the GNOME applier match by
+        # EDID identity; connector is its same-boot fallback. See below.
         cinnamon_layout.append({
             "pnpId": pnp,
+            "vendor": out["vendor"],
+            "product": out["product"],
+            "serial": out["serial"],
+            "connector": out["connector"],
             "width": mode_w,
             "height": mode_h,
             "rate": rate,
@@ -1453,6 +1584,7 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             "x": int(want.get("positionX") or 0),
             "y": int(want.get("positionY") or 0),
             "primary": bool(want.get("isPrimary")),
+            "scalePercent": int(want.get("scalePercent") or 100) or 100,
         })
         logger.info("  %s -> %dx%d@%dHz %s at (%s,%s)", out["connector"], mode_w, mode_h,
                     rate, rotation, want.get("positionX"), want.get("positionY"))
@@ -1510,19 +1642,31 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
         apply_sh = Path("/opt/igloo/display-apply.sh")
         apply_sh.write_text(
             "#!/usr/bin/env bash\n"
-            "# iGloo display layout for Cinnamon on X11 - runs once per user at login.\n"
-            "# Retries on later logins until xrandr reports success.\n"
+            "# iGloo display layout - runs once per user at login. Retries on later\n"
+            "# logins until the applier reports success (done-marker convention).\n"
             'DONE_MARKER="$HOME/.config/.igloo-display-done"\n'
             '[ -f "$DONE_MARKER" ] && exit 0\n'
-            # The helper logs to the same file, but only when python can start it -
-            # a missing/stale /opt/igloo/display-apply.py would otherwise fail
-            # silently at every login (Mint bare-metal, July 2026).
             'mkdir -p "$HOME/.local/state"\n'
-            'if [ ! -f /opt/igloo/display-apply.py ]; then\n'
-            '  echo "[$(date +%F\\ %T)] ERROR: /opt/igloo/display-apply.py is missing" '
+            # Dispatch on the session type. GNOME on Wayland IGNORES the staged
+            # monitors.xml for the user session: mutter parses and normalizes the
+            # file (it rewrites layoutmode/rate formatting) but never applies it -
+            # the session stays at EDID-preferred 60 Hz landscape (Debian 13 /
+            # GNOME 48 RTX 5070 bare-metal, July 2026). The file path is guesswork
+            # about mutter's validation, so GNOME goes through mutter's own D-Bus
+            # API instead (exact mode ids from GetCurrentState). Cinnamon on X11
+            # keeps the xrandr applier.
+            'case " $XDG_CURRENT_DESKTOP " in\n'
+            '  *GNOME*) HELPER=/opt/igloo/display-apply-gnome.py ;;\n'
+            '  *)       HELPER=/opt/igloo/display-apply.py ;;\n'
+            "esac\n"
+            # The helper logs to the same file, but only when python can start it -
+            # a missing/stale helper would otherwise fail silently at every login
+            # (Mint bare-metal, July 2026).
+            'if [ ! -f "$HELPER" ]; then\n'
+            '  echo "[$(date +%F\\ %T)] ERROR: $HELPER is missing" '
             '>> "$HOME/.local/state/igloo-display.log"\n'
             "fi\n"
-            "python3 /opt/igloo/display-apply.py --layout /opt/igloo/display-layout.json \\\n"
+            'python3 "$HELPER" --layout /opt/igloo/display-layout.json \\\n'
             '  && touch "$DONE_MARKER"\n',
             encoding="utf-8",
         )
@@ -1538,15 +1682,91 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             "Terminal=false\n"
             "Type=Application\n"
             "X-GNOME-Autostart-enabled=true\n"
-            # monitors.xml covers Wayland desktops; this hook is for Cinnamon on
-            # X11. XDG_CURRENT_DESKTOP is X-Cinnamon on modern Mint, plain
-            # "Cinnamon" on some older releases - list both.
-            "OnlyShowIn=X-Cinnamon;Cinnamon;\n",
+            # Cinnamon on X11 uses the xrandr applier; GNOME uses the mutter
+            # D-Bus applier (see display-apply.sh). XDG_CURRENT_DESKTOP is
+            # X-Cinnamon on modern Mint, plain "Cinnamon" on some older
+            # releases - list both.
+            "OnlyShowIn=X-Cinnamon;Cinnamon;GNOME;\n",
             encoding="utf-8",
         )
-        logger.info("Staged the Cinnamon display-layout hook (runs at first login)")
+        logger.info("Staged the login display-layout hook (Cinnamon xrandr / GNOME D-Bus)")
     except OSError:
         logger.exception("Could not stage the Cinnamon display-layout hook (non-fatal)")
+
+    # A pending driver reboot means the DRM landscape will change (nouveau ->
+    # nvidia-drm): connector names and even their presence can differ from what
+    # this pass saw. Rewrite the layout with the final driver in place.
+    if Path("/var/lib/igloo/.reboot-required").exists():
+        _install_display_second_pass("a driver reboot is pending - DRM landscape will change")
+
+
+def migrate_wallpaper(manifest: dict[str, Any]) -> None:
+    """Reproduce the Windows desktop wallpaper on GNOME and Cinnamon.
+
+    The Windows side staged the image next to the manifest on the seed; the
+    bootstrap copied it to /opt/igloo. The file is placed in the user's
+    Pictures folder (so it is visibly theirs, not hidden in a system path)
+    and a system-wide dconf default points the desktop background at it -
+    the same mechanism as the GNOME keyboard seed, so it applies from the
+    very first login without a session-side hook. Both the GNOME and the
+    Cinnamon schema are seeded; whichever desktop is installed reads its own.
+    Purely additive: no wallpaper in the manifest means the distro default
+    is kept.
+    """
+    wp = manifest.get("wallpaper") or {}
+    fname = (wp.get("fileName") or "").strip()
+    if not fname:
+        logger.info("No wallpaper in the manifest - keeping the distro default")
+        return
+    src = Path("/opt/igloo") / fname
+    if not src.is_file():
+        logger.warning("Manifest names wallpaper %r but %s is missing - skipped", fname, src)
+        return
+
+    username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
+    home = Path("/home") / username if username else None
+    if home is None or not home.is_dir():
+        logger.warning("User home not found - cannot install the wallpaper")
+        return
+
+    try:
+        pictures = home / "Pictures"
+        pictures.mkdir(parents=True, exist_ok=True)
+        dst = pictures / f"wallpaper{src.suffix or '.jpg'}"
+        dst.write_bytes(src.read_bytes())
+        run_cmd(["chown", "-R", f"{username}:{username}", str(pictures)], check=False)
+        logger.info("Wallpaper installed at %s", dst)
+    except OSError:
+        logger.exception("Could not copy the wallpaper into the user home (non-fatal)")
+        return
+
+    uri = f"file://{dst}"
+    try:
+        dconf_dir = Path("/etc/dconf/db/local.d")
+        dconf_dir.mkdir(parents=True, exist_ok=True)
+        (dconf_dir / "00-igloo-wallpaper").write_text(
+            "[org/gnome/desktop/background]\n"
+            f"picture-uri='{uri}'\n"
+            f"picture-uri-dark='{uri}'\n"
+            "picture-options='zoom'\n"
+            "[org/cinnamon/desktop/background]\n"
+            f"picture-uri='{uri}'\n"
+            # NOTE: Cinnamon spans one wallpaper across all monitors as a
+            # single canvas with ONE global fit mode - per-monitor fits do not
+            # exist. 'zoom' fills by cropping (perfect on portrait, cropped on
+            # the landscape screen of a mixed setup - cosmetic, Mint bare-metal
+            # July 2026); 'scaled' fits but letterboxes the portrait screen.
+            # Post-release: compose a per-monitor span image on the Windows
+            # side (display geometry is known there) and use 'spanned'.
+            "picture-options='zoom'\n",
+            encoding="utf-8")
+        _ensure_dconf_local_db()
+        if run_cmd(["dconf", "update"], check=False, timeout=60).returncode == 0:
+            logger.info("Seeded the desktop wallpaper via a dconf default (GNOME + Cinnamon)")
+        else:
+            logger.info("dconf not available - wallpaper file installed but not set (non-fatal)")
+    except OSError:
+        logger.info("Could not write the dconf wallpaper default (non-fatal)")
 
 
 def install_welcome_app(manifest: dict[str, Any]) -> None:
@@ -1668,6 +1888,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Igloo first-boot agent (Debian family)")
     p.add_argument("--manifest", required=True, type=Path)
     p.add_argument("--log-dir", required=True, type=Path)
+    p.add_argument("--only", default=None,
+                   help="Comma-separated step names to run instead of the full pass "
+                        "(used by the post-driver display-layout second pass).")
     args = p.parse_args()
     configure_logging(args.log_dir)
 
@@ -1701,6 +1924,7 @@ def main() -> int:
         ("migration-tools",  lambda: ensure_migration_tools(manifest)),
         ("user-files",       lambda: migrate_user_files(manifest)),
         ("display-layout",   lambda: migrate_display_layout(manifest)),
+        ("wallpaper",        lambda: migrate_wallpaper(manifest)),
         ("welcome-app",     lambda: install_welcome_app(manifest)),
         # Chromium credentials: needs the plaintext linuxPassword, so it must
         # run before redact-manifest; needs nothing else, so it stays late.
@@ -1708,6 +1932,13 @@ def main() -> int:
         ("redact-manifest",  lambda: redact_manifest(manifest)),
         ("cleanup-seed",     lambda: cleanup_installer_partitions(manifest)),
     ]
+
+    if args.only:
+        global _SECOND_PASS
+        _SECOND_PASS = True
+        wanted_steps = {s.strip() for s in args.only.split(",") if s.strip()}
+        steps = [(n, s) for n, s in steps if n in wanted_steps]
+        logger.info("Running only step(s): %s", ", ".join(n for n, _ in steps) or "(none)")
 
     failures: list[str] = []
     for name, step in steps:

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -19,7 +19,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- The [LibraryImport] source generator emits unsafe marshalling stubs. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.0.1-alpha</Version>
+    <Version>0.1-alpha</Version>
     <AssemblyName>iGloo</AssemblyName>
     <ApplicationIcon>iGloo.ico</ApplicationIcon>
   </PropertyGroup>

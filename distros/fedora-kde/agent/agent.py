@@ -331,12 +331,47 @@ def ensure_nvidia_kernel_cmdline(module_ok_for_all: bool, kvers: list[str]) -> N
         )
 
 
+def _nvidia_module_present(kver: str) -> bool:
+    """True when the akmods-built nvidia module exists on disk for this kernel."""
+    base = Path(f"/lib/modules/{kver}")
+    return (base / "extra/nvidia").is_dir() or bool(list(base.glob("extra/nvidia*")))
+
+
 def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     """Install NVIDIA drivers if the GPU is NVIDIA."""
     gpu = manifest.get("hardware", {}).get("gpuVendor", "").lower()
     if gpu != "nvidia":
         logger.info("GPU driver: vendor=%r, skipping NVIDIA step", gpu)
         return
+
+    # Neutralise the kernel pull BEFORE the driver install. Verified against the
+    # Fedora 44 updates repodata (3 Aug 2026): akmods-0.6.2-14.fc44 has the HARD
+    # rich dependency `(kernel-devel-matched if kernel-core)` - NOT a weak dep,
+    # so install_weak_deps=False would change nothing - and
+    # kernel-devel-matched-7.1.5-201.fc44 hard-requires `kernel-core` +
+    # `kernel-devel`. dnf resolves a name-only requirement to the NEWEST version,
+    # so installing akmod-nvidia on a GA kernel dragged kernel-core 7.1.5 in.
+    # But a name-based rich dep is already satisfied by ANY installed version:
+    # pre-installing kernel-devel-matched + kernel-devel of the RUNNING kernel
+    # (present in the frozen 'fedora' releases repo for the GA kernel) satisfies
+    # the chain and no new kernel is pulled. check=False on purpose: if the
+    # exact version is no longer in any repo (superseded updates kernel), the
+    # install below simply pulls the newest kernel as before and the per-kernel
+    # build + GRUB pin further down remain the safety net.
+    running_kver = os.uname().release
+    pre = run_cmd(
+        ["dnf", "-y", "install",
+         f"kernel-devel-matched-{running_kver}", f"kernel-devel-{running_kver}"],
+        timeout=600, check=False,
+    )
+    if pre.returncode == 0:
+        logger.info("Pre-installed kernel-devel-matched/kernel-devel for the running kernel %s - "
+                    "the akmods rich dep is satisfied, no newer kernel will be pulled",
+                    running_kver)
+    else:
+        logger.warning("Could not pre-install kernel-devel-matched-%s (version not in repos?) - "
+                       "the driver install may pull a newer kernel; the per-kernel build and "
+                       "GRUB pin below cover that", running_kver)
 
     logger.info("Installing NVIDIA drivers from RPM Fusion")
     run_cmd(
@@ -388,23 +423,55 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
 
     # Verify the module actually exists for each kernel; a silent build failure
     # here is precisely what produces a black desktop on the next boot.
-    module_ok_for_all = bool(kvers)
+    good_kvers: list[str] = []
     for kver in kvers:
-        if Path(f"/lib/modules/{kver}/extra/nvidia").is_dir() or \
-           list(Path(f"/lib/modules/{kver}").glob("extra/nvidia*")):
+        if _nvidia_module_present(kver):
             logger.info("nvidia module present for kernel %s", kver)
+            good_kvers.append(kver)
         else:
-            module_ok_for_all = False
             logger.error("nvidia module MISSING for kernel %s - that kernel will boot without "
                          "the GPU driver", kver)
+
+    # GRUB boots the NEWEST installed kernel by default - including one pulled
+    # mid-install whose akmod build then failed (kernel 7.1.5 via
+    # kernel-devel-matched, RTX 5070 bare-metal, July 2026: the reboot landed on
+    # it with NO nvidia module and nouveau died on Blackwell, leaving a
+    # corrupted framebuffer of repeated boot logos). Never leave the default to
+    # chance: pin it to the newest kernel with a VERIFIED module. When every
+    # kernel has the module this is the same kernel GRUB would pick anyway, so
+    # the pin changes nothing in the good case.
+    pinned_kver = good_kvers[-1] if good_kvers else None
+    if pinned_kver and len(kvers) > 1:
+        if run_cmd(["grubby", f"--set-default=/boot/vmlinuz-{pinned_kver}"],
+                   check=False).returncode == 0:
+            logger.info("Pinned the default boot entry to kernel %s (verified nvidia module)",
+                        pinned_kver)
+        else:
+            logger.error("Could not pin the default kernel - GRUB may still boot an "
+                         "unverified kernel")
+
+    # An incomplete GPU driver is a FAILED run for forensics, even though no
+    # step raised: mark it so cleanup-seed keeps the installer partitions (and
+    # the exported logs) instead of deleting the evidence along with the
+    # broken boot that follows.
+    if len(good_kvers) < len(kvers):
+        try:
+            Path("/var/lib/igloo/.had-failures").write_text(
+                "gpu-drivers: nvidia module missing for "
+                f"{len(kvers) - len(good_kvers)} of {len(kvers)} kernel(s)\n",
+                encoding="utf-8")
+        except OSError:
+            pass
 
     # Now that the module is confirmed on disk, take nouveau/nova_core off the
     # kernel cmdline path: their /etc/modprobe.d blacklist does not apply inside
     # the initramfs, so without rd.driver.blacklist they keep loading at every
     # boot and fight nvidia for the GPU (the RTX 5070 bare-metal kernel panic).
-    # Skipped automatically when the module is incomplete or Secure Boot would
-    # reject it - in those states the in-tree driver must stay loadable.
-    ensure_nvidia_kernel_cmdline(module_ok_for_all, kvers)
+    # Applied whenever the kernel we will actually BOOT (the pinned one) has a
+    # verified module - a failed build for a NEWER, non-default kernel must not
+    # keep nouveau loadable on the good one, which is the known panic state.
+    # Only when NO kernel has a module does the in-tree driver stay loadable.
+    ensure_nvidia_kernel_cmdline(pinned_kver is not None, kvers)
 
     # Installing the NVIDIA driver blacklists nouveau and builds a new kernel
     # module that only loads on the next boot.  Starting the Plasma session now
@@ -1383,6 +1450,86 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
         logger.exception("Could not stage the KDE display layout (non-fatal)")
 
 
+def migrate_wallpaper(manifest: dict[str, Any]) -> None:
+    """Reproduce the Windows desktop wallpaper on KDE Plasma.
+
+    The Windows side staged the image next to the manifest on the seed; the
+    kickstart %post copied it to /opt/igloo. The file is placed in the user's
+    Pictures folder (visibly theirs, not hidden in a system path). Setting it
+    cannot happen from this root context: plasma-apply-wallpaperimage needs a
+    running Plasma session, exactly like kscreen-doctor for the display
+    layout. So we register a one-shot login hook with the same retry
+    convention. Purely additive: no wallpaper in the manifest means the
+    Fedora default is kept.
+    """
+    wp = manifest.get("wallpaper") or {}
+    fname = (wp.get("fileName") or "").strip()
+    if not fname:
+        logger.info("No wallpaper in the manifest - keeping the Fedora default")
+        return
+    src = Path("/opt/igloo") / fname
+    if not src.is_file():
+        logger.warning("Manifest names wallpaper %r but %s is missing - skipped", fname, src)
+        return
+
+    username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
+    home = Path("/home") / username if username else None
+    if home is None or not home.is_dir():
+        logger.warning("User home not found - cannot install the wallpaper")
+        return
+
+    try:
+        pictures = home / "Pictures"
+        pictures.mkdir(parents=True, exist_ok=True)
+        dst = pictures / f"wallpaper{src.suffix or '.jpg'}"
+        dst.write_bytes(src.read_bytes())
+        run_cmd(["chown", "-R", f"{username}:{username}", str(pictures)], check=False)
+        logger.info("Wallpaper installed at %s", dst)
+    except OSError:
+        logger.exception("Could not copy the wallpaper into the user home (non-fatal)")
+        return
+
+    try:
+        apply_sh = Path("/opt/igloo/wallpaper-apply.sh")
+        apply_sh.write_text(
+            "#!/usr/bin/env bash\n"
+            "# iGloo wallpaper for KDE Plasma - runs once per user at login.\n"
+            "# Retries on later logins until plasma-apply-wallpaperimage succeeds.\n"
+            'DONE_MARKER="$HOME/.config/.igloo-wallpaper-done"\n'
+            '[ -f "$DONE_MARKER" ] && exit 0\n'
+            'for wp in "$HOME/Pictures"/wallpaper.*; do\n'
+            '  [ -f "$wp" ] || exit 0\n'
+            "  if ! command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then\n"
+            '    mkdir -p "$HOME/.local/state"\n'
+            '    echo "[$(date +%F\\ %T)] ERROR: plasma-apply-wallpaperimage not found" '
+            '>> "$HOME/.local/state/igloo-display.log"\n'
+            "    exit 1\n"
+            "  fi\n"
+            '  plasma-apply-wallpaperimage "$wp" && touch "$DONE_MARKER"\n'
+            "  exit $?\n"
+            "done\n",
+            encoding="utf-8",
+        )
+        apply_sh.chmod(0o755)
+
+        autostart = Path("/etc/xdg/autostart/igloo-wallpaper.desktop")
+        autostart.write_text(
+            "[Desktop Entry]\n"
+            "Name=iGloo Wallpaper\n"
+            "Comment=Set the migrated Windows desktop wallpaper\n"
+            "Exec=/opt/igloo/wallpaper-apply.sh\n"
+            "Icon=preferences-desktop-wallpaper\n"
+            "Terminal=false\n"
+            "Type=Application\n"
+            "X-GNOME-Autostart-enabled=true\n"
+            "OnlyShowIn=KDE;\n",
+            encoding="utf-8",
+        )
+        logger.info("KDE wallpaper hook staged (runs at first login)")
+    except OSError:
+        logger.exception("Could not stage the KDE wallpaper hook (non-fatal)")
+
+
 def install_welcome_app(manifest: dict[str, Any]) -> None:
     """
     Drop an XDG autostart entry that launches a simple welcome notification
@@ -1462,6 +1609,66 @@ def configure_logging(log_dir: Path) -> None:
 IGLOO_SEED_LABELS = ("OEMDRV", "CIDATA", "IGLOOISO")
 
 
+def export_logs_to_seed(manifest: dict[str, Any]) -> None:
+    """Copy the install logs onto the FAT32 seed partition (OEMDRV/CIDATA).
+
+    When the post-install boot fails (black screen, broken GPU driver), the
+    logs on the Linux root are nearly unreachable - but the seed partition is
+    FAT32, readable straight from Windows, and in USB mode it is never
+    deleted. Dropping the logs there turns a blind failure into a one-plug
+    diagnosis. Best-effort: any problem here just leaves the logs in place.
+    """
+    log_dir = Path("/var/log/igloo")
+    if not log_dir.is_dir():
+        return
+    seed_dev = next((p for p in (Path("/dev/disk/by-label") / label
+                                 for label in IGLOO_SEED_LABELS) if p.exists()), None)
+    if seed_dev is None:
+        logger.info("No seed partition present - logs stay in %s", log_dir)
+        return
+
+    mountpoint = Path("/run/igloo-seed-export")
+    mounted = False
+    try:
+        mountpoint.mkdir(parents=True, exist_ok=True)
+        if run_cmd(["mount", "-t", "vfat", str(seed_dev), str(mountpoint)],
+                   check=False).returncode != 0:
+            logger.info("Could not mount the seed partition for log export (non-fatal)")
+            return
+        mounted = True
+        dest = mountpoint / "igloo-logs"
+        dest.mkdir(exist_ok=True)
+        for f in sorted(log_dir.glob("*.log")):
+            dest.joinpath(f.name).write_bytes(f.read_bytes())
+        # Anaconda's own log says what happened during the OS install itself -
+        # the agent log only starts at first boot.
+        anaconda = Path("/var/log/anaconda")
+        if anaconda.is_dir():
+            ana_dest = dest / "anaconda"
+            ana_dest.mkdir(exist_ok=True)
+            for f in sorted(anaconda.glob("*.log")):
+                ana_dest.joinpath(f.name).write_bytes(f.read_bytes())
+        # The akmods build logs carry the ACTUAL compiler error when the
+        # nvidia module fails to build for a kernel (e.g. a driver branch that
+        # predates the kernel's API). The agent log only records THAT the
+        # build failed; these say WHY. *.failed.log files are per driver-
+        # version-per-kernel.
+        akmods_cache = Path("/var/cache/akmods")
+        if akmods_cache.is_dir():
+            ak_dest = dest / "akmods"
+            for logf in sorted(akmods_cache.rglob("*.log")):
+                rel = logf.relative_to(akmods_cache)
+                target = ak_dest / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(logf.read_bytes())
+        logger.info("Exported install logs to %s (on %s)", dest, seed_dev)
+    except OSError:
+        logger.info("Log export to the seed partition failed (non-fatal)")
+    finally:
+        if mounted:
+            run_cmd(["umount", str(mountpoint)], check=False)
+
+
 def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
     """Remove Igloo's temporary installer artifacts from the machine.
 
@@ -1480,6 +1687,15 @@ def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
     The freed space is intentionally left unallocated: it borders the Windows
     partition, so Windows' own Disk Management can extend C: into it.
     """
+    # A failed run keeps its seed partitions: they carry the exported logs and
+    # the entire agent payload for forensics, and a rerun of the installer
+    # wipes them anyway. Deleting them would destroy the evidence along with
+    # the failure.
+    if Path("/var/lib/igloo/.had-failures").exists():
+        logger.warning("Earlier steps failed - leaving the installer partitions in place "
+                       "for diagnosis")
+        return
+
     # --nofsroot strips the subvolume suffix: without it findmnt returns
     # "/dev/nvme0n1p3[/root]" on Fedora's btrfs root, which is not a valid device
     # path  lsblk then fails, `disk` stays empty, and the whole cleanup silently
@@ -1584,11 +1800,16 @@ def main() -> int:
         ("kernel-modules",  lambda: ensure_kernel_modules(manifest)),
         ("wifi",            lambda: migrate_wifi(manifest)),
         ("display-layout",  lambda: migrate_display_layout(manifest)),
+        ("wallpaper",       lambda: migrate_wallpaper(manifest)),
         ("welcome-app",     lambda: install_welcome_app(manifest)),
         # Chromium credentials: needs the plaintext linuxPassword, so it must
         # run before redact-manifest; needs nothing else, so it stays late.
         ("chromium-creds",  lambda: import_chromium_credentials(manifest)),
         ("redact-manifest", lambda: redact_manifest(manifest)),
+        # export-logs must run BEFORE cleanup-seed: it copies the install logs
+        # onto the seed partition, which cleanup then deletes on a successful
+        # direct-install run (the USB-mode seed survives either way).
+        ("export-logs",     lambda: export_logs_to_seed(manifest)),
         ("cleanup-seed",    lambda: cleanup_installer_partitions(manifest)),
     ]
 
@@ -1601,6 +1822,12 @@ def main() -> int:
         except Exception:
             logger.exception("step %s FAILED", name)
             failures.append(name)
+            # Marker for cleanup-seed: a failed run keeps its seed partitions
+            # (exported logs + agent payload) for forensics.
+            try:
+                Path("/var/lib/igloo/.had-failures").write_text(name + "\n", encoding="utf-8")
+            except OSError:
+                pass
 
     if failures:
         logger.warning(

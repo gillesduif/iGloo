@@ -150,6 +150,25 @@ run  display-hook-user.txt   bash -c 'for h in /home/*/; do echo "== $h"; cat "$
 run  session-desktop.txt     bash -c 'echo "XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-unset} XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-unset}"; loginctl list-sessions --no-legend 2>/dev/null'
 run  xrandr-verbose.txt      bash -c 'xrandr --verbose 2>/dev/null | head -150'
 
+#   3e. Wallpaper migration
+# The image lands in ~/Pictures and is set via dconf default (GNOME/Cinnamon)
+# or a KDE login hook (plasma-apply-wallpaperimage, done-marker convention).
+echo "[3e/6] Wallpaper"
+run  wallpaper-user.txt      bash -c 'for h in /home/*/; do echo "== $h"; ls -la "$hPictures"/wallpaper.* 2>/dev/null || echo "(no wallpaper in Pictures)"; [ -f "$h.config/.igloo-wallpaper-done" ] && echo "wallpaper-done: PRESENT" || echo "wallpaper-done: absent"; done'
+grab /etc/dconf/db/local.d/00-igloo-wallpaper dconf-igloo-wallpaper.txt
+grab /etc/xdg/autostart/igloo-wallpaper.desktop autostart-wallpaper.desktop
+run  wallpaper-live.txt      bash -c 'ls -la /opt/igloo/igloo-wallpaper.* 2>/dev/null || echo "(no wallpaper in /opt/igloo)"; gsettings get org.gnome.desktop.background picture-uri 2>/dev/null'
+
+#   3d. Keyboard (GNOME dconf) + display second pass
+# GNOME session layout comes from dconf input-sources, seeded via a system db;
+# that db only counts when the profile names system-db:local. The display
+# second pass is a one-shot service whose journal says whether EDID appeared.
+echo "[3d/6] Keyboard & second pass"
+grab /etc/dconf/profile/user dconf-profile-user.txt
+grab /etc/dconf/db/local.d/00-igloo-keyboard dconf-igloo-keyboard.txt
+run  keyboard-live.txt       bash -c 'cat /etc/default/keyboard 2>/dev/null; gsettings get org.gnome.desktop.input-sources sources 2>/dev/null'
+run  second-pass.txt         bash -c 'systemctl status igloo-display-layout.service --no-pager 2>/dev/null; journalctl -b -u igloo-display-layout.service --no-pager 2>/dev/null; ls /var/lib/igloo/.display-done 2>/dev/null && echo "display-done: PRESENT" || echo "display-done: absent"'
+
 #   4. Desktop session (the black-screen question)
 echo "[4/6] Desktop session"
 run  display-manager.txt     systemctl status display-manager --no-pager

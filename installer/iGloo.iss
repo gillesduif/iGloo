@@ -28,13 +28,16 @@
   #define IglooPublishDir "publish"
 #endif
 #ifndef IglooVersion
-  #define IglooVersion "0.0.1-alpha"
+  #define IglooVersion "0.1-alpha"
 #endif
 
 [Setup]
 AppId={{7B4E9C2A-6F3D-4A1B-9E5C-2D8F0A3B6C71}
 AppName=iGloo
 AppVersion={#IglooVersion}
+; Display name in "Apps & Features" is just "iGloo" - the version has its own
+; column there and does not belong in the product name.
+AppVerName=iGloo
 AppPublisher=Gilles D'huyvetter
 AppPublisherURL=https://github.com/gillesduif/iGloo
 DefaultDirName={autopf}\iGloo
@@ -49,7 +52,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\iGloo.exe
-VersionInfoVersion=0.0.1.0
+VersionInfoVersion=0.1.0.0
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -66,4 +69,6 @@ Name: "{group}\iGloo"; Filename: "{app}\iGloo.exe"
 Name: "{autodesktop}\iGloo"; Filename: "{app}\iGloo.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\iGloo.exe"; Description: "Launch iGloo"; Flags: nowait postinstall skipifsilent
+; shellexec is required: iGloo.exe has requireAdministrator in its manifest and a
+; plain CreateProcess cannot raise a UAC prompt (error 740 on the finish page).
+Filename: "{app}\iGloo.exe"; Description: "Launch iGloo"; Flags: nowait postinstall skipifsilent shellexec

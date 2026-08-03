@@ -1,7 +1,7 @@
 # Pinning distro signing keys (the trust anchor)
 
 iGloo verifies every downloaded ISO's checksum file with GPG. The **signing key
-is the trust anchor** — it must be established out-of-band (not fetched and
+is the trust anchor** - it must be established out-of-band (not fetched and
 trusted blindly from a keyserver). Two knobs in each `distro.json` control this:
 
 ```jsonc
@@ -18,13 +18,13 @@ Behaviour:
 |---|---|---|
 | set | set | **Strongest.** Uses the bundled key; the signing key must match the pinned fingerprint. No keyserver. |
 | unset | set | Fetches `gpgKeyUrl`, but the key **must** match the pinned fingerprint (a forged/substituted key is rejected). |
-| unset | unset | Fetches `gpgKeyUrl` and trusts it (current fallback — weakest; avoid for releases). |
+| unset | unset | Fetches `gpgKeyUrl` and trusts it (current fallback - weakest; avoid for releases). |
 
-A **wrong** fingerprint can never make verification accept a bad key — it only
+A **wrong** fingerprint can never make verification accept a bad key - it only
 rejects. So pinning fails closed.
 
 **Enforcement (2026-07):** ISO acquisition is fail-closed. When a distro declares
-GPG (signature URL + key source), a failed signature ABORTS the install — it never
+GPG (signature URL + key source), a failed signature ABORTS the install - it never
 degrades to a warning. A SHA-256 must be available (manifest pin or signed checksum
 file) or acquisition aborts; if both exist they must agree. All artefact URLs must
 be HTTPS. Current pins (validated live against the shipping verifiers):
@@ -36,11 +36,11 @@ be HTTPS. Current pins (validated live against the shipping verifiers):
 | ubuntu | `843938DF228D22F7B3742BC0D94AA3F0EFE21092` | ubuntu.com (key URL carries the full fp) |
 | linuxmint-cinnamon | `27DEB15644C6B3CF3BD7D291300F846BA25BAE09` | linuxmint.com/verify.php |
 
-> **Mint keyserver gotcha — do not "fix" back:** Mint's `gpgKeyUrl` uses
+> **Mint keyserver gotcha - do not "fix" back:** Mint's `gpgKeyUrl` uses
 > `keys.openpgp.org/vks/v1/by-fingerprint/…`, NOT `keyserver.ubuntu.com`. The SKS
 > keyserver attaches every third-party certification ever made on the key, and one
 > of those is an OpenPGP v5 signature packet that BouncyCastle 2.3.1 cannot parse
-> (`UnsupportedPacketVersionException`) — key parsing dies and verification fails.
+> (`UnsupportedPacketVersionException`) - key parsing dies and verification fails.
 > keys.openpgp.org serves the key with self-signatures only, which parses cleanly.
 > The Fedora releases also rotate signing keys: bump `gpgKeyFingerprint` together
 > with the release URLs (the pin is per-release).

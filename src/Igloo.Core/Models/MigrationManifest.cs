@@ -38,6 +38,28 @@ public sealed record MigrationManifest
     /// <summary>The Windows desktop layout, reproduced on Linux by the first-boot agent.</summary>
     [JsonPropertyName("displays")]
     public IReadOnlyList<DisplayLayout> Displays { get; init; } = Array.Empty<DisplayLayout>();
+
+    /// <summary>
+    /// The Windows desktop wallpaper, reproduced on Linux. Null when the user had no
+    /// migratable image (solid colour, slideshow, or the file was unreadable) - the
+    /// agent then leaves the distro default alone.
+    /// </summary>
+    [JsonPropertyName("wallpaper")]
+    public WallpaperMigration? Wallpaper { get; init; }
+}
+
+/// <summary>
+/// The wallpaper image carried to Linux. The file itself sits next to this manifest
+/// on the installer seed (staging root); <see cref="FileName"/> is the name the
+/// first-boot agent looks for.
+/// </summary>
+public sealed record WallpaperMigration
+{
+    /// <summary>Staging-relative file name, e.g. <c>igloo-wallpaper.jpg</c>.</summary>
+    [JsonPropertyName("fileName")] public required string FileName { get; init; }
+
+    /// <summary>Where the image lived on Windows - diagnostics only.</summary>
+    [JsonPropertyName("originalPath")] public string? OriginalPath { get; init; }
 }
 
 /// <summary>One monitor's geometry, as Windows was driving it.</summary>

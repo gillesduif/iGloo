@@ -84,7 +84,7 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
             : Path.Combine(asmDir, "..", "_debian-family", "agent");
 
         var files = new List<AgentFile>();
-        foreach (var (name, exe) in new[] { ("first-boot.sh", true), ("agent.py", true), ("display-apply.py", true), ("igloo-first-boot.service", false) })
+        foreach (var (name, exe) in new[] { ("first-boot.sh", true), ("agent.py", true), ("display-apply.py", true), ("display-apply-gnome.py", true), ("igloo-first-boot.service", false) })
         {
             var p = Path.Combine(agentDir, name);
             if (File.Exists(p))

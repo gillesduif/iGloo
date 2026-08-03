@@ -371,6 +371,16 @@ else
     log "WARNING: migration-manifest.json not found on OEMDRV"
 fi
 
+# ── 3b. Copy the migrated wallpaper (optional) ──────────────────────────────
+# The agent's wallpaper step looks for it in /opt/igloo under its staged name.
+if [ -n "$OEMDRV" ]; then
+    for wp in "$OEMDRV"/igloo-wallpaper.*; do
+        [ -f "$wp" ] || continue
+        cp "$wp" "$SYSIMAGE/opt/igloo/$(basename "$wp")"
+        log "Wallpaper copied: $(basename "$wp")"
+    done
+fi
+
 # ── 4. Copy user files ───────────────────────────────────────────────────────
 # Two strategies depending on how Igloo wrote the installer:
 #
