@@ -1,0 +1,51 @@
+{
+  "$schema": "https://fundingjson.org/schema/v1.1.0.json",
+  "version": "v1.1.0",
+  "entity": {
+    "type": "individual",
+    "role": "maintainer",
+    "name": "Gilles D'huyvetter",
+    "email": "ipadireview@gmail.com",
+    "description": "Sole developer and maintainer of iGloo, based in Flanders, Belgium. Builds open source migration infrastructure that lets non-technical Windows users move to Linux safely.",
+    "webpageUrl": {
+      "url": "https://github.com/gillesduif"
+    }
+  },
+  "projects": [
+    {
+      "guid": "igloo",
+      "name": "iGloo",
+      "description": "One-click migration from Windows to Linux for people who have never seen a terminal. iGloo shrinks the Windows partition and installs Linux directly from Windows (no USB stick, no firmware knowledge), verifies every ISO against pinned GPG signatures, migrates files, Wi-Fi profiles, browser data and wallpaper, and on first boot installs GPU drivers (including NVIDIA), keyboard layout and the per-monitor display layout. Validated end-to-end on physical hardware with Fedora KDE, Linux Mint and Debian 13, dual-boot alongside Windows 11.",
+      "webpageUrl": {
+        "url": "https://github.com/gillesduif/iGloo"
+      },
+      "repositoryUrl": {
+        "url": "https://github.com/gillesduif/iGloo"
+      },
+      "licenses": ["spdx:GPL-3.0-or-later"],
+      "tags": ["linux", "windows", "migration", "installer", "dual-boot", "operating-systems", "desktop", "digital-sovereignty"]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "bank-transfer",
+        "type": "bank",
+        "address": "",
+        "description": "Direct bank transfer. E-mail me for account details."
+      }
+    ],
+    "plans": [
+      {
+        "guid": "development-grant",
+        "status": "active",
+        "name": "Development grant",
+        "description": "One-time grant funding focused development on iGloo: hardware-matrix validation, safety hardening (disk snapshot and rollback), and the 1.0 release. See docs/funding/igloo-one-pager.md in the repository for the full plan.",
+        "amount": 10000,
+        "currency": "USD",
+        "frequency": "one-time",
+        "channels": ["bank-transfer"]
+      }
+    ]
+  }
+}
