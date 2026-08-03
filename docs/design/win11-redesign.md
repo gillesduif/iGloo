@@ -1,14 +1,14 @@
-# iGloo — Windows 11 redesign charter
+# iGloo - Windows 11 redesign charter
 
 **Status: adopted (July 2026). Supersedes the glassmorphism direction.**
 This is the source of truth for all UI work. If a change conflicts with this
-document, the change is wrong or this document gets amended first — never both
+document, the change is wrong or this document gets amended first - never both
 drifting apart.
 
 ## The one-sentence brief
 
 iGloo must read as a **first-party Windows 11 utility** (Settings, Visual Studio
-Installer, Windows Security): calm, typographic, transparent — because users
+Installer, Windows Security): calm, typographic, transparent - because users
 trust it with their operating system. One deliberate exception: the Cover Flow
 distro picker is iGloo's signature and stays, elevated to premium-control quality.
 
@@ -21,12 +21,12 @@ distro picker is iGloo's signature and stays, elevated to premium-control qualit
 3. **Color is semantic only.** Blue = primary action · Green = success ·
    Amber = warning · Red = destructive. Neutral everywhere else.
 4. **Every screen answers:** Where am I? · What is happening? · Why? ·
-   What's next? · Can I safely continue? If not → redesign, don't restyle.
+   What's next? · Can I safely continue? If not → redesign, do not restyle.
 5. **Transparency for power users, guidance for beginners.** Details
    (verification, partitions, logs) are one click away, never in the way.
 6. **Accessibility is architecture:** keyboard path, visible focus, contrast,
    AutomationProperties on everything interactive. (The earlier "kill the OS
-   focus ring" fix was wrong by this charter — replaced by a *designed* ring.)
+   focus ring" fix was wrong by this charter - replaced by a *designed* ring.)
 
 ## Design tokens (dark theme, Win11-derived)
 
@@ -40,7 +40,7 @@ distro picker is iGloo's signature and stays, elevated to premium-control qualit
 | `Brush.Accent.Hover` / `.Pressed` | `#5FCBFF` / `#3DAEE8` | accent states |
 | `Brush.OnAccent` | `#053345` | text on accent fill (AA on #4CC2FF) |
 | Corner radius | **4** controls · **8** cards/overlays | Win11 geometry |
-| Type ramp | Caption 12 · Body 13–14 · BodyStrong 14/600 · Subtitle 20/600 · Title 28/600 | Segoe UI Variable |
+| Type ramp | Caption 12 · Body 13-14 · BodyStrong 14/600 · Subtitle 20/600 · Title 28/600 | Segoe UI Variable |
 | Spacing | 4-px grid; section gap 24; label→control 8 | |
 | Focus | 2px light ring, 3px offset, rounded (`FocusVisual.Win11`) | applied app-wide |
 | Effects | none. No glow, no drop shadows on controls. | strokes carry depth |
@@ -60,7 +60,7 @@ end up incoherent). Status column tracks progress.
 | Welcome | tone | decorative hero space (R2) | Title + one-paragraph promise + "What iGloo will do" 3-item summary + primary CTA; alpha warning as amber InfoBar, not a card | ☐ |
 | Preflight | findings model | severity via colored cards (R2/R3) | Settings-style rows: icon + name + one-line result, chevron expands detail; blockers pinned top with remedy; "Copy report" for power users | ☐ |
 | Distro picker (signature) | **Cover Flow stays** | chips were glass; focus invisible (R6) | Cover Flow as premium control: neutral chips (pivot-style), designed focus ring, ←/→ + type-ahead, reduced-motion fallback; caption block fixed-height (no reflow) | ☐ |
-| ISO download | phase text | progress lacks *why* (R5) | One progress line + phase; verification as explicit checklist rows (SHA-256 ✓ · Signature ✓ · Key pinned ✓) — the trust moment, show it; details expander: URL, size, speed, fingerprint | ☐ |
+| ISO download | phase text | progress lacks *why* (R5) | One progress line + phase; verification as explicit checklist rows (SHA-256 ✓ · Signature ✓ · Key pinned ✓) - the trust moment, show it; details expander: URL, size, speed, fingerprint | ☐ |
 | Migration setup | grouping | mixed control styles, tall inputs | Two-column form grid (label 160px / control), 32px input height, folder toggles as Win11 toggle-chips with sizes ("Documents · 1.2 GB") | ☐ |
 | Disk selection | mode choice | consequence unclear (R4/R5) | Before/after partition bar visualization; explicit sentence: "Windows keeps X GB, Linux gets Y GB"; replace-mode gated by typed confirmation | ☐ |
 | Staging / Direct install | step reporting | wall-of-progress (R1) | Checklist of named steps (done ✓ / active spinner / pending); persistent "Windows stays bootable until reboot" reassurance line; log link | ☐ |
@@ -76,7 +76,7 @@ badges) follows the Fluent language so the 3D stage feels curated, not themed.
 
 ## Working protocol
 
-1. Foundation tokens + core controls land first (done — see IglooTheme.xaml).
+1. Foundation tokens + core controls land first (done - see IglooTheme.xaml).
 2. One screen per iteration: implement → screenshot → refine → check ☑ above.
 3. No new one-off hex values in pages; tokens only. New needs → new token here.
 4. WPF hygiene per iteration: extract repeated XAML into styles/controls,

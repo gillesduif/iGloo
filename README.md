@@ -34,8 +34,9 @@ full system rollback into a single, automated workflow.
   shrink the host Windows partition, allocate a temporary recovery partition,
   and stage the target Linux installation image directly on internal storage.
 - **Automated Data Migration:** Detects and transfers user profile data,
-  documents, active browser sessions, saved login credentials and localized
-  Wi-Fi configurations directly to the new home directories. Gecko-based
+  documents, the desktop wallpaper, active browser sessions, saved login
+  credentials and localized Wi-Fi configurations directly to the new home
+  directories. Gecko-based
   browsers (Mozilla Firefox, Zen Browser, Waterfox) migrate at profile level,
   which carries saved passwords with the profile. Chromium-based browsers
   (Google Chrome, Microsoft Edge, Brave, Vivaldi, Opera) get saved passwords
@@ -44,8 +45,9 @@ full system rollback into a single, automated workflow.
   Brave builds) are detected and skipped.
 - **Pre-Configuration Engine:** Configures the target system bootloader,
   identifies compatible graphics drivers (including NVIDIA), registers native
-  keyboard layouts and queues native Linux alternatives for detected Windows
-  applications.
+  keyboard layouts, reproduces the Windows display layout (per-monitor
+  resolution, refresh rate, rotation) and queues native Linux alternatives for
+  detected Windows applications.
 - **Bi-Directional Lifecycle Management:** Detects existing iGloo-deployed
   Linux instances to provide a clean, automated removal pipeline that safely
   deletes Linux partitions, purges EFI boot entries and reclaims unallocated
@@ -59,12 +61,12 @@ production machines.**
 
 | Distribution | Installer stack | Validation state |
 |---|---|---|
-| **Linux Mint Cinnamon** | Ubiquity / preseed (casper) | Validated end-to-end on physical hardware: unattended installation, dual-boot preservation, first-boot agent execution, file migration. A GPU driver variant selection defect on RTX 50-series GPUs is fixed and awaiting re-test. |
-| **Fedora KDE** | Anaconda / kickstart | Validated end-to-end on physical hardware: dual-boot beside Windows, file and Wi-Fi migration. A nouveau kernel blacklist that removed all display output on NVIDIA systems has been reverted and is awaiting re-test. |
-| **Debian 13** | debian-installer + live-installer / preseed | Uses an offline installation path that copies the Live image squashfs and requires no network until first boot. Boots and installs on physical hardware. Under active testing. |
+| **Linux Mint Cinnamon** | Ubiquity / preseed (casper) | Validated end-to-end on physical hardware (NVIDIA RTX 5070): unattended installation, dual-boot preservation, NVIDIA driver installation, display layout (resolution, refresh rate, rotation), keyboard layout, wallpaper and file migration. |
+| **Fedora KDE** | Anaconda / kickstart | Validated end-to-end on physical hardware (NVIDIA RTX 5070): dual-boot beside Windows, NVIDIA driver built for the running kernel (the agent pre-installs the matching `kernel-devel-matched` so the akmods dependency chain pulls no surprise kernel), the GRUB default pinned to the verified kernel, display layout, wallpaper and file migration. |
+| **Debian 13** | debian-installer + live-installer / preseed | Validated end-to-end on physical hardware (NVIDIA RTX 5070): offline installation that copies the Live image squashfs and requires no network until first boot, dual-boot preservation, display layout, keyboard layout (azerty), wallpaper and file migration. |
 | **Ubuntu** | subiquity / autoinstall (cloud-init) | In development. ISO staging, casper/toram boot, autoinstall delivery and partition preservation are individually validated. Parked on an installer disk-release defect. Full analysis in [`distros/ubuntu/STATUS.md`](distros/ubuntu/STATUS.md). |
 
-The application catalog lists 16 additional distributions with the status
+The application catalog lists 15 additional distributions with the status
 "coming soon". These entries contain metadata and logos only. Only the four
 distributions listed above implement a complete installation pipeline.
 
@@ -149,12 +151,15 @@ The full plan with milestone definitions and prioritization criteria is in
 
 - **Completed:** core pipeline (M1-M8), multi-distribution expansion (M9),
   ISO verification hardening (M10), open-source readiness including the
-  GPL-3.0 relicensing (M11).
+  GPL-3.0 relicensing (M11), a bare-metal validation round for Fedora KDE,
+  Linux Mint and Debian on NVIDIA hardware (M18), and the Windows installer
+  packaging (M19).
 - **In progress:** Linux detection and removal (M13), closed beta on a
   physical-hardware matrix (M15), visual step-by-step guide (M12).
-- **Planned:** pre-installation snapshot and rollback (M14), v1.0 public
-  release (M16), Ubuntu validation, wizard localization, accessibility,
-  LUKS encryption option, reproducible builds with signed releases.
+- **Planned:** an end-user-friendly GRUB boot menu (M17), pre-installation
+  snapshot and rollback (M14), v1.0 public release (M16), Ubuntu validation,
+  wizard localization, accessibility, LUKS encryption option, reproducible
+  builds with signed releases.
 
 ## Building from source
 
@@ -271,7 +276,7 @@ iGloo/
 │   ├── debian/                # debian-installer + live-installer / preseed
 │   ├── linuxmint-cinnamon/    # Ubiquity / preseed (casper live ISO)
 │   ├── ubuntu/                # subiquity / autoinstall (in development)
-│   └── .../                   # 16 "coming soon" catalog entries
+│   └── .../                   # 15 "coming soon" catalog entries
 ├── tests/                     # Six xUnit test projects
 ├── docs/
 │   ├── architecture.md        # System architecture
@@ -334,6 +339,10 @@ iGloo is maintained by [@gillesduif](https://github.com/gillesduif).
 The project depends on the work of the Fedora Project, Debian, Linux Mint and
 Canonical (distributions and installers), the shim and GRUB2 communities
 (boot chain) and the Linux kernel community.
+
+In July 2026 iGloo was discussed on the WAN Show (Linus Media Group). The
+segment is available as a clip,
+["Maybe It's Time to Leave Windows"](https://youtu.be/AkvetmzCh_M?t=354).
 
 ---
 

@@ -1,6 +1,6 @@
 # iGloo: Unattended In-Place Migration from Windows to Linux Without External Boot Media
 
-**Technical White Paper — Draft 0.1 (July 2026)**
+**Technical White Paper - Draft 0.1 (August 2026)**
 
 Gilles D'huyvetter
 Independent researcher/developer, Flanders, Belgium
@@ -13,9 +13,9 @@ Desktop Linux adoption has historically been gated not by the quality of the tar
 operating system but by the migration procedure itself: preparing external boot media,
 reconfiguring firmware, manual disk partitioning, and post-install driver and data
 setup. We present iGloo, a Windows-native application that performs a complete,
-unattended migration to Linux — including dual-boot partitioning, installer boot
+unattended migration to Linux - including dual-boot partitioning, installer boot
 without any external media, cryptographically verified OS acquisition, and automated
-migration of user files, wireless credentials, and hardware enablement — with no user
+migration of user files, wireless credentials, and hardware enablement - with no user
 interaction beyond an initial questionnaire. We describe (1) a *direct-install
 pipeline* that stages a Linux installer from within a running Windows system using
 only disk partitioning and UEFI boot-order primitives; (2) a *distro plugin
@@ -51,17 +51,17 @@ manual data copy) and cite abandonment causes. -->
 
 ### 1.3 Contributions
 1. A media-less installer staging technique using only Windows-side primitives
-   (volume shrink, FAT32 partition creation, UEFI BootNext registration) — §4.
+   (volume shrink, FAT32 partition creation, UEFI BootNext registration) - §4.
 2. A declarative per-distribution abstraction (`InstallerBootSpec`) that captures
-   the *entire* distro-specific boot delta in ~10 fields — §5.
+   the *entire* distro-specific boot delta in ~10 fields - §5.
 3. An initrd configuration-injection method (gzip-concatenated newc cpio) that
    delivers rendered installer configs into arbitrary initramfs images without
-   unpacking them — §4.3.
+   unpacking them - §4.3.
 4. A two-phase bootstrap design rule: *never perform environment-sensitive work in
-   installer late-hooks; defer to first boot of the installed system* — derived from
-   documented failure modes — §6, §9.
+   installer late-hooks; defer to first boot of the installed system* - derived from
+   documented failure modes - §6, §9.
 5. A trust architecture for consumer disk-repartitioning software: pinned-fingerprint
-   GPG verification, offline key bundling, and a data-loss safety analysis — §7.
+   GPG verification, offline key bundling, and a data-loss safety analysis - §7.
 
 ## 2. Requirements and threat model
 
@@ -76,7 +76,7 @@ manual data copy) and cite abandonment causes. -->
 ### 2.2 Threat model
 <!-- TODO: expand into table. Adversaries: (a) network attacker serving tampered
 ISO/checksums (mitigated: TLS + SHA-256 + detached GPG sig verified against key
-pinned by full 160-bit fingerprint, bundled offline — §7); (b) keyserver
+pinned by full 160-bit fingerprint, bundled offline - §7); (b) keyserver
 substitution attack (mitigated: fingerprint pinning; 64-bit key IDs are forgeable);
 (c) compromised mirror (same as a); (d) local tampering with staged artifacts
 (out of scope pre-boot: Windows admin = game over; discuss). -->
@@ -86,7 +86,7 @@ substitution attack (mitigated: fingerprint pinning; 64-bit key IDs are forgeabl
 - S2: Every destructive step must be preceded by a verified precondition, not an
   assumption about installer defaults (lesson: §9.1).
 - S3: All unattended phases must produce persistent, on-disk execution traces
-  (lesson: §9.3 — "never blind").
+  (lesson: §9.3 - "never blind").
 
 ## 3. System overview
 
@@ -96,7 +96,7 @@ unattended install → first-boot agent → finished desktop. -->
 
 Component summary:
 - **Wizard / manifest.** User answers (folders, browser, dual-boot vs replace,
-  identity, locale/keymap) are serialized into a migration manifest — the single
+  identity, locale/keymap) are serialized into a migration manifest - the single
   source of truth consumed by every later phase.
 - **Preflight.** Hardware/firmware compatibility findings per distro plugin
   (BitLocker state, RAM, UEFI, GPU vendor; Secure Boot guidance for DKMS distros).
@@ -119,7 +119,7 @@ extracted-artifact bytes + optional full ISO + overhead, rounded to MiB.
 ### 4.2 Kernel/initrd acquisition
 Two paths, declared per distro: extraction from the ISO (Fedora, casper distros)
 or direct download of alternate installer images (Debian: hd-media kernel+initrd,
-because the standard installer initrd's cdrom-detect cannot consume an ISO *file* —
+because the standard installer initrd's cdrom-detect cannot consume an ISO *file* - 
 these boot the offline install from the Debian Live image via iso-scan; §9.2).
 
 ### 4.3 Initrd configuration injection
@@ -131,7 +131,7 @@ on Windows). <!-- TODO: format details, 4-byte alignment, trailer handling. -->
 
 ### 4.4 Boot handoff
 grub.cfg is written to every prefix the distro's signed grubx64.efi may search
-(`EFI/BOOT`, `EFI/<distro>`, `boot/grub` — empirically distro-specific, §9.4);
+(`EFI/BOOT`, `EFI/<distro>`, `boot/grub` - empirically distro-specific, §9.4);
 UEFI BootNext is registered for a one-shot boot into the staged installer, so a
 failed install falls back to Windows on the next boot rather than bricking boot.
 
@@ -150,7 +150,7 @@ an agent payload, and a declarative `InstallerBootSpec`:
 | CopyFullIsoToVolume / IsoVolumeFileName | Whole-ISO staging for iso-scan/casper |
 | VolumeLabel / MenuTitle | Staging label; GRUB entry title |
 
-The claim defended here: this table is the *complete* per-distro boot delta —
+The claim defended here: this table is the *complete* per-distro boot delta - 
 four distributions with three unrelated installer stacks (Anaconda, debian-installer,
 Ubiquity/casper, subiquity/cloud-init) fit without pipeline changes.
 <!-- TODO: honest limits: Secure Boot/MOK for DKMS modules; distros whose installers
@@ -164,14 +164,14 @@ Shared per family (one apt-based agent serves Debian, Mint, Ubuntu with runtime
 
 Steps: password (crypt-hash limitations on Windows make install-time hashes
 impractical → chpasswd in target), keyboard (installer preseeds are unreliable
-for desktop keymaps — §9.5), GPU drivers (vendor detection, no version pinning),
+for desktop keymaps - §9.5), GPU drivers (vendor detection, no version pinning),
 codecs (per-distro package differences), os-prober/GRUB (Windows menu entry),
 Flathub, user-file migration (ntfs-3g mount of the Windows volume; rsync with
 `--no-links` to skip NTFS junctions; browser-profile mapping), Wi-Fi (NetworkManager
 keyfiles, 0600 root), manifest redaction (password scrubbed from disk post-use).
 
 **Two-phase bootstrap rule.** Installer late-hooks (Ubiquity `success_command`,
-curtin `late-commands`) execute in constrained environments — busybox tooling,
+curtin `late-commands`) execute in constrained environments - busybox tooling,
 no udev labels, kernel/module mismatches that make even `mount -t vfat` impossible
 (§9.3). iGloo therefore minimizes late-hook work to writing a self-contained
 bootstrap script + unit into the target with `echo`/`ln` only; all environment-
@@ -182,7 +182,7 @@ first boot of the installed system, where the OS is complete and self-consistent
 
 - **Acquisition integrity:** TLS + SHA-256 + detached/cleartext GPG signature.
 - **Key trust:** signing keys are bundled with the application or, when fetched,
-  verified against a **pinned full 160-bit fingerprint** — 64-bit key IDs are
+  verified against a **pinned full 160-bit fingerprint** - 64-bit key IDs are
   spoofable on keyservers and are never used as trust anchors.
 - **At-rest hygiene:** the migration manifest carries the initial password;
   the agent redacts it after use; Wi-Fi keyfiles land 0600 root-owned.
@@ -195,7 +195,7 @@ first boot of the installed system, where the OS is complete and self-consistent
 
 | System | Era | Approach | Why it ended / limits |
 |---|---|---|---|
-| Wubi (Ubuntu) | 2008–2013 | Loopback install into NTFS file, Windows bootloader | BIOS-era fragility, loopback I/O penalty, hibernation corruption, UEFI transition |
+| Wubi (Ubuntu) | 2008-2013 | Loopback install into NTFS file, Windows bootloader | BIOS-era fragility, loopback I/O penalty, hibernation corruption, UEFI transition |
 | mint4win | ~2012 | Wubi derivative | Same class |
 | UNetbootin frugal | 2010s | Boot-media replacement, not migration | No data migration, manual partitioning |
 | Vendor dual-boot tools | various | OEM-specific | Not general, not unattended |
@@ -235,16 +235,34 @@ Documented from real development on physical + virtual hardware. Each generalize
 
 ### 10.1 Method
 <!-- TODO: define matrix: {distro} × {VM, ≥N physical machines} × {dual-boot,
-replace} × {Secure Boot on/off} × {GPU vendor}; success criteria = R1–R5 checklist;
+replace} × {Secure Boot on/off} × {GPU vendor}; success criteria = R1-R5 checklist;
 data-safety criterion = Windows partition bit-identical outside freed space. -->
 
-### 10.2 Results to date (honest snapshot, July 2026)
-- Fedora KDE: end-to-end pass on physical hardware (NVIDIA RTX 5070, dual-boot,
-  file/Wi-Fi migration verified).
-- Debian 13: end-to-end pass in VM (dual-boot preserved, all agent steps verified).
-- Linux Mint 22: install + partitioning + Windows preservation verified;
-  bootstrap validation in progress.
-- Ubuntu LTS: pipeline complete, validation pending.
+### 10.2 Results to date (honest snapshot, August 2026)
+
+All on the same physical machine (UEFI, NVIDIA RTX 5070, two 4K monitors,
+no Secure Boot), dual-boot beside Windows 11 unless noted:
+
+- Fedora KDE 44: end-to-end pass. NVIDIA driver built for the running kernel
+  (the agent pre-installs the matching `kernel-devel-matched`, which prevents
+  the akmods dependency chain from pulling a newer kernel mid-install), GRUB
+  default pinned to the verified kernel, 4K at 144 Hz confirmed, wallpaper
+  and file migration verified.
+- Linux Mint 22 Cinnamon: end-to-end pass. NVIDIA driver install, display
+  layout including rotation, keyboard layout (azerty), wallpaper verified.
+- Debian 13 (GNOME): end-to-end pass. Offline squashfs install with no
+  network until first boot; display layout including rotation, keyboard
+  layout (azerty), wallpaper verified.
+- Ubuntu LTS: pipeline complete, parked on the curtin disk-release defect
+  documented in `distros/ubuntu/STATUS.md`.
+
+Two failure modes found during this round generalize beyond iGloo and are
+recorded here as additional field notes for section 9: the
+`kernel-devel-matched` chain that silently upgrades kernels during akmods
+driver installs (hard rich dependency, not a weak one), and EDID serial
+collisions between identical monitor models that break EDID-based display
+matching (both monitors reported the same serial `H1AK500000`; matching had
+to fall back to connector identity).
 
 ## 11. Limitations and future work
 - Single-developer bus factor; hardware matrix breadth; BitLocker-locked volumes

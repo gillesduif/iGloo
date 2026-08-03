@@ -17,7 +17,7 @@ how to build it, the rules that keep it safe, and how to get a change merged.
 
 Requirements:
 
-- Windows 10 (2004+) or Windows 11 — the app is WPF and uses Windows-only APIs.
+- Windows 10 (2004+) or Windows 11 - the app is WPF and uses Windows-only APIs.
 - .NET SDK 9.0 or newer (the app targets `net9.0-windows`; the libraries target
   `net8.0`).
 
@@ -26,18 +26,19 @@ dotnet build Igloo.sln -c Debug
 dotnet test  Igloo.sln -c Debug
 ```
 
-The full suite is 157 tests across six projects. They must stay green.
+The suite spans six xUnit projects (about 120 tests at the time of writing).
+They must stay green.
 
 ## The rules that matter
 
-### 1. Zero analyzer warnings — and zero suppressions
+### 1. Zero analyzer warnings - and zero suppressions
 
 The solution builds clean under `AnalysisMode=All` + `EnforceCodeStyleInBuild`
 (both set in `Directory.Build.props`), and three projects treat warnings as
-errors. **Fix the code; don't silence the analyzer.** We do not use
+errors. **Fix the code; do not silence the analyzer.** We do not use
 `[SuppressMessage]`, `#pragma warning disable`, or `<NoWarn>`. If an analyzer
-rule is genuinely wrong for the whole project, that's an `.editorconfig` policy
-change discussed in a PR — not a one-off suppression.
+rule is genuinely wrong for the whole project, that is an `.editorconfig` policy
+change discussed in a PR - not a one-off suppression.
 
 Prefer real handling over broad catches: catch the specific exception types an
 operation can throw, or use the `Try…`-returns-fallback pattern, so control flow
@@ -46,14 +47,14 @@ stays honest.
 ### 2. The plugin contract is frozen
 
 `IDistroPlugin` and the types it touches are a public contract that shipped
-plugins depend on. Don't change its shape. New distros are added as new plugins,
+plugins depend on. Do not change its shape. New distros are added as new plugins,
 not by editing the interface.
 
 ### 3. A partitioning fix in one distro means auditing them all
 
 The distros share a mental model but not code. If you fix a data-loss or
 partition-safety bug in one distro's pipeline, **check every other distro for the
-same bug in the same PR.** This is a hard rule — it's how we've avoided shipping
+same bug in the same PR.** This is a hard rule - it is how we have avoided shipping
 the same disk bug five times.
 
 ### 4. Runtime-relevant changes need VM validation

@@ -13,7 +13,7 @@ tab → **Report a vulnerability**. This opens a private advisory visible only t
 maintainers.
 
 <!-- TODO(maintainer): if you prefer email, add a monitored address here and mention
-     it as an alternative. Do not use a personal inbox you don't check. -->
+     it as an alternative. Do not use a personal inbox you do not check. -->
 
 Please include:
 
@@ -57,6 +57,6 @@ public disclosure.
 - First-boot agent (target Linux): `bootstrap.log` / `agent.log` on Debian-family
   installs; `first-boot.log` on the Anaconda path.
 
-The migration manifest can contain a Wi-Fi passphrase the Linux account
-password and an encrypted browser credential blob all three are redacted
+The migration manifest can contain a Wi-Fi passphrase, the Linux account
+password and an encrypted browser credential blob; all three are redacted
 after first boot. **Scrub them before attaching a manifest to any report.**

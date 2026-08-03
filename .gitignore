@@ -99,6 +99,8 @@ test-logs/
 # Inno Setup: keep the script, not the toolchain download or built installers
 installer/_dl/
 installer/output/
+installer/publish/
+installer/publish-fd/
 
 # Temporary backups of reverted experiments
 _reverted-backup-*/

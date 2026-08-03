@@ -1,6 +1,6 @@
 # ADR-006: Migrate UI layer from WinUI 3 to WPF
 
-**Status:** Accepted — supersedes ADR-001 (C# / .NET 8 / WinUI 3) and ADR-005 (WinUI 3 deployment)
+**Status:** Accepted - supersedes ADR-001 (C# / .NET 8 / WinUI 3) and ADR-005 (WinUI 3 deployment)
 **Date:** 2026-05-18
 
 ## Context
@@ -29,7 +29,7 @@ In practice, the development experience proved too costly for a pre-alpha, solo-
 
 Replace `<UseWinUI>true</UseWinUI>` with `<UseWPF>true</UseWPF>` in `Igloo.App.csproj`.
 All other projects (`Igloo.Core`, `Igloo.Preflight`, `Igloo.Iso`, plugin assemblies) are
-unchanged — they have no UI-framework dependency.
+unchanged - they have no UI-framework dependency.
 
 ## Consequences
 
@@ -43,11 +43,11 @@ unchanged — they have no UI-framework dependency.
 - `dotnet run` works without VS installed and without platform flags.
 - No external runtime dependency; WPF is part of the .NET 8 SDK.
 - `AnyCPU` target; no forced x64/ARM64 overrides.
-- `Directory.Build.props` is now empty — no VS-path hacks.
+- `Directory.Build.props` is now empty - no VS-path hacks.
 - `TreatWarningsAsErrors=true` can be enforced from day one.
 
 **Migration path if WinUI 3 is revisited:**
 WinUI 3 can be re-adopted once the project has a CI pipeline that pins a specific VS Build Tools
 version, and once the WinAppSDK self-contained crash is reproduced on a clean VM and reported
 upstream. ADR-005 documents the deployment model that was in place; ADR-001 documents the
-original rationale. Neither is deleted — they form the audit trail.
+original rationale. Neither is deleted - they form the audit trail.

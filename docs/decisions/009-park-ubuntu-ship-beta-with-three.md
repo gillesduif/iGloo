@@ -13,12 +13,12 @@ obstacle is environmental churn around curtin's unconditional
 `sfdisk`+`partprobe` (holders reappearing on the live-media partitions), plus a
 VM graphics freeze unrelated to iGloo. Meanwhile Fedora (real hardware), Debian
 and Mint (VM) were fully validated, and every week spent on Ubuntu deferred the
-closed beta (M15) — the milestone that burns down the project's highest-
+closed beta (M15) - the milestone that burns down the project's highest-
 likelihood risk (hardware-matrix unknowns, risk register R-05).
 
 ## Decision
 
-Ubuntu ships in the catalog as **`status: "in-development"`** — browsable, not
+Ubuntu ships in the catalog as **`status: "in-development"`** - browsable, not
 installable. The closed beta proceeds with Fedora KDE, Debian and Linux Mint.
 All Ubuntu knowledge is preserved in a resumption dossier
 ([`distros/ubuntu/STATUS.md`](../../distros/ubuntu/STATUS.md)): what is proven,
@@ -32,7 +32,7 @@ alternative avenues (Ubuntu Server ISO route; upstream subiquity fix).
 - **Risk-driven sequencing:** M15 reduces R-05 for three distros at once;
   another Ubuntu iteration reduces one distro's remaining tail risk.
 - The catalog's `status` mechanism makes parking (and later unparking) a
-  one-line, no-code decision — this is exactly what it was built for.
+  one-line, no-code decision - this is exactly what it was built for.
 
 ## Consequences
 
@@ -44,5 +44,5 @@ alternative avenues (Ubuntu Server ISO route; upstream subiquity fix).
   alternative.
 - **Resumption trigger:** first real-hardware attempt during M15 spare cycles,
   or an upstream subiquity release that skips table writes for all-preserved
-  configs — whichever comes first. Estimated resumption cost: an afternoon,
+  configs - whichever comes first. Estimated resumption cost: an afternoon,
   thanks to the dossier.

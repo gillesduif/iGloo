@@ -2,7 +2,7 @@
 
 The business-analysis layer of iGloo: who it serves, what it must (and must
 never) do, and which risks govern its design. Written to be readable by
-non-programmers — funders, testers, partners — while staying precise enough
+non-programmers - funders, testers, partners - while staying precise enough
 that every rule traces to enforcing code.
 
 | Document | Contents |
@@ -12,5 +12,5 @@ that every rule traces to enforcing code.
 | [risk-register.md](risk-register.md) | Known risks, impact/likelihood, mitigations, current status |
 
 Related: [architecture](../architecture.md) (how the system is built),
-[decisions/](../decisions/) (ADRs — why it is built that way),
+[decisions/](../decisions/) (ADRs - why it is built that way),
 [white paper](../whitepaper/igloo-whitepaper.md) (research-grade treatment).

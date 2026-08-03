@@ -21,7 +21,7 @@ The Windows-side app does heavy WMI work (BitLocker, TPM, GPU detection, partiti
 **WinUI 3 over WPF:**
 - ~50% of Igloo's target users are already on Windows 11; the trend is one-way.
 - Modern Fluent design out of the box, native Win11 look.
-- WinUI 3 supports Windows 10 1809+ officially — the Win10 holdouts (a meaningful share of the migration target audience, since "Win10 went EOL" is a major migration trigger) are not excluded.
+- WinUI 3 supports Windows 10 1809+ officially - the Win10 holdouts (a meaningful share of the migration target audience, since "Win10 went EOL" is a major migration trigger) are not excluded.
 
 **Unpackaged deployment over MSIX:**
 - A migration tool is run once, not installed long-term. MSIX packaging, App Installer, identity, etc. are overkill.
@@ -37,4 +37,4 @@ The Windows-side app does heavy WMI work (BitLocker, TPM, GPU detection, partiti
 ## Consequences
 
 - Single-binary distribution requires self-contained publish (~80-100 MB compressed). Acceptable for an installer-grade one-shot tool.
-- The custom unpackaged `Program.cs` bootstrap is non-trivial. Documented in `Program.cs` and considered the "weird part" of the project — every WinUI 3 unpackaged app needs it.
+- The custom unpackaged `Program.cs` bootstrap is non-trivial. Documented in `Program.cs` and considered the "weird part" of the project - every WinUI 3 unpackaged app needs it.

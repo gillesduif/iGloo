@@ -9,6 +9,19 @@ reaches a stable release.
 ## [Unreleased]
 
 ### Added
+- Wallpaper migration: the Windows desktop background travels to Linux. The
+  app locates the current image (`HKCU\Control Panel\Desktop\Wallpaper`, with
+  the `TranscodedWallpaper` cache as fallback for solid-colour/slideshow/
+  Spotlight setups), stages it next to the manifest as `igloo-wallpaper.*`,
+  and records it in the manifest's new optional `wallpaper` key. The
+  first-boot agents install it into the user's `~/Pictures` and set it as the
+  desktop background: on GNOME and Cinnamon via a system-wide dconf default
+  (same mechanism as the keyboard seed, applies from first login), on Fedora
+  KDE via a one-shot login hook driving `plasma-apply-wallpaperimage` with
+  the same retry convention as the display hook. No migratable image (or a
+  failure anywhere in the chain) simply keeps the distro default. Per-monitor
+  wallpapers are intentionally out of scope - no Linux desktop supports them
+  natively.
 - Community health files: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
   `THIRD-PARTY-NOTICES.md`, issue/PR templates, and continuous integration.
 - Linux removal space reclaim: the pre-flight check now grows the Windows
@@ -38,6 +51,75 @@ reaches a stable release.
   using the experimental `ThemeMode` property.
 
 ### Fixed
+- Fedora (NVIDIA): the driver install no longer drags in the newest kernel.
+  Verified against the Fedora 44 updates repodata: `akmods` has the HARD rich
+  dependency `(kernel-devel-matched if kernel-core)` and
+  `kernel-devel-matched-7.1.5-201.fc44` hard-requires `kernel-core` +
+  `kernel-devel` - dnf resolves the name-only requirement to the newest
+  version, so `dnf install akmod-nvidia` on the GA kernel pulled kernel-core
+  7.1.5 mid-install (a weak-deps filter could never have prevented this).
+  The agent now pre-installs `kernel-devel-matched-<running kernel>` +
+  `kernel-devel-<running kernel>` first (present in the frozen `fedora`
+  releases repo for the GA kernel), which satisfies the rich dep with the
+  running kernel's version; no newer kernel is pulled. If the exact version
+  is no longer in any repo the agent logs a warning and the existing
+  per-kernel build + GRUB pin remain the safety net.
+- Debian (GNOME): keyboard layout stuck on US/qwerty and display rotation not
+  applied (bare-metal, RTX 5070, Debian 13). Two independent causes:
+  - The agent wrote the layout to `/etc/default/keyboard`, which the console
+    and Cinnamon honour, but GNOME's session input sources live in dconf
+    (`org.gnome.desktop.input-sources`) and a fresh user inherits the
+    compiled-in 'us'. The agent now also seeds a system-wide dconf default
+    (`/etc/dconf/db/local.d/00-igloo-keyboard` + `dconf update`); both
+    mechanisms are written deliberately.
+  - nouveau cannot bind Blackwell on Debian 13's kernel 6.12, so at
+    display-layout time there was no DRM connector with a readable EDID at
+    all ("No connected outputs") - the NVIDIA driver only loads after the
+    pending driver reboot, by which time the step had already run and
+    skipped. The agent now installs a one-shot `igloo-display-layout.service`
+    (Before=display-manager) that re-runs only the display-layout step (new
+    `--only` flag) at the next boot, with the final driver in place; it is
+    also installed whenever a driver reboot is pending, because connector
+    names can change between nouveau and nvidia-drm. Two follow-ups from the
+    retest: the dconf default is only consulted when the dconf profile names
+    `system-db:local`, which the agent now ensures in
+    `/etc/dconf/profile/user` (the first seed compiled a database nothing
+    read); and the NVIDIA module can load minutes into boot (t=179s observed,
+    triggered by the display stack itself), so anything ordered
+    Before=display-manager still ran too early - the second pass now does an
+    explicit `modprobe nvidia-drm` and waits (bounded, ~60s) for EDID-readable
+    connectors before giving up.
+- Debian (GNOME on Wayland): migrated display layout still not applied after
+  the second pass above wrote a correct `~/.config/monitors.xml` - the session
+  came up at EDID-preferred 60 Hz/landscape while the file on disk carried the
+  right 144 Hz/portrait layout. Root cause: mutter parses monitors.xml,
+  *normalizes* it (rewrites layoutmode/rate formatting), and then quietly
+  declines to apply it when any detail fails its own validation - no error, no
+  log, and no way to match the panel's exact advertised rate (143.99x, not the
+  whole-Hz 144 Windows reports). The file path is guesswork, so GNOME now goes
+  through mutter's own D-Bus API - the same one gnome-control-center drives.
+  A new `display-apply-gnome.py` runs at the first GNOME login, reads
+  `GetCurrentState` for the exact mode ids mutter accepts (matched by EDID
+  vendor/product/serial, resolution, and nearest rate), and applies the layout
+  with `ApplyMonitorsConfig` (persistent method, so mutter rewrites monitors.xml
+  itself). Windows display scaling is now honoured on GNOME too, via the mode's
+  advertised `supported_scales`. The login wrapper dispatches on
+  `XDG_CURRENT_DESKTOP` (GNOME -> D-Bus applier, Cinnamon -> xrandr applier),
+  the autostart entry adds GNOME to OnlyShowIn, and the helper is added to all
+  three Debian-family plugin payload lists and installer-template bootstrap
+  copy steps. Parser verified against a synthetic GetCurrentState dump; the
+  boot-time monitors.xml stays as the greeter seed. Two follow-ups from the
+  first hardware run of the hook (RTX 5070, July 2026):
+  - `ApplyMonitorsConfig` expects `a(iiduba(ssa{sv}))` - each monitor entry is
+    a (connector, mode, properties) TRIPLE; sending (connector, mode) pairs
+    made mutter reject the whole call. The variant now carries the `{}`
+    properties dict.
+  - Some panels report DUPLICATED EDID serials - both Samsung Odyssey G70D's
+    on the test machine report `H1AK500000` - so identity matching bound both
+    staged monitors to the same live output. Matching is now connector-first
+    (staging and first login are the same boot), with kernel/mutter name
+    normalization (`HDMI-A-2` is mutter's `HDMI-2`), each live monitor is
+    consumed once, and EDID identity is only the fallback.
 - Linux Mint (Cinnamon on X11): migrated display layout (refresh rate,
   rotation) never applied, and `~/.config/monitors.xml` had vanished by first
   login. The first-boot agent runs as root before any X server exists, so it
@@ -80,6 +162,23 @@ reaches a stable release.
   the gpu-drivers step now FAILS hard when no NVIDIA kernel module exists
   afterwards instead of reporting success (a present-but-refused module, e.g.
   Secure Boot, stays an explicit ERROR log with the firmware/MOK fix).
+- Fedora KDE: a kernel pulled in mid-install (7.1.5 via `kernel-devel-matched`)
+  could become the boot default WITHOUT a working NVIDIA module - GRUB always
+  defaults to the newest kernel, and the agent only logged the failed akmod
+  build before rebooting into it. On Blackwell (RTX 50) nouveau then dies with
+  a corrupted framebuffer (repeated boot logos, garbage lines - RTX 5070
+  bare-metal, July 2026). The agent now pins the GRUB default to the newest
+  kernel with a VERIFIED on-disk nvidia module (`grubby --set-default`); when
+  every kernel has the module this is the same kernel GRUB would pick anyway.
+  The nouveau/nova_core cmdline blacklist is now applied whenever the kernel
+  being booted has a verified module - a failed build for a newer,
+  non-default kernel no longer keeps nouveau loadable on the good one.
+- Fedora KDE: the agent now exports its install logs (plus Anaconda's) to the
+  FAT32 seed partition before cleanup, so a failed boot is diagnosable
+  straight from Windows - in USB mode that partition is never deleted. A run
+  with failed steps now also KEEPS its installer partitions (new
+  `.had-failures` marker) instead of deleting the forensic evidence along
+  with the failure.
 - Fedora KDE: "Gaps between screens are not supported" and wrong monitor
   positions when Windows display scaling was above 100%. KWin positions
   outputs in LOGICAL pixels, but the manifest carried Windows' PHYSICAL pixel
@@ -161,10 +260,10 @@ reaches a stable release.
 First tagged pre-release. Unattended, USB-free Linux install with dual-boot,
 plus data/Wi-Fi/app migration.
 
-- **Fedora KDE** — validated end-to-end on real hardware (dual-boot, NVIDIA
+- **Fedora KDE** - validated end-to-end on real hardware (dual-boot, NVIDIA
   driver, file + Wi-Fi migration).
-- **Debian 13** and **Linux Mint Cinnamon** — validated end-to-end in a VM.
-- **Ubuntu** — in development.
+- **Debian 13** and **Linux Mint Cinnamon** - validated end-to-end in a VM.
+- **Ubuntu** - in development.
 
 [Unreleased]: https://github.com/gillesduif/iGloo/compare/v0.0.1-alpha...HEAD
 [0.0.1-alpha]: https://github.com/gillesduif/iGloo/releases/tag/v0.0.1-alpha

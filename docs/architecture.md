@@ -4,7 +4,7 @@ iGloo is a **two-half system**: a Windows-side *preparer* (the wizard you run) a
 Linux-side *committer* (the distro's own installer plus iGloo's first-boot agent),
 communicating exclusively through files staged on dedicated partitions. This split is
 forced by a fundamental constraint: destructive disk work cannot be done from the
-running Windows system it targets — so **Windows stages, Linux commits**.
+running Windows system it targets - so **Windows stages, Linux commits**.
 
 This document is the map. For the *why* behind individual decisions, see
 [`decisions/`](decisions/); for the research-grade treatment, see the
@@ -35,7 +35,7 @@ Trust boundaries: everything downloaded is verified (TLS + SHA-256 + GPG against
 
 ```mermaid
 flowchart TD
-    subgraph APP["src/Igloo.App — WPF wizard"]
+    subgraph APP["src/Igloo.App - WPF wizard"]
         VM["ViewModels<br>(one per wizard step)"]
         THEME["Dark theme + Cover Flow catalog"]
     end
@@ -54,7 +54,7 @@ flowchart TD
         USB["src/Igloo.UsbWriter<br>fallback USB path"]
     end
 
-    subgraph PLUG["distros/ — one folder per distro"]
+    subgraph PLUG["distros/ - one folder per distro"]
         FED["fedora-kde<br>Anaconda / kickstart"]
         DEB["debian<br>d-i / preseed"]
         MINT["linuxmint-cinnamon<br>Ubiquity / preseed"]
@@ -79,7 +79,7 @@ Rules of the dependency graph:
   agent payload); all disk work happens in `DirectInstallService`, identically for
   every distro.
 - The **manifest** (`migration-manifest.json`) is written once by the wizard and read
-  by everything downstream — installer configs are rendered from it on Windows, and
+  by everything downstream - installer configs are rendered from it on Windows, and
   the first-boot agent applies it on Linux.
 
 ## 3. The wizard (happy path with its safety gates)
@@ -87,11 +87,11 @@ Rules of the dependency graph:
 ```mermaid
 flowchart TD
     A["1 · Welcome"] --> B["2 · Preflight<br>UEFI · BitLocker · disks · GPU · RAM"]
-    B -->|"blocker found"| BX(["STOP — reason + remedy shown"])
+    B -->|"blocker found"| BX(["STOP - reason + remedy shown"])
     B --> C["3 · Distro catalog"]
     C -->|"plugin CheckCompatibility<br>blocker (e.g. RAM floor)"| CX(["distro greyed out<br>with the reason"])
     C --> D["4 · ISO download<br>SHA-256 + GPG (pinned)"]
-    D -->|"verification fails"| DX(["STOP — never installs<br>an unverified image"])
+    D -->|"verification fails"| DX(["STOP - never installs<br>an unverified image"])
     D --> E["5 · Migration setup<br>folders · browser · apps · account"]
     E --> F["6 · Disk selection<br>dual-boot size / replace"]
     F --> G["7 · File staging +<br>installer config rendering"]
@@ -137,18 +137,18 @@ Resulting disk layout (dual-boot, large-ISO case):
 
 | # | Partition | FS | Owner | Fate after install |
 |---|---|---|---|---|
-| 1 | EFI System Partition | FAT32 | shared | reused by GRUB — never reformatted |
-| 2 | MSR | — | Windows | untouched |
+| 1 | EFI System Partition | FAT32 | shared | reused by GRUB - never reformatted |
+| 2 | MSR | - | Windows | untouched |
 | 3 | Windows C: | NTFS | Windows | untouched (read-only source for file migration) |
 | 4 | Recovery | NTFS | Windows | untouched |
-| 5 | Seed — `OEMDRV`/`CIDATA` | FAT32 | iGloo | read at install + first boot; deletable afterwards |
+| 5 | Seed - `OEMDRV`/`CIDATA` | FAT32 | iGloo | read at install + first boot; deletable afterwards |
 | 6 | `IGLOOISO` (only if ISO ≥ 4 GiB) | NTFS | iGloo | consumed at install; deletable afterwards |
 | 7 | Linux root | ext4 | Linux | the new OS |
 
 ## 5. Two-phase first-boot bootstrap (the pattern Mint proved)
 
 Installer late-hooks run in a **hostile environment**: busybox tooling, no udev
-labels, and a live kernel whose modules don't match `/target` — on Mint that made
+labels, and a live kernel whose modules do not match `/target` - on Mint that made
 mounting the FAT32 seed *impossible at install time*. The rule that came out of it:
 
 > **Never do environment-sensitive work in an installer hook. Write a bootstrap;
@@ -157,15 +157,15 @@ mounting the FAT32 seed *impossible at install time*. The rule that came out of 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant IH as Installer late-hook<br>(hostile — wrong modules, busybox)
+    participant IH as Installer late-hook<br>(hostile - wrong modules, busybox)
     participant T as /target (installed system)
     participant FB as First boot (real OS)
     participant A as iGloo agent
 
-    IH->>T: write igloo-bootstrap.sh (echo only — nothing that can fail)
+    IH->>T: write igloo-bootstrap.sh (echo only - nothing that can fail)
     IH->>T: write + enable oneshot unit (Before=display-manager)
     Note over IH: no mounts, no label lookups,<br>no module-dependent syscalls
-    FB->>FB: mount seed partition (vfat works — own kernel!)
+    FB->>FB: mount seed partition (vfat works - own kernel!)
     FB->>T: copy agent.py + manifest from seed
     FB->>A: exec agent (before any login screen)
     A->>A: password · keyboard · drivers (NVIDIA) · codecs ·<br>os-prober/GRUB · Flathub · file migration (ntfs-3g) ·<br>Wi-Fi keyfiles · redact secrets · mark .done
@@ -187,7 +187,7 @@ pipeline never branches on distro identity, only on spec fields:
 | Agent hand-off | `%post` | busybox partition scan | two-phase bootstrap | two-phase bootstrap |
 
 Hard-won, non-obvious rules encoded in the code and templates (violating any of
-these caused a real failure — see the white paper's field-notes section):
+these caused a real failure - see the white paper's field-notes section):
 
 1. Installer "easy" partitioning presets (`partman-auto/method`, subiquity
    `layout:`) mean **whole-disk wipe**, never dual-boot.
@@ -211,7 +211,7 @@ flowchart LR
     FPR -->|yes| GPG["GPG verify checksum file<br>(cleartext or detached)"]
     SHA --> OK{"all checks pass?"}
     GPG --> OK
-    OK -->|no| STOP2(["ABORT — never degrade<br>to a warning"])
+    OK -->|no| STOP2(["ABORT - never degrade<br>to a warning"])
     OK -->|yes| USE["Stage for install"]
 ```
 
@@ -240,15 +240,15 @@ flowchart LR
 2. Implement `IDistroPlugin`: compatibility findings, config rendering from the
    manifest, agent payload (reuse `_debian-family` for apt distros), and the
    `InstallerBootSpec`.
-3. Study the matrix in §6 first — the pitfalls per installer stack are already
-   solved once; don't rediscover them.
+3. Study the matrix in §6 first - the pitfalls per installer stack are already
+   solved once; do not rediscover them.
 4. Validate in a VM: unattended install, **Windows survives**, agent log clean.
 
 Full guide: [`distros/README.md`](../distros/README.md).
 
 ## See also
 
-- [`decisions/`](decisions/) — ADRs (plugin model, licensing, runtime injection, …)
-- [`../distros/ubuntu/STATUS.md`](../distros/ubuntu/STATUS.md) — the Ubuntu engineering dossier
-- [`whitepaper/igloo-whitepaper.md`](whitepaper/igloo-whitepaper.md) — research-grade write-up
-- [`guide/`](guide/) — visual walkthrough (shot list, beta)
+- [`decisions/`](decisions/) - ADRs (plugin model, licensing, runtime injection, …)
+- [`../distros/ubuntu/STATUS.md`](../distros/ubuntu/STATUS.md) - the Ubuntu engineering dossier
+- [`whitepaper/igloo-whitepaper.md`](whitepaper/igloo-whitepaper.md) - research-grade write-up
+- [`guide/`](guide/) - visual walkthrough (shot list, beta)
