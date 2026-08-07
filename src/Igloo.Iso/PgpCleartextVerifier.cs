@@ -13,7 +13,7 @@ internal static class PgpCleartextVerifier
     {
         try
         {
-            //   Load public key ring                     ─
+            //   Load public key ring                     
             using var keyInput = new MemoryStream(publicKeyRingBytes);
             var keyDecoder = PgpUtilities.GetDecoderStream(keyInput);
             var keyRing = new PgpPublicKeyRingBundle(keyDecoder);
@@ -25,7 +25,7 @@ internal static class PgpCleartextVerifier
                 return false;
             }
 
-            //   Parse signature list                     ─
+            //   Parse signature list                     
             using var sigInput = new MemoryStream(Encoding.ASCII.GetBytes(sigBlock));
             var sigDecoder = PgpUtilities.GetDecoderStream(sigInput);
             var factory = new PgpObjectFactory(sigDecoder);
@@ -37,10 +37,10 @@ internal static class PgpCleartextVerifier
                 return false;
             }
 
-            //   Canonicalize body: strip trailing WS, CRLF line endings   ─
+            //   Canonicalize body: strip trailing WS, CRLF line endings   
             var bodyBytes = Encoding.UTF8.GetBytes(Canonicalize(body));
 
-            //   Try each signature until one validates            ─
+            //   Try each signature until one validates            
             for (int i = 0; i < sigList.Count; i++)
             {
                 var sig = sigList[i];
