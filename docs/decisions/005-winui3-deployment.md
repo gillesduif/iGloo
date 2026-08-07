@@ -1,6 +1,6 @@
 # ADR-005: WinUI 3 Deployment - Unpackaged, Framework-Dependent Dev, Self-Contained Release
 
-**Status:** Accepted  
+**Status:** Superseded by ADR-006 (WPF replaces WinUI 3) 2026-05-18. Kept as audit trail: the WinUI 3 deployment model below no longer applies to the project.
 **Date:** 2026-05-17
 
 ## Context
@@ -23,7 +23,7 @@ iGloo needs to:
 
 ### Unpackaged
 
-`WindowsPackageType=None` and `EnableMsixTooling=false` in the csproj. No MSIX is generated; the output is a regular Win32 executable directory. This removes the need for package signing, the Store, or App Installer.
+`WindowsPackageType=None` and `EnableMsixTooling=false` in the csproj. No MSIX is generated: the output is a regular Win32 executable directory. This removes the need for package signing, the Store, or App Installer.
 
 ### Always self-contained (dev and release)
 
@@ -69,4 +69,4 @@ WinUI 3 and `WindowsAppSDKSelfContained` require a concrete platform (`x64` or `
 
 - No MSIX signing or Store submission required for release.
 - No runtime prerequisite on any machine - dev or end-user.
-- The `Directory.Build.props` workaround is VS-version-specific; if the project ever moves to a CI agent without VS 2022, it would need a Build Tools installation.
+- The `Directory.Build.props` workaround is VS-version-specific: if the project ever moves to a CI agent without VS 2022, it would need a Build Tools installation.

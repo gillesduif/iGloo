@@ -80,4 +80,4 @@ Requested: **€50,000** (NGI Zero scale): 12 months focused development + test 
   with clear market timing.
 
 ---
-*Contact: Gilles D'huyvetter · ipadireview@gmail.com · github.com/gillesduif/iGloo*
+*Contact: open an issue or discussion at github.com/gillesduif/iGloo*

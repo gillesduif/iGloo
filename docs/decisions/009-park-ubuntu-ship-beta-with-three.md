@@ -15,6 +15,8 @@ VM graphics freeze unrelated to iGloo. Meanwhile Fedora (real hardware), Debian
 and Mint (VM) were fully validated, and every week spent on Ubuntu deferred the
 closed beta (M15) - the milestone that burns down the project's highest-
 likelihood risk (hardware-matrix unknowns, risk register R-05).
+(Update, August 2026: all three are meanwhile validated on bare metal; Ubuntu
+remains parked. See the README status section.)
 
 ## Decision
 

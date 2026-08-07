@@ -1,6 +1,6 @@
 # ADR-001: C# / .NET 8 / WinUI 3 (unpackaged)
 
-**Status:** Accepted
+**Status:** Partially superseded - the WinUI 3 choice was reversed by ADR-006 (WPF) on 2026-05-18. The C#/.NET choice stands: the app target framework later moved from .NET 8 to .NET 9 (`net9.0-windows10.0.19041.0`), recorded here since no standalone ADR was written for it.
 **Date:** 2026-05-16
 
 ## Context
@@ -19,12 +19,12 @@ The Windows-side app does heavy WMI work (BitLocker, TPM, GPU detection, partiti
 - .NET 8 supports single-file self-contained publish. The output is a single `Igloo.exe` that runs on Win10 1809+ or Win11 with no separate runtime install.
 
 **WinUI 3 over WPF:**
-- ~50% of Igloo's target users are already on Windows 11; the trend is one-way.
+- ~50% of Igloo's target users are already on Windows 11: the trend is one-way.
 - Modern Fluent design out of the box, native Win11 look.
 - WinUI 3 supports Windows 10 1809+ officially - the Win10 holdouts (a meaningful share of the migration target audience, since "Win10 went EOL" is a major migration trigger) are not excluded.
 
 **Unpackaged deployment over MSIX:**
-- A migration tool is run once, not installed long-term. MSIX packaging, App Installer, identity, etc. are overkill.
+- A migration tool is run once not installed long-term. MSIX packaging, App Installer, identity, etc. are overkill.
 - `WindowsPackageType=None` + `EnableMsixTooling=false` + dynamic Windows App SDK bootstrap gives us a plain executable.
 - Caveat: the user must have the Windows App SDK runtime installed, or we self-contain it. We self-contain by default.
 
@@ -32,7 +32,7 @@ The Windows-side app does heavy WMI work (BitLocker, TPM, GPU detection, partiti
 
 - **WPF.** Simpler deployment story, no Windows App SDK dependency, but visibly dated and looks like a 2015 tool on Win11. Rejected.
 - **Rust + Tauri.** Smaller binaries, memory safety. Rejected because WMI bindings are thin and the maintainer would be on the learning curve during the critical bring-up.
-- **Go + Wails.** Same WMI-binding gap; weaker GUI ecosystem.
+- **Go + Wails.** Same WMI-binding gap: weaker GUI ecosystem.
 
 ## Consequences
 
