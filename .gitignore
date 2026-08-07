@@ -104,3 +104,6 @@ installer/publish-fd/
 
 # Temporary backups of reverted experiments
 _reverted-backup-*/
+
+# Internal funding application drafts (budget strategy; not for the public repo)
+docs/funding/

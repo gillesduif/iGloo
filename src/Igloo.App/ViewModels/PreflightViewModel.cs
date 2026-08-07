@@ -200,8 +200,8 @@ public sealed partial class PreflightViewModel : ObservableObject
             var report = await _checker.RunAsync(ct);
             _logger.LogInformation("Pre-flight complete - {Count} finding(s)", report.Findings.Count);
 
-            // A leftover OEMDRV from an earlier run has no purpose in preflight — the
-            // installer creates a fresh one at install time — and it is iGloo's own
+            // A leftover OEMDRV from an earlier run has no purpose in preflight: the
+            // installer creates a fresh one at install time. And it is iGloo's own
             // label-matched scratch partition, so clean it silently rather than show
             // the user a technical prompt. Best-effort: a busy partition is left for
             // the install phase's delete-and-recreate to handle.

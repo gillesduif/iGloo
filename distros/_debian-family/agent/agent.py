@@ -91,16 +91,12 @@ def apt(args: list[str], *, timeout: int = 600, check: bool = True) -> subproces
 
 
 # Substrings (LC_ALL=C output) that mean the package index is stale or the
-# network/DNS is broken — both are worth one refresh-and-retry before giving up.
+# network/DNS is broken. Both are worth one refresh-and-retry before giving up.
 _APT_TRANSIENT_MARKERS = ("404", "Failed to fetch", "Could not resolve", "Temporary failure")
 
 
 def apt_update_once(*, timeout: int = 300) -> bool:
-    """One honest apt-get update. True only when every index refreshed cleanly.
-
-    apt-get update exits 0 even when some or ALL repositories fail to download
-    (it only prints W: lines), so the return code alone proves nothing.
-    """
+    """Run apt-get update once, returning True if it looks like it succeeded."""
     res = apt(["update"], timeout=timeout, check=False)
     out = ((res.stdout or "") + (res.stderr or ""))
     ok = res.returncode == 0 and not any(m in out for m in ("Failed to fetch", "Could not resolve"))
@@ -143,12 +139,7 @@ def apt_install(args: list[str], *, timeout: int = 900, check: bool = True) -> s
 # ---------------------------------------------------------------------------
 
 def apt_update(manifest: dict[str, Any]) -> None:
-    """Refresh the package lists before any install step, retrying on failure.
-
-    On first boot DNS can still be settling (observed: every repo failed with
-    "Could not resolve" right after nm-online succeeded), so retry a few times.
-    Never log "refreshed" unless the refresh actually succeeded.
-    """
+    """Run apt-get update, retrying once if the first attempt fails."""
     for attempt in range(1, 7):
         if apt_update_once():
             logger.info("apt package lists refreshed")
@@ -161,15 +152,7 @@ def apt_update(manifest: dict[str, Any]) -> None:
 
 
 def secure_boot_enabled(manifest: dict[str, Any]) -> bool:
-    """Whether UEFI Secure Boot is active on this machine.
-
-    Read from the running system first (the user may have turned it off in firmware
-    after Igloo collected the manifest on Windows, which is a common thing to do
-    precisely because of the driver problem below). The manifest value is the
-    fallback. On total uncertainty we answer True: assuming Secure Boot is ON leads
-    to installing a SIGNED driver, which works either way, whereas assuming it is
-    OFF can leave a Secure Boot machine with a module the kernel refuses to load.
-    """
+    """Detect whether Secure Boot is enabled in the firmware."""
     res = run_cmd(["mokutil", "--sb-state"], check=False, timeout=60)
     out = (res.stdout or "") + (res.stderr or "")
     if "disabled" in out.lower():
@@ -182,7 +165,7 @@ def secure_boot_enabled(manifest: dict[str, Any]) -> bool:
         try:
             return var.read_bytes()[-1] == 1
         except OSError:
-            pass
+            pass  # expected: try next source (fallback mechanism)
 
     manifest_value = manifest.get("hardware", {}).get("secureBootEnabled")
     if isinstance(manifest_value, bool):
@@ -195,30 +178,7 @@ def secure_boot_enabled(manifest: dict[str, Any]) -> bool:
 
 
 def install_nvidia_driver_ubuntu(manifest: dict[str, Any]) -> bool:
-    """Install the NVIDIA driver on Ubuntu/Mint, honouring Secure Boot.
-
-    Returns True when a kernel module actually exists afterwards.
-
-    The right package depends on whether Secure Boot is on, because the two goals
-    conflict:
-
-    * Secure Boot ON - the module must be signed by a key the firmware trusts.
-      `ubuntu-drivers install` defaults to Canonical's PRE-BUILT SIGNED modules
-      (linux-modules-nvidia-*), which load with Secure Boot enabled and need no MOK
-      enrollment. Installing an "-open" package by hand instead would pull a DKMS
-      build - compiled locally, signed with no trusted key - which Secure Boot then
-      refuses to load. That is the "nvidia ... FAILED" + flashing cursor failure.
-
-    * Secure Boot OFF - signing is irrelevant, so we can pick the variant the
-      hardware actually needs. NVIDIA's proprietary kernel module does not support
-      Blackwell (RTX 50 series) at all, so those cards require an "-open" build or
-      they get no driver and fall back to software rendering.
-
-    `ubuntu-drivers devices` only lists drivers applicable to the DETECTED GPU, so
-    an "-open" entry appearing there means the open module covers this card. The
-    highest version is taken deliberately: Ubuntu's 570-open packaging is known
-    broken, while 580-open is the branch that works on RTX 50 series.
-    """
+    """Install the NVIDIA driver on Ubuntu/Mint, honouring Secure Boot."""
     apt_install(["ubuntu-drivers-common"], timeout=300, check=False)
 
     listing = (run_cmd(["ubuntu-drivers", "devices"], check=False, timeout=300).stdout or "")
@@ -248,20 +208,7 @@ def install_nvidia_driver_ubuntu(manifest: dict[str, Any]) -> bool:
 
 
 def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> bool:
-    """Record whether a kernel module actually landed AND whether it can load.
-
-    Returns True only when a module file exists on disk. A package-manager exit
-    code of 0 only means packages unpacked; it says nothing about a DKMS module
-    having built, nor about the kernel being willing to load it. Secure Boot
-    rejects locally built (unsigned) modules at load time, which shows up as a
-    red "nvidia ... FAILED" during boot and a desktop stuck on software
-    rendering - with nothing in the install log to explain it. Naming that here
-    is the difference between a five-minute fix and days of guessing.
-
-    Callers treat "no module at all" as a hard failure (the GPU step FAILED),
-    while a present-but-refused module stays an explicit ERROR log, because the
-    fix there is a firmware/MOK decision, not a reinstall.
-    """
+    """Check whether the NVIDIA kernel module is present and loadable."""
     present = run_cmd(["bash", "-c",
                        "ls /lib/modules/$(uname -r)/updates/dkms/nvidia*.ko* 2>/dev/null "
                        "|| ls /lib/modules/$(uname -r)/kernel/drivers/video/nvidia*.ko* 2>/dev/null "
@@ -275,8 +222,7 @@ def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> bool:
 
     logger.info("NVIDIA kernel module present: %s", found.splitlines()[0])
 
-    # Present is not the same as loadable. Try it, and if Secure Boot is what stands
-    # in the way, say so explicitly rather than leaving a generic failure.
+
     if run_cmd(["modprobe", "nvidia"], check=False, timeout=120).returncode == 0:
         logger.info("NVIDIA kernel module loaded successfully")
         return True
@@ -294,19 +240,7 @@ def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> bool:
 
 
 def _debian_packaged_driver_supports_gpu() -> bool:
-    """Ask Debian's own nvidia-detect whether the archive has a driver for this card.
-
-    Debian stable's packaged NVIDIA driver is 550.x. Blackwell (RTX 50 series) needs
-    570 or newer, so on those cards every Debian-archive driver - including
-    backports - simply does not support the GPU, and installing one leaves the
-    machine with no acceleration and a fallback-framebuffer resolution.
-
-    nvidia-detect is Debian's own tool for this question, so the answer comes from
-    the distribution rather than a hardcoded model list: it prints a line like
-    "Your card is not supported by any driver version up to 550.163.01" when the
-    card is too new. Anything unexpected is treated as "supported" so the normal
-    packaged path stays the default.
-    """
+    """Check whether Debian's packaged nvidia-driver supports the detected GPU."""
     apt_install(["nvidia-detect"], timeout=300, check=False)
     if shutil.which("nvidia-detect") is None:
         logger.info("nvidia-detect unavailable - assuming the packaged driver is fine")
@@ -323,12 +257,7 @@ def _debian_packaged_driver_supports_gpu() -> bool:
 
 
 def _add_nvidia_upstream_repo() -> bool:
-    """Register NVIDIA's official Debian repository (the one with current drivers).
-
-    Debian's archive lags well behind NVIDIA upstream; this repo is where the
-    drivers new enough for recent GPUs actually live. Keyring package first, so apt
-    verifies signatures normally instead of trusting an unsigned source.
-    """
+    """Add NVIDIA's official CUDA repository to get the latest driver."""
     codename = os_release().get("VERSION_ID", "13").split(".")[0]
     repo = f"debian{codename}"
     url = (f"https://developer.download.nvidia.com/compute/cuda/repos/"
@@ -347,19 +276,7 @@ def _add_nvidia_upstream_repo() -> bool:
 
 
 def install_nvidia_driver_debian(manifest: dict[str, Any]) -> bool:
-    """Install an NVIDIA driver that actually supports this GPU on Debian.
-
-    Returns True when a kernel module actually exists afterwards.
-
-    Prefers Debian's packaged driver (integrated, signed, maintained by Debian).
-    Falls back to NVIDIA's official repository only when the packaged driver is too
-    old for the card - the situation on RTX 50 series, where Debian ships 550 and
-    the GPU needs 570+.
-
-    The fallback installs the **open** kernel module (nvidia-open): Blackwell has no
-    proprietary kernel module at all, and the `cuda-drivers` metapackage in that
-    repo is known to fail on Debian, so nvidia-open is the package that works.
-    """
+    """Install the NVIDIA driver on Debian, honouring Secure Boot."""
     if _debian_packaged_driver_supports_gpu():
         logger.info("Installing NVIDIA driver from Debian non-free")
         apt_install(["nvidia-driver", "firmware-misc-nonfree"], timeout=1200, check=False)
@@ -438,25 +355,14 @@ def install_codecs(manifest: dict[str, Any]) -> None:
 
 
 def ensure_firmware(manifest: dict[str, Any]) -> None:
-    """Make sure linux-firmware is present so Wi-Fi/GPU firmware is available.
-
-    The Debian-family analogue of Fedora's kernel-modules self-heal: an
-    incomplete netinstall over flaky Wi-Fi can leave firmware packages missing,
-    which strands the installed system without a usable wireless device.
-    """
+    """Make sure the firmware package is present (Debian: firmware-linux, Ubuntu: linux-firmware)."""
     pkg = "linux-firmware" if is_ubuntu_like() else "firmware-linux"
     apt_install([pkg], timeout=600, check=False)
     logger.info("Ensured firmware package present: %s", pkg)
 
 
 def enable_os_prober(manifest: dict[str, Any]) -> None:
-    """Make Windows appear in the GRUB dual-boot menu.
-
-    GRUB 2.06+ disables os-prober by default (GRUB_DISABLE_OS_PROBER=true), so a
-    fresh dual-boot install shows no Windows entry. Enable it and regenerate
-    grub.cfg on the booted system, where the Windows partition is fully visible
-    (more reliable than detecting it from the installer chroot).
-    """
+    """Enable os-prober so GRUB finds Windows and other OSes on the next update."""
     grub_default = Path("/etc/default/grub")
     try:
         text = grub_default.read_text() if grub_default.exists() else ""
@@ -508,13 +414,7 @@ def install_suggested_packages(manifest: dict[str, Any]) -> None:
 #   User-file migration from the Windows NTFS partition
 
 def ensure_migration_tools(manifest: dict[str, Any]) -> None:
-    """Make sure the tools the file-migration step needs are installed.
-
-    On the offline (squashfs) install these may be absent from the live image:
-    ntfs-3g mounts the Windows partition and rsync does the copy. Install any that
-    are missing now that the network is up (a no-op on images that already ship
-    them, and on the netinst-era path where the preseed pulled them in).
-    """
+    """Make sure ntfs-3g and rsync are present for the migration step."""
     missing = [pkg for pkg, cmd in (("ntfs-3g", "ntfs-3g"), ("rsync", "rsync"))
                if shutil.which(cmd) is None]
     if missing:
@@ -549,11 +449,6 @@ def _find_windows_home(win_username: str) -> Path | None:
 
 def _copy_tree(src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
-    # --no-links: skip Windows junctions (My Music/Pictures/Videos, OneDrive links).
-    #   ntfs-3g exposes them as symlinks into the temporary NTFS mount, which would
-    #   dangle once the agent unmounts it. Real files are copied; the junk links are not.
-    # --exclude: Windows-only folder metadata that's meaningless on Linux.
-    # rsync tolerates unreadable OneDrive placeholders without aborting the run.
     run_cmd(["rsync", "-a", "--no-links", "--no-perms", "--chmod=ugo=rwX",
              "--exclude=desktop.ini", "--exclude=Thumbs.db",
              f"{src}/", f"{dst}/"], check=False, timeout=3600)
@@ -615,14 +510,7 @@ def migrate_user_files(manifest: dict[str, Any]) -> None:
 #   Wi-Fi (NetworkManager keyfiles)  distro-agnostic, reused from Fedora   
 
 def set_user_password(manifest: dict[str, Any]) -> None:
-    """Guarantee the user's password is set, via chpasswd, from the manifest.
-
-    The preseed/autoinstall already sets it, but Debian-family *plaintext* password
-    preseeding (passwd/user-password) is unreliable across releases  the account is
-    created but the password sometimes doesn't take, so the user can't log in.
-    Re-applying it here (as root, on first boot, before the display manager) makes it
-    deterministic. Runs before redact-manifest, while the plaintext is still present.
-    """
+    """Set the user's password from the manifest, if present."""
     user = manifest.get("user", {})
     username = (user.get("preferredLinuxUsername") or "").strip()
     password = user.get("linuxPassword")
@@ -639,13 +527,7 @@ def set_user_password(manifest: dict[str, Any]) -> None:
 
 
 def _ensure_dconf_local_db() -> None:
-    """Make sure the dconf user profile consults the system-wide `local` db.
-
-    A compiled db under /etc/dconf/db/local.d is only read when the profile
-    names `system-db:local`; without it, seeded defaults compile fine and are
-    then silently ignored (Debian 13 bare-metal: the keyboard seed ran and
-    logged success, the session still came up qwerty).
-    """
+    """Make sure /etc/dconf/profile/user names the system database."""
     profile = Path("/etc/dconf/profile/user")
     try:
         content = profile.read_text(encoding="utf-8") if profile.exists() else ""
@@ -662,19 +544,7 @@ def _ensure_dconf_local_db() -> None:
 
 
 def set_keyboard(manifest: dict[str, Any]) -> None:
-    """Apply the user's keyboard layout from the manifest.
-
-    The preseed sets keyboard-configuration keys, but Ubiquity (Mint) and the
-    casper live session don't reliably honour them, so the installed desktop can
-    end up on the default (US) layout.
-
-    `localectl set-x11-keymap` is a NO-OP on the entire Debian family: localed
-    replies "Setting X11 and console keymaps is not supported in Debian" because
-    Debian's keyboard-configuration package owns the config. The authoritative
-    file is /etc/default/keyboard  the greeter and every new X/Wayland session
-    read it. It is rewritten here, then dpkg-reconfigure/setupcon apply it to
-    the console without waiting for a reboot.
-    """
+    """Set the system keyboard layout from the manifest, and seed GNOME defaults."""
     keymap = (manifest.get("user", {}).get("keymap") or "").strip()
     if not keymap:
         logger.info("No keymap in manifest - skipping keyboard set")
@@ -704,14 +574,6 @@ def set_keyboard(manifest: dict[str, Any]) -> None:
             check=False)
     run_cmd(["setupcon", "--save"], check=False)
 
-    # GNOME (the Debian/Ubuntu desktop) ignores /etc/default/keyboard inside the
-    # user session: input sources live in dconf under
-    # org.gnome.desktop.input-sources, and a fresh user inherits the compiled-in
-    # default ('us') - observed on the Debian 13 bare-metal run, where the
-    # console was correctly 'be' but the GNOME session typed qwerty. Seed a
-    # system-wide dconf default so the first login starts on the migrated
-    # layout. Cinnamon reads /etc/default/keyboard (validated on Mint), so both
-    # mechanisms are written deliberately.
     try:
         dconf_dir = Path("/etc/dconf/db/local.d")
         dconf_dir.mkdir(parents=True, exist_ok=True)
@@ -785,20 +647,7 @@ def migrate_wifi(manifest: dict[str, Any]) -> None:
 
 
 def wait_for_network(manifest: dict[str, Any]) -> None:
-    """Block (bounded) until the network is up before the apt-dependent steps run.
-
-    On the offline (squashfs) install there is NO network until migrate_wifi  run
-    just before this  writes the NetworkManager profiles and NM autoconnects. On a
-    wired machine the link is already up, so this returns almost immediately. It is
-    best-effort with a hard timeout: if nothing comes up (e.g. a wrong Wi-Fi key)
-    we proceed anyway and the network-dependent steps degrade gracefully (they all
-    run with check=False).
-
-    Bare-metal finding (Mint, 2026-07-30): nm-online reported "online" while DNS
-    was still broken, so the very next apt-get update failed on "Could not
-    resolve" for every repository and the NVIDIA install fell back to stale
-    install-image indices. Link-up is not enough  verify name resolution too.
-    """
+    """Wait until the network is up and DNS resolves the archive host."""
     if shutil.which("nm-online"):
         # -s waits for NetworkManager to finish starting (all autoconnect attempts);
         # -t bounds the wait.
@@ -1065,7 +914,7 @@ def _aes_self_test() -> None:
         aes_gcm_decrypt(k128, iv, bytes(bad))
         raise AssertionError("GCM accepted a corrupted ciphertext")
     except ValueError:
-        pass
+        pass  # expected: GCM must reject corrupted ciphertext
 
     # GCM test case 5 (AES-256, with AAD), from the GCM revised spec.
     k256 = bytes.fromhex("feffe9928665731c6d6a8f9467308308"
@@ -1098,10 +947,6 @@ _CHROMIUM_LINUX_DIRS = {
 # Chromium timestamps count microseconds since 1601-01-01 UTC.
 _CHROMIUM_EPOCH_OFFSET_US = 11644473600 * 1_000_000
 
-# Classic logins schema. Newer Chromium versions upgrade older databases on
-# first launch (password-store migrations only ADD columns), so writing the
-# classic form is the compatible choice. Validated in VM testing per
-# CONTRIBUTING.md rule 4.
 _LOGINS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS logins (
     origin_url VARCHAR NOT NULL,
@@ -1181,7 +1026,6 @@ def _login_row_values(url: str, username: str, v10_blob: bytes,
         "generation_upload_status": 0,
         "possible_username_pairs": b"",
         "date_synced": 0,
-        # Columns added by newer Chromium versions.
         "moving_blocked_for": b"",
         "sender_name": "",
         "sender_origin": "",
@@ -1194,9 +1038,7 @@ def _login_row_values(url: str, username: str, v10_blob: bytes,
 
 
 def _import_into_login_data(db_path: Path, logins: list[dict]) -> int:
-    """Insert logins into a Chromium Login Data database. Returns the number
-    of rows inserted. Existing (origin_url, username_value) pairs are kept,
-    so re-running the agent never duplicates entries."""
+    """Insert the given logins into the Chromium Login Data database."""                   
     is_new_db = not db_path.exists()
     con = sqlite3.connect(db_path)
     try:
@@ -1246,11 +1088,7 @@ def _import_into_login_data(db_path: Path, logins: list[dict]) -> int:
 
 
 def import_chromium_credentials(manifest: dict) -> None:
-    """Migrate staged Chromium credentials into the Linux browsers' Login Data.
-
-    Runs before redact-manifest: the envelope key derives from the plaintext
-    linuxPassword, which redaction then erases. Best-effort per browser; a
-    failure here must never block first boot."""
+    """Import the staged Chromium credentials from the manifest into the Linux browser's Login Data. This runs before redact_manifest, while the plaintext Linux password is still present."""   
     entries = [b for b in manifest.get("browsers", []) if b.get("credentialsBlob")]
     if not entries:
         return
@@ -1335,13 +1173,7 @@ def redact_manifest(manifest: dict[str, Any]) -> None:
 #   Display layout migration (resolution / refresh rate / rotation / position)
 
 def _edid_identity(edid: bytes) -> dict[str, str] | None:
-    """Extract vendor, product code, product name and serial from raw EDID bytes.
-
-    Layout (EDID 1.x): bytes 8-9 hold the manufacturer as three 5-bit letters,
-    10-11 the product code (little-endian), 12-15 a numeric serial, and the four
-    18-byte descriptors from 0x36 carry the human-readable name (tag 0xFC) and
-    serial string (tag 0xFF).
-    """
+    """Parse the EDID blob and return a dict with the monitor's identity."""
     if len(edid) < 128:
         return None
     raw = (edid[8] << 8) | edid[9]
@@ -1392,12 +1224,7 @@ def _connected_outputs() -> list[dict[str, str]]:
 
 
 def _mode_is_supported(connector: str, width: int, height: int) -> bool:
-    """Whether the connector advertises this resolution.
-
-    Guard rail: forcing a mode the panel does not advertise is one of the few ways
-    this feature could leave the user staring at a black screen, so an unknown mode
-    means we leave that output alone rather than gamble.
-    """
+    """Check if a given width x height is advertised by the DRM connector."""
     modes_file = next(Path("/sys/class/drm").glob(f"card*-{connector}/modes"), None)
     if modes_file is None:
         return True   # cannot tell - do not block on it
@@ -1414,22 +1241,7 @@ _SECOND_PASS = False
 
 
 def _install_display_second_pass(reason: str) -> None:
-    """Register a one-shot service that re-runs ONLY the display-layout step at
-    the next boot, before the display manager starts.
-
-    Needed whenever the DRM landscape at first-boot time is not the final one:
-
-    * nouveau cannot bind Blackwell before ~kernel 6.14, so on Debian 13's 6.12
-      there is NO DRM connector (hence no EDID) until the NVIDIA driver loads
-      after the driver reboot - the bare-metal Debian run logged "No connected
-      outputs with readable EDID" and the layout never applied;
-    * connector names/numbering can change when the loaded driver changes
-      (nouveau -> nvidia-drm), so a monitors.xml written pre-reboot may name
-      connectors that no longer exist.
-
-    The second pass runs with the final driver in place, writes monitors.xml
-    from the EDIDs visible THEN, and GDM/mutter applies it at the first login.
-    """
+    """Install a systemd unit to re-run the display-layout step after the"""
     unit = Path("/etc/systemd/system/igloo-display-layout.service")
     try:
         unit.write_text(
@@ -1460,32 +1272,10 @@ def _install_display_second_pass(reason: str) -> None:
         logger.exception("Could not install the display-layout second pass (non-fatal)")
 
 
-def migrate_display_layout(manifest: dict[str, Any]) -> None:
-    """Reproduce the Windows desktop layout (rotation, refresh rate, position).
-
-    Written as GNOME/Cinnamon's monitors.xml, which Mutter and Muffin both read on
-    X11 and Wayland - covering Cinnamon, GNOME and any Mutter-based desktop. KDE
-    keeps its own store and is handled separately below.
-
-    Identity is deliberately taken from the LINUX side: the monitorspec is built
-    from the connector's own EDID, so it always matches what the compositor reads.
-    Only the geometry comes from Windows. Matching the two by PnP id is what keeps a
-    two-monitor setup from rotating the wrong screen - display names and ordering
-    differ between the systems and are not stable across boots.
-    """
-    wanted = manifest.get("displays", [])
-    if not wanted:
-        logger.info("No display layout in the manifest - leaving the desktop defaults")
-        return
-
+def _wait_for_display_outputs(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    """Connected DRM outputs, with a bounded wait for late NVIDIA connectors."""
     outputs = _connected_outputs()
     if not outputs and _SECOND_PASS:
-        # This is the post-driver second pass, yet still no DRM connector with
-        # EDID. On Debian the NVIDIA module can load minutes into boot - the
-        # display stack itself triggers it, so anything ordered
-        # Before=display-manager runs too early (bare-metal: nvidia tainted the
-        # kernel at t=179s). Force the load here and give the connectors a
-        # bounded window to appear.
         if manifest.get("hardware", {}).get("gpuVendor", "").lower() == "nvidia":
             logger.info("Second pass: no EDID yet - loading the NVIDIA module explicitly")
             run_cmd(["modprobe", "nvidia-drm"], check=False, timeout=120)
@@ -1496,16 +1286,17 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
                     logger.info("DRM connectors appeared after %d attempt(s)", attempt)
                     break
                 logger.info("Waiting for DRM connectors (attempt %d/12)", attempt)
-    if not outputs:
-        logger.info("No connected outputs with readable EDID - skipping display layout")
-        # Classic case: nouveau cannot bind this GPU on the running kernel (e.g.
-        # Blackwell on Debian 13's 6.12), so no DRM connector exists yet. The
-        # NVIDIA driver only loads after the pending reboot - try again there.
-        _install_display_second_pass("no EDID-readable outputs on this boot")
-        return
-    for o in outputs:
-        logger.info("Detected output %s: %s (%s)", o["connector"], o["pnp_id"], o["product"])
+    return outputs
 
+
+def _match_display_layouts(
+    wanted: list[dict[str, Any]], outputs: list[dict[str, Any]]
+) -> tuple[list[str], list[dict[str, Any]], int]:
+    """Match Windows-reported monitors to live outputs by EDID PnP id.
+
+    Returns (monitors.xml logical-monitor fragments, staged layout for the
+    login-time appliers, match count).
+    """
     by_pnp = {o["pnp_id"]: o for o in outputs}
     logical: list[str] = []
     cinnamon_layout: list[dict[str, Any]] = []
@@ -1521,14 +1312,7 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
         width, height = int(want.get("widthPx", 0)), int(want.get("heightPx", 0))
         if width <= 0 or height <= 0:
             continue
-
-        # Windows reports the ROTATED pixel dimensions (dmPelsWidth/Height in the
-        # current orientation): a portrait monitor arrives as 2160x3840. Panels
-        # only advertise landscape modes - portrait is a rotation transform, not
-        # a mode - so the mode to check and to set is the unrotated one. Checking
-        # 2160x3840 against the mode list finds nothing and skips portrait
-        # monitors entirely (hardware-validated on the Fedora KDE bare-metal
-        # RTX 5070 test, July 2026).
+ 
         rotation_deg = int(want.get("rotationDegrees") or 0)
         mode_w, mode_h = (height, width) if rotation_deg in (90, 270) else (width, height)
         if not _mode_is_supported(out["connector"], mode_w, mode_h):
@@ -1536,14 +1320,8 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
                            out["connector"], mode_w, mode_h)
             continue
 
-        # Windows reports whole Hz; panels advertise fractional rates (143.998).
-        # Mutter tolerates a near match, so the integer value is written as-is.
         rate = int(want.get("refreshHz") or 60) or 60
 
-        # Direction mapping validated on hardware (RTX 5070 dual-Odyssey G70D):
-        # Windows dmDisplayOrientation=270 corresponds to the "right" rotation
-        # the user set by hand and confirmed correct - NOT "left" as the earlier
-        # guess had it. 90 is the mirror image.
         rotation = {0: "normal", 90: "left", 180: "inverted", 270: "right"}.get(
             rotation_deg, "normal")
 
@@ -1566,10 +1344,7 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             "      </monitor>\n"
             "    </logicalmonitor>\n")
         matched += 1
-        # Staged for the login-time appliers (Cinnamon via xrandr, GNOME via
-        # mutter's D-Bus) - same convention as the Fedora KDE agent's
-        # kde_layout. vendor/product/serial let the GNOME applier match by
-        # EDID identity; connector is its same-boot fallback. See below.
+
         cinnamon_layout.append({
             "pnpId": pnp,
             "vendor": out["vendor"],
@@ -1589,25 +1364,25 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
         logger.info("  %s -> %dx%d@%dHz %s at (%s,%s)", out["connector"], mode_w, mode_h,
                     rate, rotation, want.get("positionX"), want.get("positionY"))
 
-    if matched == 0:
-        logger.info("No Windows monitors matched the attached outputs - nothing written")
-        return
+    return logical, cinnamon_layout, matched
 
-    xml = ('<monitors version="2">\n  <configuration>\n'
-           + "".join(logical) + "  </configuration>\n</monitors>\n")
 
-    username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
+def _write_user_monitors_xml(username: str, xml: str, matched: int) -> bool:
+    """Write monitors.xml into the user's ~/.config. False if the home is missing."""
     home = Path("/home") / username if username else None
     if home is None or not home.is_dir():
         logger.warning("User home not found - cannot write the display layout")
-        return
+        return False
 
     cfg = home / ".config"
     cfg.mkdir(parents=True, exist_ok=True)
     (cfg / "monitors.xml").write_text(xml, encoding="utf-8")
     run_cmd(["chown", "-R", f"{username}:{username}", str(cfg)], check=False)
     logger.info("Wrote %s for %d monitor(s)", cfg / "monitors.xml", matched)
+    return True
 
+
+def _write_greeter_monitors_xml(xml: str) -> None:
     # The greeter runs as its own user and reads its own copy, so a portrait screen
     # would otherwise still be sideways at the login prompt - the very first thing
     # the user sees. Best-effort: not every display manager uses this path.
@@ -1623,17 +1398,9 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             except OSError:
                 logger.info("Could not write the greeter layout in %s (non-fatal)", gdm_dir)
 
-    # ── Cinnamon (X11) path ──────────────────────────────────────────────────
-    # The monitors.xml above uses KERNEL DRM connector names (DP-4) - correct
-    # for Wayland compositors, but Cinnamon on X11 (Linux Mint's default
-    # session) matches monitorspecs against RANDR output names, and the NVIDIA
-    # X driver names those differently (DP-0). The config matched nothing and
-    # Cinnamon discarded it (Mint RTX 5070 bare-metal, July 2026: monitors.xml
-    # gone by first login, layout stuck at 60 Hz without rotation). No X server
-    # exists at this point in boot, so the RandR names cannot be resolved here:
-    # stage the layout keyed by EDID PnP id and let display-apply.py rewrite
-    # the file with RandR names from inside the first user session, applying it
-    # immediately via xrandr. Mirrors the Fedora KDE agent's kscreen hook.
+
+def _stage_display_login_hook(cinnamon_layout: list[dict[str, Any]]) -> None:
+    """Write the Cinnamon/GNOME login-time applier and its autostart hook."""
     try:
         layout_path = Path("/opt/igloo/display-layout.json")
         layout_path.write_text(json.dumps(cinnamon_layout, indent=2), encoding="utf-8")
@@ -1647,21 +1414,10 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             'DONE_MARKER="$HOME/.config/.igloo-display-done"\n'
             '[ -f "$DONE_MARKER" ] && exit 0\n'
             'mkdir -p "$HOME/.local/state"\n'
-            # Dispatch on the session type. GNOME on Wayland IGNORES the staged
-            # monitors.xml for the user session: mutter parses and normalizes the
-            # file (it rewrites layoutmode/rate formatting) but never applies it -
-            # the session stays at EDID-preferred 60 Hz landscape (Debian 13 /
-            # GNOME 48 RTX 5070 bare-metal, July 2026). The file path is guesswork
-            # about mutter's validation, so GNOME goes through mutter's own D-Bus
-            # API instead (exact mode ids from GetCurrentState). Cinnamon on X11
-            # keeps the xrandr applier.
             'case " $XDG_CURRENT_DESKTOP " in\n'
             '  *GNOME*) HELPER=/opt/igloo/display-apply-gnome.py ;;\n'
             '  *)       HELPER=/opt/igloo/display-apply.py ;;\n'
             "esac\n"
-            # The helper logs to the same file, but only when python can start it -
-            # a missing/stale helper would otherwise fail silently at every login
-            # (Mint bare-metal, July 2026).
             'if [ ! -f "$HELPER" ]; then\n'
             '  echo "[$(date +%F\\ %T)] ERROR: $HELPER is missing" '
             '>> "$HOME/.local/state/igloo-display.log"\n'
@@ -1682,10 +1438,6 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             "Terminal=false\n"
             "Type=Application\n"
             "X-GNOME-Autostart-enabled=true\n"
-            # Cinnamon on X11 uses the xrandr applier; GNOME uses the mutter
-            # D-Bus applier (see display-apply.sh). XDG_CURRENT_DESKTOP is
-            # X-Cinnamon on modern Mint, plain "Cinnamon" on some older
-            # releases - list both.
             "OnlyShowIn=X-Cinnamon;Cinnamon;GNOME;\n",
             encoding="utf-8",
         )
@@ -1693,25 +1445,45 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
     except OSError:
         logger.exception("Could not stage the Cinnamon display-layout hook (non-fatal)")
 
-    # A pending driver reboot means the DRM landscape will change (nouveau ->
-    # nvidia-drm): connector names and even their presence can differ from what
-    # this pass saw. Rewrite the layout with the final driver in place.
+
+def migrate_display_layout(manifest: dict[str, Any]) -> None:
+    """Map Windows desktop layout to GNOME/Cinnamon monitors.xml via EDID/PnP IDs.
+    This guarantees stable screen assignment. (KDE is handled separately).
+    """
+    wanted = manifest.get("displays", [])
+    if not wanted:
+        logger.info("No display layout in the manifest - leaving the desktop defaults")
+        return
+
+    outputs = _wait_for_display_outputs(manifest)
+    if not outputs:
+        logger.info("No connected outputs with readable EDID - skipping display layout")
+        _install_display_second_pass("no EDID-readable outputs on this boot")
+        return
+    for o in outputs:
+        logger.info("Detected output %s: %s (%s)", o["connector"], o["pnp_id"], o["product"])
+
+    logical, cinnamon_layout, matched = _match_display_layouts(wanted, outputs)
+    if matched == 0:
+        logger.info("No Windows monitors matched the attached outputs - nothing written")
+        return
+
+    xml = ('<monitors version="2">\n  <configuration>\n'
+           + "".join(logical) + "  </configuration>\n</monitors>\n")
+
+    username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
+    if not _write_user_monitors_xml(username, xml, matched):
+        return
+    _write_greeter_monitors_xml(xml)
+    _stage_display_login_hook(cinnamon_layout)
+
     if Path("/var/lib/igloo/.reboot-required").exists():
         _install_display_second_pass("a driver reboot is pending - DRM landscape will change")
 
 
 def migrate_wallpaper(manifest: dict[str, Any]) -> None:
-    """Reproduce the Windows desktop wallpaper on GNOME and Cinnamon.
-
-    The Windows side staged the image next to the manifest on the seed; the
-    bootstrap copied it to /opt/igloo. The file is placed in the user's
-    Pictures folder (so it is visibly theirs, not hidden in a system path)
-    and a system-wide dconf default points the desktop background at it -
-    the same mechanism as the GNOME keyboard seed, so it applies from the
-    very first login without a session-side hook. Both the GNOME and the
-    Cinnamon schema are seeded; whichever desktop is installed reads its own.
-    Purely additive: no wallpaper in the manifest means the distro default
-    is kept.
+    """Apply staged Windows wallpaper via system-wide GNOME/Cinnamon dconf defaults.
+    The image is saved to the user's Pictures folder.
     """
     wp = manifest.get("wallpaper") or {}
     fname = (wp.get("fileName") or "").strip()
@@ -1751,13 +1523,6 @@ def migrate_wallpaper(manifest: dict[str, Any]) -> None:
             "picture-options='zoom'\n"
             "[org/cinnamon/desktop/background]\n"
             f"picture-uri='{uri}'\n"
-            # NOTE: Cinnamon spans one wallpaper across all monitors as a
-            # single canvas with ONE global fit mode - per-monitor fits do not
-            # exist. 'zoom' fills by cropping (perfect on portrait, cropped on
-            # the landscape screen of a mixed setup - cosmetic, Mint bare-metal
-            # July 2026); 'scaled' fits but letterboxes the portrait screen.
-            # Post-release: compose a per-monitor span image on the Windows
-            # side (display geometry is known there) and use 'spanned'.
             "picture-options='zoom'\n",
             encoding="utf-8")
         _ensure_dconf_local_db()
@@ -1813,29 +1578,9 @@ IGLOO_SEED_LABELS = ("OEMDRV", "CIDATA", "IGLOOISO")
 
 
 def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
-    """Remove Igloo's temporary installer artifacts from the machine.
+    """Safely remove temporary Igloo installer partitions and UEFI boot entries.
+    Strictly follows BR-01/BR-03 safety rules for exact label-based deletion."""
 
-    Once this agent has run, the staging partition(s)  OEMDRV/CIDATA with the
-    installer config + agent payload (and, for iso-scan/casper distros, the
-    multi-gigabyte ISO), plus the dedicated IGLOOISO partition when present 
-    serve no further purpose. Leaving them wastes gigabytes and confuses users
-    ("what is this OEMDRV drive?"), so the FINAL agent step deletes them, along
-    with Igloo's now-dangling one-shot UEFI boot entry.
-
-    Safety rules (BR-01/BR-03, docs/business/business-rules.md):
-      * delete ONLY by exact filesystem-label match on Igloo's staging labels 
-        never by partition number, position, or size;
-      * the partition must sit on the same physical disk as the Linux root;
-      * every action is best-effort and logged  any doubt leaves the partition
-        in place, never a broken disk.
-    The freed space is intentionally left unallocated: it borders the Windows
-    partition, so Windows' own Disk Management can extend C: into it.
-    """
-    # --nofsroot strips the subvolume suffix: without it findmnt returns
-    # "/dev/nvme0n1p3[/root]" on a btrfs root, which is not a valid device path 
-    # lsblk then fails, `disk` stays empty, and the whole cleanup silently bails,
-    # leaving OEMDRV behind to break later installs. Debian/Mint default to ext4
-    # (no suffix), but a btrfs install would hit this, so guard it here too.
     src = run_cmd(["findmnt", "-rno", "SOURCE", "--nofsroot", "/"], check=False)
     root_dev = re.sub(r"\[.*\]$", "", (src.stdout or "").strip())
     disk = ""
@@ -1871,11 +1616,7 @@ def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
         logger.info("Deleted installer partition %s (%s = partition %s on /dev/%s)",
                     label, part_dev, partn, disk)
 
-    # iGloo's one-shot UEFI entry ("iGloo distribution installer") now points at
-    # nothing. efibootmgr -B also removes it from BootOrder. Only entries whose
-    # description contains "igloo" (case-insensitive, matching the Windows side's
-    # BootEntryDescription) are touched; the distro's entry and Windows Boot
-    # Manager never are.
+
     r = run_cmd(["efibootmgr"], check=False)
     for line in (r.stdout or "").splitlines():
         m = re.match(r"^Boot([0-9A-Fa-f]{4})\*?\s+(.*)$", line.strip())
@@ -1905,10 +1646,7 @@ def main() -> int:
         logger.error("Unsupported manifest schemaVersion: %r", manifest.get("schemaVersion"))
         return 2
 
-    # Order matters on the offline install: Wi-Fi FIRST (nothing else has network
-    # until the migrated profiles are up), then wait for the link, THEN the
-    # apt/flatpak steps that need it. set-password/keyboard are offline and run
-    # first; redact/cleanup run last (redact must see the plaintext Wi-Fi key).
+
     steps: list[tuple[str, Any]] = [
         ("set-password",     lambda: set_user_password(manifest)),
         ("set-keyboard",     lambda: set_keyboard(manifest)),
@@ -1925,10 +1663,8 @@ def main() -> int:
         ("user-files",       lambda: migrate_user_files(manifest)),
         ("display-layout",   lambda: migrate_display_layout(manifest)),
         ("wallpaper",        lambda: migrate_wallpaper(manifest)),
-        ("welcome-app",     lambda: install_welcome_app(manifest)),
-        # Chromium credentials: needs the plaintext linuxPassword, so it must
-        # run before redact-manifest; needs nothing else, so it stays late.
-        ("chromium-creds",  lambda: import_chromium_credentials(manifest)),
+        ("welcome-app",      lambda: install_welcome_app(manifest)),
+        ("chromium-creds",   lambda: import_chromium_credentials(manifest)),
         ("redact-manifest",  lambda: redact_manifest(manifest)),
         ("cleanup-seed",     lambda: cleanup_installer_partitions(manifest)),
     ]

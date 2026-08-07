@@ -54,7 +54,7 @@ def log(msg: str) -> None:
         with LOG_PATH.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
     except OSError:
-        pass
+        pass  # logging must never crash the agent; stdout already has the line
 
 
 def edid_identity(edid: bytes) -> dict[str, str] | None:

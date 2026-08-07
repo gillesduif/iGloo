@@ -47,7 +47,7 @@ GDBUS_IFACE = "org.gnome.Mutter.DisplayConfig"
 ROTATION_TO_TRANSFORM = {"none": 0, "left": 1, "inverted": 2, "right": 3}
 
 # ApplyMonitorsConfig method 1 = persistent: mutter applies AND rewrites
-# monitors.xml itself, in its own format, with its own validated values.
+# monitors.xml itself in its own format with its own validated values.
 METHOD_PERSISTENT = 1
 
 
@@ -59,7 +59,7 @@ def log(msg: str) -> None:
         with LOG_PATH.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
     except OSError:
-        pass
+        pass  # logging must never crash the agent; stdout already has the line
 
 
 def gdbus_call(method: str, *args: str, timeout: int = 20) -> subprocess.CompletedProcess:
@@ -89,21 +89,21 @@ _MODE = re.compile(
 
 
 def parse_current_state(text: str) -> tuple[int | None, dict[str, dict]]:
-    """Extract (serial, {connector: {identity..., modes: [...]}}) from the dump.
-
-    The monitors array is the only place 4-tuples of quoted strings followed by
-    '[' appear at this nesting level, which keeps the regex honest. Mode tuples
-    are matched inside each monitor's slice of the text.
-    """
+    """Parse the GVariant text returned by GetCurrentState into a dict of monitors."""
+    # The monitors array is the only place 4-tuples of quoted strings followed
+    # by '[' appear at this nesting level, so the start-regex cannot match
+    # anything else. Mode tuples are matched inside each monitor's slice.
     serial_m = re.search(r"\(uint32 (\d+),", text)
     serial = int(serial_m.group(1)) if serial_m else None
 
     starts = list(_MONITOR_START.finditer(text))
     monitors: dict[str, dict] = {}
+
     for i, m in enumerate(starts):
         end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
         block = text[m.start():end]
         modes = []
+
         for mm in _MODE.finditer(block):
             scales = [float(s) for s in mm.group(6).split(",") if s.strip()] or [1.0]
             modes.append({
@@ -113,6 +113,7 @@ def parse_current_state(text: str) -> tuple[int | None, dict[str, dict]]:
                 "rate": float(mm.group(4)),
                 "scales": scales,
             })
+
         if modes:
             monitors[m.group(1)] = {
                 "connector": m.group(1),
@@ -121,22 +122,22 @@ def parse_current_state(text: str) -> tuple[int | None, dict[str, dict]]:
                 "serial": m.group(4),
                 "modes": modes,
             }
+
     return serial, monitors
 
 
 def _norm_connector(name: str) -> str:
-    """Kernel DRM names HDMI outputs HDMI-A-N; mutter (and X) call the same
-    connector HDMI-N. DP-N and everything else already agree. Compare
-    normalized on both sides (RTX 5070 bare-metal, July 2026: the staged
-    HDMI-A-2 is mutter's HDMI-2)."""
+    """Normalize connector names to ignore the "-A-" vs "-B-" suffixes."""
     return (name or "").replace("-A-", "-")
 
 
 def pick_mode(modes: list[dict], width: int, height: int, rate: int) -> dict | None:
     """Exact resolution, nearest refresh rate (Windows' whole-Hz 144 vs 143.99x)."""
     candidates = [m for m in modes if m["width"] == width and m["height"] == height]
+
     if not candidates:
         return None
+    
     return min(candidates, key=lambda m: abs(m["rate"] - rate))
 
 
@@ -170,13 +171,9 @@ def main() -> int:
         return 1
     log(f"mutter serial={serial}, connectors: {sorted(monitors)}")
 
-    #   Match staged monitors to mutter's live monitors                    
-    # Connector first (the staging second pass and this login are the same
-    # boot, so names are stable), normalized for the HDMI-A-N/HDMI-N split.
-    # EDID identity is only the fallback: some panels report DUPLICATED
-    # serials - both Samsung Odyssey G70D's on the RTX 5070 test machine
-    # report serial 'H1AK500000', so identity alone matches the same live
-    # monitor twice. Each live monitor is consumed once.
+    # Match staged monitors to mutter's live monitors: connector name first
+    # (same boot, names are stable), EDID identity as fallback - serials can be
+    # duplicated, see docs/reference/hardware-findings.md #8.
     live_by_norm = {_norm_connector(c["connector"]): c for c in monitors.values()}
     used: set[str] = set()
     wanted: list[dict] = []
@@ -190,7 +187,7 @@ def main() -> int:
                 if cand["connector"] in used:
                     continue
                 if (mon.get("vendor"), mon.get("product"), mon.get("serial")) == \
-                   (cand["vendor"], cand["product"], cand["serial"]):
+(cand["vendor"], cand["product"], cand["serial"]):
                     hit = cand
                     break
         if hit is None:
@@ -199,8 +196,7 @@ def main() -> int:
         used.add(hit["connector"])
         if hit["connector"] != mon.get("connector"):
             log(f"staged connector {mon.get('connector')} matched live {hit['connector']}")
-        mode = pick_mode(hit["modes"], int(mon["width"]), int(mon["height"]),
-                         int(mon.get("rate") or 60) or 60)
+        mode = pick_mode(hit["modes"], int(mon["width"]), int(mon["height"]), int(mon.get("rate") or 60) or 60)
         if mode is None:
             log(f"{hit['connector']} advertises no {mon['width']}x{mon['height']} mode - skipped")
             continue
@@ -212,22 +208,20 @@ def main() -> int:
 
     #   Scale + logical positions (same convention as the Fedora KDE hook)   
     primary = next((m for m in wanted if m.get("primary")), wanted[0])
-    primary_scale = pick_scale(primary["_mode"]["scales"],
-                               (int(primary.get("scalePercent") or 100) or 100) / 100.0)
+    primary_scale = pick_scale(primary["_mode"]["scales"], (int(primary.get("scalePercent") or 100) or 100) / 100.0)
 
     logical_monitors: list[str] = []
     for m in wanted:
         conn = m["_live"]["connector"]
-        scale = pick_scale(m["_mode"]["scales"],
-                           (int(m.get("scalePercent") or 100) or 100) / 100.0)
+        scale = pick_scale(m["_mode"]["scales"], (int(m.get("scalePercent") or 100) or 100) / 100.0)
         x = round(int(m.get("x", 0)) / primary_scale)
         y = round(int(m.get("y", 0)) / primary_scale)
         transform = ROTATION_TO_TRANSFORM.get(str(m.get("rotation", "none")), 0)
         is_primary = "true" if m.get("primary") else "false"
-        # a(iiduba(ssa{sv})): each monitor entry is a TRIPLE - connector, mode
-        # id, properties dict. Sending only (connector, mode) makes mutter
-        # reject the whole call ("can not parse as value of type '(ssa{sv})'",
-        # first RTX 5070 hardware run, July 2026).
+
+        # Must send full tuple (ssa{sv}) including properties dict.
+        # Omitting it causes Mutter to reject the call (observed RTX 5070, July 2026).
+
         logical_monitors.append(
             f"({x}, {y}, {scale}, {transform}, {is_primary}, "
             f"[('{conn}', '{m['_mode']['id']}', {{}})])")
@@ -236,8 +230,7 @@ def main() -> int:
 
     variant = "[" + ", ".join(logical_monitors) + "]"
     log(f"applying via ApplyMonitorsConfig(serial={serial}, method=persistent)")
-    res = gdbus_call("ApplyMonitorsConfig", str(serial), str(METHOD_PERSISTENT),
-                     variant, "{}", timeout=30)
+    res = gdbus_call("ApplyMonitorsConfig", str(serial), str(METHOD_PERSISTENT),variant, "{}", timeout=30)
     if res.returncode != 0:
         log(f"ApplyMonitorsConfig failed: {(res.stderr or res.stdout or '').strip()[:400]}"
             " - will retry at next login")
