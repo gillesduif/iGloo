@@ -46,6 +46,13 @@ project, MIT licensed. © Microsoft.
 The application merges the WPF Fluent (`Fluent.Dark.xaml`) theme that ships with
 the .NET Desktop runtime. It is part of .NET and covered by the .NET license.
 
+### Stylish GRUB theme
+`distros/_shared/grub-theme/stylish/` and the archives built from it
+(`grub-theme-stylish-*.tar.gz` in the agent payload) - from vinceliuice's
+**grub2-themes** project, GPL-3.0 licensed. © vinceliuice and contributors.
+Upstream commit and assembly notes are in `distros/_shared/grub-theme/README.md`.
+<https://github.com/vinceliuice/grub2-themes>
+
 ## Distribution logos and trademarks
 
 `distros/*/logo/*` contains the logos of the supported Linux distributions
