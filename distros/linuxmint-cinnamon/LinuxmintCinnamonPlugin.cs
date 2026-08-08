@@ -90,6 +90,14 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
             if (File.Exists(p))
                 files.Add(new AgentFile(name, NormalizeCrLf(await File.ReadAllBytesAsync(p, ct).ConfigureAwait(false)), exe));
         }
+        // GRUB theme archives (M17 boot menu). Binary: must bypass NormalizeCrLf,
+        // which rewrites 0x0D bytes and would corrupt the gzip stream.
+        foreach (var name in new[] { "grub-theme-stylish-1080p.tar.gz", "grub-theme-stylish-4k.tar.gz" })
+        {
+            var p = Path.Combine(agentDir, name);
+            if (File.Exists(p))
+                files.Add(new AgentFile(name, await File.ReadAllBytesAsync(p, ct).ConfigureAwait(false), false));
+        }
         return new AgentPayload(files);
     }
 
