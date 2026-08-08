@@ -49,9 +49,6 @@ public sealed class DebianPlugin : IDistroPlugin
 
         var findings = new List<PreflightFinding>();
 
-        // The Debian Live image we install from carries non-free firmware, so Wi-Fi
-        // and most GPUs work out of the box. NVIDIA still needs the proprietary
-        // driver, installed by the first-boot agent from the non-free components.
         if (string.Equals(report.GpuVendor, "nvidia", StringComparison.OrdinalIgnoreCase))
         {
             findings.Add(new PreflightFinding(
@@ -128,6 +125,17 @@ public sealed class DebianPlugin : IDistroPlugin
         Add("display-apply-gnome.py", true);      // GNOME/Wayland applier via mutter D-Bus
         Add("igloo-first-boot.service", false);   // shipped to OEMDRV; the late hook installs it
 
+        // GRUB theme archives (M17 boot menu). Binary: must bypass NormalizeCrLf,
+        // which rewrites 0x0D bytes and would corrupt the gzip stream.
+        void AddRaw(string name)
+        {
+            var p = Path.Combine(agentDir, name);
+            if (File.Exists(p))
+                files.Add(new AgentFile(name, File.ReadAllBytes(p), false));
+        }
+        AddRaw("grub-theme-stylish-1080p.tar.gz");
+        AddRaw("grub-theme-stylish-4k.tar.gz");
+
         if (files.Count == 0)
             files.Add(new AgentFile("first-boot.sh",
                 Encoding.UTF8.GetBytes(
@@ -141,52 +149,21 @@ public sealed class DebianPlugin : IDistroPlugin
     public InstallerBootSpec GetInstallerBootSpec() => new()
     {
         MenuTitle = "Install Debian (Igloo)",
-        // OFFLINE install via the Debian *Live* ISO + d-i's live-installer, the
-        // same casper-style mechanism the Mint plugin uses. We copy the whole Live
-        // ISO onto OEMDRV and let d-i's iso-scan loop-mount it
-        // (iso-scan/filename=/debian.iso); live-installer then copies the ISO's
-        // live/filesystem.squashfs onto the target  no mirror, no network. The
-        // preseed is injected into the initrd so the install is fully unattended.
-        // iso-scan/copy_iso_to_ram: copy the ISO into RAM and UNMOUNT the OEMDRV
-        // partition, so the partitioner can rewrite the table of the same disk the
-        // ISO lives on (otherwise: "unable to inform the kernel … in use"). Needs
-        // RAM >= ISO size (~3.5 GB Live GNOME)  see the 4 GiB minimum in distro.json.
-        // locale/keymap MUST be here, not only in the preseed. debian-installer asks
-        // for language and country in localechooser, which runs BEFORE most preseed
-        // processing - so a preseeded debian-installer/locale arrives too late and the
-        // "unattended" install stops on its very first screen asking for a country.
-        // The command line is the one place d-i reads them early enough. Both tokens
-        // are substituted from the migration manifest by DirectInstallService.
+        // locale/keymap must be on the command line: localechooser runs before preseed processing.
         KernelCmdline =
             "auto=true priority=critical preseed/file=/preseed.cfg " +
             "locale={LOCALE} keymap={KEYMAP} " +
             "iso-scan/filename=/debian.iso iso-scan/copy_iso_to_ram=true " +
-            // The install is fully unattended (auto=true priority=critical), so the
-            // frontend only decides what the USER SEES while it runs. The text
-            // frontend scrolls a wall of console output, which reads as a crash to
-            // someone arriving from Windows; the GTK frontend shows a plain progress
-            // screen. Nothing is asked either way. Paired with the gtk initrd below -
-            // the two must match, since the text initrd has no GTK frontend in it.
+            // Must pair with the gtk initrd below the text initrd has no GTK frontend.
             "DEBIAN_FRONTEND=gtk ---",
-        // Fallback only  the primary kernel/initrd come from KernelUrl/InitrdUrl
-        // below. The Live ISO's own install.amd initrd runs cdrom-detect (whole
-        // devices), so it can't find an .iso FILE on a partition; that is exactly
-        // why we boot the hd-media pair instead.
+        // Fallback only the hd-media pair from KernelUrl/InitrdUrl is primary.
         KernelIsoPaths = ["install.amd/vmlinuz"],
         InitrdIsoPaths = ["install.amd/initrd.gz"],
         ExtraIsoFiles = Array.Empty<IsoFileStage>(),
-        CopyFullIsoToVolume = true,         // iso-scan loop-mounts the whole ISO
+        CopyFullIsoToVolume = true,
         IsoVolumeFileName = "debian.iso",
-        // The hd-media kernel+initrd run iso-scan (find an .iso file on a partition)
-        // and load the rest of d-i  including the live-installer udeb  from the
-        // scanned Live ISO's pool. Keep this pinned to the same release train as the
-        // Live ISO (trixie = Debian 13); a wildly different installer build could
-        // fail to load the Live ISO's udebs.
+        // Keep pinned to the same release train as the Live ISO (trixie = Debian 13).
         KernelUrl = new Uri("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/vmlinuz"),
-        // gtk/ variant: same hd-media installer, but carrying the graphical frontend
-        // (~68 MB vs ~30 MB). Larger, and it needs a working framebuffer - if a board
-        // ever fails to bring one up, swapping this back to hd-media/initrd.gz and
-        // DEBIAN_FRONTEND=text above restores the text installer.
         InitrdUrl = new Uri("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/gtk/initrd.gz"),
         ConfigDelivery = ConfigDelivery.InjectIntoInitrd,
         InitrdConfigPath = "preseed.cfg",
