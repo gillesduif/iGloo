@@ -381,6 +381,159 @@ def enable_os_prober(manifest: dict[str, Any]) -> None:
     logger.info("Regenerated GRUB (Windows entry added if a Windows install was found)")
 
 
+#   Boot menu (M17): Stylish theme, saved default, readable Windows label
+
+_GRUB_THEME_DIR = Path("/boot/grub/themes/stylish")
+_GRUB_DROPIN = Path("/etc/default/grub.d/99-igloo-menu.cfg")
+_OS_PROBER_SCRIPT = Path("/etc/grub.d/30_os-prober")
+_LONGNAME_MARKER = "# igloo: rename the Windows Boot Manager entry"
+_GRUB_CFG = Path("/boot/grub/grub.cfg")
+
+
+def _grub_theme_variant(manifest: dict[str, Any]) -> str:
+    """Pick the theme variant from the migrated display layout.
+
+    Same thresholds as upstream's install.sh: panels above 2560x1440 get the
+    4k variant, everything else the 1080p one. The RTX 5070 reference machine
+    has a 4K panel, so this branch is not theoretical.
+    """
+    for d in manifest.get("displays", []):
+        w, h = int(d.get("widthPx") or 0), int(d.get("heightPx") or 0)
+        if w > 2560 or h > 1440:
+            return "4k"
+    return "1080p"
+
+
+def _install_grub_theme(variant: str) -> bool:
+    archive = Path(f"/opt/igloo/grub-theme-stylish-{variant}.tar.gz")
+    if not archive.exists():
+        logger.error("GRUB theme archive missing: %s - the menu stays stock", archive)
+        return False
+    _GRUB_THEME_DIR.mkdir(parents=True, exist_ok=True)
+    res = run_cmd(["tar", "-xzf", str(archive), "-C", str(_GRUB_THEME_DIR)],
+                  check=False, timeout=120)
+    if res.returncode != 0:
+        logger.error("Could not extract %s (rc=%d) - the menu stays stock",
+                     archive, res.returncode)
+        return False
+    logger.info("Installed the Stylish GRUB theme (%s) in %s", variant, _GRUB_THEME_DIR)
+    return True
+
+
+def _write_boot_menu_dropin(path: Path, variant: str, themed: bool) -> None:
+    gfxmode = "3840x2160,auto" if variant == "4k" else "1920x1080,auto"
+    lines = [
+        "# iGloo boot menu (M17).",
+        "# GRUB_CMDLINE_LINUX is deliberately not set here: the nouveau",
+        "# blacklist lives in that variable on this family.",
+        "GRUB_TIMEOUT=10",
+        "GRUB_TIMEOUT_STYLE=menu",
+        "GRUB_DEFAULT=saved",
+        "GRUB_SAVEDEFAULT=true",
+        "GRUB_TERMINAL_OUTPUT=gfxterm",
+        f"GRUB_GFXMODE={gfxmode}",
+    ]
+    if themed:
+        lines.append(f"GRUB_THEME={_GRUB_THEME_DIR}/theme.txt")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _patch_os_prober_labels() -> None:
+    """Rename the os-prober Windows entry to 'Windows 11' and drop the
+    '(on /dev/...)' suffix. Idempotent via a marker. 30_os-prober is a dpkg
+    conffile, so a grub2-common upgrade can revert this - cosmetic only, and
+    the marker check logs it if that ever happens."""
+    if not _OS_PROBER_SCRIPT.exists():
+        logger.warning("30_os-prober not found - Windows entry keeps its stock label")
+        return
+    text = _OS_PROBER_SCRIPT.read_text(encoding="utf-8")
+    if _LONGNAME_MARKER in text:
+        logger.info("os-prober label patch already applied")
+        return
+    anchor = 'gettext_printf "Found %s on %s\\n" "${LONGNAME}" "${DEVICE}"'
+    patch = (
+        f"{_LONGNAME_MARKER}\n"
+        'if [ "${LONGNAME}" = "Windows Boot Manager" ]; then\n'
+        '  LONGNAME="Windows 11"\n'
+        "fi\n"
+    )
+    if anchor not in text:
+        logger.warning("30_os-prober anchor not found (grub version drift?) - "
+                       "Windows entry keeps its stock label")
+        return
+    text = text.replace(anchor, patch + anchor, 1)
+    # The "(on /dev/...)" suffix comes from onstr, not from LONGNAME (verified
+    # against upstream util/grub.d/30_os-prober.in). Neutralising it cleans up
+    # every os-prober entry at once, including other detected distros.
+    text, count = re.subn(
+        re.escape('onstr="$(gettext_printf "(on %s)" "${DEVICE}")"'),
+        'onstr=""', text)
+    if count == 0:
+        logger.warning("onstr pattern not found - entries keep their '(on ...)' suffix")
+    _OS_PROBER_SCRIPT.write_text(text, encoding="utf-8")
+    logger.info("Patched 30_os-prober: the Windows entry will read 'Windows 11'")
+
+
+def _regenerate_grub() -> None:
+    if shutil.which("update-grub"):
+        run_cmd(["update-grub"], check=False, timeout=300)
+    else:
+        run_cmd(["grub-mkconfig", "-o", str(_GRUB_CFG)], check=False, timeout=300)
+
+
+def _verify_boot_menu() -> None:
+    """BR-07: prove from the generated grub.cfg that the menu actually changed,
+    so one bare-metal run answers 'did it work' from the logs alone."""
+    try:
+        cfg = _GRUB_CFG.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        logger.error("VERIFICATION FAILED: %s unreadable after update-grub", _GRUB_CFG)
+        return
+    if "stylish/theme.txt" in cfg:
+        logger.info("verified: Stylish theme is referenced in grub.cfg")
+    else:
+        logger.error("VERIFICATION FAILED: no theme reference in grub.cfg - "
+                     "the drop-in was not sourced")
+    for line in cfg.splitlines():
+        if "menuentry" in line and "Windows" in line:
+            logger.info("verified Windows entry in grub.cfg: %s", line.strip())
+            return
+    logger.warning("no Windows menuentry found in grub.cfg")
+
+
+def configure_boot_menu(manifest: dict[str, Any]) -> None:
+    """M17: theme the menu, boot the last-used OS by default, rename the
+    Windows entry. Every failure here is cosmetic: the stock menu remains and
+    the system stays bootable."""
+    variant = _grub_theme_variant(manifest)
+    themed = _install_grub_theme(variant)
+    _patch_os_prober_labels()
+    _write_boot_menu_dropin(_GRUB_DROPIN, variant, themed)
+    _regenerate_grub()
+
+    # If /etc/default/grub.d is not sourced on this distro version, the theme
+    # never reaches grub.cfg. Fall back to appending /etc/default/grub and
+    # regenerate once, so a single bare-metal run still lands the menu.
+    try:
+        cfg = _GRUB_CFG.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        cfg = ""
+    if themed and "stylish/theme.txt" not in cfg:
+        logger.warning("grub.d drop-in not sourced - falling back to /etc/default/grub")
+        grub_default = Path("/etc/default/grub")
+        try:
+            with grub_default.open("a", encoding="utf-8") as f:
+                f.write("\n")
+                f.write(_GRUB_DROPIN.read_text(encoding="utf-8"))
+        except OSError:
+            logger.exception("Could not append to /etc/default/grub (non-fatal)")
+        _GRUB_DROPIN.unlink(missing_ok=True)
+        _regenerate_grub()
+
+    _verify_boot_menu()
+
+
 def setup_flathub(manifest: dict[str, Any]) -> None:
     """Install Flatpak (if needed) and register the Flathub remote."""
     if shutil.which("flatpak") is None:
@@ -1657,6 +1810,7 @@ def main() -> int:
         ("codecs",           lambda: install_codecs(manifest)),
         ("firmware",         lambda: ensure_firmware(manifest)),
         ("os-prober",        lambda: enable_os_prober(manifest)),
+        ("boot-menu",        lambda: configure_boot_menu(manifest)),
         ("flathub",          lambda: setup_flathub(manifest)),
         ("suggested-pkgs",   lambda: install_suggested_packages(manifest)),
         ("migration-tools",  lambda: ensure_migration_tools(manifest)),
