@@ -52,8 +52,16 @@ body:
   - type: input
     id: windows
     attributes:
-      label: Windows version and hardware
-      placeholder: "e.g. Windows 11 23H2 · Gigabyte B650 · NVIDIA RTX 4070 · NVMe"
+      label: Windows version
+      placeholder: "e.g. Windows 11 25H2, build 26200"
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      placeholder: "e.g. Gigabyte B650 · Ryzen 7 7700 · NVIDIA RTX 5070 · NVMe"
     validations:
       required: true
 
