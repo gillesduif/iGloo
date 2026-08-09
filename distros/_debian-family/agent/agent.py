@@ -7,12 +7,12 @@ One agent serves all three: it detects the distro at runtime from
 manifest (copied to /var/lib/igloo/manifest.json by the preseed/autoinstall
 late command) and applies post-install configuration:
 
-  - apt update; enable extra components (handled in the installer config)
-  - Install GPU drivers      (ubuntu-drivers on Ubuntu/Mint, non-free nvidia on Debian)
-  - Install codecs           (ubuntu-restricted-extras / equivalents)
-  - Register the Flathub remote and install suggested Flatpaks
-  - Write NetworkManager Wi-Fi profiles from the manifest
-  - Migrate the user's files from the Windows NTFS partition
+    - apt update; enable extra components (handled in the installer config)
+    - Install GPU drivers      (ubuntu-drivers on Ubuntu/Mint, non-free nvidia on Debian)
+    - Install codecs           (ubuntu-restricted-extras / equivalents)
+    - Register the Flathub remote and install suggested Flatpaks
+    - Write NetworkManager Wi-Fi profiles from the manifest
+    - Migrate the user's files from the Windows NTFS partition
 
 Unlike Fedora (whose %post copies user files inside the installer), the Debian
 family does the NTFS copy HERE: debian-installer/subiquity run in a minimal
@@ -57,7 +57,7 @@ def run_cmd(cmd: list[str], *, check: bool = True, timeout: int = 600,
         logger.debug("  stderr: %s", line)
     if check and result.returncode != 0:
         raise RuntimeError(f"Command failed (exit {result.returncode}): {' '.join(cmd)}\n"
-                           f"stderr: {result.stderr.strip()}")
+                            f"stderr: {result.stderr.strip()}")
     return result
 
 
@@ -102,7 +102,7 @@ def apt_update_once(*, timeout: int = 300) -> bool:
     ok = res.returncode == 0 and not any(m in out for m in ("Failed to fetch", "Could not resolve"))
     if not ok:
         logger.warning("apt-get update incomplete (rc=%d): %s",
-                       res.returncode, _last_lines(out))
+                        res.returncode, _last_lines(out))
     return ok
 
 
@@ -125,12 +125,12 @@ def apt_install(args: list[str], *, timeout: int = 900, check: bool = True) -> s
     out = (res.stdout or "") + (res.stderr or "")
     if any(m in out for m in _APT_TRANSIENT_MARKERS):
         logger.warning("apt install hit a transient/stale-index error (%s) - refreshing indices and retrying once",
-                       _last_lines(out))
+                        _last_lines(out))
         apt_update_once()
         res = apt(["install", *args], timeout=timeout, check=False)
     if check and res.returncode != 0:
         raise RuntimeError(f"apt-get install {' '.join(args)} failed (rc={res.returncode}): "
-                           f"{_last_lines((res.stdout or '') + (res.stderr or ''))}")
+                            f"{_last_lines((res.stdout or '') + (res.stderr or ''))}")
     return res
 
 
@@ -148,7 +148,7 @@ def apt_update(manifest: dict[str, Any]) -> None:
             logger.info("apt update attempt %d/6 failed - retrying in 10s", attempt)
             time.sleep(10)
     logger.error("apt package lists could NOT be refreshed - indices may be stale; "
-                 "install steps will self-heal where possible but may fail")
+                "install steps will self-heal where possible but may fail")
 
 
 def secure_boot_enabled(manifest: dict[str, Any]) -> bool:
@@ -173,7 +173,7 @@ def secure_boot_enabled(manifest: dict[str, Any]) -> bool:
         return manifest_value
 
     logger.warning("Could not determine the Secure Boot state - assuming ENABLED "
-                   "(installing a signed driver is safe either way)")
+                    "(installing a signed driver is safe either way)")
     return True
 
 
@@ -210,14 +210,13 @@ def install_nvidia_driver_ubuntu(manifest: dict[str, Any]) -> bool:
 def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> bool:
     """Check whether the NVIDIA kernel module is present and loadable."""
     present = run_cmd(["bash", "-c",
-                       "ls /lib/modules/$(uname -r)/updates/dkms/nvidia*.ko* 2>/dev/null "
-                       "|| ls /lib/modules/$(uname -r)/kernel/drivers/video/nvidia*.ko* 2>/dev/null "
-                       "|| modinfo -n nvidia 2>/dev/null"], check=False)
+                        "ls /lib/modules/$(uname -r)/updates/dkms/nvidia*.ko* 2>/dev/null "
+                        "|| ls /lib/modules/$(uname -r)/kernel/drivers/video/nvidia*.ko* 2>/dev/null "
+                        "|| modinfo -n nvidia 2>/dev/null"], check=False)
     found = (present.stdout or "").strip()
 
     if not found:
-        logger.error("No NVIDIA kernel module found after install - this GPU will run on the "
-                     "fallback framebuffer (software rendering, wrong resolution)")
+        logger.error("No NVIDIA kernel module found after install - this GPU will run on the fallback framebuffer (software rendering, wrong resolution)")
         return False
 
     logger.info("NVIDIA kernel module present: %s", found.splitlines()[0])
@@ -229,13 +228,11 @@ def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> bool:
 
     if manifest is not None and secure_boot_enabled(manifest):
         logger.error(
-            "NVIDIA module is installed but the kernel REFUSED TO LOAD IT, and Secure Boot "
-            "is enabled. Secure Boot only loads modules signed by a trusted key, and this "
-            "one was built on this machine. Fix: turn Secure Boot off in the firmware "
-            "settings, or enrol a Machine Owner Key (MOK) and sign the module.")
+            "NVIDIA module is installed but the kernel REFUSED TO LOAD IT and Secure Boot is enabled. Secure Boot only loads modules signed by a trusted key, and this one was built on this machine. Fix: turn Secure Boot off in the firmware "
+            "settings or enrol a Machine Owner Key (MOK) and sign the module.")
     else:
         logger.error("NVIDIA module is installed but failed to load - the GPU will run on "
-                     "the fallback framebuffer")
+                    "the fallback framebuffer")
     return True
 
 
@@ -261,7 +258,7 @@ def _add_nvidia_upstream_repo() -> bool:
     codename = os_release().get("VERSION_ID", "13").split(".")[0]
     repo = f"debian{codename}"
     url = (f"https://developer.download.nvidia.com/compute/cuda/repos/"
-           f"{repo}/x86_64/cuda-keyring_1.1-1_all.deb")
+            f"{repo}/x86_64/cuda-keyring_1.1-1_all.deb")
     deb = "/tmp/cuda-keyring.deb"
 
     logger.info("Adding NVIDIA's official repository for %s", repo)
@@ -339,18 +336,17 @@ def install_codecs(manifest: dict[str, Any]) -> None:
         logger.info("Codecs: needsNonFreeCodecs=false, skipping")
         return
     if distro_id() == "linuxmint":
-        # Mint ships its own codec metapackage  exactly what its first-run
-        # "Install Multimedia Codecs" applet installs.
+        # Mint ships its own codec metapackage  exactly what its first-run  "Install Multimedia Codecs" applet installs.
         apt_install(["mint-meta-codecs"], timeout=900, check=False)
     elif is_ubuntu_like():
         # EULA-bearing packages need this debconf pre-answer to stay unattended.
         run_cmd(["bash", "-c",
-                 "echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula "
-                 "select true | debconf-set-selections"], check=False, env=APT_ENV)
+                "echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula "
+                "select true | debconf-set-selections"], check=False, env=APT_ENV)
         apt_install(["ubuntu-restricted-extras"], timeout=900, check=False)
     else:
         apt_install(["libavcodec-extra", "gstreamer1.0-libav",
-             "gstreamer1.0-plugins-ugly", "gstreamer1.0-plugins-bad"], timeout=600, check=False)
+            "gstreamer1.0-plugins-ugly", "gstreamer1.0-plugins-bad"], timeout=600, check=False)
     logger.info("Multimedia codecs installed")
 
 
@@ -387,6 +383,8 @@ _GRUB_THEME_DIR = Path("/boot/grub/themes/stylish")
 _GRUB_DROPIN = Path("/etc/default/grub.d/99-igloo-menu.cfg")
 _OS_PROBER_SCRIPT = Path("/etc/grub.d/30_os-prober")
 _LONGNAME_MARKER = "# igloo: rename the Windows Boot Manager entry"
+_LINUX_SCRIPT = Path("/etc/grub.d/10_linux")
+_SUBMENU_MARKER = "# igloo: one entry per OS - no Advanced options submenu"
 _GRUB_CFG = Path("/boot/grub/grub.cfg")
 
 
@@ -411,16 +409,17 @@ def _install_grub_theme(variant: str) -> bool:
         return False
     _GRUB_THEME_DIR.mkdir(parents=True, exist_ok=True)
     res = run_cmd(["tar", "-xzf", str(archive), "-C", str(_GRUB_THEME_DIR)],
-                  check=False, timeout=120)
+                check=False, timeout=120)
     if res.returncode != 0:
         logger.error("Could not extract %s (rc=%d) - the menu stays stock",
-                     archive, res.returncode)
+                    archive, res.returncode)
         return False
     logger.info("Installed the Stylish GRUB theme (%s) in %s", variant, _GRUB_THEME_DIR)
     return True
 
 
-def _write_boot_menu_dropin(path: Path, variant: str, themed: bool) -> None:
+def _write_boot_menu_dropin(path: Path, variant: str, themed: bool,
+                            single_entry: bool) -> None:
     gfxmode = "3840x2160,auto" if variant == "4k" else "1920x1080,auto"
     lines = [
         "# iGloo boot menu (M17).",
@@ -432,7 +431,15 @@ def _write_boot_menu_dropin(path: Path, variant: str, themed: bool) -> None:
         "GRUB_SAVEDEFAULT=true",
         "GRUB_TERMINAL_OUTPUT=gfxterm",
         f"GRUB_GFXMODE={gfxmode}",
+        # Redundant when the 10_linux patch landed (those entries sit in the
+        # part we skip), load-bearing in the fallback below.
+        "GRUB_DISABLE_RECOVERY=true",
     ]
+    if not single_entry:
+        lines += [
+            "# Fallback: 10_linux could not be patched, so no clean single entry.",
+            "GRUB_DISABLE_SUBMENU=y",
+        ]
     if themed:
         lines.append(f"GRUB_THEME={_GRUB_THEME_DIR}/theme.txt")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -459,13 +466,9 @@ def _patch_os_prober_labels() -> None:
         "fi\n"
     )
     if anchor not in text:
-        logger.warning("30_os-prober anchor not found (grub version drift?) - "
-                       "Windows entry keeps its stock label")
+        logger.warning("30_os-prober anchor not found (grub version drift?) - Windows entry keeps its stock label")
         return
     text = text.replace(anchor, patch + anchor, 1)
-    # The "(on /dev/...)" suffix comes from onstr, not from LONGNAME (verified
-    # against upstream util/grub.d/30_os-prober.in). Neutralising it cleans up
-    # every os-prober entry at once, including other detected distros.
     text, count = re.subn(
         re.escape('onstr="$(gettext_printf "(on %s)" "${DEVICE}")"'),
         'onstr=""', text)
@@ -475,12 +478,49 @@ def _patch_os_prober_labels() -> None:
     logger.info("Patched 30_os-prober: the Windows entry will read 'Windows 11'")
 
 
+def _patch_linux_submenu() -> bool:
+    """Cut 10_linux short after the clean entry so no 'Advanced options' submenu is
+    generated. Idempotent via a marker; False means fall back to GRUB_DISABLE_SUBMENU."""
+    if not _LINUX_SCRIPT.exists():
+        logger.warning("10_linux not found - the Advanced options submenu stays")
+        return False
+    text = _LINUX_SCRIPT.read_text(encoding="utf-8")
+    if _SUBMENU_MARKER in text:
+        logger.info("10_linux submenu patch already applied")
+        return True
+
+    lines = text.splitlines(keepends=True)
+
+    idx = next((i for i, ln in enumerate(lines) if "Advanced options for %s" in ln), None)
+    if idx is None:
+        logger.warning("10_linux submenu anchor not found (grub version drift?) - falling back to GRUB_DISABLE_SUBMENU")
+        return False
+
+    if not any("linux_entry" in ln and "simple" in ln for ln in lines[:idx]):
+        logger.warning("10_linux emits no 'simple' entry before the submenu (grub version drift?) - falling back to GRUB_DISABLE_SUBMENU")
+        return False
+
+    indent = lines[idx][:len(lines[idx]) - len(lines[idx].lstrip())]
+    block = "".join(indent + s + "\n" for s in (
+        f"{_SUBMENU_MARKER} (M17).",
+        "# The cleanly titled entry for the newest kernel has just been printed;",
+        "# everything below this point builds the submenu, the per-kernel entries",
+        "# and the recovery entries. title_correction_code is empty with",
+        "# GRUB_DEFAULT=saved; echoing it keeps the patch behaviour-neutral.",
+        'echo "$title_correction_code"',
+        "exit 0",
+    ))
+    lines.insert(idx, block)
+    _LINUX_SCRIPT.write_text("".join(lines), encoding="utf-8")
+    logger.info("Patched 10_linux: one entry per OS, no Advanced options submenu")
+    return True
+
+
 def _regenerate_grub() -> None:
     if shutil.which("update-grub"):
         run_cmd(["update-grub"], check=False, timeout=300)
     else:
         run_cmd(["grub-mkconfig", "-o", str(_GRUB_CFG)], check=False, timeout=300)
-
 
 def _verify_boot_menu() -> None:
     """BR-07: prove from the generated grub.cfg that the menu actually changed,
@@ -493,14 +533,21 @@ def _verify_boot_menu() -> None:
     if "stylish/theme.txt" in cfg:
         logger.info("verified: Stylish theme is referenced in grub.cfg")
     else:
-        logger.error("VERIFICATION FAILED: no theme reference in grub.cfg - "
-                     "the drop-in was not sourced")
-    for line in cfg.splitlines():
-        if "menuentry" in line and "Windows" in line:
-            logger.info("verified Windows entry in grub.cfg: %s", line.strip())
-            return
-    logger.warning("no Windows menuentry found in grub.cfg")
+        logger.error("VERIFICATION FAILED: no theme reference in grub.cfg -  the drop-in was not sourced")
+    if "gnulinux-advanced" in cfg:
+        logger.error("VERIFICATION FAILED: the Advanced options submenu is still in grub.cfg")
+    else:
+        logger.info("verified: no Advanced options submenu in grub.cfg")
+    titles = [ln.strip() for ln in cfg.splitlines()
+            if ln.startswith("menuentry ") or ln.startswith("submenu ")]
+    logger.info("grub.cfg has %d top-level menu entries", len(titles))
+    for line in titles[:12]:
+        logger.info("  menu entry: %s", line)
 
+    if any("Windows" in line for line in titles):
+        logger.info("verified: Windows entry present in grub.cfg")
+    else:
+        logger.warning("no Windows menuentry found in grub.cfg")
 
 def configure_boot_menu(manifest: dict[str, Any]) -> None:
     """M17: theme the menu, boot the last-used OS by default, rename the
@@ -509,12 +556,11 @@ def configure_boot_menu(manifest: dict[str, Any]) -> None:
     variant = _grub_theme_variant(manifest)
     themed = _install_grub_theme(variant)
     _patch_os_prober_labels()
-    _write_boot_menu_dropin(_GRUB_DROPIN, variant, themed)
+    # Before the drop-in: its content depends on whether this patch landed.
+    single_entry = _patch_linux_submenu()
+    _write_boot_menu_dropin(_GRUB_DROPIN, variant, themed, single_entry)
     _regenerate_grub()
 
-    # If /etc/default/grub.d is not sourced on this distro version, the theme
-    # never reaches grub.cfg. Fall back to appending /etc/default/grub and
-    # regenerate once, so a single bare-metal run still lands the menu.
     try:
         cfg = _GRUB_CFG.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -523,9 +569,17 @@ def configure_boot_menu(manifest: dict[str, Any]) -> None:
         logger.warning("grub.d drop-in not sourced - falling back to /etc/default/grub")
         grub_default = Path("/etc/default/grub")
         try:
-            with grub_default.open("a", encoding="utf-8") as f:
-                f.write("\n")
-                f.write(_GRUB_DROPIN.read_text(encoding="utf-8"))
+            body = _GRUB_DROPIN.read_text(encoding="utf-8")
+            # First line of the drop-in doubles as the marker: re-running
+            # --only boot-menu must not append the block a second time.
+            marker = body.splitlines()[0]
+            current = grub_default.read_text(encoding="utf-8") if grub_default.exists() else ""
+            if marker in current:
+                logger.info("boot menu block already present in /etc/default/grub")
+            else:
+                with grub_default.open("a", encoding="utf-8") as f:
+                    f.write("\n")
+                    f.write(body)
         except OSError:
             logger.exception("Could not append to /etc/default/grub (non-fatal)")
         _GRUB_DROPIN.unlink(missing_ok=True)
@@ -538,8 +592,7 @@ def setup_flathub(manifest: dict[str, Any]) -> None:
     """Install Flatpak (if needed) and register the Flathub remote."""
     if shutil.which("flatpak") is None:
         apt_install(["flatpak"], timeout=300, check=False)
-    run_cmd(["flatpak", "remote-add", "--if-not-exists", "--system",
-             "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo"],
+    run_cmd(["flatpak", "remote-add", "--if-not-exists", "--system", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo"],
             timeout=120, check=False)
     logger.info("Flathub remote ready")
 
@@ -569,7 +622,7 @@ def install_suggested_packages(manifest: dict[str, Any]) -> None:
 def ensure_migration_tools(manifest: dict[str, Any]) -> None:
     """Make sure ntfs-3g and rsync are present for the migration step."""
     missing = [pkg for pkg, cmd in (("ntfs-3g", "ntfs-3g"), ("rsync", "rsync"))
-               if shutil.which(cmd) is None]
+    if shutil.which(cmd) is None]
     if missing:
         apt_install([*missing], timeout=600, check=False)
         logger.info("Installed migration tools: %s", ", ".join(missing))
@@ -603,8 +656,8 @@ def _find_windows_home(win_username: str) -> Path | None:
 def _copy_tree(src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
     run_cmd(["rsync", "-a", "--no-links", "--no-perms", "--chmod=ugo=rwX",
-             "--exclude=desktop.ini", "--exclude=Thumbs.db",
-             f"{src}/", f"{dst}/"], check=False, timeout=3600)
+    "--exclude=desktop.ini", "--exclude=Thumbs.db",
+    f"{src}/", f"{dst}/"], check=False, timeout=3600)
 
 
 def migrate_user_files(manifest: dict[str, Any]) -> None:
@@ -752,7 +805,7 @@ def set_keyboard(manifest: dict[str, Any]) -> None:
 
 def _nm_keyfile(ssid: str, security: str, psk: str | None, hidden: bool) -> str:
     lines = ["[connection]", f"id={ssid}", f"uuid={uuid.uuid4()}", "type=wifi",
-             "autoconnect=true", "", "[wifi]", "mode=infrastructure", f"ssid={ssid}"]
+    "autoconnect=true", "", "[wifi]", "mode=infrastructure", f"ssid={ssid}"]
     if hidden:
         lines.append("hidden=true")
     if security == "wpa-psk" and psk:
@@ -808,7 +861,7 @@ def wait_for_network(manifest: dict[str, Any]) -> None:
     else:
         for _ in range(24):  # ~120 s
             if run_cmd(["ping", "-c", "1", "-W", "2", "deb.debian.org"],
-                       check=False, timeout=5).returncode == 0:
+                    check=False, timeout=5).returncode == 0:
                 break
             time.sleep(5)
 
@@ -825,8 +878,7 @@ def wait_for_network(manifest: dict[str, Any]) -> None:
     if dns_ok:
         logger.info("Network wait complete (link up, DNS resolves %s)", dns_host)
     else:
-        logger.error("Network wait complete but DNS still does NOT resolve %s - "
-                     "apt steps will retry/self-heal but may fail; check router/DHCP DNS", dns_host)
+        logger.error("Network wait complete but DNS still does NOT resolve %s - apt steps will retry/self-heal but may fail; check router/DHCP DNS", dns_host)
 
 
 # === BEGIN AGENT SECTION =================================================
@@ -899,7 +951,7 @@ def _build_sbox() -> list[int]:
     for x in range(256):
         inv = 0 if x == 0 else _gf_pow(x, 254)
         box.append(inv ^ _rotl8(inv, 1) ^ _rotl8(inv, 2)
-                   ^ _rotl8(inv, 3) ^ _rotl8(inv, 4) ^ 0x63)
+                ^ _rotl8(inv, 3) ^ _rotl8(inv, 4) ^ 0x63)
     return box
 
 
@@ -1042,7 +1094,7 @@ def _aes_self_test() -> None:
     ).hex() == "69c4e0d86a7b0430d8cdb78070b4c55a", "AES-128 block KAT failed"
     assert aes_encrypt_block(
         bytes.fromhex("000102030405060708090a0b0c0d0e0f"
-                      "101112131415161718191a1b1c1d1e1f"), pt
+                    "101112131415161718191a1b1c1d1e1f"), pt
     ).hex() == "8ea2b7ca516745bfeafc49904b496089", "AES-256 block KAT failed"
 
     # NIST SP 800-38A F.2.1: CBC-AES128, first block.
@@ -1058,7 +1110,7 @@ def _aes_self_test() -> None:
     k128 = b"\x00" * 16
     iv = b"\x00" * 12
     known_ct = bytes.fromhex("0388dace60b6a392f328c2b971b2fe78"
-                             "ab6e47d42cec13bdf53a67b21257bddf")
+                            "ab6e47d42cec13bdf53a67b21257bddf")
     assert aes_gcm_decrypt(k128, iv, known_ct) == b"\x00" * 16, \
         "GCM-128 decrypt KAT failed"
     bad = bytearray(known_ct)
@@ -1071,7 +1123,7 @@ def _aes_self_test() -> None:
 
     # GCM test case 5 (AES-256, with AAD), from the GCM revised spec.
     k256 = bytes.fromhex("feffe9928665731c6d6a8f9467308308"
-                         "feffe9928665731c6d6a8f9467308308")
+                        "feffe9928665731c6d6a8f9467308308")
     ct5 = bytes.fromhex(
         "522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa"
         "8cb08e48590dbb3da7b08b1056828838c5f61e6393ba7a0abcc9f662"
@@ -1081,7 +1133,7 @@ def _aes_self_test() -> None:
         "1c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657ba637b39")
     aad5 = bytes.fromhex("feedfacedeadbeeffeedfacedeadbeefabaddad2")
     assert aes_gcm_decrypt(k256, bytes.fromhex("cafebabefacedbaddecaf888"),
-                           ct5, aad5) == pt5, "GCM-256 decrypt KAT failed"
+                        ct5, aad5) == pt5, "GCM-256 decrypt KAT failed"
 
 
 _CHROMIUM_ENVELOPE_MAGIC = b"IGCRD001"
@@ -1205,9 +1257,7 @@ def _import_into_login_data(db_path: Path, logins: list[dict]) -> int:
                     if row[3] and row[4] is None
                     and name not in fillable_probe and name != "id"]
         if required:
-            logger.warning("logins table in %s has unsupported NOT NULL columns "
-                           "%s - skipping credential import for this browser",
-                           db_path, required)
+            logger.warning("logins table in %s has unsupported NOT NULL columns %s - skipping credential import for this browser",db_path, required)
             return 0
 
         existing = {(r[0], r[1]) for r in con.execute(
@@ -1224,9 +1274,8 @@ def _import_into_login_data(db_path: Path, logins: list[dict]) -> int:
             if (url, username) in existing:
                 continue
             values = {k: v for k, v in
-                      _login_row_values(url, username,
-                                        _chromium_v10_encrypt(password), now_us)
-                      .items() if k in table_cols}
+                    _login_row_values(url, username,
+                                        _chromium_v10_encrypt(password), now_us).items() if k in table_cols}
             con.execute(
                 f"INSERT INTO logins ({', '.join(values)}) "
                 f"VALUES ({', '.join('?' * len(values))})",
@@ -1257,28 +1306,24 @@ def import_chromium_credentials(manifest: dict) -> None:
     try:
         _aes_self_test()
     except AssertionError:
-        logger.exception("AES self-test failed - Chromium credential import "
-                         "is disabled for this run")
+        logger.exception("AES self-test failed - Chromium credential import is disabled for this run")
         return
 
     home = Path("/home") / linux_user
     if not home.is_dir():
-        logger.warning("User home %s does not exist - skipping Chromium "
-                       "credential import", home)
+        logger.warning("User home %s does not exist - skipping Chromium credential import", home)
         return
 
     for entry in entries:
         name = entry.get("name", "")
         config_rel = _CHROMIUM_LINUX_DIRS.get(name)
         if config_rel is None:
-            logger.info("No Linux profile mapping for browser %r - skipping "
-                        "credential import", name)
+            logger.info("No Linux profile mapping for browser %r - skipping credential import", name)
             continue
         try:
             payload = _decrypt_envelope(entry["credentialsBlob"], password)
         except Exception:
-            logger.exception("Could not decrypt the credential envelope for "
-                             "%s - skipping this browser", name)
+            logger.exception("Could not decrypt the credential envelope for %s - skipping this browser", name)
             continue
 
         logins = payload.get("logins", [])
@@ -1291,11 +1336,10 @@ def import_chromium_credentials(manifest: dict) -> None:
             profile_dir.mkdir(parents=True, exist_ok=True)
             inserted = _import_into_login_data(profile_dir / "Login Data", logins)
             run_cmd(["chown", "-R", f"{linux_user}:{linux_user}",
-                     str(config_dir)], check=False)
+                    str(config_dir)], check=False)
             logger.info("Imported %d Chromium login(s) for %s", inserted, name)
         except Exception:
-            logger.exception("Failed to import Chromium credentials for %s "
-                             "(non-fatal)", name)
+            logger.exception("Failed to import Chromium credentials for %s (non-fatal)", name)
 
 def redact_manifest(manifest: dict[str, Any]) -> None:
     manifest_path = Path("/var/lib/igloo/manifest.json")
@@ -1470,7 +1514,7 @@ def _match_display_layouts(
         mode_w, mode_h = (height, width) if rotation_deg in (90, 270) else (width, height)
         if not _mode_is_supported(out["connector"], mode_w, mode_h):
             logger.warning("  %s does not advertise %dx%d - leaving this output alone",
-                           out["connector"], mode_w, mode_h)
+                            out["connector"], mode_w, mode_h)
             continue
 
         rate = int(want.get("refreshHz") or 60) or 60
@@ -1622,7 +1666,7 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
         return
 
     xml = ('<monitors version="2">\n  <configuration>\n'
-           + "".join(logical) + "  </configuration>\n</monitors>\n")
+            + "".join(logical) + "  </configuration>\n</monitors>\n")
 
     username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
     if not _write_user_monitors_xml(username, xml, matched):
@@ -1783,7 +1827,7 @@ def main() -> int:
     p.add_argument("--manifest", required=True, type=Path)
     p.add_argument("--log-dir", required=True, type=Path)
     p.add_argument("--only", default=None,
-                   help="Comma-separated step names to run instead of the full pass "
+                    help="Comma-separated step names to run instead of the full pass "
                         "(used by the post-driver display-layout second pass).")
     args = p.parse_args()
     configure_logging(args.log_dir)
