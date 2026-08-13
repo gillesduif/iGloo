@@ -516,6 +516,103 @@ def _patch_linux_submenu() -> bool:
     return True
 
 
+_INITRAMFS_CONF = Path("/etc/initramfs-tools/initramfs.conf")
+_GRUB_HINT_HOOK = Path("/etc/kernel/postinst.d/zzz-igloo-grub-hints")
+
+
+_HINT_SCRIPT = r"""#!/bin/sh
+# igloo: grub-probe emits no hints on NVMe, so derive one per search line.
+cfg=/boot/grub/grub.cfg
+[ -f "$cfg" ] || exit 0
+# hd0 is only unambiguous with a single disk.
+[ "$(lsblk -dno NAME -e 7,11 | wc -l)" -eq 1 ] || exit 0
+
+grep -o -- '--set=root [0-9A-Fa-f-]\{4,\}' "$cfg" | awk '{print $2}' | sort -u |
+while read -r uuid; do
+    dev=$(blkid -U "$uuid" 2>/dev/null) || continue
+    [ -n "$dev" ] || continue
+    partn=$(lsblk -rno PARTN "$dev" 2>/dev/null)
+    disk=$(lsblk -rno PKNAME "$dev" 2>/dev/null)
+    [ -n "$partn" ] && [ -n "$disk" ] || continue
+    case "$(lsblk -dno PTTYPE "/dev/$disk" 2>/dev/null)" in
+        gpt) label=gpt ;;
+        dos) label=msdos ;;
+        *) continue ;;
+    esac
+    sed -i "s|--set=root $uuid|--set=root --hint=hd0,$label$partn $uuid|g" "$cfg"
+done
+"""
+
+
+def _inject_grub_hints() -> None:
+    """Add the search hint grub-probe cannot produce on NVMe.
+
+    Without it every 'search --fs-uuid' scans all devices, which costs tens of
+    seconds per boot through firmware block I/O. Each line gets the hint for the
+    UUID on that line: one shared hint would be wrong for the os-prober entries
+    of every other OS on the disk. The UUID stays the source of truth, so a stale
+    hint only costs the old scan.
+    """
+    try:
+        _GRUB_HINT_HOOK.parent.mkdir(parents=True, exist_ok=True)
+        _GRUB_HINT_HOOK.write_text(_HINT_SCRIPT, encoding="utf-8")
+        _GRUB_HINT_HOOK.chmod(0o755)
+    except OSError:
+        logger.exception("Could not install the GRUB hint hook (non-fatal)")
+        return
+
+    res = run_cmd([str(_GRUB_HINT_HOOK)], check=False, timeout=120)
+    if res.returncode != 0:
+        logger.warning("GRUB hint script exited %d - the menu keeps its full scans",
+                       res.returncode)
+        return
+    try:
+        hints = len(re.findall(r"--hint=", _GRUB_CFG.read_text(encoding="utf-8", errors="replace")))
+    except OSError:
+        hints = 0
+    logger.info("Added %d device hint(s) to grub.cfg; %s re-applies them after kernel updates",
+                hints, _GRUB_HINT_HOOK)
+
+
+def _shrink_initramfs() -> None:
+    """Rebuild the initrd with MODULES=dep so GRUB has far less to read.
+
+    GRUB reads the initrd through EFI Block I/O in 4 KB chunks, so the boot
+    stalls in proportion to its size: ~50 s for a stock ~80 MB initrd on the
+    reference machine. MODULES=dep ships only the drivers this hardware needs.
+
+    Restores MODULES=most and regenerates when the new image is missing, empty
+    or not smaller - a machine that cannot mount its own root is unbootable.
+    """
+    if not _INITRAMFS_CONF.exists():
+        logger.info("initramfs-tools not present - leaving the initrd alone")
+        return
+    text = _INITRAMFS_CONF.read_text(encoding="utf-8")
+    if re.search(r"^MODULES=dep\s*$", text, re.MULTILINE):
+        logger.info("initrd already builds with MODULES=dep")
+        return
+
+    img = Path(f"/boot/initrd.img-{os.uname().release}")
+    before = img.stat().st_size if img.exists() else 0
+    original = text
+
+    patched, count = re.subn(r"^MODULES=.*$", "MODULES=dep", text, count=1, flags=re.MULTILINE)
+    if count == 0:
+        patched = text.rstrip("\n") + "\nMODULES=dep\n"
+    _INITRAMFS_CONF.write_text(patched, encoding="utf-8")
+
+    res = run_cmd(["update-initramfs", "-u"], check=False, timeout=600)
+    after = img.stat().st_size if img.exists() else 0
+    if res.returncode != 0 or after == 0 or (before and after >= before):
+        logger.error("initrd rebuild failed or did not shrink (%d -> %d bytes) - reverting",
+                     before, after)
+        _INITRAMFS_CONF.write_text(original, encoding="utf-8")
+        run_cmd(["update-initramfs", "-u"], check=False, timeout=600)
+        return
+    logger.info("initrd rebuilt with MODULES=dep: %d -> %d bytes (%d%% smaller)",
+                before, after, 100 - (after * 100 // before) if before else 0)
+
+
 def _regenerate_grub() -> None:
     if shutil.which("update-grub"):
         run_cmd(["update-grub"], check=False, timeout=300)
@@ -534,6 +631,11 @@ def _verify_boot_menu() -> None:
         logger.info("verified: Stylish theme is referenced in grub.cfg")
     else:
         logger.error("VERIFICATION FAILED: no theme reference in grub.cfg -  the drop-in was not sourced")
+    if "--hint=" in cfg:
+        logger.info("verified: search lines carry a device hint")
+    else:
+        logger.warning("no --hint= in grub.cfg - every boot scans all devices")
+
     if "gnulinux-advanced" in cfg:
         logger.error("VERIFICATION FAILED: the Advanced options submenu is still in grub.cfg")
     else:
@@ -559,6 +661,7 @@ def configure_boot_menu(manifest: dict[str, Any]) -> None:
     # Before the drop-in: its content depends on whether this patch landed.
     single_entry = _patch_linux_submenu()
     _write_boot_menu_dropin(_GRUB_DROPIN, variant, themed, single_entry)
+    _shrink_initramfs()
     _regenerate_grub()
 
     try:
@@ -585,6 +688,8 @@ def configure_boot_menu(manifest: dict[str, Any]) -> None:
         _GRUB_DROPIN.unlink(missing_ok=True)
         _regenerate_grub()
 
+    # After the last update-grub: every regeneration drops the hint again.
+    _inject_grub_hints()
     _verify_boot_menu()
 
 
