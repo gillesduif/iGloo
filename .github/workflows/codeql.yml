@@ -1,0 +1,49 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Catches advisories published after the last commit.
+    - cron: '17 4 * * 1'
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    # Same runner as CI: WPF and net9.0-windows do not build elsewhere.
+    runs-on: windows-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+          queries: security-and-quality
+
+      # Explicit build, not autobuild: the solution needs both SDKs pinned above.
+      - name: Build
+        run: |
+          dotnet restore Igloo.sln
+          dotnet build Igloo.sln -c Release --no-restore
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:csharp
