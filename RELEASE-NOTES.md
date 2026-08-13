@@ -4,7 +4,7 @@ Validated end-to-end on bare metal, dual-boot alongside Windows 11:
 
 - Fedora KDE
 - Linux Mint Cinnamon
-- Debian (KDE)
+- Debian (GNOME)
 
 Known limitations:
 
