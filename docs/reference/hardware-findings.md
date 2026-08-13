@@ -27,6 +27,19 @@ when either changes.
   driver.
 - **Where:** `distros/fedora-kde/agent/agent.py`, `blacklist_nouveau`.
 
+### 1b. nova_core claims the GPU when only nouveau is blacklisted
+
+- **Symptom:** Fedora KDE reached a black screen with a cursor after install on
+  an RTX 5070; the GPU rendered, so the driver was not the whole story.
+- **Root cause:** Fedora ships `nova_core`, the in-tree Rust driver for
+  Blackwell, which binds the GPU exactly like nouveau. Blacklisting nouveau
+  alone left nova_core to claim it.
+- **Guard:** blacklist `nouveau,nova_core` plus `nvidia-drm.modeset=1`, written
+  at first boot only, after the nvidia module is confirmed present for every
+  installed kernel, and skipped entirely when Secure Boot would reject the
+  unsigned module.
+- **Where:** `distros/fedora-kde/agent/agent.py`, commits `cfb8ed4`, `490102d`.
+
 ### 2. A mid-install kernel update ships without a usable driver
 
 - **Symptom (a):** reboot lands on a brand-new kernel with no nvidia module;
@@ -139,7 +152,15 @@ when either changes.
   when `/etc/dconf/profile/user` names `system-db:local`.
 - **Guard:** `_ensure_dconf_local_db` before seeding.
 
-## Known cosmetic issue (accepted, tracked)
+## Known cosmetic issues (accepted, tracked)
+
+- A `grub-common` upgrade can undo the boot-menu patches. The agent edits two
+  dpkg conffiles: `/etc/grub.d/10_linux` (drops the "Advanced options" submenu)
+  and `/etc/grub.d/30_os-prober` (renames the Windows entry). If dpkg installs
+  the maintainer's version, the stock menu returns. dpkg keeps the local file by
+  default and the machine stays bootable either way, but the agent only runs at
+  first boot, so it does not repair itself. Both patches are marker-guarded and
+  log the state on any later `--only boot-menu` run.
 
 - On a mixed portrait+landscape setup the wallpaper fit on the landscape
   screen was zoomed instead of fit (Mint run). Debian handled both correctly.
