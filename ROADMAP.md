@@ -21,7 +21,7 @@ install unattended alongside Windows 11 on real hardware.
 - [M16 Pre-install safety snapshot and rollback](https://github.com/gillesduif/iGloo/milestone/16)
 - [M17 Finalize UI](https://github.com/gillesduif/iGloo/milestone/17)
 - [M18 Closed beta](https://github.com/gillesduif/iGloo/milestone/18)
-- [M20 v1.0 public release](https://github.com/gillesduif/iGloo/milestone/20)
+- [M19 v1.0 public release](https://github.com/gillesduif/iGloo/milestone/19)
 
 ## Done
 
@@ -40,7 +40,7 @@ install unattended alongside Windows 11 on real hardware.
 
 ## After v1.0
 
-Tracked as [M19 Post-1.0 enhancements](https://github.com/gillesduif/iGloo/milestone/19),
+Tracked as [M20 Post-1.0 enhancements](https://github.com/gillesduif/iGloo/milestone/20),
 in rough priority order:
 
 1. Ubuntu validation
@@ -50,7 +50,7 @@ in rough priority order:
 5. Wizard localization
 6. Accessibility pass
 7. LUKS full-disk encryption option
-8. Reproducible builds and signed releases
+8. Reproducible builds
 9. Cross-platform exploration
 
 ## How priorities are set
