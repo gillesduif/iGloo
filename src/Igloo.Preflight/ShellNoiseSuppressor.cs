@@ -2,7 +2,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security;
-using Microsoft.CSharp.RuntimeBinder;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
@@ -70,8 +69,8 @@ internal sealed class ShellNoiseSuppressor : IDisposable
     /// <remarks>
     /// Belt to the AutoPlay braces: a window opened before suppression took effect, or
     /// by something other than AutoRun, is still sitting there when the install
-    /// finishes. Driven through the shell's own window collection via late binding, so
-    /// the project needs no COM interop reference for a purely cosmetic tidy-up.
+    /// finishes. Driven through the shell's own window collection, using the hand-written
+    /// declarations in ShellComInterop.cs rather than a generated interop assembly.
     /// </remarks>
     public void CloseExplorerWindowsFor(char driveLetter)
     {
@@ -80,46 +79,102 @@ internal sealed class ShellNoiseSuppressor : IDisposable
         {
             var shellType = Type.GetTypeFromProgID("Shell.Application");
             if (shellType is null)
-                return;
-
-            dynamic? shell = Activator.CreateInstance(shellType);
-            if (shell is null)
-                return;
-
-            foreach (dynamic window in shell.Windows())
             {
-                string? path = null;
-                try
+                _logger.LogDebug("Shell.Application is not registered - nothing to close");
+                return;
+            }
+
+            var shell = Activator.CreateInstance(shellType);
+            if (shell is not IShellDispatch dispatch)
+            {
+                _logger.LogError("Shell.Application does not expose IShellDispatch - "
+                                 + "check the IID in ShellComInterop.cs");
+                return;
+            }
+
+            object? windowsObj = null;
+            try
+            {
+                windowsObj = dispatch.Windows();
+                if (windowsObj is not IShellWindows windows)
                 {
-                    // LocationURL is empty for Internet Explorer-style windows; only
-                    // file:// locations are folder views we might want to close.
-                    string url = window.LocationURL;
-                    if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.IsFile)
-                        path = uri.LocalPath;
-                }
-                catch (Exception ex) when (ex is RuntimeBinderException or COMException)
-                {
-                    continue;   // not a folder window
+                    _logger.LogError("Windows() did not return IShellWindows - check the "
+                                     + "IID in ShellComInterop.cs");
+                    return;
                 }
 
-                if (path is not null && path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                {
-                    try
-                    {
-                        window.Quit();
-                        _logger.LogInformation("Closed the Explorer window left open on {Root}", root);
-                    }
-                    catch (COMException)
-                    {
-                        // The user may have closed it first; nothing to do.
-                    }
-                }
+                _logger.LogDebug("Shell reports {Count} open window(s)", windows.Count);
+
+                // Count/Item, not foreach: enumerating needs IEnumVARIANT marshalled by
+                // hand, which costs more than it saves for a handful of windows.
+                for (int i = 0; i < windows.Count; i++)
+                    CloseIfUnder(windows, i, root);
+            }
+            finally
+            {
+                if (windowsObj is not null)
+                    Marshal.ReleaseComObject(windowsObj);
+                Marshal.ReleaseComObject(shell);
             }
         }
         catch (Exception ex) when (ex is COMException or InvalidOperationException
-                                      or NotSupportedException or RuntimeBinderException)
+                                      or NotSupportedException)
         {
             _logger.LogWarning(ex, "Could not close Explorer windows for {Root} (non-fatal)", root);
+        }
+    }
+
+    private void CloseIfUnder(IShellWindows windows, int index, string root)
+    {
+        object? item = null;
+        try
+        {
+            item = windows.Item(index);
+            // Item() hands back IDispatch; Internet Explorer windows are in the same
+            // collection and do not implement IWebBrowser2's folder behaviour.
+            if (item is not IWebBrowser2 window)
+                return;
+
+            var url = window.LocationURL;
+            if (string.IsNullOrEmpty(url)
+                || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                || !uri.IsFile
+                || !uri.LocalPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            window.Quit();
+            _logger.LogInformation("Closed the Explorer window left open on {Root}", root);
+        }
+        catch (COMException ex)
+        {
+            LogComFailure(ex, index);
+        }
+        finally
+        {
+            if (item is not null)
+                Marshal.ReleaseComObject(item);
+        }
+    }
+
+    // DISP_E_UNKNOWNNAME / DISP_E_MEMBERNOTFOUND / E_NOINTERFACE mean the hand-written
+    // declarations in ShellComInterop.cs are wrong - the same class of bug the old
+    // dynamic code raised as RuntimeBinderException, and it must not pass quietly.
+    private void LogComFailure(COMException ex, int index)
+    {
+        switch ((uint)ex.HResult)
+        {
+            case 0x80020006:  // DISP_E_UNKNOWNNAME
+            case 0x80020003:  // DISP_E_MEMBERNOTFOUND
+            case 0x80004002:  // E_NOINTERFACE
+                _logger.LogError(ex,
+                    "Shell interop declaration is wrong: window {Index} rejected the call "
+                    + "with HRESULT 0x{HResult:X8}. Check the IIDs and member names in "
+                    + "ShellComInterop.cs against HKCR\\Interface", index, ex.HResult);
+                break;
+            default:
+                _logger.LogDebug(ex,
+                    "Skipped window {Index}: HRESULT 0x{HResult:X8}", index, ex.HResult);
+                break;
         }
     }
 
