@@ -420,15 +420,10 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
             Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 
-            // TEMPORARY - revert after the scan. Isolates ConfigureAwait as the cause of
-            // the cs/local-not-disposed FP; destStream below keeps it as the control.
-            // CA2007 is error-level here, which is the whole point: this does not compile
-            // without the pragma, so the two rules cannot both be satisfied.
-#pragma warning disable CA2007
-            await using var srcStream = new FileStream(
+            var srcStream = new FileStream(
                 srcPath, FileMode.Open, FileAccess.Read, FileShare.Read,
                 bufferSize: BufferSize, useAsync: true);
-#pragma warning restore CA2007
+            await using var srcStreamCfg = srcStream.ConfigureAwait(false);
             var destStream = new FileStream(
                 destPath, FileMode.Create, FileAccess.Write, FileShare.None,
                 bufferSize: BufferSize, useAsync: true);
