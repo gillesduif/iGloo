@@ -10,6 +10,7 @@ public sealed class CoverTextureFactory
 {
     private readonly Dictionary<(string Key, int Pixels), BitmapSource> _cache = [];
 
+    /// <summary>Returns a distro cover texture, rendering and caching it on first request.</summary>
     /// <param name="cacheKey">Stable identity of the cover (the distro id).</param>
     /// <param name="logoPath">Absolute path to a PNG logo, or null for the generated fallback.</param>
     /// <param name="displayName">Used for the fallback cover's initial glyph.</param>

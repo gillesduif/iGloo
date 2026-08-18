@@ -12,11 +12,19 @@ public sealed partial class WelcomePage : UserControl
         InitializeComponent();
         Loaded += OnLoaded;
     }
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    // Once per process, not once per WelcomePage instance.
+    private static bool TryClaimFirstShow()
     {
         if (_warningShown)
-            return;
+            return false;
         _warningShown = true;
+        return true;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (!TryClaimFirstShow())
+            return;
 
         Dispatcher.BeginInvoke(new Action(() =>
             FluentMessageBox.Show(

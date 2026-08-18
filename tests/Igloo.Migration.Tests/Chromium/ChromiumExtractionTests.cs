@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
@@ -19,7 +20,7 @@ public sealed class ChromiumLocalStateTests : IDisposable
     public void Dispose()
     {
         try { Directory.Delete(_root, recursive: true); }
-        catch (IOException) { }
+        catch (IOException ex) { Debug.WriteLine($"Temp cleanup failed for {_root}: {ex.Message}"); }
     }
 
     [Fact]
@@ -77,7 +78,7 @@ public sealed class LoginDataReaderTests : IDisposable
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); }
-        catch (IOException) { }
+        catch (IOException ex) { Debug.WriteLine($"Temp cleanup failed for {_dir}: {ex.Message}"); }
     }
 
     [Fact]

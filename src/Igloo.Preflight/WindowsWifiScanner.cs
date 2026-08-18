@@ -30,12 +30,11 @@ public static class WindowsWifiScanner
             var results = new List<WifiNetwork>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var file in Directory.EnumerateFiles(tmpDir, "*.xml"))
+            foreach (var net in Directory.EnumerateFiles(tmpDir, "*.xml")
+                         .Select(file => ParseProfile(file, connectedValues))
+                         .Where(profile => profile is not null))
             {
-                var net = ParseProfile(file, connectedValues);
-                if (net is null)
-                    continue;
-                if (!seen.Add(net.Ssid))
+                if (!seen.Add(net!.Ssid))
                     continue;   // de-dupe per-adapter duplicates
                 results.Add(net);
             }

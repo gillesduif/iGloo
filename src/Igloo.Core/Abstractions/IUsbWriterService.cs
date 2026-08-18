@@ -14,6 +14,7 @@ public interface IUsbWriterService
 }
 
 
+/// <summary>A removable drive that can be used as the installer target.</summary>
 /// <param name="DeviceId">Raw device path, e.g. <c>\\.\PHYSICALDRIVE1</c>.</param>
 public sealed record UsbDriveInfo(
     int DriveIndex,

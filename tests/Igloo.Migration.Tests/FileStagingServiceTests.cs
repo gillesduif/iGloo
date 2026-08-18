@@ -17,11 +17,8 @@ public sealed class FileStagingServiceTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var dir in new[] { _sourceRoot, StagingRoot })
-        {
-            if (Directory.Exists(dir))
-                Directory.Delete(dir, recursive: true);
-        }
+        foreach (var dir in new[] { _sourceRoot, StagingRoot }.Where(Directory.Exists))
+            Directory.Delete(dir, recursive: true);
     }
 
     private string CreateSourceFolder(string name, params (string RelPath, string Content)[] files)

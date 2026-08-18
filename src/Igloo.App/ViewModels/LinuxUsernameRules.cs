@@ -1,4 +1,3 @@
-using System.Text;
 
 namespace Igloo.App.ViewModels;
 
@@ -23,26 +22,16 @@ internal static class LinuxUsernameRules
         if (!char.IsAsciiLetter(name[0]))
             return false;
 
-        foreach (var c in name)
-        {
-            if (!(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_' || c == '-'))
-                return false;
-        }
-        return true;
+        return name.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_' || c == '-');
     }
 
     
     internal static string Sanitize(string windowsName)
     {
-        // useradd only accepts lowercase names, so each character is lowered as it is copied.
-        var sb = new StringBuilder();
-        foreach (var raw in windowsName)
-        {
-            var c = char.ToLowerInvariant(raw);
-            sb.Append(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_' || c == '-' ? c : '_');
-        }
-
-        var s = sb.ToString();
+        // useradd only accepts lowercase names, so each character is lowered before it is vetted.
+        var s = string.Concat(windowsName
+            .Select(char.ToLowerInvariant)
+            .Select(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_' || c == '-' ? c : '_'));
 
         // Strip leading non-letter characters.
         var start = 0;

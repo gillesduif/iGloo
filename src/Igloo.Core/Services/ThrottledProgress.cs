@@ -10,6 +10,7 @@ public sealed class ThrottledProgress<T> : IProgress<T>
     private T? _lastForwarded;
     private readonly object _gate = new();
 
+    /// <summary>Forwards reports to <paramref name="inner"/> at most once per interval.</summary>
     /// <param name="inner">Destination (typically a UI-marshalling <see cref="Progress{T}"/>).</param>
     /// <param name="interval">Minimum time between forwarded reports (default 100 ms).</param>
     /// <param name="forceWhen">

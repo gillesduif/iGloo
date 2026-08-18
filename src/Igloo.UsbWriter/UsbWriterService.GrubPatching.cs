@@ -32,8 +32,8 @@ public sealed partial class UsbWriterService
 
         if (handle.IsInvalid)
         {
+            using var invalid = handle;
             var err = Marshal.GetLastWin32Error();
-            handle.Dispose();
             _logger.LogWarning(
                 "GRUB patch - cannot open {Dev} (Win32 {Err})", drive.DeviceId, err);
             progress?.Report(new UsbWriteProgress(
@@ -45,7 +45,7 @@ public sealed partial class UsbWriterService
         var patchedPaths = new List<string>();
         var skippedPaths = new List<string>();
 
-        try
+        using (handle)
         {
             //   Path 1: EFI FAT32 (UEFI boot)                 
             long efiLba = FindEfiPartitionStartLba(handle);
@@ -64,7 +64,6 @@ public sealed partial class UsbWriterService
             //   Path 2: ISO9660 (BIOS/legacy boot)              ─
             PatchIso9660GrubCfg(handle, patchedPaths, skippedPaths);
         }
-        finally { handle.Dispose(); }
 
         // Build a human-readable summary for the UI.
         string note = patchedPaths.Count > 0
@@ -222,16 +221,14 @@ public sealed partial class UsbWriterService
 
             for (int d = 0; d < parts.Length - 1 && ok; d++)
             {
-                bool found;
                 uint sub;
-                if (inFat16Root)
-                    found = FatFindInFixedRoot(disk, fat16RootLba, fat16RootSectors,
-                                parts[d], isDirectory: true,
-                                out sub, out _, out _, out _);
-                else
-                    found = FatFindInClusters(disk, dirCluster, parts[d], isDirectory: true,
-                                secsPerClust, fatLba, dataLba, isFat32,
-                                out sub, out _, out _, out _);
+                bool found = inFat16Root
+                    ? FatFindInFixedRoot(disk, fat16RootLba, fat16RootSectors,
+                          parts[d], isDirectory: true,
+                          out sub, out _, out _, out _)
+                    : FatFindInClusters(disk, dirCluster, parts[d], isDirectory: true,
+                          secsPerClust, fatLba, dataLba, isFat32,
+                          out sub, out _, out _, out _);
 
                 inFat16Root = false;   // subdirs are always cluster-based
                 if (found)
@@ -357,7 +354,7 @@ public sealed partial class UsbWriterService
         uint dirLba = rootLba;
         uint dirSize = rootSize;
 
-        foreach (var segment in (string[])["boot", "grub2"])
+        foreach (var segment in new[] { "boot", "grub2" })
         {
             if (!Iso9660FindEntry(disk, dirLba, dirSize, segment, isDir: true,
                     out uint nextLba, out uint nextSize, out _, out _))
@@ -760,9 +757,8 @@ public sealed partial class UsbWriterService
         }
 
         int written = 0;
-        foreach (var cl in clusters)
+        foreach (var clBase in clusters.Select(cl => dataLba + (long)(cl - 2) * secsPerClust))
         {
-            long clBase = dataLba + (long)(cl - 2) * secsPerClust;
             for (int s = 0; s < secsPerClust; s++)
             {
                 var sec = new byte[512];

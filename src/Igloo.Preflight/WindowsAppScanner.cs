@@ -127,11 +127,10 @@ public static class WindowsAppScanner
         if (root is null)
             return;
 
-        foreach (var subName in TryGetSubKeyNames(root))
-        {
-            if (TryReadDisplayName(root, subName) is string dn && !string.IsNullOrWhiteSpace(dn))
-                names.Add(dn);
-        }
+        foreach (var dn in TryGetSubKeyNames(root)
+                     .Select(subName => TryReadDisplayName(root, subName))
+                     .Where(name => !string.IsNullOrWhiteSpace(name)))
+            names.Add(dn!);
     }
 
     // Registry reads throw SecurityException/UnauthorizedAccessException/IOException for keys

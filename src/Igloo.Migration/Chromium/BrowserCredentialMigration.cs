@@ -111,6 +111,6 @@ public static partial class BrowserCredentialMigration
     private static partial void LogRootMissing(ILogger logger, string root);
 
     [LoggerMessage(Level = LogLevel.Information,
-        Message = "Encrypted {Count} login(s) for {Browser} into the migration manifest")]
-    private static partial void LogAttached(ILogger logger, string browser, int count);
+        Message = "Encrypted {LoginCount} login(s) for {Browser} into the migration manifest")]
+    private static partial void LogAttached(ILogger logger, string browser, int loginCount);
 }

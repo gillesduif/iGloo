@@ -86,6 +86,11 @@ public sealed partial class DirectInstallService : IDirectInstallService
     private const string KernelFile = "linux";   // kernel on OEMDRV (under BootDir)
     private const string InitrdFile = "initrd";  // initrd on OEMDRV (under BootDir)
 
+    // EFI/<vendor> covers the Fedora/Debian/Ubuntu grubx64 prefixes; boot/grub covers
+    // Ubuntu/Mint casper grub, whose compiled prefix is /boot/grub.
+    private static readonly string[] GrubCfgDirs =
+        [@"EFI\BOOT", @"EFI\fedora", @"EFI\debian", @"EFI\ubuntu", @"boot\grub"];
+
     // Stored by PrepareAsync, consumed by RegisterBootEntryAsync.
     private char? _oemDrvLetter;
     private char? _isoPartitionLetter;   // separate NTFS partition for a >4 GiB ISO
@@ -515,10 +520,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
     {
         try
         {
-            foreach (var di in DriveInfo.GetDrives())
+            foreach (var di in DriveInfo.GetDrives().Where(d => d.IsReady))
             {
-                if (!di.IsReady)
-                    continue;
                 try
                 {
                     if (!string.Equals(di.VolumeLabel, _bootSpec.VolumeLabel, StringComparison.OrdinalIgnoreCase))
@@ -583,10 +586,12 @@ public sealed partial class DirectInstallService : IDirectInstallService
         var used = DriveInfo.GetDrives()
             .Select(d => char.ToUpperInvariant(d.Name[0]))
             .ToHashSet();
-        foreach (var c in "IJKLMNOPQRSTUVWXYZ")
-            if (!used.Contains(c))
-                return c;
-        throw new InvalidOperationException("No available drive letter for the installer partition.");
+        var free = "IJKLMNOPQRSTUVWXYZ"
+            .Where(c => !used.Contains(c))
+            .Select(c => (char?)c)
+            .FirstOrDefault();
+        return free ?? throw new InvalidOperationException(
+            "No available drive letter for the installer partition.");
     }
 
     private char CreateIsoPartition(int diskNumber, long sizeBytes, CancellationToken ct)
@@ -628,10 +633,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
     {
         try
         {
-            foreach (var di in DriveInfo.GetDrives())
+            foreach (var di in DriveInfo.GetDrives().Where(d => d.IsReady))
             {
-                if (!di.IsReady)
-                    continue;
                 try
                 {
                     if (!string.Equals(di.VolumeLabel, IsoPartitionLabel, StringComparison.OrdinalIgnoreCase))
@@ -991,11 +994,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // /EFI/debian, /EFI/ubuntu, or /EFI/BOOT). We don't know which binary the
         // ISO shipped, so write grub.cfg to all of them.
         var grubCfgContent = BuildGrubConfig();
-        // EFI/<vendor> covers Fedora/Debian/Ubuntu grubx64 prefixes; boot/grub covers
-        // Ubuntu/Mint casper grub, whose compiled prefix is /boot/grub.
-        foreach (var cfgDir in new[] { @"EFI\BOOT", @"EFI\fedora", @"EFI\debian", @"EFI\ubuntu", @"boot\grub" })
+        foreach (var dir in GrubCfgDirs.Select(cfgDir => Path.Join(oemDrvRoot, cfgDir)))
         {
-            var dir = Path.Join(oemDrvRoot, cfgDir);
             var path = Path.Join(dir, "grub.cfg");
             Directory.CreateDirectory(dir);
             File.WriteAllText(path, grubCfgContent, Encoding.ASCII);
@@ -1007,17 +1007,15 @@ public sealed partial class DirectInstallService : IDirectInstallService
     {
         // Try the distro's declared kernel/initrd locations (from the boot spec),
         // pairing any existing kernel with any existing initrd.
-        foreach (var k in _bootSpec.KernelIsoPaths)
+        foreach (var kFull in _bootSpec.KernelIsoPaths
+                     .Select(k => Path.Join(isoRoot, k.Replace('/', '\\')))
+                     .Where(File.Exists))
         {
-            var kFull = Path.Join(isoRoot, k.Replace('/', '\\'));
-            if (!File.Exists(kFull))
-                continue;
-            foreach (var i in _bootSpec.InitrdIsoPaths)
-            {
-                var iFull = Path.Join(isoRoot, i.Replace('/', '\\'));
-                if (File.Exists(iFull))
-                    return (kFull, iFull);
-            }
+            var iFull = _bootSpec.InitrdIsoPaths
+                .Select(i => Path.Join(isoRoot, i.Replace('/', '\\')))
+                .FirstOrDefault(File.Exists);
+            if (iFull is not null)
+                return (kFull, iFull);
         }
 
         // Full scan: find any file named "linux" or "vmlinuz" whose sibling is
@@ -1028,10 +1026,9 @@ public sealed partial class DirectInstallService : IDirectInstallService
         var initrdNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             { "initrd.img", "initrd" };
 
-        foreach (var f in Directory.EnumerateFiles(isoRoot, "*", SearchOption.AllDirectories))
+        foreach (var f in Directory.EnumerateFiles(isoRoot, "*", SearchOption.AllDirectories)
+                     .Where(x => kernelNames.Contains(Path.GetFileName(x))))
         {
-            if (!kernelNames.Contains(Path.GetFileName(f)))
-                continue;
             var dir = Path.GetDirectoryName(f)!;
             var initrdHit = Directory.EnumerateFiles(dir)
                 .FirstOrDefault(x => initrdNames.Contains(Path.GetFileName(x)));

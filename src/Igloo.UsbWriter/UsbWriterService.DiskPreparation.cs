@@ -30,14 +30,14 @@ public sealed partial class UsbWriterService
 
         if (handle.IsInvalid)
         {
-            _logger.LogWarning(
-                "Cannot open {Dev} for MBR/GPT fix (Win32 error {Err}) - skipping",
-                deviceId, Marshal.GetLastWin32Error());
-            handle.Dispose();
+            using (handle)
+                _logger.LogWarning(
+                    "Cannot open {Dev} for MBR/GPT fix (Win32 error {Err}) - skipping",
+                    deviceId, Marshal.GetLastWin32Error());
             return;
         }
 
-        try
+        using (handle)
         {
             //   Step 1: read LBA 0 (MBR) + LBA 1 (GPT header)         
             var buf = new byte[1024];
@@ -125,10 +125,6 @@ public sealed partial class UsbWriterService
                 nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
 
             _logger.LogInformation("MBR/GPT preparation complete on {Dev}", deviceId);
-        }
-        finally
-        {
-            handle.Dispose();
         }
 
         // Give the disk driver time to finish the re-read before diskpart starts.
@@ -298,11 +294,9 @@ public sealed partial class UsbWriterService
     {
         var held = new List<SafeFileHandle>();
 
-        foreach (var driveInfo in DriveInfo.GetDrives())
+        foreach (var driveInfo in DriveInfo.GetDrives()
+                     .Where(d => d.DriveType is DriveType.Fixed or DriveType.Removable or DriveType.Unknown))
         {
-            if (driveInfo.DriveType is not (DriveType.Fixed or DriveType.Removable or DriveType.Unknown))
-                continue;
-
             var letter = char.ToUpperInvariant(driveInfo.Name[0]);
 
             // Standard CA2000 hand-off: the handle is disposed in 'finally' unless it was
@@ -337,52 +331,59 @@ public sealed partial class UsbWriterService
         const uint FSCTL_LOCK_VOLUME = 0x00090018u;
         const uint FSCTL_DISMOUNT_VOLUME = 0x00090020u;
 
-        var handle = NativeMethods.CreateFileW(
-            volumePath,
-            GENERIC_READ | GENERIC_WRITE,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
-            nint.Zero,
-            OPEN_EXISTING,
-            0u,
-            nint.Zero);
-
-        if (handle.IsInvalid)
+        // Standard CA2000 hand-off: the handle is disposed in 'finally' unless it was
+        // returned, at which point nulling the local passes ownership to the caller.
+        SafeFileHandle? handle = null;
+        try
         {
-            _logger.LogDebug("Cannot open volume {Vol} - skipping dismount", volumePath);
-            handle.Dispose();
-            return null;
-        }
+            handle = NativeMethods.CreateFileW(
+                volumePath,
+                GENERIC_READ | GENERIC_WRITE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                nint.Zero,
+                OPEN_EXISTING,
+                0u,
+                nint.Zero);
 
-        if (!VolumeIsOnDisk(handle, diskIndex, IOCTL_VOLUME_GET_EXTENTS))
+            if (handle.IsInvalid)
+            {
+                _logger.LogDebug("Cannot open volume {Vol} - skipping dismount", volumePath);
+                return null;
+            }
+
+            if (!VolumeIsOnDisk(handle, diskIndex, IOCTL_VOLUME_GET_EXTENTS))
+                return null;
+
+            // Lock: advises Windows no new opens are allowed on this volume.
+            // Non-fatal if files are already open - FSCTL_DISMOUNT_VOLUME forces
+            // it offline regardless.
+            bool locked = NativeMethods.DeviceIoControl(
+                handle, FSCTL_LOCK_VOLUME,
+                nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
+            if (!locked)
+                _logger.LogDebug("Lock advisory failed on {Vol} (will force-dismount)", volumePath);
+
+            // Dismount: flushes dirty buffers and takes the volume offline.
+            bool dismounted = NativeMethods.DeviceIoControl(
+                handle, FSCTL_DISMOUNT_VOLUME,
+                nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
+
+            if (!dismounted)
+            {
+                _logger.LogWarning("Failed to dismount volume {Vol} (Win32 error {Err})",
+                    volumePath, Marshal.GetLastWin32Error());
+                return null;
+            }
+
+            _logger.LogInformation("Dismounted volume {Vol} on disk {Index}", volumePath, diskIndex);
+            var dismountedHandle = handle;
+            handle = null;
+            return dismountedHandle;
+        }
+        finally
         {
-            handle.Dispose();
-            return null;
+            handle?.Dispose();
         }
-
-        // Lock: advises Windows no new opens are allowed on this volume.
-        // Non-fatal if files are already open - FSCTL_DISMOUNT_VOLUME forces
-        // it offline regardless.
-        bool locked = NativeMethods.DeviceIoControl(
-            handle, FSCTL_LOCK_VOLUME,
-            nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
-        if (!locked)
-            _logger.LogDebug("Lock advisory failed on {Vol} (will force-dismount)", volumePath);
-
-        // Dismount: flushes dirty buffers and takes the volume offline.
-        bool dismounted = NativeMethods.DeviceIoControl(
-            handle, FSCTL_DISMOUNT_VOLUME,
-            nint.Zero, 0, nint.Zero, 0, out _, nint.Zero);
-
-        if (!dismounted)
-        {
-            _logger.LogWarning("Failed to dismount volume {Vol} (Win32 error {Err})",
-                volumePath, Marshal.GetLastWin32Error());
-            handle.Dispose();
-            return null;
-        }
-
-        _logger.LogInformation("Dismounted volume {Vol} on disk {Index}", volumePath, diskIndex);
-        return handle;
     }
 
     private static bool VolumeIsOnDisk(SafeFileHandle volHandle, int diskIndex, uint ioctlGetExtents)

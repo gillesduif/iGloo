@@ -97,7 +97,7 @@ public sealed partial class MainWindow : Window
     
     private bool IsOverMaxRestoreButton(IntPtr lParam)
     {
-        if (MaxRestoreButton.ActualWidth == 0)
+        if (MaxRestoreButton.ActualWidth <= 0)
             return false;
 
         var (sx, sy) = ChromeInterop.GetScreenPoint(lParam);

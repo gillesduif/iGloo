@@ -452,11 +452,12 @@ public sealed partial class UsbWriterService : IUsbWriterService
             .Select(d => char.ToUpperInvariant(d.Name[0]))
             .ToHashSet();
 
-        foreach (var letter in "FGHIJKLMNOPQRSTUVWXYZ")
-        {
-            if (!used.Contains(letter))
-                return letter;
-        }
+        var free = "FGHIJKLMNOPQRSTUVWXYZ"
+            .Where(letter => !used.Contains(letter))
+            .Select(letter => (char?)letter)
+            .FirstOrDefault();
+        if (free is not null)
+            return free.Value;
 
         throw new InvalidOperationException(
             "No free drive letter is available to assign to the OEMDRV partition.");

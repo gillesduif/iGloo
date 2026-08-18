@@ -10,6 +10,7 @@ public interface IDistroPlugin
     
     DistroMetadata Metadata { get; }
 
+    /// <summary>Distro-specific preflight findings, on top of the generic checks.</summary>
     /// <example>
     /// A Fedora plugin might return a warning if the GPU is NVIDIA (extra driver step needed),
     /// a Mint plugin might not. A distro that doesn't support Secure Boot would return a blocker

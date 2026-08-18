@@ -57,12 +57,10 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
         // Boot-menu hygiene: iGloo's one-shot entries are always ours to delete;
         // every Linux-classified entry goes only when no Linux remains to boot.
-        foreach (var entry in EfiBootEntries.Enumerate(_logger))
-        {
-            if (EfiBootEntries.IsIglooDescription(entry.Description) ||
-                (removingAllLinux && EfiBootEntries.IsLinuxDescription(entry.Description)))
-                EfiBootEntries.Delete(entry.Index, _logger);
-        }
+        foreach (var entry in EfiBootEntries.Enumerate(_logger)
+                     .Where(e => EfiBootEntries.IsIglooDescription(e.Description)
+                         || (removingAllLinux && EfiBootEntries.IsLinuxDescription(e.Description))))
+            EfiBootEntries.Delete(entry.Index, _logger);
 
         // ESP hygiene  the "mountvol S: /S && rmdir \EFI\<distro>" step people
         // otherwise do by hand. Whitelisted Linux loader folders only, and only
@@ -278,11 +276,9 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 return;
             }
 
-            foreach (var esp in esps)
+            foreach (var esp in esps
+                         .Where(e => !windowsEsps.Any(w => w.PartitionNumber == e.PartitionNumber)))
             {
-                if (windowsEsps.Any(w => w.PartitionNumber == esp.PartitionNumber))
-                    continue;
-
                 if (HasRemainingLoader(esp.VolumePath))
                 {
                     _logger.LogWarning(

@@ -8,6 +8,7 @@ public interface IIsoAcquisitionService
 }
 
 
+/// <summary>Everything needed to fetch one distro ISO and prove it is authentic.</summary>
 /// <param name="GpgKeyData">
 /// The trusted signing key bundled with the distro (preferred over fetching
 /// <paramref name="GpgKeyUrl"/>: no untrusted keyserver round-trip).

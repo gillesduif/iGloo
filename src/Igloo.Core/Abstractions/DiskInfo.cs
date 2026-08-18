@@ -5,6 +5,7 @@ public sealed record DiskInfo(string DeviceId, string Model, long TotalBytes, lo
     string PartitionStyle, IReadOnlyList<PartitionInfo> Partitions);
 
 
+/// <summary>One partition on a physical disk, as reported by the storage provider.</summary>
 /// <param name="ShrinkableBytes">How far the partition can shrink without data loss; 0 when unknown.</param>
 /// <param name="OffsetBytes">
 /// Byte position of the partition on the disk, -1 when the provider could not supply it.

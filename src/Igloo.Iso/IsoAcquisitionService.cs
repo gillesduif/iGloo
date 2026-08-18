@@ -151,17 +151,10 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         var regex = new Regex(pattern,
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2));
 
-        foreach (var line in checksumContent.Split('\n'))
-        {
-            foreach (var token in line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
-            {
-                var candidate = token.Trim('(', ')');
-                if (regex.IsMatch(candidate))
-                    return candidate;
-            }
-        }
-
-        return null;
+        return checksumContent.Split('\n')
+            .SelectMany(line => line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            .Select(token => token.Trim('(', ')'))
+            .FirstOrDefault(regex.IsMatch);
     }
 
     /// <summary>
@@ -203,12 +196,12 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
     private static void RequireHttps(IsoSpecification spec)
     {
-        foreach (var url in new[] { spec.DownloadUrl, spec.GpgSignatureUrl, spec.GpgKeyUrl, spec.GpgSignedDataUrl })
-        {
-            if (url is not null && !string.Equals(url.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException(
-                    $"Insecure URL rejected: {url}. All ISO, checksum, signature and key URLs must use HTTPS.");
-        }
+        var insecure = new[] { spec.DownloadUrl, spec.GpgSignatureUrl, spec.GpgKeyUrl, spec.GpgSignedDataUrl }
+            .FirstOrDefault(u => u is not null
+                && !string.Equals(u.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase));
+        if (insecure is not null)
+            throw new InvalidOperationException(
+                $"Insecure URL rejected: {insecure}. All ISO, checksum, signature and key URLs must use HTTPS.");
     }
 
     //   Download                                
@@ -433,13 +426,11 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         // sides compare equal char-for-char even before the OrdinalIgnoreCase check.
         static string ToLower(string hex) => new(hex.Select(char.ToLowerInvariant).ToArray());
 
-        foreach (var line in checksumContent.Split('\n'))
+        foreach (var trimmed in checksumContent.Split('\n')
+                     .Select(line => line.Trim())
+                     .Where(line => line.Length > 0
+                         && line.Contains(isoFileName, StringComparison.OrdinalIgnoreCase)))
         {
-            var trimmed = line.Trim();
-            if (trimmed.Length == 0 ||
-                !trimmed.Contains(isoFileName, StringComparison.OrdinalIgnoreCase))
-                continue;
-
             // Fedora "BSD" style:  SHA256 (filename.iso) = <hash>
             if (trimmed.StartsWith("SHA256", StringComparison.OrdinalIgnoreCase))
             {

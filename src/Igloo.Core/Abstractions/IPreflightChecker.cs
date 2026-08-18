@@ -41,6 +41,7 @@ public sealed record PreflightReport
     public IReadOnlyList<SeedLeftover> SeedLeftovers { get; init; } = [];
 }
 
+/// <summary>A Linux install found on disk, with the partitions and boot entry that belong to it.</summary>
 /// <param name="FirmwareEntryIndex">The UEFI Boot#### index of this install's boot
 /// entry when it could be paired unambiguously; null otherwise.</param>
 public sealed record LinuxInstallation(

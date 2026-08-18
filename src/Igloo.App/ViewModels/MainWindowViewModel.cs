@@ -291,16 +291,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         //   Branch: after FileStagingViewModel, jump to the right install step  
         if (_steps[_stepIndex - 1] is FileStagingViewModel)
         {
-            if (_diskSelection.InstallMode == DiskInstallMode.DualBoot)
-            {
-                // Skip UsbWriterViewModel - land on DirectInstallViewModel.
-                _stepIndex = _steps.IndexOf(_directInstall);
-            }
-            else
-            {
-                // Skip DirectInstallViewModel - land on UsbWriterViewModel.
-                _stepIndex = _steps.IndexOf(_usbWriter);
-            }
+            // Dual-boot skips UsbWriterViewModel; the USB path skips DirectInstallViewModel.
+            _stepIndex = _steps.IndexOf(
+                _diskSelection.InstallMode == DiskInstallMode.DualBoot ? _directInstall : _usbWriter);
         }
 
         CurrentPage = _steps[_stepIndex];

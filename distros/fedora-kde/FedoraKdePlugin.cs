@@ -238,7 +238,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         if (Array.IndexOf(bytes, (byte)'\r') < 0)
             return bytes;
 
-        var buf = new MemoryStream(bytes.Length);
+        using var buf = new MemoryStream(bytes.Length);
         for (int i = 0; i < bytes.Length; i++)
         {
             if (bytes[i] == (byte)'\r')

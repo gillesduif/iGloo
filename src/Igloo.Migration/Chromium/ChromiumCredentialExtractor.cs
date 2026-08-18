@@ -196,6 +196,6 @@ public static partial class ChromiumCredentialExtractor
     private static partial void LogProfileUnreadable(ILogger logger, Exception ex, string profileDir);
 
     [LoggerMessage(Level = LogLevel.Information,
-        Message = "Extracted {Count} Chromium login(s) from {Root} ({Skipped} App-Bound entries skipped)")]
-    private static partial void LogExtracted(ILogger logger, string root, int count, int skipped);
+        Message = "Extracted {LoginCount} Chromium login(s) from {Root} ({Skipped} App-Bound entries skipped)")]
+    private static partial void LogExtracted(ILogger logger, string root, int loginCount, int skipped);
 }
