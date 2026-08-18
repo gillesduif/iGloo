@@ -358,6 +358,11 @@ if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/igloo-agent" ]; then
         tr -d '\r' < "$src" | install -m 0755 /dev/stdin "$SYSIMAGE/opt/igloo/$fname"
         log "  Installed $fname (0755, LF-only)"
     done
+    # Binary payload: copied verbatim, never through tr, which would corrupt gzip.
+    for src in "$OEMDRV/igloo-agent"/*.tar.gz; do
+        [ -f "$src" ] || continue
+        cp "$src" "$SYSIMAGE/opt/igloo/" && log "  Installed $(basename "$src") (binary)"
+    done
     log "Agent installed to /opt/igloo"
 else
     log "WARNING: igloo-agent directory not found on OEMDRV"
@@ -541,6 +546,17 @@ log "igloo-first-boot.service registered"
 if ! grep -q "GRUB_DISABLE_OS_PROBER=false" "$SYSIMAGE/etc/default/grub" 2>/dev/null; then
     echo "GRUB_DISABLE_OS_PROBER=false" >> "$SYSIMAGE/etc/default/grub"
     log "Enabled os-prober (GRUB_DISABLE_OS_PROBER=false)"
+fi
+
+# Leave BootLoaderSpec behind: BLS titles are kernel version strings that cannot
+# be renamed, so the M15 menu work has nothing to hook into. With it off,
+# grub2-mkconfig emits classic menuentries, the same shape as Debian and Mint.
+# Verified on Fedora 44: 99-grub-mkconfig.install re-runs grub2-mkconfig on
+# kernel install when this is false (RHBZ 1899903), and grubby-deprecated is
+# neither available nor needed.
+if ! grep -q "^GRUB_ENABLE_BLSCFG=" "$SYSIMAGE/etc/default/grub" 2>/dev/null; then
+    echo "GRUB_ENABLE_BLSCFG=false" >> "$SYSIMAGE/etc/default/grub"
+    log "Disabled BootLoaderSpec (GRUB_ENABLE_BLSCFG=false)"
 fi
 # Regenerate GRUB config now that os-prober is enabled.
 # Anaconda already ran grub2-mkconfig during install (without os-prober).

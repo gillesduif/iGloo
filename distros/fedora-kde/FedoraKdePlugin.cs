@@ -138,6 +138,17 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         TryAddFile("agent/first-boot.sh", executable: true);
         TryAddFile("agent/agent.py", executable: true);
         TryAddFile("agent/display-apply.py", executable: true);
+        // Shared across families: "agent/" in the build output, "../_shared/agent/"
+        // when the plugin DLL is loaded from its source folder.
+        if (!TryAddFile("agent/igloo_boot.py", executable: false))
+            TryAddFile("../_shared/agent/igloo_boot.py", executable: false);
+
+        // GRUB theme archives (M15). Binary: must bypass NormalizeCrLf, which
+        // rewrites 0x0D bytes and would corrupt the gzip stream.
+        // Moved to _shared/grub-theme/; the build output keeps them under agent/.
+        foreach (var n in new[] { "grub-theme-stylish-1080p.tar.gz", "grub-theme-stylish-4k.tar.gz" })
+            if (!TryAddRaw($"agent/{n}"))
+                TryAddRaw($"../_shared/grub-theme/{n}");
 
         // Fallback stub if the scripts aren't bundled.
         if (files.Count == 0)
@@ -152,11 +163,20 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
         return Task.FromResult(new AgentPayload(files));
 
-        void TryAddFile(string relative, bool executable)
+        bool TryAddRaw(string relative)
         {
             var path = Path.Combine(asmDir, relative);
             if (!File.Exists(path))
-                return;
+                return false;
+            files.Add(new AgentFile(Path.GetFileName(path), File.ReadAllBytes(path), false));
+            return true;
+        }
+
+        bool TryAddFile(string relative, bool executable)
+        {
+            var path = Path.Combine(asmDir, relative);
+            if (!File.Exists(path))
+                return false;
 
             // Normalize CRLF → LF so shell scripts and Python files execute
             // correctly on Linux.  Windows git checkouts (text=auto) may add
@@ -168,6 +188,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
                 RelativePath: Path.GetFileName(path),
                 Contents: contents,
                 Executable: executable));
+            return true;
         }
     }
 
