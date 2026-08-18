@@ -4,18 +4,35 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <UserControl.Resources>
-        <!-- Timeline node for the "what happens next" sequence: fixed-size
-             container that keeps the numbers aligned; no circle chrome. -->
-        <Style x:Key="TimelineNode" TargetType="Border">
-            <Setter Property="Width"  Value="22" />
-            <Setter Property="Height" Value="22" />
-            <Setter Property="VerticalAlignment" Value="Top" />
-        </Style>
-        <Style x:Key="TimelineText" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
-            <Setter Property="Margin" Value="12,1,0,0" />
-            <Setter Property="FontSize" Value="12.5" />
+        <!-- Chevron overlaying the slide edge; disabled at the ends of the run. -->
+        <Style x:Key="SlideChevron" TargetType="Button">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" CornerRadius="16" Background="#66000000">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#99000000" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.25" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </UserControl.Resources>
+
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="{StaticResource Scroll.ContentGutter}">
@@ -108,67 +125,30 @@
                     </StackPanel>
                 </Border>
 
-                <!-- The journey ahead: one card per step -->
+                <!-- The journey ahead: one slide per step, arrows or Left/Right -->
                 <TextBlock Text="WHAT HAPPENS NEXT" Style="{StaticResource Text.Section}" Margin="2,0,0,4" />
-                <StackPanel Margin="0,0,0,18">
+                <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,18">
+                    <StackPanel>
+                        <!-- Fixed frame: the image scales into it, so the card never
+                             changes height between slides of different proportions. -->
+                        <!-- Viewbox, not a fixed height: the frame keeps the image's
+                             proportions as the window resizes instead of cropping it. -->
+                        <Grid Background="{StaticResource Brush.Surface}">
+                            <Viewbox Stretch="Uniform" MaxHeight="360">
+                                <Image x:Name="SlideImage" />
+                            </Viewbox>
+                            <Button x:Name="PrevSlide" Style="{StaticResource SlideChevron}" Content="&#xE76B;"
+                                    HorizontalAlignment="Left"  Margin="10,0,0,0" Click="PrevSlide_Click"
+                                    AutomationProperties.Name="Previous step" />
+                            <Button x:Name="NextSlide" Style="{StaticResource SlideChevron}" Content="&#xE76C;"
+                                    HorizontalAlignment="Right" Margin="0,0,10,0" Click="NextSlide_Click"
+                                    AutomationProperties.Name="Next step" />
+                        </Grid>
+                        <TextBlock x:Name="SlideCaption" Style="{StaticResource Text.Body}"
+                                   FontSize="12.5" TextWrapping="Wrap" Margin="16,14,16,16" />
+                    </StackPanel>
+                </Border>
 
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
-                        <StackPanel Orientation="Horizontal">
-                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
-                                <TextBlock Text="1" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
-                                       Text="Windows restarts into the Linux installer." />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
-                        <StackPanel Orientation="Horizontal">
-                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
-                                <TextBlock Text="2" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
-                                       Text="Linux installs automatically into the allocated space alongside Windows." />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
-                        <StackPanel Orientation="Horizontal">
-                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
-                                <TextBlock Text="3" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
-                                       Text="The system restarts into a boot menu for operating system selection." />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">
-                        <StackPanel Orientation="Horizontal">
-                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
-                                <TextBlock Text="4" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
-                                       Text="The migration agent restores your folders, browser profiles and applications." />
-                        </StackPanel>
-                    </Border>
-
-
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,10">  
-                        <StackPanel Orientation="Horizontal">
-                            <Border Style="{StaticResource TimelineNode}" VerticalAlignment="Center">
-                                <TextBlock Text="5" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Brush.Accent.Bright}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Style="{StaticResource TimelineText}" VerticalAlignment="Center" TextWrapping="Wrap"
-                                       Text="The temporary installation partition is automatically removed." />
-                        </StackPanel>
-                    </Border>
-
-                </StackPanel>
 
                 <!-- No action button here: rebooting is the wizard's last navigation
                      step, so it lives on the shared forward button in the nav bar. -->
@@ -210,6 +190,25 @@
                              VerticalScrollBarVisibility="Auto" />
         </Expander>
       </StackPanel>
+
+            <!--   LOGS: always available, for people who want the detail   -->
+            <Expander Header="Show logs" IsExpanded="{Binding LogsExpanded, Mode=TwoWay}"
+                      Margin="0,4,0,0">
+                <StackPanel>
+                    <TextBox Text="{Binding LogTail, Mode=OneWay}"
+                             Style="{StaticResource TextBox.Detail}"
+                             FontFamily="Cascadia Mono, Consolas"
+                             TextWrapping="NoWrap" MaxHeight="240"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Refresh" Style="{StaticResource Button.Ghost}"
+                                Command="{Binding RefreshLogTailCommand}" />
+                        <Button Content="Open log folder" Style="{StaticResource Button.Ghost}"
+                                Command="{Binding OpenLogFolderCommand}" Margin="8,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
 
         </StackPanel>
     </ScrollViewer>

@@ -1,4 +1,7 @@
+using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
+using System.Security;
 using System.Globalization;
 using System.Text;
 using System.Windows;
@@ -53,6 +56,13 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     [ObservableProperty] private DirectInstallPhase _currentPhase;
     [ObservableProperty] private bool _isRebooting;
 
+    [ObservableProperty] private bool _logsExpanded;
+    [ObservableProperty] private string? _logTail;
+
+    // Serilog keeps today's file open, so the tail is read with FileShare.ReadWrite.
+    private const int LogTailBytes = 64 * 1024;
+    private const int LogTailLines = 200;
+
     //   Derived                                ─
 
     public double ProgressPercent => BytesTotal > 0 ? BytesWritten * 100.0 / BytesTotal : 0;
@@ -60,6 +70,62 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
     
     public bool IsCancelable => !IsRunning || CurrentPhase != DirectInstallPhase.CreatingPartition;
+
+    //   Log tail                                ─
+
+    private static string LogDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Igloo", "logs");
+
+    partial void OnLogsExpandedChanged(bool value)
+    {
+        if (value)
+            RefreshLogTail();
+    }
+
+    [RelayCommand]
+    private void RefreshLogTail()
+    {
+        try
+        {
+            var newest = new DirectoryInfo(LogDirectory)
+                .EnumerateFiles("igloo-*.log")
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .FirstOrDefault();
+            if (newest is null)
+            {
+                LogTail = "No log file yet.";
+                return;
+            }
+
+            using var fs = new FileStream(newest.FullName, FileMode.Open, FileAccess.Read,
+                                          FileShare.ReadWrite | FileShare.Delete);
+            if (fs.Length > LogTailBytes)
+                fs.Seek(-LogTailBytes, SeekOrigin.End);
+            using var reader = new StreamReader(fs);
+            var lines = reader.ReadToEnd().Split('\n');
+            LogTail = string.Join("\n", lines.Skip(Math.Max(0, lines.Length - LogTailLines)))
+                            .TrimStart('\r', '\n');
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                      or SecurityException or DirectoryNotFoundException)
+        {
+            LogTail = $"Could not read the log: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void OpenLogFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(LogDirectory);
+            Process.Start(new ProcessStartInfo(LogDirectory) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Win32Exception)
+        {
+            _logger.LogWarning(ex, "Could not open the log folder");
+        }
+    }
 
     //   Constructor                              ─
 
@@ -142,6 +208,8 @@ public sealed partial class DirectInstallViewModel : ObservableObject
                 DirectInstallPhase.Complete => "Ready to reboot",
                 _ => string.Empty,
             };
+            if (LogsExpanded)
+                RefreshLogTail();
         });
         // The full-ISO staging copy reports per buffer; throttle before the UI
         // thread sees it (phase changes and completion always pass through).
