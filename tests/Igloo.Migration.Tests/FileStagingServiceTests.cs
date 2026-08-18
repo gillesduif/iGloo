@@ -8,10 +8,10 @@ namespace Igloo.Migration.Tests;
 public sealed class FileStagingServiceTests : IDisposable
 {
     private readonly string _distroId = "igloo-test-" + Guid.NewGuid().ToString("N");
-    private readonly string _sourceRoot = Path.Combine(
+    private readonly string _sourceRoot = Path.Join(
         Path.GetTempPath(), "igloo-staging-src-" + Guid.NewGuid().ToString("N"));
 
-    private string StagingRoot => Path.Combine(
+    private string StagingRoot => Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Igloo", "staging", _distroId);
 
@@ -26,10 +26,10 @@ public sealed class FileStagingServiceTests : IDisposable
 
     private string CreateSourceFolder(string name, params (string RelPath, string Content)[] files)
     {
-        var folder = Path.Combine(_sourceRoot, name);
+        var folder = Path.Join(_sourceRoot, name);
         foreach (var (relPath, content) in files)
         {
-            var path = Path.Combine(folder, relPath);
+            var path = Path.Join(folder, relPath);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, content);
         }
@@ -44,16 +44,16 @@ public sealed class FileStagingServiceTests : IDisposable
     {
         var docs = CreateSourceFolder("Documents",
             ("a.txt", "alpha"),
-            (Path.Combine("nested", "b.txt"), "beta"));
+            (Path.Join("nested", "b.txt"), "beta"));
 
         var result = await Service().StageAsync(
             new FileStagingRequest(_distroId, [docs]), progress: null);
 
         result.StagingDirectory.Should().Be(StagingRoot);
         result.FileCount.Should().Be(2);
-        (await File.ReadAllTextAsync(Path.Combine(StagingRoot, "files", "Documents", "a.txt")))
+        (await File.ReadAllTextAsync(Path.Join(StagingRoot, "files", "Documents", "a.txt")))
             .Should().Be("alpha");
-        (await File.ReadAllTextAsync(Path.Combine(StagingRoot, "files", "Documents", "nested", "b.txt")))
+        (await File.ReadAllTextAsync(Path.Join(StagingRoot, "files", "Documents", "nested", "b.txt")))
             .Should().Be("beta");
     }
 
@@ -72,7 +72,7 @@ public sealed class FileStagingServiceTests : IDisposable
     public async Task Nonexistent_source_folders_are_skipped_not_fatal()
     {
         var docs = CreateSourceFolder("Documents", ("a.txt", "x"));
-        var missing = Path.Combine(_sourceRoot, "DoesNotExist");
+        var missing = Path.Join(_sourceRoot, "DoesNotExist");
 
         var result = await Service().StageAsync(
             new FileStagingRequest(_distroId, [missing, docs]), progress: null);
@@ -83,9 +83,9 @@ public sealed class FileStagingServiceTests : IDisposable
     [Fact]
     public async Task Previous_staging_run_is_wiped_before_staging()
     {
-        var leftover = Path.Combine(StagingRoot, "files", "Old");
+        var leftover = Path.Join(StagingRoot, "files", "Old");
         Directory.CreateDirectory(leftover);
-        await File.WriteAllTextAsync(Path.Combine(leftover, "stale.txt"), "old");
+        await File.WriteAllTextAsync(Path.Join(leftover, "stale.txt"), "old");
 
         var docs = CreateSourceFolder("Documents", ("a.txt", "x"));
         await Service().StageAsync(new FileStagingRequest(_distroId, [docs]), progress: null);

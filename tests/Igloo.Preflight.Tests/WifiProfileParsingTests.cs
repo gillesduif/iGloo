@@ -5,7 +5,7 @@ namespace Igloo.Preflight.Tests;
 
 public sealed class WifiProfileParsingTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(
+    private readonly string _dir = Path.Join(
         Path.GetTempPath(), "igloo-wifi-tests-" + Guid.NewGuid().ToString("N"));
 
     public WifiProfileParsingTests() => Directory.CreateDirectory(_dir);
@@ -22,7 +22,7 @@ public sealed class WifiProfileParsingTests : IDisposable
             <sharedKey><keyType>passPhrase</keyType><protected>false</protected>
             <keyMaterial>{key}</keyMaterial></sharedKey>
             """;
-        var path = Path.Combine(_dir, ssid + ".xml");
+        var path = Path.Join(_dir, ssid + ".xml");
         File.WriteAllText(path, $"""
             <?xml version="1.0"?>
             <WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
@@ -89,7 +89,7 @@ public sealed class WifiProfileParsingTests : IDisposable
     [Fact]
     public void Malformed_xml_yields_null_not_an_exception()
     {
-        var path = Path.Combine(_dir, "broken.xml");
+        var path = Path.Join(_dir, "broken.xml");
         File.WriteAllText(path, "<not-a-profile>");
 
         WindowsWifiScanner.ParseProfile(path, []).Should().BeNull();

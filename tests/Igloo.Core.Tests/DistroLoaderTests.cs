@@ -7,7 +7,7 @@ namespace Igloo.Core.Tests;
 
 public sealed class DistroLoaderTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
+    private readonly string _root = Path.Join(
         Path.GetTempPath(), "igloo-tests-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose()
@@ -18,9 +18,9 @@ public sealed class DistroLoaderTests : IDisposable
 
     private void WriteManifest(string folder, string json)
     {
-        var dir = Path.Combine(_root, folder);
+        var dir = Path.Join(_root, folder);
         Directory.CreateDirectory(dir);
-        File.WriteAllText(Path.Combine(dir, "distro.json"), json);
+        File.WriteAllText(Path.Join(dir, "distro.json"), json);
     }
 
     private static string ValidManifest(string id) => $$"""
@@ -48,7 +48,7 @@ public sealed class DistroLoaderTests : IDisposable
 
         var manifest = loader.LoadedDistros.Should().ContainSingle().Subject;
         manifest.Id.Should().Be("test-distro");
-        manifest.SourceDirectory.Should().Be(Path.GetFullPath(Path.Combine(_root, "test-distro")));
+        manifest.SourceDirectory.Should().Be(Path.GetFullPath(Path.Join(_root, "test-distro")));
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class DistroLoaderTests : IDisposable
     [Fact]
     public void Folders_without_a_manifest_are_skipped()
     {
-        Directory.CreateDirectory(Path.Combine(_root, "empty-folder"));
+        Directory.CreateDirectory(Path.Join(_root, "empty-folder"));
         WriteManifest("real", ValidManifest("real"));
 
         LoadAll().LoadedDistros.Should().ContainSingle().Which.Id.Should().Be("real");
@@ -83,7 +83,7 @@ public sealed class DistroLoaderTests : IDisposable
     {
         var loader = new DistroLoader(NullLogger<DistroLoader>.Instance);
 
-        loader.Load(Path.Combine(_root, "does-not-exist"));
+        loader.Load(Path.Join(_root, "does-not-exist"));
 
         loader.LoadedDistros.Should().BeEmpty();
     }
@@ -94,7 +94,7 @@ public sealed class DistroLoaderTests : IDisposable
         WriteManifest("first", ValidManifest("first"));
         var loader = LoadAll();
 
-        Directory.Delete(Path.Combine(_root, "first"), recursive: true);
+        Directory.Delete(Path.Join(_root, "first"), recursive: true);
         WriteManifest("second", ValidManifest("second"));
         loader.Load(_root);
 

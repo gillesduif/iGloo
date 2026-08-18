@@ -19,7 +19,7 @@ public sealed class AcquisitionGuardTests : IDisposable
     public void Dispose()
     {
         // AcquireAsync creates its cache directory before the guards run; clean it up.
-        var cacheDir = Path.Combine(
+        var cacheDir = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Igloo", "iso-cache", _distroId);
         if (Directory.Exists(cacheDir))

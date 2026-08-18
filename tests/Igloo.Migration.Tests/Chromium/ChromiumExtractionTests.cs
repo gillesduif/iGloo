@@ -11,7 +11,7 @@ namespace Igloo.Migration.Tests;
 [SupportedOSPlatform("windows")]
 public sealed class ChromiumLocalStateTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
+    private readonly string _root = Path.Join(
         Path.GetTempPath(), $"igloo-localstate-{Guid.NewGuid():N}");
 
     public ChromiumLocalStateTests() => Directory.CreateDirectory(_root);
@@ -33,7 +33,7 @@ public sealed class ChromiumLocalStateTests : IDisposable
         var withPrefix = Encoding.ASCII.GetBytes("DPAPI").Concat(wrapped).ToArray();
         var json = "{\"os_crypt\":{\"encrypted_key\":\"" +
                    Convert.ToBase64String(withPrefix) + "\"}}";
-        File.WriteAllText(Path.Combine(_root, "Local State"), json);
+        File.WriteAllText(Path.Join(_root, "Local State"), json);
 
         ChromiumLocalState.GetMasterKey(_root).Should().Equal(expected);
     }
@@ -42,7 +42,7 @@ public sealed class ChromiumLocalStateTests : IDisposable
     public void GetMasterKey_AppBoundKey_ThrowsAppBound()
     {
         var json = "{\"os_crypt\":{\"app_bound_encrypted_key\":\"AAAA\"}}";
-        File.WriteAllText(Path.Combine(_root, "Local State"), json);
+        File.WriteAllText(Path.Join(_root, "Local State"), json);
 
         var act = () => ChromiumLocalState.GetMasterKey(_root);
         act.Should().Throw<ChromiumAppBoundException>();
@@ -60,7 +60,7 @@ public sealed class ChromiumLocalStateTests : IDisposable
     {
         var json = "{\"os_crypt\":{\"encrypted_key\":\"" +
                    Convert.ToBase64String([1, 2, 3, 4]) + "\"}}";
-        File.WriteAllText(Path.Combine(_root, "Local State"), json);
+        File.WriteAllText(Path.Join(_root, "Local State"), json);
 
         var act = () => ChromiumLocalState.GetMasterKey(_root);
         act.Should().Throw<InvalidDataException>();
@@ -69,7 +69,7 @@ public sealed class ChromiumLocalStateTests : IDisposable
 
 public sealed class LoginDataReaderTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(
+    private readonly string _dir = Path.Join(
         Path.GetTempPath(), $"igloo-logindata-{Guid.NewGuid():N}");
 
     public LoginDataReaderTests() => Directory.CreateDirectory(_dir);
@@ -83,7 +83,7 @@ public sealed class LoginDataReaderTests : IDisposable
     [Fact]
     public void Read_ReturnsNonBlacklistedRows()
     {
-        var dbPath = Path.Combine(_dir, "Login Data");
+        var dbPath = Path.Join(_dir, "Login Data");
         using (var connection = new SqliteConnection($"Data Source={dbPath}"))
         {
             connection.Open();
