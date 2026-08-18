@@ -284,6 +284,25 @@ public sealed partial class UsbWriterService : IUsbWriterService
     internal static int RoundUpToSector(int bytes, int sectorSize = 512) =>
         ((bytes + sectorSize - 1) / sectorSize) * sectorSize;
 
+    // GetRelativePath returns its input unchanged across volumes, so a rooted or
+    // traversing segment must be rejected before the copy targets a user's device.
+    internal static string ResolveDestinationPath(string destRoot, string relative)
+    {
+        if (Path.IsPathRooted(relative))
+            throw new InvalidOperationException(
+                $"Refusing to write outside {destRoot}: '{relative}' is an absolute path.");
+
+        var full = Path.GetFullPath(Path.Join(destRoot, relative));
+        var boundary = destRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? destRoot
+            : destRoot + Path.DirectorySeparatorChar;
+        if (!full.StartsWith(boundary, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Refusing to write outside {destRoot}: '{relative}' resolved to '{full}'.");
+
+        return full;
+    }
+
     //   Phase 2 implementation                         
 
     private async Task RunDiskpartAsync(
@@ -320,7 +339,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
             assign letter={driveLetter}
             """;
 
-        var scriptPath = Path.Combine(
+        var scriptPath = Path.Join(
             Path.GetTempPath(), $"igloo-diskpart-{Guid.NewGuid():N}.txt");
 
         _logger.LogDebug("diskpart script ({Path}):\n{Script}", scriptPath, script);
@@ -397,14 +416,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
             var fileSize = new FileInfo(srcPath).Length;
             var relative = Path.GetRelativePath(stagingDirectory, srcPath);
-            // GetRelativePath returns srcPath unchanged when the two sit on different
-            // volumes, and Path.Combine would then drop destRoot and write over the
-            // source. Cannot happen while srcPath is enumerated from stagingDirectory,
-            // but this copy targets a user-selected device, so prove it rather than assume.
-            var destPath = Path.GetFullPath(Path.Combine(destRoot, relative));
-            if (!destPath.StartsWith(destRoot, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException(
-                    $"Refusing to write outside {destRoot}: '{relative}' resolved to '{destPath}'.");
+            var destPath = ResolveDestinationPath(destRoot, relative);
 
             Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 

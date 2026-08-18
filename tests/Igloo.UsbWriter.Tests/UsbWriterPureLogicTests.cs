@@ -121,4 +121,37 @@ public class UsbWriterPureLogicTests
 
         act.Should().NotThrow("WMI sometimes cannot report a size; the write attempt decides");
     }
+
+    //   ResolveDestinationPath
+
+    [Theory]
+    [InlineData(@"a.txt", @"E:\stage\a.txt")]
+    [InlineData(@"sub\a.txt", @"E:\stage\sub\a.txt")]
+    [InlineData(@"sub\..\a.txt", @"E:\stage\a.txt")]
+    public void Relative_paths_resolve_inside_the_destination(string relative, string expected)
+    {
+        UsbWriterService.ResolveDestinationPath(@"E:\stage", relative)
+            .Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(@"D:\other\evil.txt")]
+    [InlineData(@"\evil.txt")]
+    [InlineData(@"..\..\evil.txt")]
+    [InlineData(@"sub\..\..\evil.txt")]
+    public void Escaping_paths_are_refused(string relative)
+    {
+        var act = () => UsbWriterService.ResolveDestinationPath(@"E:\stage", relative);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("Refusing to write outside*");
+    }
+
+    [Fact]
+    public void A_sibling_directory_sharing_the_prefix_is_refused()
+    {
+        var act = () => UsbWriterService.ResolveDestinationPath(@"E:\stage", @"..\stage-evil\a.txt");
+
+        act.Should().Throw<InvalidOperationException>();
+    }
 }
