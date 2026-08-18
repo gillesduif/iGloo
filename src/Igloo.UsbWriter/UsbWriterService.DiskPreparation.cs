@@ -294,11 +294,10 @@ public sealed partial class UsbWriterService
     {
         var held = new List<SafeFileHandle>();
 
-        foreach (var driveInfo in DriveInfo.GetDrives()
-                     .Where(d => d.DriveType is DriveType.Fixed or DriveType.Removable or DriveType.Unknown))
+        foreach (var letter in DriveInfo.GetDrives()
+                     .Where(d => d.DriveType is DriveType.Fixed or DriveType.Removable or DriveType.Unknown)
+                     .Select(d => char.ToUpperInvariant(d.Name[0])))
         {
-            var letter = char.ToUpperInvariant(driveInfo.Name[0]);
-
             // Standard CA2000 hand-off: the handle is disposed in 'finally' unless it was
             // added to 'held', at which point nulling the local passes ownership to the list.
             SafeFileHandle? handle = null;

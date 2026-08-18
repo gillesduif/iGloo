@@ -420,26 +420,26 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
             Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 
-            // A/B for cs/local-not-disposed: srcStream uses the block form Toub
-            // recommends, destStream the declaration form. The next scan says which
-            // one CodeQL can follow.
-            var srcStream = new FileStream(
+            // TEMPORARY - revert after the scan. Isolates ConfigureAwait as the cause of
+            // the cs/local-not-disposed FP; destStream below keeps it as the control.
+            // CA2007 is error-level here, which is the whole point: this does not compile
+            // without the pragma, so the two rules cannot both be satisfied.
+#pragma warning disable CA2007
+            await using var srcStream = new FileStream(
                 srcPath, FileMode.Open, FileAccess.Read, FileShare.Read,
                 bufferSize: BufferSize, useAsync: true);
-            await using (srcStream.ConfigureAwait(false))
-            {
-                var destStream = new FileStream(
-                    destPath, FileMode.Create, FileAccess.Write, FileShare.None,
-                    bufferSize: BufferSize, useAsync: true);
-                await using var destStreamCfg = destStream.ConfigureAwait(false);
+#pragma warning restore CA2007
+            var destStream = new FileStream(
+                destPath, FileMode.Create, FileAccess.Write, FileShare.None,
+                bufferSize: BufferSize, useAsync: true);
+            await using var destStreamCfg = destStream.ConfigureAwait(false);
 
-                await srcStream.CopyToAsync(destStream, ct).ConfigureAwait(false);
+            await srcStream.CopyToAsync(destStream, ct).ConfigureAwait(false);
 
-                written += fileSize;
-                progress?.Report(new UsbWriteProgress(
-                    UsbWritePhase.CopyingFiles, written, totalBytes,
-                    Path.GetFileName(srcPath)));
-            }
+            written += fileSize;
+            progress?.Report(new UsbWriteProgress(
+                UsbWritePhase.CopyingFiles, written, totalBytes,
+                Path.GetFileName(srcPath)));
         }
 
         _logger.LogInformation("Staging copy complete: {Written:N0} bytes copied to {Root}", written, destRoot);
