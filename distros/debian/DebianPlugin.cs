@@ -112,17 +112,29 @@ public sealed class DebianPlugin : IDistroPlugin
             ? Path.Combine(asmDir, "agent")
             : Path.Combine(asmDir, "..", "_debian-family", "agent");
 
+        // igloo_boot.py is shared across families, so it sits in _shared/agent/
+        // rather than next to the family agent.
+        var sharedDir = Directory.Exists(Path.Combine(asmDir, "agent"))
+            ? Path.Combine(asmDir, "agent")
+            : Path.Combine(asmDir, "..", "_shared", "agent");
+        // The theme archives moved to _shared/grub-theme/; keep the build-output
+        // location as the first candidate.
+        var themeDir = Path.Combine(asmDir, "..", "_shared", "grub-theme");
+
         var files = new List<AgentFile>();
-        void Add(string name, bool exe)
+        void AddFrom(string dir, string name, bool exe)
         {
-            var p = Path.Combine(agentDir, name);
+            var p = Path.Combine(dir, name);
             if (File.Exists(p))
                 files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
         }
+        void Add(string name, bool exe) => AddFrom(agentDir, name, exe);
+
         Add("first-boot.sh", true);
         Add("agent.py", true);
         Add("display-apply.py", true);            // Cinnamon/X11 display-layout applier (Mint)
         Add("display-apply-gnome.py", true);      // GNOME/Wayland applier via mutter D-Bus
+        AddFrom(sharedDir, "igloo_boot.py", false);
         Add("igloo-first-boot.service", false);   // shipped to OEMDRV; the late hook installs it
 
         // GRUB theme archives (M17 boot menu). Binary: must bypass NormalizeCrLf,
@@ -130,6 +142,8 @@ public sealed class DebianPlugin : IDistroPlugin
         void AddRaw(string name)
         {
             var p = Path.Combine(agentDir, name);
+            if (!File.Exists(p))
+                p = Path.Combine(themeDir, name);
             if (File.Exists(p))
                 files.Add(new AgentFile(name, File.ReadAllBytes(p), false));
         }

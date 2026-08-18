@@ -25,6 +25,7 @@ import argparse
 import json
 import logging
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -32,6 +33,14 @@ import sys
 import time
 import uuid
 from pathlib import Path
+
+# Shipped alongside this file in /opt/igloo; the script's own directory is first
+# on sys.path. Optional: the boot menu is cosmetic and must never take the agent
+# down with it.
+try:
+    import igloo_boot
+except ImportError:
+    igloo_boot = None
 from typing import Any
 
 logger = logging.getLogger("igloo.agent")
@@ -289,7 +298,7 @@ def install_nvidia_driver_debian(manifest: dict[str, Any]) -> bool:
 
     # nvidia-open pulls the matching userspace; the DKMS module builds against the
     # installed kernel headers, so make sure those are present first.
-    apt_install([f"linux-headers-{os.uname().release}"], timeout=600, check=False)
+    apt_install([f"linux-headers-{platform.release()}"], timeout=600, check=False)
     if apt_install(["nvidia-open"], timeout=1800, check=False).returncode != 0:
         logger.warning("nvidia-open not available under that name - trying cuda-drivers")
         apt_install(["cuda-drivers"], timeout=1800, check=False)
@@ -377,201 +386,7 @@ def enable_os_prober(manifest: dict[str, Any]) -> None:
     logger.info("Regenerated GRUB (Windows entry added if a Windows install was found)")
 
 
-#   Boot menu (M17): Stylish theme, saved default, readable Windows label
-
-_GRUB_THEME_DIR = Path("/boot/grub/themes/stylish")
-_GRUB_DROPIN = Path("/etc/default/grub.d/99-igloo-menu.cfg")
-_OS_PROBER_SCRIPT = Path("/etc/grub.d/30_os-prober")
-_LONGNAME_MARKER = "# igloo: rename the Windows Boot Manager entry"
-_LINUX_SCRIPT = Path("/etc/grub.d/10_linux")
-_SUBMENU_MARKER = "# igloo: one entry per OS - no Advanced options submenu"
-_GRUB_CFG = Path("/boot/grub/grub.cfg")
-
-
-def _grub_theme_variant(manifest: dict[str, Any]) -> str:
-    """Pick the theme variant from the migrated display layout.
-
-    Same thresholds as upstream's install.sh: panels above 2560x1440 get the
-    4k variant, everything else the 1080p one. The RTX 5070 reference machine
-    has a 4K panel, so this branch is not theoretical.
-    """
-    for d in manifest.get("displays", []):
-        w, h = int(d.get("widthPx") or 0), int(d.get("heightPx") or 0)
-        if w > 2560 or h > 1440:
-            return "4k"
-    return "1080p"
-
-
-def _install_grub_theme(variant: str) -> bool:
-    archive = Path(f"/opt/igloo/grub-theme-stylish-{variant}.tar.gz")
-    if not archive.exists():
-        logger.error("GRUB theme archive missing: %s - the menu stays stock", archive)
-        return False
-    _GRUB_THEME_DIR.mkdir(parents=True, exist_ok=True)
-    res = run_cmd(["tar", "-xzf", str(archive), "-C", str(_GRUB_THEME_DIR)],
-                check=False, timeout=120)
-    if res.returncode != 0:
-        logger.error("Could not extract %s (rc=%d) - the menu stays stock",
-                    archive, res.returncode)
-        return False
-    logger.info("Installed the Stylish GRUB theme (%s) in %s", variant, _GRUB_THEME_DIR)
-    return True
-
-
-def _write_boot_menu_dropin(path: Path, variant: str, themed: bool,
-                            single_entry: bool) -> None:
-    gfxmode = "3840x2160,auto" if variant == "4k" else "1920x1080,auto"
-    lines = [
-        "# iGloo boot menu (M17).",
-        "# GRUB_CMDLINE_LINUX is deliberately not set here: the nouveau",
-        "# blacklist lives in that variable on this family.",
-        "GRUB_TIMEOUT=10",
-        "GRUB_TIMEOUT_STYLE=menu",
-        "GRUB_DEFAULT=saved",
-        "GRUB_SAVEDEFAULT=true",
-        "GRUB_TERMINAL_OUTPUT=gfxterm",
-        f"GRUB_GFXMODE={gfxmode}",
-        # Redundant when the 10_linux patch landed (those entries sit in the
-        # part we skip), load-bearing in the fallback below.
-        "GRUB_DISABLE_RECOVERY=true",
-    ]
-    if not single_entry:
-        lines += [
-            "# Fallback: 10_linux could not be patched, so no clean single entry.",
-            "GRUB_DISABLE_SUBMENU=y",
-        ]
-    if themed:
-        lines.append(f"GRUB_THEME={_GRUB_THEME_DIR}/theme.txt")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def _patch_os_prober_labels() -> None:
-    """Rename the os-prober Windows entry to 'Windows 11' and drop the
-    '(on /dev/...)' suffix. Idempotent via a marker. 30_os-prober is a dpkg
-    conffile, so a grub2-common upgrade can revert this - cosmetic only, and
-    the marker check logs it if that ever happens."""
-    if not _OS_PROBER_SCRIPT.exists():
-        logger.warning("30_os-prober not found - Windows entry keeps its stock label")
-        return
-    text = _OS_PROBER_SCRIPT.read_text(encoding="utf-8")
-    if _LONGNAME_MARKER in text:
-        logger.info("os-prober label patch already applied")
-        return
-    anchor = 'gettext_printf "Found %s on %s\\n" "${LONGNAME}" "${DEVICE}"'
-    patch = (
-        f"{_LONGNAME_MARKER}\n"
-        'if [ "${LONGNAME}" = "Windows Boot Manager" ]; then\n'
-        '  LONGNAME="Windows 11"\n'
-        "fi\n"
-    )
-    if anchor not in text:
-        logger.warning("30_os-prober anchor not found (grub version drift?) - Windows entry keeps its stock label")
-        return
-    text = text.replace(anchor, patch + anchor, 1)
-    text, count = re.subn(
-        re.escape('onstr="$(gettext_printf "(on %s)" "${DEVICE}")"'),
-        'onstr=""', text)
-    if count == 0:
-        logger.warning("onstr pattern not found - entries keep their '(on ...)' suffix")
-    _OS_PROBER_SCRIPT.write_text(text, encoding="utf-8")
-    logger.info("Patched 30_os-prober: the Windows entry will read 'Windows 11'")
-
-
-def _patch_linux_submenu() -> bool:
-    """Cut 10_linux short after the clean entry so no 'Advanced options' submenu is
-    generated. Idempotent via a marker; False means fall back to GRUB_DISABLE_SUBMENU."""
-    if not _LINUX_SCRIPT.exists():
-        logger.warning("10_linux not found - the Advanced options submenu stays")
-        return False
-    text = _LINUX_SCRIPT.read_text(encoding="utf-8")
-    if _SUBMENU_MARKER in text:
-        logger.info("10_linux submenu patch already applied")
-        return True
-
-    lines = text.splitlines(keepends=True)
-
-    idx = next((i for i, ln in enumerate(lines) if "Advanced options for %s" in ln), None)
-    if idx is None:
-        logger.warning("10_linux submenu anchor not found (grub version drift?) - falling back to GRUB_DISABLE_SUBMENU")
-        return False
-
-    if not any("linux_entry" in ln and "simple" in ln for ln in lines[:idx]):
-        logger.warning("10_linux emits no 'simple' entry before the submenu (grub version drift?) - falling back to GRUB_DISABLE_SUBMENU")
-        return False
-
-    indent = lines[idx][:len(lines[idx]) - len(lines[idx].lstrip())]
-    block = "".join(indent + s + "\n" for s in (
-        f"{_SUBMENU_MARKER} (M17).",
-        "# The cleanly titled entry for the newest kernel has just been printed;",
-        "# everything below this point builds the submenu, the per-kernel entries",
-        "# and the recovery entries. title_correction_code is empty with",
-        "# GRUB_DEFAULT=saved; echoing it keeps the patch behaviour-neutral.",
-        'echo "$title_correction_code"',
-        "exit 0",
-    ))
-    lines.insert(idx, block)
-    _LINUX_SCRIPT.write_text("".join(lines), encoding="utf-8")
-    logger.info("Patched 10_linux: one entry per OS, no Advanced options submenu")
-    return True
-
-
 _INITRAMFS_CONF = Path("/etc/initramfs-tools/initramfs.conf")
-_GRUB_HINT_HOOK = Path("/etc/kernel/postinst.d/zzz-igloo-grub-hints")
-
-
-_HINT_SCRIPT = r"""#!/bin/sh
-# igloo: grub-probe emits no hints on NVMe, so derive one per search line.
-cfg=/boot/grub/grub.cfg
-[ -f "$cfg" ] || exit 0
-# hd0 is only unambiguous with a single disk.
-[ "$(lsblk -dno NAME -e 7,11 | wc -l)" -eq 1 ] || exit 0
-
-grep -o -- '--set=root [0-9A-Fa-f-]\{4,\}' "$cfg" | awk '{print $2}' | sort -u |
-while read -r uuid; do
-    dev=$(blkid -U "$uuid" 2>/dev/null) || continue
-    [ -n "$dev" ] || continue
-    partn=$(lsblk -rno PARTN "$dev" 2>/dev/null)
-    disk=$(lsblk -rno PKNAME "$dev" 2>/dev/null)
-    [ -n "$partn" ] && [ -n "$disk" ] || continue
-    case "$(lsblk -dno PTTYPE "/dev/$disk" 2>/dev/null)" in
-        gpt) label=gpt ;;
-        dos) label=msdos ;;
-        *) continue ;;
-    esac
-    sed -i "s|--set=root $uuid|--set=root --hint=hd0,$label$partn $uuid|g" "$cfg"
-done
-"""
-
-
-def _inject_grub_hints() -> None:
-    """Add the search hint grub-probe cannot produce on NVMe.
-
-    Without it every 'search --fs-uuid' scans all devices, which costs tens of
-    seconds per boot through firmware block I/O. Each line gets the hint for the
-    UUID on that line: one shared hint would be wrong for the os-prober entries
-    of every other OS on the disk. The UUID stays the source of truth, so a stale
-    hint only costs the old scan.
-    """
-    try:
-        _GRUB_HINT_HOOK.parent.mkdir(parents=True, exist_ok=True)
-        _GRUB_HINT_HOOK.write_text(_HINT_SCRIPT, encoding="utf-8")
-        _GRUB_HINT_HOOK.chmod(0o755)
-    except OSError:
-        logger.exception("Could not install the GRUB hint hook (non-fatal)")
-        return
-
-    res = run_cmd([str(_GRUB_HINT_HOOK)], check=False, timeout=120)
-    if res.returncode != 0:
-        logger.warning("GRUB hint script exited %d - the menu keeps its full scans",
-                       res.returncode)
-        return
-    try:
-        hints = len(re.findall(r"--hint=", _GRUB_CFG.read_text(encoding="utf-8", errors="replace")))
-    except OSError:
-        hints = 0
-    logger.info("Added %d device hint(s) to grub.cfg; %s re-applies them after kernel updates",
-                hints, _GRUB_HINT_HOOK)
 
 
 def _shrink_initramfs() -> None:
@@ -592,7 +407,7 @@ def _shrink_initramfs() -> None:
         logger.info("initrd already builds with MODULES=dep")
         return
 
-    img = Path(f"/boot/initrd.img-{os.uname().release}")
+    img = Path(f"/boot/initrd.img-{platform.release()}")
     before = img.stat().st_size if img.exists() else 0
     original = text
 
@@ -613,84 +428,16 @@ def _shrink_initramfs() -> None:
                 before, after, 100 - (after * 100 // before) if before else 0)
 
 
-def _regenerate_grub() -> None:
-    if shutil.which("update-grub"):
-        run_cmd(["update-grub"], check=False, timeout=300)
-    else:
-        run_cmd(["grub-mkconfig", "-o", str(_GRUB_CFG)], check=False, timeout=300)
 
-def _verify_boot_menu() -> None:
-    """BR-07: prove from the generated grub.cfg that the menu actually changed,
-    so one bare-metal run answers 'did it work' from the logs alone."""
-    try:
-        cfg = _GRUB_CFG.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        logger.error("VERIFICATION FAILED: %s unreadable after update-grub", _GRUB_CFG)
-        return
-    if "stylish/theme.txt" in cfg:
-        logger.info("verified: Stylish theme is referenced in grub.cfg")
-    else:
-        logger.error("VERIFICATION FAILED: no theme reference in grub.cfg -  the drop-in was not sourced")
-    if "--hint=" in cfg:
-        logger.info("verified: search lines carry a device hint")
-    else:
-        logger.warning("no --hint= in grub.cfg - every boot scans all devices")
-
-    if "gnulinux-advanced" in cfg:
-        logger.error("VERIFICATION FAILED: the Advanced options submenu is still in grub.cfg")
-    else:
-        logger.info("verified: no Advanced options submenu in grub.cfg")
-    titles = [ln.strip() for ln in cfg.splitlines()
-            if ln.startswith("menuentry ") or ln.startswith("submenu ")]
-    logger.info("grub.cfg has %d top-level menu entries", len(titles))
-    for line in titles[:12]:
-        logger.info("  menu entry: %s", line)
-
-    if any("Windows" in line for line in titles):
-        logger.info("verified: Windows entry present in grub.cfg")
-    else:
-        logger.warning("no Windows menuentry found in grub.cfg")
+#   Boot menu (M15): implementation lives in _shared/agent/igloo_boot.py
 
 def configure_boot_menu(manifest: dict[str, Any]) -> None:
-    """M17: theme the menu, boot the last-used OS by default, rename the
-    Windows entry. Every failure here is cosmetic: the stock menu remains and
-    the system stays bootable."""
-    variant = _grub_theme_variant(manifest)
-    themed = _install_grub_theme(variant)
-    _patch_os_prober_labels()
-    # Before the drop-in: its content depends on whether this patch landed.
-    single_entry = _patch_linux_submenu()
-    _write_boot_menu_dropin(_GRUB_DROPIN, variant, themed, single_entry)
+    """Theme the menu, boot the last-used OS by default, rename the Windows entry."""
     _shrink_initramfs()
-    _regenerate_grub()
-
-    try:
-        cfg = _GRUB_CFG.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        cfg = ""
-    if themed and "stylish/theme.txt" not in cfg:
-        logger.warning("grub.d drop-in not sourced - falling back to /etc/default/grub")
-        grub_default = Path("/etc/default/grub")
-        try:
-            body = _GRUB_DROPIN.read_text(encoding="utf-8")
-            # First line of the drop-in doubles as the marker: re-running
-            # --only boot-menu must not append the block a second time.
-            marker = body.splitlines()[0]
-            current = grub_default.read_text(encoding="utf-8") if grub_default.exists() else ""
-            if marker in current:
-                logger.info("boot menu block already present in /etc/default/grub")
-            else:
-                with grub_default.open("a", encoding="utf-8") as f:
-                    f.write("\n")
-                    f.write(body)
-        except OSError:
-            logger.exception("Could not append to /etc/default/grub (non-fatal)")
-        _GRUB_DROPIN.unlink(missing_ok=True)
-        _regenerate_grub()
-
-    # After the last update-grub: every regeneration drops the hint again.
-    _inject_grub_hints()
-    _verify_boot_menu()
+    if igloo_boot is None:
+        logger.error("igloo_boot.py not staged in /opt/igloo - the menu stays stock")
+        return
+    igloo_boot.configure_boot_menu(manifest, igloo_boot.debian_family(run_cmd, logger))
 
 
 def setup_flathub(manifest: dict[str, Any]) -> None:

@@ -83,18 +83,37 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
             ? Path.Combine(asmDir, "agent")
             : Path.Combine(asmDir, "..", "_debian-family", "agent");
 
+        // igloo_boot.py is shared across families, so it sits in _shared/agent/
+        // rather than next to the family agent.
+        var sharedDir = Directory.Exists(Path.Combine(asmDir, "agent"))
+            ? Path.Combine(asmDir, "agent")
+            : Path.Combine(asmDir, "..", "_shared", "agent");
+
         var files = new List<AgentFile>();
-        foreach (var (name, exe) in new[] { ("first-boot.sh", true), ("agent.py", true), ("display-apply.py", true), ("display-apply-gnome.py", true), ("igloo-first-boot.service", false) })
+        foreach (var (dir, name, exe) in new[]
+                 {
+                     (agentDir, "first-boot.sh", true),
+                     (agentDir, "agent.py", true),
+                     (agentDir, "display-apply.py", true),
+                     (agentDir, "display-apply-gnome.py", true),
+                     (sharedDir, "igloo_boot.py", false),
+                     (agentDir, "igloo-first-boot.service", false),
+                 })
         {
-            var p = Path.Combine(agentDir, name);
+            var p = Path.Combine(dir, name);
             if (File.Exists(p))
                 files.Add(new AgentFile(name, NormalizeCrLf(await File.ReadAllBytesAsync(p, ct).ConfigureAwait(false)), exe));
         }
         // GRUB theme archives (M17 boot menu). Binary: must bypass NormalizeCrLf,
         // which rewrites 0x0D bytes and would corrupt the gzip stream.
+        // The archives moved to _shared/grub-theme/; the build output keeps them
+        // next to the agent, so that stays the first candidate.
+        var themeDir = Path.Combine(asmDir, "..", "_shared", "grub-theme");
         foreach (var name in new[] { "grub-theme-stylish-1080p.tar.gz", "grub-theme-stylish-4k.tar.gz" })
         {
             var p = Path.Combine(agentDir, name);
+            if (!File.Exists(p))
+                p = Path.Combine(themeDir, name);
             if (File.Exists(p))
                 files.Add(new AgentFile(name, await File.ReadAllBytesAsync(p, ct).ConfigureAwait(false), false));
         }

@@ -20,6 +20,12 @@
     <Content Include="..\_debian-family\agent\**\*"
              Link="agent\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\_shared\grub-theme\grub-theme-stylish-*.tar.gz"
+             Link="agent\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\_shared\agent\igloo_boot.py"
+             Link="agent\igloo_boot.py"
+             CopyToOutputDirectory="PreserveNewest" />
     <Content Include="distro.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

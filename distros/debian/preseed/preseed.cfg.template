@@ -148,6 +148,7 @@ d-i preseed/late_command string \
     echo "cp /run/igloo-seed/igloo-agent/first-boot.sh /opt/igloo/first-boot.sh"           >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "cp /run/igloo-seed/igloo-agent/display-apply.py /opt/igloo/display-apply.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "cp /run/igloo-seed/igloo-agent/display-apply-gnome.py /opt/igloo/display-apply-gnome.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/igloo_boot.py /opt/igloo/igloo_boot.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "cp /run/igloo-seed/igloo-agent/grub-theme-stylish-*.tar.gz /opt/igloo/ 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "cp /run/igloo-seed/igloo-wallpaper.* /opt/igloo/ 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "cp /run/igloo-seed/migration-manifest.json   /var/lib/igloo/manifest.json"       >> /target/opt/igloo/igloo-bootstrap.sh ; \
