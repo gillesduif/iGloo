@@ -36,6 +36,7 @@ jobs:
         with:
           languages: csharp
           queries: security-and-quality
+          config-file: ./.github/codeql/codeql-config.yml
 
       # Explicit build, not autobuild: the solution needs both SDKs pinned above.
       - name: Build
@@ -46,4 +47,27 @@ jobs:
       - name: Analyze
         uses: github/codeql-action/analyze@v4
         with:
+          category: /language:csharp
+          output: sarif-results
+          upload: failure-only
+
+      # paths-ignore does nothing for compiled languages - CodeQL analyses whatever the
+      # build produced, including the XAML compiler and source-generator output under
+      # obj/. github/codeql#5618 has been open since 2021, so the SARIF is filtered
+      # instead. Patterns match the paths as they appear in the SARIF, not in git.
+      - name: Drop generated code from the results
+        uses: advanced-security/filter-sarif@v1
+        with:
+          patterns: |
+            +**/*
+            -**/obj/**
+            -**/*.g.cs
+            -**/*.g.i.cs
+          input: sarif-results/csharp.sarif
+          output: sarif-results/csharp.sarif
+
+      - name: Upload results
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif-results/csharp.sarif
           category: /language:csharp

@@ -1,0 +1,13 @@
+name: "iGloo CodeQL config"
+
+# cs/unmanaged-code and cs/call-to-unmanaged-code are inventory queries, not defect
+# queries: their own help asks whether the extern method "could be implemented in C#
+# instead", with MessageBox -> MessageBox.Show as the example. There is no managed
+# equivalent for DeviceIoControl, the volume IOCTLs, TrackPopupMenuEx or the DWM
+# chrome calls, so every P/Invoke iGloo needs raises a permanent recommendation.
+# Excluded here rather than in a commit message so the decision stays findable.
+query-filters:
+  - exclude:
+      id:
+        - cs/unmanaged-code
+        - cs/call-to-unmanaged-code
