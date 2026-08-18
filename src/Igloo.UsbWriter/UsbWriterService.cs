@@ -397,7 +397,14 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
             var fileSize = new FileInfo(srcPath).Length;
             var relative = Path.GetRelativePath(stagingDirectory, srcPath);
-            var destPath = Path.Combine(destRoot, relative);
+            // GetRelativePath returns srcPath unchanged when the two sit on different
+            // volumes, and Path.Combine would then drop destRoot and write over the
+            // source. Cannot happen while srcPath is enumerated from stagingDirectory,
+            // but this copy targets a user-selected device, so prove it rather than assume.
+            var destPath = Path.GetFullPath(Path.Combine(destRoot, relative));
+            if (!destPath.StartsWith(destRoot, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"Refusing to write outside {destRoot}: '{relative}' resolved to '{destPath}'.");
 
             Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 

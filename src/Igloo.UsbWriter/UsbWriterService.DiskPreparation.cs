@@ -260,7 +260,7 @@ public sealed partial class UsbWriterService
 
         _logger.LogInformation(
             "TryExtendGpt: GPT successfully extended - {GB:F1} GB now usable",
-            (newLastUsableLBA - 34) * 512 / 1073741824.0);
+            (newLastUsableLBA - 34) * 512.0 / 1073741824.0);
         return true;
     }
 
