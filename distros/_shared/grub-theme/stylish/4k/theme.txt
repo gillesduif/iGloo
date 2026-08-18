@@ -22,10 +22,10 @@ terminal-border: "0"
   item_font = "Unifont Regular 32"
   item_color = "#cccccc"
   selected_item_color = "#ffffff"
-  icon_width = 64
-  icon_height = 64
+  icon_width = 96
+  icon_height = 96
   item_icon_space = 36
-  item_height = 80
+  item_height = 112
   item_padding = 12
   item_spacing = 24
   selected_item_pixmap_style = "select_*.png"
