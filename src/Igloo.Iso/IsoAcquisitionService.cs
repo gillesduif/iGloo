@@ -247,11 +247,9 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         long? totalBytes = contentLength.HasValue ? contentLength.Value + resumeFrom : null;
 
         var fileMode = resumeFrom > 0 ? FileMode.Append : FileMode.Create;
-        var fileStream = new FileStream(
-            partialPath, fileMode, FileAccess.Write, FileShare.None, BufferSize, useAsync: true);
-
         bool downloadComplete = false;
-        try
+        using (var fileStream = new FileStream(
+                   partialPath, fileMode, FileAccess.Write, FileShare.None, BufferSize, useAsync: true))
         {
             var responseStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
             await using var responseStreamCfg = responseStream.ConfigureAwait(false);
@@ -269,10 +267,6 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
             await fileStream.FlushAsync(ct).ConfigureAwait(false);
             downloadComplete = true;
-        }
-        finally
-        {
-            await fileStream.DisposeAsync().ConfigureAwait(false);
         }
 
         if (downloadComplete)
@@ -297,9 +291,8 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         long totalBytes = new FileInfo(filePath).Length;
 
         using var sha256 = SHA256.Create();
-        var stream = new FileStream(
+        using var stream = new FileStream(
             filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize * 2, useAsync: true);
-        await using var streamCfg = stream.ConfigureAwait(false);
 
         var buffer = new byte[BufferSize * 2];
         long bytesProcessed = 0;

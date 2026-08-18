@@ -290,30 +290,35 @@ public sealed partial class UsbWriterService
 
     // Returns one open handle per dismounted volume; ownership passes to the caller, who
     // keeps each handle open (releasing it re-allows mounting) and disposes it when done.
-    private List<SafeFileHandle> LockAndDismountVolumesOnDisk(int diskIndex)
+    // Owns the volume handles held for the duration of a write. Disposing the set
+    // releases every handle, which is what lets Windows re-mount the volumes.
+    private sealed class VolumeHandleSet : IDisposable
     {
-        var held = new List<SafeFileHandle>();
+        private readonly List<SafeFileHandle> _handles = [];
+
+        public void Add(SafeFileHandle handle) => _handles.Add(handle);
+
+        public void Dispose()
+        {
+            foreach (var handle in _handles)
+                handle.Dispose();
+            _handles.Clear();
+        }
+    }
+
+    private VolumeHandleSet LockAndDismountVolumesOnDisk(int diskIndex)
+    {
+        var held = new VolumeHandleSet();
 
         foreach (var letter in DriveInfo.GetDrives()
                      .Where(d => d.DriveType is DriveType.Fixed or DriveType.Removable or DriveType.Unknown)
                      .Select(d => char.ToUpperInvariant(d.Name[0])))
         {
-            // Standard CA2000 hand-off: the handle is disposed in 'finally' unless it was
-            // added to 'held', at which point nulling the local passes ownership to the list.
-            SafeFileHandle? handle = null;
-            try
-            {
-                handle = TryLockAndDismountVolume($@"\\.\{letter}:", diskIndex);
-                if (handle is not null)
-                {
-                    held.Add(handle);
-                    handle = null;
-                }
-            }
-            finally
-            {
-                handle?.Dispose();
-            }
+            // TryLockAndDismountVolume disposes on every failure path, so anything it
+            // returns is live and owned by the set from here on.
+            var handle = TryLockAndDismountVolume($@"\\.\{letter}:", diskIndex);
+            if (handle is not null)
+                held.Add(handle);
         }
 
         return held;

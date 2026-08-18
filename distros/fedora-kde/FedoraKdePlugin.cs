@@ -147,8 +147,11 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         // rewrites 0x0D bytes and would corrupt the gzip stream.
         // Moved to _shared/grub-theme/; the build output keeps them under agent/.
         foreach (var n in new[] { "grub-theme-stylish-1080p.tar.gz", "grub-theme-stylish-4k.tar.gz" })
-            if (!TryAddRaw($"agent/{n}"))
+        {
+            bool fromBuildOutput = TryAddRaw($"agent/{n}");
+            if (!fromBuildOutput)
                 TryAddRaw($"../_shared/grub-theme/{n}");
+        }
 
         // Fallback stub if the scripts aren't bundled.
         if (files.Count == 0)

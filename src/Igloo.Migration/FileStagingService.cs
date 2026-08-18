@@ -127,14 +127,12 @@ public sealed partial class FileStagingService : IFileStagingService
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
 
-                var inStream = new FileStream(
+                using var inStream = new FileStream(
                     src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite,
                     BufSize, useAsync: true);
-                await using var inCfg = inStream.ConfigureAwait(false);
-                var outStream = new FileStream(
+                using var outStream = new FileStream(
                     dst, FileMode.Create, FileAccess.Write, FileShare.None,
                     BufSize, useAsync: true);
-                await using var outCfg = outStream.ConfigureAwait(false);
 
                 int read;
                 while ((read = await inStream.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
@@ -142,6 +140,9 @@ public sealed partial class FileStagingService : IFileStagingService
                     await outStream.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                     bytesCopied += read;
                 }
+
+                // Flush here so the synchronous Dispose below has nothing left to write.
+                await outStream.FlushAsync(ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

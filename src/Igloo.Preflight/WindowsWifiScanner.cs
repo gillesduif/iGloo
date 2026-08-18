@@ -34,9 +34,9 @@ public static class WindowsWifiScanner
                          .Select(file => ParseProfile(file, connectedValues))
                          .Where(profile => profile is not null))
             {
-                if (!seen.Add(net!.Ssid))
-                    continue;   // de-dupe per-adapter duplicates
-                results.Add(net);
+                bool isNewSsid = seen.Add(net!.Ssid);   // de-dupe per-adapter duplicates
+                if (isNewSsid)
+                    results.Add(net);
             }
 
             return results;

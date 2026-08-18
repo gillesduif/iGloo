@@ -38,10 +38,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             // Delete back-to-front so partition numbers stay valid even on
             // providers that renumber after a deletion.
             foreach (var p in install.Partitions.OrderByDescending(p => p.OffsetBytes))
-            {
-                if (!DeletePartition(install.DiskNumber, p.Index))
-                    failures++;
-            }
+                failures += DeletePartition(install.DiskNumber, p.Index) ? 0 : 1;
 
             if (install.FirmwareEntryIndex is { } index)
                 EfiBootEntries.Delete(index, _logger);

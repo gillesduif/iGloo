@@ -86,9 +86,8 @@ public sealed partial class UsbWriterService : IUsbWriterService
         // that disk is mounted, even from an elevated process (Win32 error 5 /
         // ERROR_ACCESS_DENIED).  We lock and force-dismount every volume on the
         // target disk and keep the handles open so Windows cannot re-mount them
-        // during the write.  The finally block disposes the handles when we are done.
-        var heldVolumeHandles = LockAndDismountVolumesOnDisk(drive.DriveIndex);
-        try
+        // during the write.  Disposing the set releases them so Windows can re-mount.
+        using var heldVolumeHandles = LockAndDismountVolumesOnDisk(drive.DriveIndex);
         {
             //   Phase 1: raw ISO write - cancelable              ─
 
@@ -171,12 +170,6 @@ public sealed partial class UsbWriterService : IUsbWriterService
             progress?.Report(new UsbWriteProgress(UsbWritePhase.Complete, 0, 0, "USB drive is ready."));
             _logger.LogInformation("USB write complete - drive {Index} is ready", drive.DriveIndex);
         }
-        finally
-        {
-            // Releasing the volume handles allows Windows to attempt re-mounting.
-            foreach (var h in heldVolumeHandles)
-                h.Dispose();
-        }
     }
 
     //   Pre-flight validation                         ─
@@ -253,8 +246,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
                 : $"Failed to open physical drive '{deviceId}' (Win32 error {err}).");
         }
 
-        var dest = new FileStream(handle, FileAccess.Write, bufferSize: BufferSize, isAsync: true);
-        await using var destCfg = dest.ConfigureAwait(false);
+        using var dest = new FileStream(handle, FileAccess.Write, bufferSize: BufferSize, isAsync: true);
         using var src = new FileStream(isoPath, FileMode.Open, FileAccess.Read,
                                          FileShare.Read, bufferSize: BufferSize, useAsync: true);
 
@@ -420,16 +412,15 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
             Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
 
-            var srcStream = new FileStream(
+            using var srcStream = new FileStream(
                 srcPath, FileMode.Open, FileAccess.Read, FileShare.Read,
                 bufferSize: BufferSize, useAsync: true);
-            await using var srcStreamCfg = srcStream.ConfigureAwait(false);
-            var destStream = new FileStream(
+            using var destStream = new FileStream(
                 destPath, FileMode.Create, FileAccess.Write, FileShare.None,
                 bufferSize: BufferSize, useAsync: true);
-            await using var destStreamCfg = destStream.ConfigureAwait(false);
 
             await srcStream.CopyToAsync(destStream, ct).ConfigureAwait(false);
+            await destStream.FlushAsync(ct).ConfigureAwait(false);
 
             written += fileSize;
             progress?.Report(new UsbWriteProgress(

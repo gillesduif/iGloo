@@ -76,7 +76,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
         foreach (var disk in disks)
         {
-            if (!TryParseDiskNumber(disk.DeviceId, out var diskNumber))
+            bool hasDiskNumber = TryParseDiskNumber(disk.DeviceId, out var diskNumber);
+            if (!hasDiskNumber)
                 continue;
 
             List<PartitionInfo>? run = null;
@@ -281,10 +282,10 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 if (!Directory.Exists(efiRoot))
                     continue;
 
-                foreach (var dir in Directory.EnumerateDirectories(efiRoot))
+                foreach (var (folder, display) in EfiFolderDistroNames)
                 {
-                    if (EfiFolderDistroNames.TryGetValue(Path.GetFileName(dir), out var display)
-                        && !distros.Contains(display))
+                    bool present = Directory.Exists(Path.Join(efiRoot, folder));
+                    if (present && !distros.Contains(display))
                         distros.Add(display);
                 }
             }
@@ -318,11 +319,10 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         foreach (var unit in units)
         {
             string? matched = null;
-            foreach (var part in unit.Parts)
+            foreach (var partUuid in unit.Parts
+                         .Select(part => ReadPartitionExt4Uuid(unit.DiskNumber, part))
+                         .Where(uuid => uuid is not null))
             {
-                var partUuid = ReadPartitionExt4Uuid(unit.DiskNumber, part);
-                if (partUuid is null)
-                    continue;
                 foreach (var (distro, grubUuid) in grubUuids)
                     if (!used.Contains(distro) && LinuxVolumeId.UuidsMatch(partUuid, grubUuid))
                     {
@@ -361,12 +361,11 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 if (efiRoot is null || !Directory.Exists(efiRoot))
                     continue;
 
-                foreach (var dir in Directory.EnumerateDirectories(efiRoot))
+                foreach (var (folder, display) in EfiFolderDistroNames)
                 {
-                    if (!EfiFolderDistroNames.TryGetValue(Path.GetFileName(dir), out var display)
-                        || map.ContainsKey(display))
+                    if (map.ContainsKey(display))
                         continue;
-                    var grubCfg = Path.Join(dir, "grub.cfg");
+                    var grubCfg = Path.Join(efiRoot, folder, "grub.cfg");
                     if (File.Exists(grubCfg) &&
                         LinuxVolumeId.ParseGrubRootFsUuid(File.ReadAllText(grubCfg)) is { } uuid)
                         map[display] = uuid;
