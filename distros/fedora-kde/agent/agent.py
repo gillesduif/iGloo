@@ -30,11 +30,20 @@ import argparse
 import json
 import logging
 import os
+import platform
 import re
 import subprocess
 import sys
 import uuid
 from pathlib import Path
+
+# Shipped alongside this file in /opt/igloo; the script's own directory is first
+# on sys.path. Optional: the boot menu is cosmetic and must never take the agent
+# down with it.
+try:
+    import igloo_boot
+except ImportError:
+    igloo_boot = None
 from typing import Any
 
 logger = logging.getLogger("igloo.agent")
@@ -306,29 +315,99 @@ def ensure_nvidia_kernel_cmdline(module_ok_for_all: bool, kvers: list[str]) -> N
     # every driver, nvidia included).
     args = ("rd.driver.blacklist=nouveau,nova_core "
             "modprobe.blacklist=nouveau,nova_core nvidia-drm.modeset=1")
-    # NEVER replace --update-kernel=ALL with a per-kernel form
-    # (--update-kernel=/boot/vmlinuz-<kver>). ALL is the mechanism RPM Fusion's
-    # own scriptlet uses and the only one hardware-proven to write the
-    # parameters on this path (RTX 5070 bare metal, July 2026). The per-kernel
-    # path form was tried once: grubby exited nonzero for every entry, NO
-    # kernel got the blacklist, and the machine kernel-panicked on the
-    # nouveau/nova_core vs nvidia fight at the next boot - deterministically,
-    # on every run, until this line was restored. If per-kernel granularity is
-    # ever genuinely needed, validate the exact grubby invocation on the
-    # installed system FIRST and keep ALL as the fallback.
-    res = run_cmd(
-        ["grubby", "--update-kernel=ALL", "--remove-args=nomodeset",
-         f"--args={args}"],
-        check=False, timeout=120,
-    )
-    if res.returncode == 0:
-        logger.info("Kernel cmdline updated for ALL kernels: %s", args)
+    # Written to GRUB_CMDLINE_LINUX, not through grubby. The kickstart sets
+    # GRUB_ENABLE_BLSCFG=false so grub2-mkconfig builds classic menuentries;
+    # grubby writes BLS snippets, which that grub.cfg never reads. Verified on
+    # Fedora 44: an arg set with grubby lands in /boot/loader/entries/*.conf and
+    # never reaches /boot/grub2/grub.cfg. This is the same mechanism the
+    # Debian-family preseed already uses for the same blacklist.
+    if _merge_kernel_cmdline(add=args.split(), remove=["nomodeset"]):
+        run_cmd(["grub2-mkconfig", "-o", "/boot/grub2/grub.cfg"], check=False, timeout=300)
+        logger.info("Kernel cmdline updated in /etc/default/grub: %s", args)
     else:
         logger.error(
-            "grubby failed (exit %d) - the next boot may load nouveau/nova_core "
-            "alongside nvidia again. Run manually: sudo grubby --update-kernel=ALL "
-            "--args=\"%s\"", res.returncode, args,
+            "Could not update GRUB_CMDLINE_LINUX - the next boot may load "
+            "nouveau/nova_core alongside nvidia again. Add manually to "
+            "/etc/default/grub: %s", args,
         )
+
+
+_GRUB_DEFAULT_FILE = Path("/etc/default/grub")
+_KERNEL_UNVERIFIED = Path("/var/lib/igloo/.kernel-unverified")
+
+
+def _merge_kernel_cmdline(add: list[str], remove: list[str]) -> bool:
+    """Add and remove tokens in GRUB_CMDLINE_LINUX, preserving what is there.
+
+    Idempotent: re-running adds nothing twice. Returns False when the file or
+    the variable is missing, so the caller can report it instead of assuming.
+    """
+    if not _GRUB_DEFAULT_FILE.exists():
+        logger.error("%s not found", _GRUB_DEFAULT_FILE)
+        return False
+    try:
+        lines = _GRUB_DEFAULT_FILE.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError:
+        logger.exception("Could not read %s", _GRUB_DEFAULT_FILE)
+        return False
+
+    idx = next((i for i, ln in enumerate(lines)
+                if ln.lstrip().startswith("GRUB_CMDLINE_LINUX=")), None)
+    if idx is None:
+        logger.error("GRUB_CMDLINE_LINUX not present in %s", _GRUB_DEFAULT_FILE)
+        return False
+
+    value = lines[idx].split("=", 1)[1].strip().strip('"').strip("'")
+    tokens = [t for t in value.split() if t not in remove]
+    # Compare on the key so "nvidia-drm.modeset=0" is replaced, not duplicated.
+    keys = {t.split("=", 1)[0] for t in add}
+    tokens = [t for t in tokens if t.split("=", 1)[0] not in keys]
+    tokens += add
+
+    nl = "\r\n" if lines[idx].endswith("\r\n") else "\n"
+    lines[idx] = 'GRUB_CMDLINE_LINUX="' + " ".join(tokens) + '"' + nl
+    try:
+        _GRUB_DEFAULT_FILE.write_text("".join(lines), encoding="utf-8", newline="")
+    except OSError:
+        logger.exception("Could not write %s", _GRUB_DEFAULT_FILE)
+        return False
+    return True
+
+
+def _remove_unverified_kernels(candidates: list[str], keep: str) -> list[str]:
+    """Uninstall kernels that have no nvidia module. Returns the ones still there.
+
+    GRUB boots the newest kernel and the menu shows only that one, so a newer
+    kernel whose akmod build failed is a black screen with no way around it. A
+    kernel without a working driver has no value here, so it goes.
+
+    Guards, in order: never touch the running kernel, never touch the verified
+    one, and confirm with rpm afterwards that the removal actually happened.
+    Callers only pass kernels newer than `keep`, so at least one always remains.
+    """
+    running = platform.release()
+    remaining: list[str] = []
+    for kver in candidates:
+        if kver == keep:
+            continue
+        if kver == running:
+            logger.error("Kernel %s has no nvidia module but is the running kernel - "
+                         "leaving it installed", kver)
+            remaining.append(kver)
+            continue
+        res = run_cmd(["dnf", "remove", "-y", f"kernel-core-{kver}"],
+                      check=False, timeout=900)
+        if res.returncode == 0 and kver not in installed_kernel_versions():
+            logger.info("Removed kernel %s: no nvidia module, and it would have been "
+                        "the default boot entry", kver)
+        else:
+            logger.error("Could not remove kernel %s (rc=%d)", kver, res.returncode)
+            remaining.append(kver)
+
+    if keep not in installed_kernel_versions():
+        logger.error("SAFETY: the verified kernel %s is gone after removal - this should "
+                     "be impossible", keep)
+    return remaining
 
 
 def _nvidia_module_present(kver: str) -> bool:
@@ -358,7 +437,7 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     # exact version is no longer in any repo (superseded updates kernel), the
     # install below simply pulls the newest kernel as before and the per-kernel
     # build + GRUB pin further down remain the safety net.
-    running_kver = os.uname().release
+    running_kver = platform.release()
     pre = run_cmd(
         ["dnf", "-y", "install",
          f"kernel-devel-matched-{running_kver}", f"kernel-devel-{running_kver}"],
@@ -441,14 +520,28 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     # kernel has the module this is the same kernel GRUB would pick anyway, so
     # the pin changes nothing in the good case.
     pinned_kver = good_kvers[-1] if good_kvers else None
-    if pinned_kver and len(kvers) > 1:
-        if run_cmd(["grubby", f"--set-default=/boot/vmlinuz-{pinned_kver}"],
-                   check=False).returncode == 0:
-            logger.info("Pinned the default boot entry to kernel %s (verified nvidia module)",
-                        pinned_kver)
+    # grubby writes BLS snippets, which grub.cfg no longer reads once the
+    # kickstart sets GRUB_ENABLE_BLSCFG=false. The menu is now driven by
+    # 10_linux, which always emits the NEWEST kernel - so when the newest one is
+    # the unverified one, the fix is not a pin but leaving the per-kernel menu in
+    # place so the verified kernel can still be reached. The marker tells the
+    # boot-menu step to keep it.
+    if pinned_kver and kvers and pinned_kver != kvers[-1]:
+        newer_bad = [k for k in kvers[kvers.index(pinned_kver) + 1:] if k not in good_kvers]
+        left = _remove_unverified_kernels(newer_bad, keep=pinned_kver)
+        if left:
+            try:
+                _KERNEL_UNVERIFIED.write_text(
+                    f"newest={left[-1]} verified={pinned_kver}\n", encoding="utf-8")
+            except OSError:
+                logger.exception("Could not write %s", _KERNEL_UNVERIFIED)
+            logger.error("Kernel(s) %s have no nvidia module and could not be removed; %s "
+                         "does. Keeping the per-kernel menu so the working kernel stays "
+                         "reachable.", ", ".join(left), pinned_kver)
         else:
-            logger.error("Could not pin the default kernel - GRUB may still boot an "
-                         "unverified kernel")
+            _KERNEL_UNVERIFIED.unlink(missing_ok=True)
+    else:
+        _KERNEL_UNVERIFIED.unlink(missing_ok=True)
 
     # An incomplete GPU driver is a FAILED run for forensics, even though no
     # step raised: mark it so cleanup-seed keeps the installer partitions (and
@@ -520,6 +613,20 @@ def ensure_kernel_modules(manifest: dict[str, Any]) -> None:
         )
         run_cmd(["dnf", "-y", "install", f"kernel-modules-{kver}"], timeout=600)
     logger.info("kernel-modules repaired for: %s", ", ".join(missing))
+
+
+def configure_boot_menu(manifest: dict[str, Any]) -> None:
+    """Theme the menu, boot the last-used OS by default, rename the Windows entry."""
+    if igloo_boot is None:
+        logger.error("igloo_boot.py not staged in /opt/igloo - the menu stays stock")
+        return
+    # One entry per OS hides every kernel but the newest. Only safe when the
+    # newest kernel is the verified one.
+    collapse = not _KERNEL_UNVERIFIED.exists()
+    if not collapse:
+        logger.warning("Unverified newest kernel - keeping the per-kernel menu")
+    igloo_boot.configure_boot_menu(manifest, igloo_boot.fedora(run_cmd, logger),
+                                   collapse=collapse)
 
 
 def setup_flathub(manifest: dict[str, Any]) -> None:
@@ -1795,6 +1902,7 @@ def main() -> int:
         ("rpmfusion",       lambda: enable_rpmfusion(manifest)),
         ("codecs",          lambda: install_codecs(manifest)),
         ("gpu-drivers",     lambda: install_gpu_drivers(manifest)),
+        ("boot-menu",       lambda: configure_boot_menu(manifest)),
         ("flathub",         lambda: setup_flathub(manifest)),
         ("suggested-pkgs",  lambda: install_suggested_packages(manifest)),
         ("kernel-modules",  lambda: ensure_kernel_modules(manifest)),
