@@ -31,7 +31,7 @@ public sealed record DistroManifest
     [JsonIgnore]
     public string? LogoAbsolutePath =>
         Logo is { Length: > 0 } && SourceDirectory is { Length: > 0 }
-            ? Path.GetFullPath(Path.Combine(SourceDirectory, Logo))
+            ? Path.GetFullPath(Path.Join(SourceDirectory, Logo))
             : null;
 }
 

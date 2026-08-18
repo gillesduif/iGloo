@@ -22,7 +22,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     {
         _httpFactory = httpFactory;
         _logger = logger;
-        _cacheDir = Path.Combine(
+        _cacheDir = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Igloo", "iso-cache");
     }
@@ -49,8 +49,8 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         //   Step 2: Resolve the download URL + filename (pattern-aware).
         var (downloadUrl, fileName) = ResolveDownloadTarget(spec, checksumContent, gpgVerified);
 
-        var distroDir = Path.Combine(_cacheDir, spec.DistroId);
-        var isoPath = Path.Combine(distroDir, fileName);
+        var distroDir = Path.Join(_cacheDir, spec.DistroId);
+        var isoPath = Path.Join(distroDir, fileName);
         var partialPath = isoPath + ".partial";
         Directory.CreateDirectory(distroDir);
 

@@ -38,7 +38,7 @@ public sealed partial class DistroLoader
             if (name.StartsWith('_'))
                 continue;
 
-            var manifestPath = Path.Combine(dir, "distro.json");
+            var manifestPath = Path.Join(dir, "distro.json");
             if (!File.Exists(manifestPath))
                 continue;
 

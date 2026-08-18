@@ -40,7 +40,7 @@ public sealed partial class DistroRegistry
 
             // DLL naming convention: Igloo.Distro.{PascalCase}.dll
             var dllName = "Igloo.Distro." + ToPascalCase(folderName) + ".dll";
-            var dllPath = Path.Combine(dir, dllName);
+            var dllPath = Path.Join(dir, dllName);
 
             if (!File.Exists(dllPath))
             {
