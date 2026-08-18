@@ -116,7 +116,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         if (IncludeDocuments)
             yield return ("Documents", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
         if (IncludeDownloads)
-            yield return ("Downloads", Path.Combine(
+            yield return ("Downloads", Path.Join(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"));
         if (IncludePictures)
             yield return ("Pictures", Environment.GetFolderPath(Environment.SpecialFolder.MyPictures));
@@ -242,14 +242,14 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
         var results = new List<BrowserEntry>();
-        Check("Google Chrome", Path.Combine(localApp, "Google", "Chrome", "User Data", "Default"));
-        Check("Microsoft Edge", Path.Combine(localApp, "Microsoft", "Edge", "User Data", "Default"));
-        Check("Mozilla Firefox", Path.Combine(appData, "Mozilla", "Firefox", "Profiles"));
-        Check("Brave", Path.Combine(localApp, "BraveSoftware", "Brave-Browser", "User Data", "Default"));
-        Check("Zen Browser", Path.Combine(appData, "zen", "Profiles"));
-        Check("Vivaldi", Path.Combine(localApp, "Vivaldi", "User Data", "Default"));
-        Check("Opera", Path.Combine(appData, "Opera Software", "Opera Stable", "Default"));
-        Check("Waterfox", Path.Combine(appData, "Waterfox", "Profiles"));
+        Check("Google Chrome", Path.Join(localApp, "Google", "Chrome", "User Data", "Default"));
+        Check("Microsoft Edge", Path.Join(localApp, "Microsoft", "Edge", "User Data", "Default"));
+        Check("Mozilla Firefox", Path.Join(appData, "Mozilla", "Firefox", "Profiles"));
+        Check("Brave", Path.Join(localApp, "BraveSoftware", "Brave-Browser", "User Data", "Default"));
+        Check("Zen Browser", Path.Join(appData, "zen", "Profiles"));
+        Check("Vivaldi", Path.Join(localApp, "Vivaldi", "User Data", "Default"));
+        Check("Opera", Path.Join(appData, "Opera Software", "Opera Stable", "Default"));
+        Check("Waterfox", Path.Join(appData, "Waterfox", "Profiles"));
         return results;
 
         void Check(string name, string path)

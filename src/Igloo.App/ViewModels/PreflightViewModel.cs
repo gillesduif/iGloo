@@ -354,10 +354,10 @@ public sealed partial class PreflightViewModel : ObservableObject
     private static string FindNativeExe(string exeName)
     {
         var winRoot = Environment.GetEnvironmentVariable("SystemRoot") ?? @"C:\Windows";
-        var sysnative = Path.Combine(winRoot, "Sysnative", exeName);
+        var sysnative = Path.Join(winRoot, "Sysnative", exeName);
         return File.Exists(sysnative)
             ? sysnative
-            : Path.Combine(winRoot, "System32", exeName);
+            : Path.Join(winRoot, "System32", exeName);
     }
 
     //   Partition-bar presentation model                   ─

@@ -78,7 +78,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         if (distro.Iso.GpgKeyFile is { Length: > 0 } keyFile &&
             distro.SourceDirectory is { Length: > 0 } srcDir)
         {
-            var keyPath = System.IO.Path.Combine(srcDir, keyFile);
+            var keyPath = System.IO.Path.Join(srcDir, keyFile);
             try
             {
                 if (System.IO.File.Exists(keyPath))

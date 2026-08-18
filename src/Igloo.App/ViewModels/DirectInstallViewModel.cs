@@ -73,7 +73,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
     //   Log tail                                ─
 
-    private static string LogDirectory => Path.Combine(
+    private static string LogDirectory => Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Igloo", "logs");
 
     partial void OnLogsExpandedChanged(bool value)

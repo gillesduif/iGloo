@@ -80,7 +80,7 @@ public partial class IglooApp : Application
             .UseSerilog((_, cfg) => cfg
                 .MinimumLevel.Debug()
                 .WriteTo.File(
-                    path: Path.Combine(
+                    path: Path.Join(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                         "Igloo", "logs", "igloo-.log"),
                     rollingInterval: RollingInterval.Day,
@@ -129,7 +129,7 @@ public partial class IglooApp : Application
 
     private static string FindDistrosDirectory()
     {
-        var adjacent = Path.Combine(AppContext.BaseDirectory, "distros");
+        var adjacent = Path.Join(AppContext.BaseDirectory, "distros");
         if (Directory.Exists(adjacent))
         {
             Log.Information("Distros directory: {Dir} (adjacent to exe)", adjacent);
@@ -139,7 +139,7 @@ public partial class IglooApp : Application
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            var candidate = Path.Combine(dir.FullName, "distros");
+            var candidate = Path.Join(dir.FullName, "distros");
             if (Directory.Exists(candidate))
             {
                 Log.Information("Distros directory: {Dir} (found via parent walk)", candidate);

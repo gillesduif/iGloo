@@ -180,7 +180,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
             manifest = await Task.Run(
                 () => AttachWallpaper(manifest, stagingResult.StagingDirectory), ct);
 
-            var manifestPath = Path.Combine(stagingResult.StagingDirectory, "migration-manifest.json");
+            var manifestPath = Path.Join(stagingResult.StagingDirectory, "migration-manifest.json");
             await File.WriteAllTextAsync(
                 manifestPath,
                 JsonSerializer.Serialize(manifest, PrettyJson),
@@ -192,25 +192,25 @@ public sealed partial class FileStagingViewModel : ObservableObject
             {
                 // Kickstart (or preseed / Calamares config, depending on the distro).
                 var installerConfig = await plugin.RenderInstallerConfigAsync(manifest, ct);
-                var ksPath = Path.Combine(stagingResult.StagingDirectory, installerConfig.FileName);
+                var ksPath = Path.Join(stagingResult.StagingDirectory, installerConfig.FileName);
                 await File.WriteAllBytesAsync(ksPath, installerConfig.Contents, ct);
                 _logger.LogInformation("Installer config written to {Path}", ksPath);
 
                 foreach (var extra in installerConfig.Extras)
                 {
-                    var extraPath = Path.Combine(stagingResult.StagingDirectory, extra.RelativePath);
+                    var extraPath = Path.Join(stagingResult.StagingDirectory, extra.RelativePath);
                     Directory.CreateDirectory(Path.GetDirectoryName(extraPath)!);
                     await File.WriteAllBytesAsync(extraPath, extra.Contents, ct);
                 }
 
                 // First-boot agent files.
                 var agentPayload = await plugin.GetAgentPayloadAsync(ct);
-                var agentDir = Path.Combine(stagingResult.StagingDirectory, "igloo-agent");
+                var agentDir = Path.Join(stagingResult.StagingDirectory, "igloo-agent");
                 Directory.CreateDirectory(agentDir);
 
                 foreach (var agentFile in agentPayload.Files)
                 {
-                    var filePath = Path.Combine(agentDir, agentFile.RelativePath);
+                    var filePath = Path.Join(agentDir, agentFile.RelativePath);
                     Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
                     await File.WriteAllBytesAsync(filePath, agentFile.Contents, ct);
                 }
@@ -283,7 +283,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
             if (string.IsNullOrEmpty(ext))
                 ext = ".jpg";
             var fileName = $"igloo-wallpaper{ext}";
-            File.Copy(source, Path.Combine(stagingDirectory, fileName), overwrite: true);
+            File.Copy(source, Path.Join(stagingDirectory, fileName), overwrite: true);
             _logger.LogInformation("Wallpaper staged from {Source} as {FileName}", source, fileName);
 
             return manifest with
