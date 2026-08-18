@@ -44,6 +44,7 @@ public static class ManifestGeneratorService
                 Timezone = userSetup.Timezone,
                 Keymap = userSetup.Keymap,
                 LinuxPassword = userSetup.LinuxPassword,
+                LinuxPasswordCrypted = LinuxPasswordHasher.Sha512Crypt(userSetup.LinuxPassword),
             },
 
             Files = new FileMigrationPlan

@@ -166,7 +166,7 @@ public sealed class UbuntuPlugin : IDistroPlugin
             .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc", StringComparison.Ordinal)
             .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername, StringComparison.Ordinal)
             .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername, StringComparison.Ordinal)
-            .Replace("{{PASSWORD}}", m.User.LinuxPassword ?? "", StringComparison.Ordinal)
+            .Replace("{{PASSWORD}}", m.User.LinuxPasswordCrypted ?? "", StringComparison.Ordinal)
             .Replace("{{STORAGE}}", storage, StringComparison.Ordinal);
     }
 

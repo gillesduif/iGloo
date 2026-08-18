@@ -287,12 +287,10 @@ public sealed class FedoraKdePlugin : IDistroPlugin
                 .Select(b => $"{b.SourceRelativePath}|{b.DestRelativePath}"));
 
         // Password: use the user's chosen password (--plaintext). It MUST be double-quoted:
-        // Anaconda parses the `user` line with shlex, so an unquoted password containing a
-        // space or shell-special character breaks the whole line and the account is never
-        // created (login then fails because the user does not exist). Escape backslashes and
-        // quotes for the shlex double-quoted form.
+        // A $6$ crypt hash contains only [./A-Za-z0-9$], so it needs no shlex escaping -
+        // unlike the plain text this used to carry. Quoted anyway to keep the line robust.
         // If somehow empty, fall back to a locked account rather than a passwordless one.
-        var password = m.User.LinuxPassword;
+        var password = m.User.LinuxPasswordCrypted;
         string passwordOption;
         if (string.IsNullOrEmpty(password))
         {
@@ -303,7 +301,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             var escaped = password
                 .Replace("\\", "\\\\", StringComparison.Ordinal)
                 .Replace("\"", "\\\"", StringComparison.Ordinal);
-            passwordOption = $"--password=\"{escaped}\" --plaintext";
+            passwordOption = $"--password=\"{escaped}\" --iscrypted";
         }
 
         // Wi-Fi pre-seed for Anaconda: pick the network Windows was connected to

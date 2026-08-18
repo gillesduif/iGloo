@@ -568,15 +568,16 @@ def migrate_user_files(manifest: dict[str, Any]) -> None:
 #   Wi-Fi (NetworkManager keyfiles)  distro-agnostic, reused from Fedora   
 
 def set_user_password(manifest: dict[str, Any]) -> None:
-    """Set the user's password from the manifest, if present."""
+    """Set the user's password from the manifest hash, if present."""
     user = manifest.get("user", {})
     username = (user.get("preferredLinuxUsername") or "").strip()
-    password = user.get("linuxPassword")
-    if not username or not password:
-        logger.info("No username/password in manifest - skipping password set")
+    crypted = user.get("linuxPasswordCrypted")
+    if not username or not crypted:
+        logger.info("No username/password hash in manifest - skipping password set")
         return
     proc = subprocess.run(
-        ["chpasswd"], input=f"{username}:{password}\n", text=True, capture_output=True
+        # -e takes the $6$ crypt hash as-is, so no plaintext passes through here.
+        ["chpasswd", "-e"], input=f"{username}:{crypted}\n", text=True, capture_output=True
     )
     if proc.returncode == 0:
         logger.info("Password (re)set for user %r", username)

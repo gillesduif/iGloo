@@ -149,7 +149,7 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin
         .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc", StringComparison.Ordinal)
         .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername, StringComparison.Ordinal)
         .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername, StringComparison.Ordinal)
-        .Replace("{{PASSWORD}}", m.User.LinuxPassword ?? "", StringComparison.Ordinal)
+        .Replace("{{PASSWORD}}", m.User.LinuxPasswordCrypted ?? "", StringComparison.Ordinal)
         .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode, StringComparison.Ordinal);
 
     private static byte[] NormalizeCrLf(byte[] bytes)

@@ -198,7 +198,7 @@ public sealed class DebianPlugin : IDistroPlugin
                 .Where(b => !string.IsNullOrEmpty(b.SourceRelativePath) && !string.IsNullOrEmpty(b.DestRelativePath))
                 .Select(b => $"{b.SourceRelativePath}|{b.DestRelativePath}"));
 
-        var password = m.User.LinuxPassword;
+        var password = m.User.LinuxPasswordCrypted;
 
         return template
             .Replace("{{LOCALE}}", m.User.Locale, StringComparison.Ordinal)

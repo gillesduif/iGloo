@@ -5,9 +5,8 @@
 # cloud-init's NoCloud datasource picks it up; the kernel cmdline carries
 # `autoinstall`. Placeholders use TOKEN (single-line values only here).
 #
-# Password: subiquity's identity.password must be a crypt hash, which Igloo
-# cannot produce on Windows. A published example hash is used as a placeholder
-# and the real password is set by a late-command (chpasswd) before first boot.
+# Password: identity.password takes the $6$ crypt hash the manifest carries, so
+# no plain-text password ever reaches this file.
 #
 # STATUS: complete config; the dual-boot storage block is the part most likely
 # to need a subiquity-version tweak  validate on hardware (see UbuntuPlugin).
@@ -23,9 +22,7 @@ autoinstall:
     hostname: {{HOSTNAME}}
     realname: "{{FULL_NAME}}"
     username: {{LINUX_USERNAME}}
-    # Placeholder hash (password "ubuntu"); overridden by the chpasswd
-    # late-command below before the first boot, so it is never usable.
-    password: "$6$exDY1mhS4KUYCE/2$zmn9ToZwTKLhCw.b4/b.ZRTIZM30JZ4QrOQ2aOXJ8yk96xpcCof0kxKwuX1kqLG/ygOhC38NSqGDFoeOhd5Y0"
+    password: "{{PASSWORD}}"
 
   # Release the Igloo ISO partition before storage runs. The kernel cmdline
   # boots with 'toram' (live medium copied to RAM), but casper is known to leak
@@ -82,8 +79,6 @@ autoinstall:
     - network-manager
 
   late-commands:
-    # Set the real user password (plaintext from the manifest).
-    - "echo '{{LINUX_USERNAME}}:{{PASSWORD}}' | curtin in-target -- chpasswd"
     - "curtin in-target -- usermod -aG sudo {{LINUX_USERNAME}}"
     # TWO-PHASE BOOTSTRAP (same rule as Mint, proven there the hard way):
     # installer late-hooks run against the LIVE kernel, whose modules may not

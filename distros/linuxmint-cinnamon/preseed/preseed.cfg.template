@@ -31,8 +31,7 @@ d-i clock-setup/utc boolean true
 #   Accounts                                 
 d-i passwd/user-fullname string {{FULL_NAME}}
 d-i passwd/username string {{LINUX_USERNAME}}
-d-i passwd/user-password password {{PASSWORD}}
-d-i passwd/user-password-again password {{PASSWORD}}
+d-i passwd/user-password-crypted password {{PASSWORD}}
 d-i user-setup/allow-password-weak boolean true
 d-i user-setup/encrypt-home boolean false
 
