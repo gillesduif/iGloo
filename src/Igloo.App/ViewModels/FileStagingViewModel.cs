@@ -215,7 +215,23 @@ public sealed partial class FileStagingViewModel : ObservableObject
                     await File.WriteAllBytesAsync(filePath, agentFile.Contents, ct);
                 }
 
-                _logger.LogInformation("Agent payload written to {Dir}", agentDir);
+                var staged = agentPayload.Files.Select(f => f.RelativePath).ToList();
+                _logger.LogInformation("Agent payload written to {Dir}: {Files}",
+                    agentDir, string.Join(", ", staged));
+
+                // A plugin skips any file it cannot find on disk, so a missing one
+                // is silent. These two carry behaviour the user will notice.
+                foreach (var required in new[]
+                         {
+                             "agent.py", "igloo_boot.py",
+                             "grub-theme-stylish-1080p.tar.gz", "grub-theme-stylish-4k.tar.gz",
+                         })
+                {
+                    if (!staged.Contains(required, StringComparer.OrdinalIgnoreCase))
+                        _logger.LogError(
+                            "Agent payload is missing {File} - the plugin could not find it. " +
+                            "The first boot will run without it.", required);
+                }
             }
             else
             {
