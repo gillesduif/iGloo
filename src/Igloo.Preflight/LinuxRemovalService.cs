@@ -335,7 +335,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
     {
         try
         {
-            return File.Exists(Path.Combine(volumePath, "EFI", "Microsoft", "Boot", "bootmgfw.efi"));
+            return File.Exists(Path.Join(volumePath, "EFI", "Microsoft", "Boot", "bootmgfw.efi"));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
@@ -350,7 +350,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
     {
         try
         {
-            var efiRoot = Path.Combine(volumePath, "EFI");
+            var efiRoot = Path.Join(volumePath, "EFI");
             if (!Directory.Exists(efiRoot))
                 return false;
 
@@ -368,7 +368,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
     private void CleanOneEsp(string volumePath)
     {
-        var efiRoot = Path.Combine(volumePath, "EFI");
+        var efiRoot = Path.Join(volumePath, "EFI");
         if (Directory.Exists(efiRoot))
         {
             foreach (var dir in Directory.EnumerateDirectories(efiRoot))
@@ -384,7 +384,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
         }
 
         // systemd-boot keeps its menu config at the ESP root, outside \EFI.
-        var loaderDir = Path.Combine(volumePath, "loader");
+        var loaderDir = Path.Join(volumePath, "loader");
         if (Directory.Exists(loaderDir))
             TryDeleteEspFolder(loaderDir);
     }

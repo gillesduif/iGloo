@@ -16,7 +16,7 @@ public static class WindowsWifiScanner
         string? tmpDir = null;
         try
         {
-            tmpDir = Path.Combine(Path.GetTempPath(), "igloo-wlan-" + Guid.NewGuid().ToString("N"));
+            tmpDir = Path.Join(Path.GetTempPath(), "igloo-wlan-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tmpDir);
 
             // Export every WLAN user profile with cleartext keys into tmpDir.

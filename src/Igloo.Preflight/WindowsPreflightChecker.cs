@@ -277,7 +277,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 if (volumePath is null)
                     continue;
 
-                var efiRoot = Path.Combine(volumePath, "EFI");
+                var efiRoot = Path.Join(volumePath, "EFI");
                 if (!Directory.Exists(efiRoot))
                     continue;
 
@@ -357,7 +357,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             {
                 var volumePath = (esp["AccessPaths"] as string[])?
                     .FirstOrDefault(p => p.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
-                var efiRoot = volumePath is null ? null : Path.Combine(volumePath, "EFI");
+                var efiRoot = volumePath is null ? null : Path.Join(volumePath, "EFI");
                 if (efiRoot is null || !Directory.Exists(efiRoot))
                     continue;
 
@@ -366,7 +366,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                     if (!EfiFolderDistroNames.TryGetValue(Path.GetFileName(dir), out var display)
                         || map.ContainsKey(display))
                         continue;
-                    var grubCfg = Path.Combine(dir, "grub.cfg");
+                    var grubCfg = Path.Join(dir, "grub.cfg");
                     if (File.Exists(grubCfg) &&
                         LinuxVolumeId.ParseGrubRootFsUuid(File.ReadAllText(grubCfg)) is { } uuid)
                         map[display] = uuid;

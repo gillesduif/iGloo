@@ -44,7 +44,7 @@ public static class WallpaperReader
             if (IsUsableImage(fromRegistry, requireExtension: true))
                 return fromRegistry;
 
-            var transcoded = Path.Combine(
+            var transcoded = Path.Join(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 @"Microsoft\Windows\Themes\TranscodedWallpaper");
             // The transcoded copy has no extension but is JPEG/PNG content.

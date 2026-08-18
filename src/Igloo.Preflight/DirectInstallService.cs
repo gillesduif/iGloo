@@ -312,7 +312,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         if (_bootSpec.CopyFullIsoToVolume && _bootSpec.IsoVolumeFileName is { } isoName)
         {
             char isoVolLetter = isoOnOwnPartition ? _isoPartitionLetter!.Value : driveLetter;
-            var isoDst = Path.Combine($"{isoVolLetter}:\\", isoName);
+            var isoDst = Path.Join($"{isoVolLetter}:\\", isoName);
             Report(prog, DirectInstallPhase.CopyingIso, message: "Copying installer ISO…");
             CopyWithProgress(isoPath, isoDst, new FileInfo(isoPath).Length, prog, ct);
             ct.ThrowIfCancellationRequested();
@@ -349,7 +349,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
             long extraBytes = 0;
             foreach (var f in _bootSpec.ExtraIsoFiles)
             {
-                var src = Path.Combine(isoRoot, f.IsoRelativePath.Replace('/', '\\'));
+                var src = Path.Join(isoRoot, f.IsoRelativePath.Replace('/', '\\'));
                 if (File.Exists(src))
                 {
                     var len = new FileInfo(src).Length;
@@ -713,7 +713,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         foreach (var f in Directory.EnumerateFiles(stagingDir))
         {
             ct.ThrowIfCancellationRequested();
-            var dst = Path.Combine(oemDrvRoot, Path.GetFileName(f));
+            var dst = Path.Join(oemDrvRoot, Path.GetFileName(f));
             // A rendered installer config may carry install-geometry tokens that can
             // only be resolved now the disk is partitioned (Ubuntu's subiquity needs
             // the free-gap offset/size explicitly). Substitute for that file; copy
@@ -722,15 +722,15 @@ public sealed partial class DirectInstallService : IDirectInstallService
                 File.Copy(f, dst, overwrite: true);
         }
         // Copy igloo-agent directory
-        var agentSrc = Path.Combine(stagingDir, "igloo-agent");
-        var agentDst = Path.Combine(oemDrvRoot, "igloo-agent");
+        var agentSrc = Path.Join(stagingDir, "igloo-agent");
+        var agentDst = Path.Join(oemDrvRoot, "igloo-agent");
         if (Directory.Exists(agentSrc))
         {
             Directory.CreateDirectory(agentDst);
             foreach (var f in Directory.EnumerateFiles(agentSrc))
             {
                 ct.ThrowIfCancellationRequested();
-                File.Copy(f, Path.Combine(agentDst, Path.GetFileName(f)), overwrite: true);
+                File.Copy(f, Path.Join(agentDst, Path.GetFileName(f)), overwrite: true);
             }
             _logger.LogInformation("Agent payload copied to {Dst}", agentDst);
         }
@@ -878,7 +878,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         var oemDrvRoot = $"{oemDrvLetter}:\\";
-        var bootDst = Path.Combine(oemDrvRoot, BootDir);
+        var bootDst = Path.Join(oemDrvRoot, BootDir);
         Directory.CreateDirectory(bootDst);
 
         string? mountedLetter = null;
@@ -890,8 +890,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
             var isoRoot = $"{mountedLetter}:\\";
 
             //   1. Extract kernel + initrd                   ─
-            var kernelDst = Path.Combine(bootDst, KernelFile);
-            var initrdDst = Path.Combine(bootDst, InitrdFile);
+            var kernelDst = Path.Join(bootDst, KernelFile);
+            var initrdDst = Path.Join(bootDst, InitrdFile);
             if (_bootSpec.KernelUrl is { } kernelUrl && _bootSpec.InitrdUrl is { } initrdUrl)
             {
                 // Download the installer kernel+initrd (e.g. Debian hd-media, which
@@ -917,10 +917,10 @@ public sealed partial class DirectInstallService : IDirectInstallService
             if (_bootSpec.ConfigDelivery == ConfigDelivery.InjectIntoInitrd
                 && _bootSpec.InitrdConfigPath is { } injPath)
             {
-                var cfgSrc = Path.Combine(stagingDirectory, injPath);
+                var cfgSrc = Path.Join(stagingDirectory, injPath);
                 if (File.Exists(cfgSrc))
                 {
-                    AppendFileToInitrd(Path.Combine(bootDst, InitrdFile), injPath, File.ReadAllBytes(cfgSrc));
+                    AppendFileToInitrd(Path.Join(bootDst, InitrdFile), injPath, File.ReadAllBytes(cfgSrc));
                     _logger.LogInformation("Injected {Cfg} into initrd for unattended install", injPath);
                 }
                 else
@@ -933,8 +933,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
             var (shimSrc, grubSrc) = FindEfiFiles(isoRoot);
             _logger.LogInformation("ISO shim: {S}", shimSrc);
             _logger.LogInformation("ISO grub: {G}", grubSrc);
-            CopyFileRobust(shimSrc, Path.Combine(bootDst, ShimFile));
-            CopyFileRobust(grubSrc, Path.Combine(bootDst, GrubFile));
+            CopyFileRobust(shimSrc, Path.Join(bootDst, ShimFile));
+            CopyFileRobust(grubSrc, Path.Join(bootDst, GrubFile));
             _logger.LogInformation("shim + grubx64.efi copied to {Dir}", bootDst);
 
             // Also stage shim + grub at the UEFI fallback path so firmware that
@@ -942,10 +942,10 @@ public sealed partial class DirectInstallService : IDirectInstallService
             // can still boot the installer. The shim loads grubx64.efi from its own
             // directory, so both must sit together under \EFI\BOOT; grub then locates
             // grub.cfg via its compiled prefix (written to every candidate below).
-            var fallbackDst = Path.Combine(oemDrvRoot, FallbackBootDir);
+            var fallbackDst = Path.Join(oemDrvRoot, FallbackBootDir);
             Directory.CreateDirectory(fallbackDst);
-            CopyFileRobust(shimSrc, Path.Combine(fallbackDst, FallbackBootFile));
-            CopyFileRobust(grubSrc, Path.Combine(fallbackDst, GrubFile));
+            CopyFileRobust(shimSrc, Path.Join(fallbackDst, FallbackBootFile));
+            CopyFileRobust(grubSrc, Path.Join(fallbackDst, GrubFile));
             _logger.LogInformation("shim + grubx64.efi also staged at fallback path {Dir}", fallbackDst);
 
             //   3. Copy images/install.img (Anaconda stage2 squashfs)     ─
@@ -957,14 +957,14 @@ public sealed partial class DirectInstallService : IDirectInstallService
             // inst.stage2=hd:LABEL=OEMDRV: is always fast and works offline.
             foreach (var f in _bootSpec.ExtraIsoFiles)
             {
-                var src = Path.Combine(isoRoot, f.IsoRelativePath.Replace('/', '\\'));
+                var src = Path.Join(isoRoot, f.IsoRelativePath.Replace('/', '\\'));
                 if (!File.Exists(src))
                 {
                     if (f.Required)
                         _logger.LogWarning("Required ISO file {Path} not found - install may fail", f.IsoRelativePath);
                     continue;
                 }
-                var dst = Path.Combine(oemDrvRoot, f.OemDrvRelativePath.Replace('/', '\\'));
+                var dst = Path.Join(oemDrvRoot, f.OemDrvRelativePath.Replace('/', '\\'));
                 Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
                 var len = new FileInfo(src).Length;
                 Report(prog, DirectInstallPhase.ConfiguringGrub,
@@ -995,8 +995,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // Ubuntu/Mint casper grub, whose compiled prefix is /boot/grub.
         foreach (var cfgDir in new[] { @"EFI\BOOT", @"EFI\fedora", @"EFI\debian", @"EFI\ubuntu", @"boot\grub" })
         {
-            var dir = Path.Combine(oemDrvRoot, cfgDir);
-            var path = Path.Combine(dir, "grub.cfg");
+            var dir = Path.Join(oemDrvRoot, cfgDir);
+            var path = Path.Join(dir, "grub.cfg");
             Directory.CreateDirectory(dir);
             File.WriteAllText(path, grubCfgContent, Encoding.ASCII);
             _logger.LogInformation("grub.cfg written to {Path}", path);
@@ -1009,12 +1009,12 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // pairing any existing kernel with any existing initrd.
         foreach (var k in _bootSpec.KernelIsoPaths)
         {
-            var kFull = Path.Combine(isoRoot, k.Replace('/', '\\'));
+            var kFull = Path.Join(isoRoot, k.Replace('/', '\\'));
             if (!File.Exists(kFull))
                 continue;
             foreach (var i in _bootSpec.InitrdIsoPaths)
             {
-                var iFull = Path.Combine(isoRoot, i.Replace('/', '\\'));
+                var iFull = Path.Join(isoRoot, i.Replace('/', '\\'));
                 if (File.Exists(iFull))
                     return (kFull, iFull);
             }
@@ -1057,11 +1057,11 @@ public sealed partial class DirectInstallService : IDirectInstallService
         //   Shim candidates (in priority order)               ─
         string[] shimCandidates =
         [
-            Path.Combine(isoRoot, "EFI", "fedora", "shimx64.efi"),   // Fedora live/full ISO
-            Path.Combine(isoRoot, "EFI", "debian", "shimx64.efi"),   // Debian
-            Path.Combine(isoRoot, "EFI", "ubuntu", "shimx64.efi"),   // Ubuntu / Mint
-            Path.Combine(isoRoot, "EFI", "BOOT",   "shimx64.efi"),   // some ISOs
-            Path.Combine(isoRoot, "EFI", "BOOT",   "BOOTX64.EFI"),   // UEFI fallback name (most netinst/live)
+            Path.Join(isoRoot, "EFI", "fedora", "shimx64.efi"),   // Fedora live/full ISO
+            Path.Join(isoRoot, "EFI", "debian", "shimx64.efi"),   // Debian
+            Path.Join(isoRoot, "EFI", "ubuntu", "shimx64.efi"),   // Ubuntu / Mint
+            Path.Join(isoRoot, "EFI", "BOOT",   "shimx64.efi"),   // some ISOs
+            Path.Join(isoRoot, "EFI", "BOOT",   "BOOTX64.EFI"),   // UEFI fallback name (most netinst/live)
         ];
 
         var shimPath = shimCandidates.FirstOrDefault(File.Exists)
@@ -1072,10 +1072,10 @@ public sealed partial class DirectInstallService : IDirectInstallService
         //   GRUB candidates                          
         string[] grubCandidates =
         [
-            Path.Combine(isoRoot, "EFI", "fedora", "grubx64.efi"),   // Fedora
-            Path.Combine(isoRoot, "EFI", "debian", "grubx64.efi"),   // Debian
-            Path.Combine(isoRoot, "EFI", "ubuntu", "grubx64.efi"),   // Ubuntu / Mint
-            Path.Combine(isoRoot, "EFI", "BOOT",   "grubx64.efi"),   // fallback
+            Path.Join(isoRoot, "EFI", "fedora", "grubx64.efi"),   // Fedora
+            Path.Join(isoRoot, "EFI", "debian", "grubx64.efi"),   // Debian
+            Path.Join(isoRoot, "EFI", "ubuntu", "grubx64.efi"),   // Ubuntu / Mint
+            Path.Join(isoRoot, "EFI", "BOOT",   "grubx64.efi"),   // fallback
         ];
 
         var grubPath = grubCandidates.FirstOrDefault(File.Exists)
@@ -1170,7 +1170,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
     {
         try
         {
-            var path = Path.Combine(stagingDirectory, "migration-manifest.json");
+            var path = Path.Join(stagingDirectory, "migration-manifest.json");
             if (!File.Exists(path))
                 return;
 
@@ -1531,11 +1531,11 @@ public sealed partial class DirectInstallService : IDirectInstallService
     /// </summary>
     private static string FindNativeExe(string exeName)
     {
-        var sysnative = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+        var sysnative = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
             "Sysnative", exeName);
         if (File.Exists(sysnative))
             return sysnative;
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), exeName);
+        return Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.System), exeName);
     }
 
     private void PrependBootOrder(ushort idx)
