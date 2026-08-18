@@ -20,7 +20,7 @@ public sealed class UbuntuPlugin : IDistroPlugin
     public UbuntuPlugin()
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var path = Path.Combine(asmDir, "distro.json");
+        var path = Path.Join(asmDir, "distro.json");
         var raw = TryLoadManifest(path);
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
     }
@@ -84,7 +84,7 @@ public sealed class UbuntuPlugin : IDistroPlugin
         ArgumentNullException.ThrowIfNull(manifest);
 
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var templatePath = Path.Combine(asmDir, "autoinstall", "user-data.template");
+        var templatePath = Path.Join(asmDir, "autoinstall", "user-data.template");
         if (!File.Exists(templatePath))
             throw new FileNotFoundException("user-data.template missing from the Ubuntu plugin output.");
 
@@ -104,14 +104,14 @@ public sealed class UbuntuPlugin : IDistroPlugin
     public async Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var agentDir = Directory.Exists(Path.Combine(asmDir, "agent"))
-            ? Path.Combine(asmDir, "agent")
-            : Path.Combine(asmDir, "..", "_debian-family", "agent");
+        var agentDir = Directory.Exists(Path.Join(asmDir, "agent"))
+            ? Path.Join(asmDir, "agent")
+            : Path.Join(asmDir, "..", "_debian-family", "agent");
 
         var files = new List<AgentFile>();
         foreach (var (name, exe) in new[] { ("first-boot.sh", true), ("agent.py", true), ("display-apply.py", true), ("display-apply-gnome.py", true), ("igloo-first-boot.service", false) })
         {
-            var p = Path.Combine(agentDir, name);
+            var p = Path.Join(agentDir, name);
             if (File.Exists(p))
                 files.Add(new AgentFile(name, NormalizeCrLf(await File.ReadAllBytesAsync(p, ct).ConfigureAwait(false)), exe));
         }

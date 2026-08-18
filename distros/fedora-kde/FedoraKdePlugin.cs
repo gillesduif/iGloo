@@ -25,7 +25,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
     public FedoraKdePlugin()
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var manifestPath = Path.Combine(asmDir, "distro.json");
+        var manifestPath = Path.Join(asmDir, "distro.json");
 
         DistroManifest? raw = null;
         if (File.Exists(manifestPath))
@@ -97,7 +97,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
         ArgumentNullException.ThrowIfNull(manifest);
 
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var templatePath = Path.Combine(asmDir, "kickstart", "ks.cfg.template");
+        var templatePath = Path.Join(asmDir, "kickstart", "ks.cfg.template");
 
         // A missing template must abort, never silently fall back to a hardcoded layout: the disk
         // partitioning lives in the template, and guessing it risks wiping the whole disk. The
@@ -165,7 +165,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
         bool TryAddRaw(string relative)
         {
-            var path = Path.Combine(asmDir, relative);
+            var path = Path.Join(asmDir, relative);
             if (!File.Exists(path))
                 return false;
             files.Add(new AgentFile(Path.GetFileName(path), File.ReadAllBytes(path), false));
@@ -174,7 +174,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
 
         bool TryAddFile(string relative, bool executable)
         {
-            var path = Path.Combine(asmDir, relative);
+            var path = Path.Join(asmDir, relative);
             if (!File.Exists(path))
                 return false;
 

@@ -21,7 +21,7 @@ public sealed class DebianPlugin : IDistroPlugin
     public DebianPlugin()
     {
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var manifestPath = Path.Combine(asmDir, "distro.json");
+        var manifestPath = Path.Join(asmDir, "distro.json");
 
         var raw = TryLoadManifest(manifestPath);
         Metadata = raw is not null ? BuildMetadata(raw) : FallbackMetadata();
@@ -84,7 +84,7 @@ public sealed class DebianPlugin : IDistroPlugin
         ArgumentNullException.ThrowIfNull(manifest);
 
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var templatePath = Path.Combine(asmDir, "preseed", "preseed.cfg.template");
+        var templatePath = Path.Join(asmDir, "preseed", "preseed.cfg.template");
 
         var preseed = File.Exists(templatePath)
             ? RenderFromTemplate(await File.ReadAllTextAsync(templatePath, ct).ConfigureAwait(false), manifest)
@@ -108,23 +108,23 @@ public sealed class DebianPlugin : IDistroPlugin
         var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
         // "agent/" in the build output, or the shared "_debian-family/agent/" when
         // the plugin DLL is loaded from its source folder (distros/<id>/ root).
-        var agentDir = Directory.Exists(Path.Combine(asmDir, "agent"))
-            ? Path.Combine(asmDir, "agent")
-            : Path.Combine(asmDir, "..", "_debian-family", "agent");
+        var agentDir = Directory.Exists(Path.Join(asmDir, "agent"))
+            ? Path.Join(asmDir, "agent")
+            : Path.Join(asmDir, "..", "_debian-family", "agent");
 
         // igloo_boot.py is shared across families, so it sits in _shared/agent/
         // rather than next to the family agent.
-        var sharedDir = Directory.Exists(Path.Combine(asmDir, "agent"))
-            ? Path.Combine(asmDir, "agent")
-            : Path.Combine(asmDir, "..", "_shared", "agent");
+        var sharedDir = Directory.Exists(Path.Join(asmDir, "agent"))
+            ? Path.Join(asmDir, "agent")
+            : Path.Join(asmDir, "..", "_shared", "agent");
         // The theme archives moved to _shared/grub-theme/; keep the build-output
         // location as the first candidate.
-        var themeDir = Path.Combine(asmDir, "..", "_shared", "grub-theme");
+        var themeDir = Path.Join(asmDir, "..", "_shared", "grub-theme");
 
         var files = new List<AgentFile>();
         void AddFrom(string dir, string name, bool exe)
         {
-            var p = Path.Combine(dir, name);
+            var p = Path.Join(dir, name);
             if (File.Exists(p))
                 files.Add(new AgentFile(name, NormalizeCrLf(File.ReadAllBytes(p)), exe));
         }
@@ -141,9 +141,9 @@ public sealed class DebianPlugin : IDistroPlugin
         // which rewrites 0x0D bytes and would corrupt the gzip stream.
         void AddRaw(string name)
         {
-            var p = Path.Combine(agentDir, name);
+            var p = Path.Join(agentDir, name);
             if (!File.Exists(p))
-                p = Path.Combine(themeDir, name);
+                p = Path.Join(themeDir, name);
             if (File.Exists(p))
                 files.Add(new AgentFile(name, File.ReadAllBytes(p), false));
         }
