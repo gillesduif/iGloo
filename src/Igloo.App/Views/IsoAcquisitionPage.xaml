@@ -15,9 +15,9 @@
                     VerticalAlignment="Center" HorizontalAlignment="Center"
                     Width="460">
 
-            <!-- Safety shield with an orbiting verification ring: a faint full
+            <!-- Phase icon with an orbiting verification ring: a faint full
                  track (Win11 progress-ring reference), a soft sweep and a bright
-                 accent comet circling the static shield. Runs only while
+                 accent comet circling the static icon. Runs only while
                  IsRunning. Dash units are multiples of the 3px stroke:
                  circumference ≈ 96.3 units, so dash+gap always sum to that. -->
             <Grid Width="96" Height="96" HorizontalAlignment="Center" Margin="0,0,0,20">
@@ -65,9 +65,28 @@
                              StrokeDashArray="20 76.3" StrokeDashCap="Round" />
                 </Grid>
 
-                <Image Source="/Assets/Fluent3D/shield.png" Width="56" Height="56"
+                <!-- The shield is reserved for the signature check; the other
+                     phases carry their own subject. -->
+                <Image Width="56" Height="56"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                       RenderOptions.BitmapScalingMode="HighQuality" />
+                       RenderOptions.BitmapScalingMode="HighQuality">
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Setter Property="Source" Value="/Assets/Fluent3D/disk.png" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Phase}" Value="ResolvingMirror">
+                                    <Setter Property="Source" Value="/Assets/Fluent3D/search.png" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Phase}" Value="VerifyingSha256">
+                                    <Setter Property="Source" Value="/Assets/Fluent3D/search.png" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Phase}" Value="VerifyingGpg">
+                                    <Setter Property="Source" Value="/Assets/Fluent3D/shield.png" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
             </Grid>
 
             <TextBlock Text="{Binding PhaseDisplay}"
