@@ -15,7 +15,7 @@ public static class LoginDataReader
     {
         ArgumentException.ThrowIfNullOrEmpty(loginDataPath);
 
-        var tempPath = Path.Combine(
+        var tempPath = Path.Join(
             Path.GetTempPath(), $"igloo-login-{Guid.NewGuid():N}.db");
         try
         {

@@ -60,7 +60,7 @@ public static partial class ChromiumCredentialExtractor
 
         foreach (var profileDir in EnumerateProfileDirs(userDataRoot))
         {
-            var loginDataPath = Path.Combine(profileDir, "Login Data");
+            var loginDataPath = Path.Join(profileDir, "Login Data");
             if (!File.Exists(loginDataPath))
                 continue;
 
@@ -105,7 +105,7 @@ public static partial class ChromiumCredentialExtractor
     {
         // "Default" first, then "Profile N" directories. Anything else (Guest,
         // System Profile) holds no user credentials worth migrating.
-        var defaultDir = Path.Combine(userDataRoot, "Default");
+        var defaultDir = Path.Join(userDataRoot, "Default");
         if (Directory.Exists(defaultDir))
             yield return defaultDir;
 

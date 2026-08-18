@@ -33,7 +33,7 @@ public sealed partial class FileStagingService : IFileStagingService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var stagingRoot = Path.Combine(
+        var stagingRoot = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Igloo", "staging", request.DistroId);
 
@@ -75,14 +75,14 @@ public sealed partial class FileStagingService : IFileStagingService
             }
 
             var folderName = Path.GetFileName(folder);
-            var destRoot = Path.Combine(stagingRoot, "files", folderName);
+            var destRoot = Path.Join(stagingRoot, "files", folderName);
 
             foreach (var file in Directory.EnumerateFiles(folder, "*", ScanOptions))
             {
                 ct.ThrowIfCancellationRequested();
 
                 var relPath = Path.GetRelativePath(folder, file);
-                jobs.Add((file, Path.Combine(destRoot, relPath)));
+                jobs.Add((file, Path.Join(destRoot, relPath)));
 
                 totalBytes += TryGetFileLength(file);
             }

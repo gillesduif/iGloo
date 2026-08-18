@@ -38,7 +38,7 @@ public static class ChromiumLocalState
     {
         ArgumentException.ThrowIfNullOrEmpty(userDataRoot);
 
-        var localStatePath = Path.Combine(userDataRoot, "Local State");
+        var localStatePath = Path.Join(userDataRoot, "Local State");
         if (!File.Exists(localStatePath))
             throw new FileNotFoundException("Chromium Local State not found.", localStatePath);
 

@@ -19,15 +19,15 @@ public static partial class BrowserCredentialMigration
         ChromiumRoots = new(StringComparer.Ordinal)
         {
             ["Google Chrome"] = (Environment.SpecialFolder.LocalApplicationData,
-                Path.Combine("Google", "Chrome", "User Data")),
+                Path.Join("Google", "Chrome", "User Data")),
             ["Microsoft Edge"] = (Environment.SpecialFolder.LocalApplicationData,
-                Path.Combine("Microsoft", "Edge", "User Data")),
+                Path.Join("Microsoft", "Edge", "User Data")),
             ["Brave"] = (Environment.SpecialFolder.LocalApplicationData,
-                Path.Combine("BraveSoftware", "Brave-Browser", "User Data")),
+                Path.Join("BraveSoftware", "Brave-Browser", "User Data")),
             ["Vivaldi"] = (Environment.SpecialFolder.LocalApplicationData,
-                Path.Combine("Vivaldi", "User Data")),
+                Path.Join("Vivaldi", "User Data")),
             ["Opera"] = (Environment.SpecialFolder.ApplicationData,
-                Path.Combine("Opera Software", "Opera Stable")),
+                Path.Join("Opera Software", "Opera Stable")),
         };
 
     /// <summary>
@@ -77,7 +77,7 @@ public static partial class BrowserCredentialMigration
         (Environment.SpecialFolder Base, string Relative) rootSpec,
         string linuxPassword, ILogger logger)
     {
-        var userDataRoot = Path.Combine(
+        var userDataRoot = Path.Join(
             Environment.GetFolderPath(rootSpec.Base), rootSpec.Relative);
         if (!Directory.Exists(userDataRoot))
         {
