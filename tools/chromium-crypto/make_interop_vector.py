@@ -40,7 +40,6 @@ def main() -> None:
 
     print(f"EnvelopeHex  = {envelope.hex()}")
     print(f"PayloadUtf8  = {PAYLOAD.decode('utf-8')}")
-    print(f"Password     = {PASSWORD}")
     print(f"EnvelopeLen  = {len(envelope)} bytes")
 
 
