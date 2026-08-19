@@ -55,8 +55,17 @@ public class LinuxPasswordHasherTests
     {
         var hash = LinuxPasswordHasher.Sha512Crypt("x")!;
 
-        // $6$<salt>$<checksum>
-        hash.Split('$')[2].Should().HaveLength(16);
+        // $6$rounds=<n>$<salt>$<checksum>
+        hash.Split('$')[3].Should().HaveLength(16);
+    }
+
+    [Fact]
+    public void Asks_for_more_rounds_than_the_glibc_default()
+    {
+        var hash = LinuxPasswordHasher.Sha512Crypt("x")!;
+
+        hash.Should().StartWith("$6$rounds=200000$",
+            "5000 rounds is glibc's default and far too cheap on current hardware");
     }
 
     [Theory]
@@ -74,7 +83,7 @@ public class LinuxPasswordHasherTests
         var hash = LinuxPasswordHasher.Sha512Crypt(awkward)!;
 
         Crypter.CheckPassword(awkward, hash).Should().BeTrue();
-        hash.Should().MatchRegex(@"^\$6\$[./A-Za-z0-9]{16}\$[./A-Za-z0-9]+$",
+        hash.Should().MatchRegex(@"^\$6\$rounds=\d+\$[./A-Za-z0-9]{16}\$[./A-Za-z0-9]+$",
             "the hash must be safe to drop into a preseed or kickstart line verbatim");
     }
 }

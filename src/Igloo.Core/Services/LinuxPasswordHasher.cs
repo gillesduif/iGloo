@@ -16,11 +16,19 @@ namespace Igloo.Core.Services;
 /// guarantees the format keeps verifying after its switch to yescrypt, and Debian recommends
 /// SHA-512 outright. A wrong hash locks the user out of the machine they just migrated to,
 /// so verifiability outweighs modernity here.
+///
+/// The round count is set explicitly because glibc's default of 5000 is far below what
+/// current hardware makes worthwhile. See docs/reference/password-hashing.md for the
+/// measurements behind the chosen value.
 /// </remarks>
 public static class LinuxPasswordHasher
 {
     // glibc caps the salt at 16 characters and ignores anything beyond it.
     private const int SaltChars = 16;
+
+    // Matched to OWASP's PBKDF2-HMAC-SHA512 figure (220k), which is comparable work.
+    // Costs ~90 ms per login on a desktop; glibc's 5000 default costs ~6 ms.
+    private const int Rounds = 200_000;
 
     // The crypt(3) base64 alphabet, in its own peculiar order.
     private const string SaltAlphabet =
@@ -33,7 +41,7 @@ public static class LinuxPasswordHasher
         if (string.IsNullOrEmpty(password))
             return null;
 
-        return Crypter.Sha512.Crypt(password, "$6$" + GenerateSalt());
+        return Crypter.Sha512.Crypt(password, $"$6$rounds={Rounds}${GenerateSalt()}");
     }
 
     private static string GenerateSalt()
