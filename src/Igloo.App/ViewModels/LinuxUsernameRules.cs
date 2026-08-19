@@ -31,7 +31,15 @@ internal static class LinuxUsernameRules
         // useradd only accepts lowercase names, so each character is lowered before it is vetted.
         var s = string.Concat(windowsName
             .Select(char.ToLowerInvariant)
+            // Apostrophes sit inside a word, so dropping them keeps the word whole:
+            // "D'huyvetter" becomes "dhuyvetter", not "d_huyvetter".
+            .Where(c => c is not ('\'' or '’'))
             .Select(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_' || c == '-' ? c : '_'));
+
+        // Everything else that is invalid becomes a separator, so a run of them
+        // ("Jan  Peeters", "a.-b") would otherwise leave "__" in the name.
+        while (s.Contains("__", StringComparison.Ordinal))
+            s = s.Replace("__", "_", StringComparison.Ordinal);
 
         // Strip leading non-letter characters.
         var start = 0;

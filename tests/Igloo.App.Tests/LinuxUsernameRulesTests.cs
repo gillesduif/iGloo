@@ -34,7 +34,10 @@ public class LinuxUsernameRulesTests
 
     [Theory]
     [InlineData("Gilles", "gilles")]
-    [InlineData("Gilles D'huyvetter", "gilles_d_huyvetter")]
+    [InlineData("Gilles D'huyvetter", "gilles_dhuyvetter")]
+    [InlineData("Gilles D’huyvetter", "gilles_dhuyvetter")]
+    [InlineData("Jan  Peeters", "jan_peeters")]
+    [InlineData("Anne-Marie O'Brien", "anne-marie_obrien")]
     [InlineData("42cats", "cats")]
     [InlineData("___", "user")]
     [InlineData("", "user")]
