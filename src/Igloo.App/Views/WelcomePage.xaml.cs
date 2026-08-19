@@ -29,7 +29,7 @@ public sealed partial class WelcomePage : UserControl
         Dispatcher.BeginInvoke(new Action(() =>
             FluentMessageBox.Show(
                 "Pre-release software notice ",
-                "This software is a pre-release version. \n\nIt may contain bugs, errors, or missing features. \nData loss or unexpected behavior can occur. \n\nUse this software at your own risk.\nWe do not provide standard support for this version.",
+                "This software is a pre-release version. \n\nIt may contain bugs, errors or missing features. \nData loss or unexpected behavior can occur. \n\nUse this software at your own risk.",
                 FluentMessageSeverity.Warning,
                 primaryText: "Continue")),
             System.Windows.Threading.DispatcherPriority.ApplicationIdle);

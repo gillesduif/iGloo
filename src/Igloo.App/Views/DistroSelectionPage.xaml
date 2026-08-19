@@ -2,6 +2,12 @@
     x:Class="Igloo.App.Views.DistroSelectionPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:Igloo.App.ViewModels"
+    mc:Ignorable="d"
+    d:DataContext="{d:DesignInstance Type=vm:DistroSelectionDesignData, IsDesignTimeCreatable=True}"
+    d:DesignWidth="900" d:DesignHeight="1100"
     xmlns:controls="clr-namespace:Igloo.App.Controls">
 
     <!-- The stage: transparent  the carousel sits directly on the window's

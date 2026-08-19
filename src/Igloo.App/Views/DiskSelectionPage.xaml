@@ -227,7 +227,7 @@
                                         Dual boot (Install alongside Windows)
                                     </TextBlock>
                                     <TextBlock Style="{StaticResource Text.Caption}" FontSize="12" Margin="0,3,0,0">
-                                       Shrinks the Windows partition to allocate space. A boot menu manages operating system selection at startup.
+                                       Shrinks the Windows partition to allocate space. 
                                     </TextBlock>
                                 </StackPanel>
                             </RadioButton>
@@ -243,7 +243,7 @@
                                     Replace Windows (Erase entire disk)
                                 </TextBlock>
                                 <TextBlock Style="{StaticResource Text.Caption}" FontSize="12" Margin="0,3,0,0">
-                                    Permanently deletes all existing partitions and user data on the selected disk.
+                                    Permanently deletes all existing partitions and data on the selected disk.
                                 </TextBlock>
                             </StackPanel>
                         </RadioButton>

@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Windows.Input;
 
 namespace Igloo.App.ViewModels;
@@ -17,4 +16,3 @@ internal sealed class DesignCommand : ICommand
 
     public void Execute(object? parameter) { }
 }
-#endif

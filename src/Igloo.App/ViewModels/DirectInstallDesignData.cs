@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Windows.Input;
 namespace Igloo.App.ViewModels;
 
@@ -11,8 +10,10 @@ namespace Igloo.App.ViewModels;
 /// create one.
 ///
 /// Property names mirror the bindings in the page. Flip the flags below to preview a
-/// different panel. Referenced only from d:DataContext, which mc:Ignorable strips before
-/// the XAML is compiled, and excluded from Release entirely.
+/// different panel. Referenced only from d:DataContext, which mc:Ignorable strips before the XAML is
+/// compiled, so nothing here runs. Not conditionally compiled: the designer resolves
+/// the type against the active configuration, and #if DEBUG breaks the preview the
+/// moment the solution is switched to Release.
 /// </remarks>
 public sealed class DirectInstallDesignData
 {
@@ -40,4 +41,3 @@ public sealed class DirectInstallDesignData
     public ICommand OpenLogFolderCommand { get; } = new DesignCommand();
     public ICommand RefreshLogTailCommand { get; } = new DesignCommand();
 }
-#endif

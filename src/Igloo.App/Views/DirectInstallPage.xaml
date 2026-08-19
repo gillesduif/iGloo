@@ -92,7 +92,7 @@
                         <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="Setup complete"
                                        FontSize="15" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Brush.Success}" />
+                                       Foreground="{DynamicResource Brush.Text.Primary}" />
                             <TextBlock Text="Restart your computer via the Reboot button to proceed to the Linux installer."
                                        Style="{StaticResource Text.Body}" FontSize="12" Margin="0,2,0,0" />
                         </StackPanel>
@@ -104,9 +104,9 @@
                         <Image Source="/Assets/PNG/Tux.png"
                                Width="331" Height="297"
                                RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Ready to launch Linux installation setup."
+                        <TextBlock Text="Ready to launch Linux."
                                    Style="{StaticResource Text.Body}"
-                                   FontSize="16" Margin="16,0,0,0" Width="287" />
+                                   FontSize="16" Margin="16,20,0,0" Width="159" />
                     </StackPanel>
                 </Border>
 

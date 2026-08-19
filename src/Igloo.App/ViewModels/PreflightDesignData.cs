@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Windows.Input;
 using Igloo.Core.Abstractions;
 
@@ -39,6 +38,7 @@ public sealed class PreflightDesignData
     // one, so the layout is exercised in both directions.
     // Copied verbatim from WindowsPreflightChecker: a preview that invents its own
     // codes and wording teaches the wrong house style.
+    // Empty this list to preview the clean-result card instead.
     public IReadOnlyList<PreflightFinding> Findings { get; } =
     [
         new PreflightFinding(FindingSeverity.Info, "SECURE_BOOT_ON",
@@ -79,4 +79,3 @@ public sealed class PreflightDesignData
     public ICommand RemoveSelectedLinuxCommand { get; } = new DesignCommand();
     public ICommand DisableBitLockerCommand { get; } = new DesignCommand();
 }
-#endif

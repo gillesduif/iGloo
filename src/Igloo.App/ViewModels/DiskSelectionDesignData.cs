@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Windows.Input;
 using Igloo.Core.Abstractions;
 
@@ -50,4 +49,3 @@ public sealed class DiskSelectionDesignData
     public ICommand SetDualBootCommand { get; } = new DesignCommand();
     public ICommand SetReplaceCommand { get; } = new DesignCommand();
 }
-#endif
