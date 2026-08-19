@@ -31,7 +31,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         var gpu = QueryGpu();
         var displays = DisplayLayoutReader.Read(_logger);
         var totalRam = QueryTotalRam();
-        var findings = BuildFindings(isUefi, secureBoot, tpmPresent, bitLocker, totalRam, gpu.Vendor);
+        var findings = BuildFindings(isUefi, secureBoot, tpmPresent, bitLocker, totalRam);
         var (linuxInstalls, seedLeftovers) = BuildLinuxInventory(disks);
 
         return new PreflightReport
@@ -728,8 +728,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
     }
 
     private static List<PreflightFinding> BuildFindings(
-        bool isUefi, bool secureBoot, bool tpmPresent, BitLockerState bitLocker, long totalRam,
-        string gpuVendor)
+        bool isUefi, bool secureBoot, bool tpmPresent, BitLockerState bitLocker, long totalRam)
     {
         var findings = new List<PreflightFinding>();
 
@@ -738,33 +737,9 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 "Machine uses Legacy BIOS. Most Linux installers require UEFI.",
                 "Enable UEFI mode in firmware settings."));
 
-        var nvidia = gpuVendor.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase);
-
-        if (secureBoot && nvidia)
-        {
-            // The distro's bootloader is signed, so the INSTALL succeeds and everything
-            // looks fine - but the NVIDIA driver is a third-party kernel module built on
-            // the machine (DKMS/akmod) and therefore unsigned. Secure Boot refuses to
-            // load it, leaving a desktop on software rendering at the wrong resolution
-            // with no obvious cause. Signing it means enrolling a MOK, which is an
-            // interactive firmware prompt at the next boot and cannot be automated.
-            // Windows 11 ships with Secure Boot on, so this is the common case, not a
-            // corner one - it deserves a warning the user sees BEFORE installing.
-            findings.Add(new PreflightFinding(FindingSeverity.Warning, "SECURE_BOOT_NVIDIA",
-                "Secure Boot is enabled and this PC has an NVIDIA graphics card. Linux builds the " +
-                "NVIDIA driver on your machine, and Secure Boot blocks it from loading because it " +
-                "isn't signed by Microsoft. The install will succeed, but the desktop may run at a " +
-                "reduced resolution without graphics acceleration.",
-                "Turn Secure Boot off in your firmware settings (usually Del or F2 during startup) " +
-                "before installing. You can turn it back on afterwards, though the NVIDIA driver " +
-                "will stop loading again if you do."));
-        }
-        else if (secureBoot)
-        {
+        if (secureBoot)
             findings.Add(new PreflightFinding(FindingSeverity.Info, "SECURE_BOOT_ON",
-                "Secure Boot is enabled. Distributions that don't support Secure Boot will be greyed out in the next step.",
-                null));
-        }
+                "Secure Boot is enabled.", null));
 
         if (bitLocker is BitLockerState.EncryptedAndUnlocked or BitLockerState.SuspendedProtection)
             findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_ACTIVE",
