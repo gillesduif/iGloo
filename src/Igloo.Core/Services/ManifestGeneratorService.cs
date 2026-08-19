@@ -43,7 +43,6 @@ public static class ManifestGeneratorService
                 Locale = userSetup.Locale,
                 Timezone = userSetup.Timezone,
                 Keymap = userSetup.Keymap,
-                LinuxPassword = userSetup.LinuxPassword,
                 LinuxPasswordCrypted = LinuxPasswordHasher.Sha512Crypt(userSetup.LinuxPassword),
             },
 

@@ -59,7 +59,7 @@ public class MigrationManifestTests
             {
                 WindowsUsername = "w",
                 PreferredLinuxUsername = "l",
-                LinuxPassword = "secret",
+                LinuxPasswordCrypted = "$6$rounds=200000$abc$def",
             },
             Files = new FileMigrationPlan { StagingPath = "s" },
             Hardware = new HardwareProfile(),
@@ -70,7 +70,7 @@ public class MigrationManifestTests
 
         json.Should().ContainAll(
             "\"schemaVersion\"", "\"distroId\"", "\"generatedAtUtc\"",
-            "\"user\"", "\"windowsUsername\"", "\"preferredLinuxUsername\"", "\"linuxPassword\"",
+            "\"user\"", "\"windowsUsername\"", "\"preferredLinuxUsername\"", "\"linuxPasswordCrypted\"",
             "\"files\"", "\"stagingPath\"", "\"folders\"",
             "\"wifiNetworks\"", "\"ssid\"", "\"psk\"", "\"isPrimary\"",
             "\"hardware\"", "\"gpuVendor\"", "\"installMode\"", "\"linuxPartitionSizeGb\"");

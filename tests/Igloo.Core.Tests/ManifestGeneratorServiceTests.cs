@@ -95,7 +95,7 @@ public class ManifestGeneratorServiceTests
     }
 
     [Fact]
-    public void User_identity_and_password_pass_through_unchanged()
+    public void User_identity_passes_through_and_the_password_is_hashed()
     {
         var manifest = ManifestGeneratorService.Generate(
             "fedora-kde", MinimalUser(), UefiReport, Staging);
@@ -103,9 +103,19 @@ public class ManifestGeneratorServiceTests
         manifest.DistroId.Should().Be("fedora-kde");
         manifest.User.WindowsUsername.Should().Be("Winnie");
         manifest.User.PreferredLinuxUsername.Should().Be("winnie");
-        manifest.User.LinuxPassword.Should().Be("hunter2hunter2",
-            "the agent needs the plaintext once; it redacts it on the Linux side");
+        manifest.User.LinuxPasswordCrypted.Should().StartWith("$6$rounds=200000$");
         manifest.Files.StagingPath.Should().Be(Staging.StagingDirectory);
         manifest.Files.TotalBytes.Should().Be(Staging.TotalBytesCopied);
+    }
+
+    [Fact]
+    public void Never_writes_the_plain_text_password_into_the_manifest()
+    {
+        var manifest = ManifestGeneratorService.Generate(
+            "fedora-kde", MinimalUser(), UefiReport, Staging);
+
+        System.Text.Json.JsonSerializer.Serialize(manifest)
+            .Should().NotContain("hunter2hunter2",
+                "the manifest lands on a FAT32 partition that has no access control");
     }
 }

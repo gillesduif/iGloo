@@ -18,9 +18,15 @@ the section can be KAT- and integration-tested standalone.
 # manifest as browsers[].credentialsBlob: base64 of the envelope
 #     "IGCRD001" | salt(16) | nonce(12) | AES-256-GCM(ciphertext)||tag(16)
 # keyed by PBKDF2-HMAC-SHA256(linuxPassword, salt, 600_000 iterations).
-# This step runs BEFORE redact-manifest, while the plaintext Linux password
-# is still present, decrypts the envelope, and inserts the rows into the
-# Linux browser's Login Data using Chromium's Linux "v10" encoding.
+#
+# The key is the user's Linux password, which the first-boot agent does not
+# have and must not have: putting it in the manifest would leave it in clear
+# text on the FAT32 seed partition. So the work is split in two. As root at
+# first boot, stage_credential_import() moves the envelopes into the user's
+# own home and installs a login hook. At the user's first graphical login,
+# run_user_credential_import() asks for the password once, decrypts, inserts
+# the rows into the Linux browser's Login Data using Chromium's Linux "v10"
+# encoding, and deletes the envelopes.
 #
 # Everything below is pure stdlib on purpose: the Debian offline first boot
 # has no network and cannot install python3-cryptography. The embedded
@@ -35,7 +41,9 @@ import hashlib
 import hmac as hmac_mod
 import json
 import os
+import shutil
 import sqlite3
+import subprocess
 import time
 import urllib.parse
 from pathlib import Path
@@ -424,29 +432,27 @@ def _import_into_login_data(db_path: Path, logins: list[dict]) -> int:
         con.close()
 
 
-def import_chromium_credentials(manifest: dict) -> None:
-    """Migrate staged Chromium credentials into the Linux browsers' Login Data.
+# Where the envelopes wait between first boot and the user's first login,
+# and how many logins we keep asking before giving up and deleting them.
+_CRED_STORE_REL = ".local/share/igloo/credentials.json"
+_CRED_MAX_ATTEMPTS = 3
 
-    Runs before redact-manifest: the envelope key derives from the plaintext
-    linuxPassword, which redaction then erases. Best-effort per browser; a
-    failure here must never block first boot."""
+
+def stage_credential_import(manifest: dict) -> None:
+    """Move the staged credential envelopes into the user's home and install a
+    login hook that imports them.
+
+    Runs as root at first boot, before redact-manifest. Deliberately does not
+    decrypt: the envelope key is the user's Linux password, which is not in the
+    manifest. See docs/reference/password-hashing.md."""
     entries = [b for b in manifest.get("browsers", []) if b.get("credentialsBlob")]
     if not entries:
         return
 
-    user = manifest.get("user", {})
-    linux_user = (user.get("preferredLinuxUsername") or "").strip()
-    password = user.get("linuxPassword")
-    if not linux_user or not password:
-        logger.info("Chromium credentials staged but no user/password in the "
-                    "manifest - skipping credential import")
-        return
-
-    try:
-        _aes_self_test()
-    except AssertionError:
-        logger.exception("AES self-test failed - Chromium credential import "
-                         "is disabled for this run")
+    linux_user = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
+    if not linux_user:
+        logger.info("Chromium credentials staged but no user in the manifest "
+                    "- skipping credential import")
         return
 
     home = Path("/home") / linux_user
@@ -455,35 +461,177 @@ def import_chromium_credentials(manifest: dict) -> None:
                        "credential import", home)
         return
 
+    try:
+        store = home / _CRED_STORE_REL
+        store.parent.mkdir(parents=True, exist_ok=True)
+        store.write_text(json.dumps({
+            "attempts": 0,
+            "browsers": [{"name": e.get("name", ""), "blob": e["credentialsBlob"]}
+                         for e in entries],
+        }), encoding="utf-8")
+        store.chmod(0o600)
+        run_cmd(["chown", "-R", f"{linux_user}:{linux_user}",
+                 str(home / ".local" / "share" / "igloo")], check=False)
+
+        hook = Path("/opt/igloo/credential-import.sh")
+        hook.write_text(
+            "#!/bin/sh\n"
+            "# iGloo credential import - retries at each login until the\n"
+            "# envelope store is consumed, then does nothing.\n"
+            'STORE="$HOME/' + _CRED_STORE_REL + '"\n'
+            '[ -f "$STORE" ] || exit 0\n'
+            "exec python3 /opt/igloo/agent.py --import-credentials\n",
+            encoding="utf-8")
+        hook.chmod(0o755)
+
+        autostart = Path("/etc/xdg/autostart/igloo-credential-import.desktop")
+        autostart.write_text(
+            "[Desktop Entry]\n"
+            "Name=iGloo Browser Passwords\n"
+            "Comment=Import the browser passwords migrated from Windows\n"
+            "Exec=/opt/igloo/credential-import.sh\n"
+            "Icon=dialog-password\n"
+            "Terminal=false\n"
+            "Type=Application\n"
+            "X-GNOME-Autostart-enabled=true\n",
+            encoding="utf-8")
+
+        logger.info("Staged %d credential envelope(s) for %s and installed the "
+                    "login hook", len(entries), linux_user)
+    except OSError:
+        logger.exception("Could not stage the credential import (non-fatal)")
+
+
+def _ask_password() -> tuple[bool, str | None]:
+    """Ask the desktop for the account password.
+
+    Returns (asked, password). asked is False when neither dialog tool exists,
+    which is different from the user cancelling."""
+    attempts = [
+        (["zenity", "--password",
+          "--title=iGloo", "--timeout=300"], None),
+        (["kdialog", "--password",
+          "Enter your account password to import the browser passwords "
+          "migrated from Windows."], None),
+    ]
+    for argv, _ in attempts:
+        if shutil.which(argv[0]) is None:
+            continue
+        try:
+            res = subprocess.run(argv, capture_output=True, text=True, timeout=310)
+        except (OSError, subprocess.SubprocessError):
+            logger.exception("%s failed while asking for the password", argv[0])
+            return True, None
+        if res.returncode != 0:
+            return True, None
+        return True, res.stdout.rstrip("\n")
+    return False, None
+
+
+def _run_user_mode() -> int:
+    """Entry point for --import-credentials: logging the user can actually write
+    to, then the import. Never returns non-zero - a failed import must not make
+    the desktop report a broken autostart entry."""
+    import logging
+
+    state = Path.home() / ".local" / "state"
+    try:
+        state.mkdir(parents=True, exist_ok=True)
+        handler: logging.Handler = logging.FileHandler(state / "igloo-credentials.log")
+    except OSError:
+        handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+
+    try:
+        return run_user_credential_import()
+    except Exception:
+        logger.exception("Credential import failed")
+        return 0
+
+
+def run_user_credential_import() -> int:
+    """Import the staged Chromium credentials. Runs as the user at login."""
+    store = Path.home() / _CRED_STORE_REL
+    if not store.is_file():
+        return 0
+
+    try:
+        data = json.loads(store.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        logger.exception("Credential store is unreadable - removing it")
+        store.unlink(missing_ok=True)
+        return 0
+
+    attempts = int(data.get("attempts", 0)) + 1
+    entries = data.get("browsers", [])
+    if not entries or attempts > _CRED_MAX_ATTEMPTS:
+        logger.info("Giving up on the credential import after %d attempt(s)",
+                    attempts - 1)
+        store.unlink(missing_ok=True)
+        return 0
+
+    try:
+        _aes_self_test()
+    except AssertionError:
+        logger.exception("AES self-test failed - credential import disabled")
+        store.unlink(missing_ok=True)
+        return 0
+
+    asked, password = _ask_password()
+    if not asked:
+        logger.warning("Neither zenity nor kdialog is installed - cannot ask "
+                       "for the password, leaving the envelopes in place")
+        return 0
+    if not password:
+        data["attempts"] = attempts
+        store.write_text(json.dumps(data), encoding="utf-8")
+        logger.info("Password prompt cancelled (attempt %d of %d)",
+                    attempts, _CRED_MAX_ATTEMPTS)
+        return 0
+
+    imported = 0
+    wrong_password = False
     for entry in entries:
         name = entry.get("name", "")
         config_rel = _CHROMIUM_LINUX_DIRS.get(name)
         if config_rel is None:
-            logger.info("No Linux profile mapping for browser %r - skipping "
-                        "credential import", name)
+            logger.info("No Linux profile mapping for browser %r - skipping", name)
             continue
         try:
-            payload = _decrypt_envelope(entry["credentialsBlob"], password)
+            payload = _decrypt_envelope(entry["blob"], password)
         except Exception:
-            logger.exception("Could not decrypt the credential envelope for "
-                             "%s - skipping this browser", name)
+            # A bad tag is indistinguishable from a corrupt envelope here, but
+            # a wrong password is overwhelmingly the likelier cause.
+            wrong_password = True
+            logger.warning("Could not decrypt the envelope for %s", name)
             continue
 
         logins = payload.get("logins", [])
         if not logins:
             continue
-
-        config_dir = home / config_rel
-        profile_dir = config_dir / "Default"
         try:
+            profile_dir = Path.home() / config_rel / "Default"
             profile_dir.mkdir(parents=True, exist_ok=True)
-            inserted = _import_into_login_data(profile_dir / "Login Data", logins)
-            run_cmd(["chown", "-R", f"{linux_user}:{linux_user}",
-                     str(config_dir)], check=False)
-            logger.info("Imported %d Chromium login(s) for %s", inserted, name)
+            imported += _import_into_login_data(profile_dir / "Login Data", logins)
         except Exception:
-            logger.exception("Failed to import Chromium credentials for %s "
-                             "(non-fatal)", name)
+            logger.exception("Failed to import credentials for %s (non-fatal)", name)
+
+    if wrong_password and imported == 0:
+        data["attempts"] = attempts
+        store.write_text(json.dumps(data), encoding="utf-8")
+        logger.info("Nothing decrypted (attempt %d of %d) - will ask again at "
+                    "the next login", attempts, _CRED_MAX_ATTEMPTS)
+        return 0
+
+    store.unlink(missing_ok=True)
+    logger.info("Imported %d browser login(s); credential store removed", imported)
+    return 0
+
+
 # === END AGENT SECTION ===================================================
 
 
@@ -582,6 +730,49 @@ if __name__ == "__main__":
             print("SKIP Login Data is 0600 (POSIX-only check)")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+    # --- the login-time path: store -> prompt -> import -> store gone --------
+    tmp2 = Path(tempfile.mkdtemp(prefix="igloo-userimport-"))
+    real_home = Path.home
+    try:
+        Path.home = staticmethod(lambda: tmp2)          # type: ignore[assignment]
+        store = tmp2 / _CRED_STORE_REL
+        store.parent.mkdir(parents=True, exist_ok=True)
+        store.write_text(json.dumps({
+            "attempts": 0,
+            "browsers": [{"name": "Google Chrome", "blob": blob}],
+        }), encoding="utf-8")
+
+        globals()["_ask_password"] = lambda: (True, "wrong password")
+        run_user_credential_import()
+        left = json.loads(store.read_text(encoding="utf-8"))
+        check(store.is_file() and left["attempts"] == 1,
+              "wrong password leaves the store and counts the attempt")
+
+        globals()["_ask_password"] = lambda: (True, None)
+        run_user_credential_import()
+        check(json.loads(store.read_text(encoding="utf-8"))["attempts"] == 2,
+              "cancelling counts as an attempt")
+
+        globals()["_ask_password"] = lambda: (True, PASSWORD)
+        run_user_credential_import()
+        check(not store.exists(), "successful import removes the store")
+        db = tmp2 / _CHROMIUM_LINUX_DIRS["Google Chrome"] / "Default" / "Login Data"
+        con = sqlite3.connect(db)
+        rows = con.execute("SELECT COUNT(*) FROM logins").fetchone()[0]
+        con.close()
+        check(rows == 2, "logins landed in the user's own profile")
+
+        store.write_text(json.dumps({
+            "attempts": _CRED_MAX_ATTEMPTS,
+            "browsers": [{"name": "Google Chrome", "blob": blob}],
+        }), encoding="utf-8")
+        globals()["_ask_password"] = lambda: (True, "still wrong")
+        run_user_credential_import()
+        check(not store.exists(), "store is deleted once the attempts run out")
+    finally:
+        Path.home = real_home                            # type: ignore[assignment]
+        shutil.rmtree(tmp2, ignore_errors=True)
 
     if failures:
         raise SystemExit(f"{len(failures)} check(s) FAILED")

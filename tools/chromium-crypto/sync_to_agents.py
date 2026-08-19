@@ -29,15 +29,21 @@ def extract_section() -> str:
     lines = SOURCE.read_text(encoding="utf-8").splitlines(keepends=True)
     begin = next(i for i, l in enumerate(lines) if l.startswith(BEGIN))
     end = next(i for i, l in enumerate(lines) if l.startswith(END))
-    return "".join(lines[begin:end])
+    # end + 1: the marker itself has to travel, or the next run cannot find it.
+    return "".join(lines[begin:end + 1])
 
 
 def sync(agent: Path, section: str) -> str:
     text = agent.read_text(encoding="utf-8")
     if BEGIN in text:
         head = text[:text.index(BEGIN)]
-        tail = text[text.index(END):]
-        tail = tail[tail.index("\n") + 1:]
+        if END in text:
+            tail = text[text.index(END):]
+            tail = tail[tail.index("\n") + 1:]
+        else:
+            # Written by the version that dropped the END marker: the section
+            # ran up to the anchor, so recover the boundary from there.
+            tail = text[text.index(ANCHOR):]
         agent.write_text(head + section + tail, encoding="utf-8")
         return "replaced existing section"
     anchor_at = text.index(ANCHOR)

@@ -103,10 +103,9 @@ public sealed record MigrationUser
     [JsonPropertyName("timezone")] public string Timezone { get; init; } = "UTC";
     [JsonPropertyName("keymap")] public string Keymap { get; init; } = "us";
 
-    // Plain text, still needed as the PBKDF2 input for the staged browser credentials.
-    [JsonPropertyName("linuxPassword")] public string? LinuxPassword { get; init; }
-
-    // What the installers and chpasswd -e consume, so the plain text never reaches them.
+    // The only form of the password that leaves this machine. The plain text is
+    // never written to the manifest: it lands on a FAT32 partition that has no
+    // access control. See docs/reference/password-hashing.md.
     [JsonPropertyName("linuxPasswordCrypted")] public string? LinuxPasswordCrypted { get; init; }
 }
 
