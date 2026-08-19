@@ -1750,6 +1750,83 @@ def migrate_wallpaper(manifest: dict[str, Any]) -> None:
         logger.info("Could not write the dconf wallpaper default (non-fatal)")
 
 
+def migrate_account_picture(manifest: dict[str, Any]) -> None:
+    """Install the staged Windows account picture as the user's Linux avatar.
+
+    Written to three places because no single one covers every greeter:
+    /var/lib/AccountsService/icons/<user> is what GDM and SDDM read, the Icon= line
+    in /var/lib/AccountsService/users/<user> is the metadata KDE writes, and ~/.face
+    covers the greeters that look in the home directory.
+    """
+    pic = manifest.get("accountPicture") or {}
+    fname = (pic.get("fileName") or "").strip()
+    if not fname:
+        logger.info("No account picture in the manifest - keeping the distro default")
+        return
+
+    src = Path("/opt/igloo") / fname
+    if not src.is_file():
+        logger.warning("Manifest names account picture %r but %s is missing - skipped",
+                       fname, src)
+        return
+
+    username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
+    home = Path("/home") / username if username else None
+    if home is None or not home.is_dir():
+        logger.warning("User home not found - cannot install the account picture")
+        return
+
+    data = src.read_bytes()
+
+    try:
+        icons = Path("/var/lib/AccountsService/icons")
+        icons.mkdir(parents=True, exist_ok=True)
+        icon_path = icons / username
+        icon_path.write_bytes(data)
+        icon_path.chmod(0o644)
+
+        users_dir = Path("/var/lib/AccountsService/users")
+        users_dir.mkdir(parents=True, exist_ok=True)
+        _set_accountsservice_icon(users_dir / username, icon_path)
+        logger.info("Account picture installed at %s", icon_path)
+    except OSError:
+        logger.exception("Could not write the AccountsService avatar (non-fatal)")
+
+    try:
+        face = home / ".face"
+        face.write_bytes(data)
+        face.chmod(0o644)
+        run_cmd(["chown", f"{username}:{username}", str(face)], check=False)
+        logger.info("Account picture also written to %s", face)
+    except OSError:
+        logger.exception("Could not write ~/.face (non-fatal)")
+
+
+def _set_accountsservice_icon(user_file: Path, icon_path: Path) -> None:
+    """Set Icon= in the AccountsService user file, keeping any other keys intact."""
+    lines: list[str] = []
+    if user_file.is_file():
+        lines = user_file.read_text(encoding="utf-8").splitlines()
+
+    if "[User]" not in lines:
+        lines = ["[User]"] + lines
+
+    out: list[str] = []
+    written = False
+    for line in lines:
+        if line.startswith("Icon="):
+            if not written:
+                out.append(f"Icon={icon_path}")
+                written = True
+            continue
+        out.append(line)
+        if line == "[User]" and not written:
+            out.append(f"Icon={icon_path}")
+            written = True
+
+    user_file.write_text("\n".join(out) + "\n", encoding="utf-8")
+    user_file.chmod(0o600)
+
 def install_welcome_app(manifest: dict[str, Any]) -> None:
     autostart_dir = Path("/etc/xdg/autostart")
     autostart_dir.mkdir(parents=True, exist_ok=True)
@@ -1892,6 +1969,7 @@ def main() -> int:
         ("user-files",       lambda: migrate_user_files(manifest)),
         ("display-layout",   lambda: migrate_display_layout(manifest)),
         ("wallpaper",        lambda: migrate_wallpaper(manifest)),
+        ("account-picture",  lambda: migrate_account_picture(manifest)),
         ("welcome-app",      lambda: install_welcome_app(manifest)),
         ("stage-credentials", lambda: stage_credential_import(manifest)),
         ("redact-manifest",  lambda: redact_manifest(manifest)),

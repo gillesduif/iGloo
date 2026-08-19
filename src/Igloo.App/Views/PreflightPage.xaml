@@ -229,14 +229,30 @@
                 </Border>
 
                 <!-- Findings -->
-                <TextBlock Text="FINDINGS" Style="{StaticResource Text.Section}" Margin="2,22,0,4" />
+                <!-- The section header belongs to a list; with nothing to list it just
+                     labels its own absence. -->
+                <TextBlock Text="FINDINGS" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
+                           Visibility="{Binding HasFindings, Converter={StaticResource BoolToVis}}" />
 
-                <Border Style="{StaticResource Card.Success}" Padding="14,10"
+                <!-- Clean result: the same badge-and-title card the acquisition page uses
+                     for "Installer ready", so a finished check reads the same everywhere. -->
+                <Border Style="{StaticResource Card}" Padding="26,22" Margin="0,22,0,0"
                         Visibility="{Binding HasNoFindings, Converter={StaticResource BoolToVis}}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{StaticResource Brush.Success}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <TextBlock Text="System compatible. Ready to proceed."
-                                   Foreground="{StaticResource Brush.Success}" FontSize="13" />
+                        <Border Width="34" Height="34" CornerRadius="17"
+                                Background="{StaticResource Brush.Success.Faint}"
+                                BorderBrush="{StaticResource Brush.Success}" BorderThickness="1.5">
+                            <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Brush.Success}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center" Margin="14,0,0,0">
+                            <TextBlock Text="System compatible"
+                                       FontSize="19" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.Text.Primary}" />
+                            <TextBlock Text="Ready to proceed."
+                                       Style="{StaticResource Text.Body}" FontSize="13"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

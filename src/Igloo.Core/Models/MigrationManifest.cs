@@ -46,6 +46,26 @@ public sealed record MigrationManifest
     /// </summary>
     [JsonPropertyName("wallpaper")]
     public WallpaperMigration? Wallpaper { get; init; }
+
+    /// <summary>
+    /// The Windows account picture, or null when the user never set one - the agent
+    /// then leaves the distro's default avatar alone.
+    /// </summary>
+    [JsonPropertyName("accountPicture")]
+    public AccountPictureMigration? AccountPicture { get; init; }
+}
+
+/// <summary>
+/// The account picture carried to Linux. The file sits next to this manifest on the
+/// installer seed; <see cref="FileName"/> is the name the first-boot agent looks for.
+/// </summary>
+public sealed record AccountPictureMigration
+{
+    /// <summary>Staging-relative file name, e.g. <c>igloo-avatar.jpg</c>.</summary>
+    [JsonPropertyName("fileName")] public required string FileName { get; init; }
+
+    /// <summary>Where the picture lived on Windows - diagnostics only.</summary>
+    [JsonPropertyName("originalPath")] public string? OriginalPath { get; init; }
 }
 
 /// <summary>

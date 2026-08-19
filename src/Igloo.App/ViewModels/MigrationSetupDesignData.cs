@@ -1,4 +1,3 @@
-#if DEBUG
 using Igloo.Preflight;
 
 namespace Igloo.App.ViewModels;
@@ -12,6 +11,13 @@ namespace Igloo.App.ViewModels;
 public sealed class MigrationSetupDesignData
 {
     public string WindowsUsername { get; set; } = "Gilles";
+
+    // A pack URI, not a filesystem path: the real value is machine-specific, and the
+    // designer has to draw something on any clone. Set it to null to preview the
+    // no-picture case, where the circle collapses.
+    public string? AccountPicturePath { get; set; } =
+        "pack://application:,,,/Assets/Fluent3D/penguin.png";
+    public bool HasAccountPicture => !string.IsNullOrEmpty(AccountPicturePath);
     public string LinuxUsername { get; set; } = "gilles";
     public string Locale { get; set; } = "nl_BE.UTF-8";
     public string Timezone { get; set; } = "Europe/Brussels";
@@ -20,6 +26,11 @@ public sealed class MigrationSetupDesignData
     public bool IsUsernameValid { get; set; } = true;
     public bool IsPasswordValid { get; set; } = true;
     public bool IsPasswordMatch { get; set; } = true;
+
+    // Set either to true to preview the error state; both false is the untouched
+    // form, which must show no validation at all.
+    public bool ShowPasswordLengthError { get; set; }
+    public bool ShowPasswordMismatch { get; set; }
 
     public bool IncludeDocuments { get; set; } = true;
     public bool IncludeDownloads { get; set; } = true;
@@ -48,4 +59,3 @@ public sealed class MigrationSetupDesignData
             "VLC media player", "VLC", "org.videolan.VLC", "vlc")),
     ];
 }
-#endif

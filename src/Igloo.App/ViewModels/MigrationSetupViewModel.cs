@@ -3,6 +3,7 @@ using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Igloo.Core.Models;
 using Igloo.Preflight;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Igloo.App.ViewModels;
 
@@ -30,6 +31,11 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     public bool IsPasswordValid => LinuxPassword.Length >= 8;
     public bool IsPasswordMatch => LinuxPassword == LinuxPasswordConfirm;
 
+    // An untouched field is incomplete, not wrong. Fluent shows validation after the
+    // user has typed something, so the form does not greet them with two errors.
+    public bool ShowPasswordLengthError => LinuxPassword.Length > 0 && !IsPasswordValid;
+    public bool ShowPasswordMismatch => LinuxPasswordConfirm.Length > 0 && !IsPasswordMatch;
+
     
     public void SetPasswords(string password, string confirm)
     {
@@ -39,6 +45,8 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         OnPropertyChanged(nameof(LinuxPasswordConfirm));
         OnPropertyChanged(nameof(IsPasswordValid));
         OnPropertyChanged(nameof(IsPasswordMatch));
+        OnPropertyChanged(nameof(ShowPasswordLengthError));
+        OnPropertyChanged(nameof(ShowPasswordMismatch));
         OnPropertyChanged(nameof(CanProceed));
     }
 
@@ -97,7 +105,19 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         DetectedSuggestions = WindowsAppScanner.Scan()
             .Select(s => new SuggestedPackageEntry(s))
             .ToList();
+
+        AccountPicturePath = AccountPictureReader.TryFindAccountPicture(
+            NullLogger<MigrationSetupViewModel>.Instance);
     }
+
+    /// <summary>
+    /// The Windows account picture that will travel to Linux, or null when the user
+    /// never set one. Bound as the card's avatar so the migration is visible rather
+    /// than implied.
+    /// </summary>
+    public string? AccountPicturePath { get; }
+
+    public bool HasAccountPicture => !string.IsNullOrEmpty(AccountPicturePath);
 
     // Maps a Windows culture (e.g. "nl-NL") to a glibc locale ("nl_NL.UTF-8"). A region-less or
     // invariant culture ("nl", "") has no reliable country to derive, so it falls back to en_US.UTF-8.

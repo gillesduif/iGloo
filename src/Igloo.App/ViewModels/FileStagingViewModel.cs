@@ -185,6 +185,8 @@ public sealed partial class FileStagingViewModel : ObservableObject
             // Fail-soft: no image simply means no "wallpaper" key in the manifest.
             manifest = await Task.Run(
                 () => AttachWallpaper(manifest, stagingResult.StagingDirectory), ct);
+            manifest = await Task.Run(
+                () => AttachAccountPicture(manifest, stagingResult.StagingDirectory), ct);
 
             var manifestPath = Path.Join(stagingResult.StagingDirectory, "migration-manifest.json");
             await File.WriteAllTextAsync(
@@ -294,6 +296,40 @@ public sealed partial class FileStagingViewModel : ObservableObject
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
         {
             _logger.LogWarning(ex, "Could not stage the wallpaper - skipping (non-fatal)");
+            return manifest;
+        }
+    }
+
+    /// <summary>
+    /// Copies the Windows account picture next to the manifest as
+    /// <c>igloo-avatar.jpg</c> and points the manifest at it. Returns the manifest
+    /// unchanged when the user never set one - never throws.
+    /// </summary>
+    private MigrationManifest AttachAccountPicture(MigrationManifest manifest, string stagingDirectory)
+    {
+        try
+        {
+            var source = AccountPictureReader.TryFindAccountPicture(_logger);
+            if (source is null)
+                return manifest;
+
+            // Windows stores these as JPEG regardless of what the user imported.
+            const string fileName = "igloo-avatar.jpg";
+            File.Copy(source, Path.Join(stagingDirectory, fileName), overwrite: true);
+            _logger.LogInformation("Account picture staged from {Source}", source);
+
+            return manifest with
+            {
+                AccountPicture = new AccountPictureMigration
+                {
+                    FileName = fileName,
+                    OriginalPath = source,
+                },
+            };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            _logger.LogWarning(ex, "Could not stage the account picture - skipping (non-fatal)");
             return manifest;
         }
     }

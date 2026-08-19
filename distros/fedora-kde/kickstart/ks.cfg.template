@@ -379,10 +379,10 @@ fi
 # ── 3b. Copy the migrated wallpaper (optional) ──────────────────────────────
 # The agent's wallpaper step looks for it in /opt/igloo under its staged name.
 if [ -n "$OEMDRV" ]; then
-    for wp in "$OEMDRV"/igloo-wallpaper.*; do
+    for wp in "$OEMDRV"/igloo-wallpaper.* "$OEMDRV"/igloo-avatar.*; do
         [ -f "$wp" ] || continue
         cp "$wp" "$SYSIMAGE/opt/igloo/$(basename "$wp")"
-        log "Wallpaper copied: $(basename "$wp")"
+        log "Copied: $(basename "$wp")"
     done
 fi
 

@@ -108,6 +108,7 @@ autoinstall:
       cp /run/igloo-seed/igloo-agent/display-apply.py /opt/igloo/display-apply.py 2>/dev/null || true
       cp /run/igloo-seed/igloo-agent/display-apply-gnome.py /opt/igloo/display-apply-gnome.py 2>/dev/null || true
       cp /run/igloo-seed/igloo-wallpaper.* /opt/igloo/ 2>/dev/null || true
+      cp /run/igloo-seed/igloo-avatar.* /opt/igloo/ 2>/dev/null || true
       cp /run/igloo-seed/migration-manifest.json   /var/lib/igloo/manifest.json
       chmod 0755 /opt/igloo/agent.py /opt/igloo/first-boot.sh /opt/igloo/display-apply.py /opt/igloo/display-apply-gnome.py 2>/dev/null || true
       umount /run/igloo-seed 2>/dev/null || true
