@@ -65,28 +65,29 @@
                              StrokeDashArray="20 76.3" StrokeDashCap="Round" />
                 </Grid>
 
-                <!-- The shield is reserved for the signature check; the other
-                     phases carry their own subject. -->
-                <Image Width="56" Height="56"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       RenderOptions.BitmapScalingMode="HighQuality">
-                    <Image.Style>
-                        <Style TargetType="Image">
-                            <Setter Property="Source" Value="/Assets/Fluent3D/disk.png" />
+                <!-- Segoe Fluent Icons rather than the 3D set: one glyph per phase,
+                     so the icon says what is happening instead of decorating it. -->
+                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                           FontFamily="Segoe Fluent Icons" FontSize="40"
+                           Foreground="{StaticResource Brush.AccentW11}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <!-- Downloading, and the default before a phase is known. -->
+                            <Setter Property="Text" Value="&#xEBD3;" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Phase}" Value="ResolvingMirror">
-                                    <Setter Property="Source" Value="/Assets/Fluent3D/search.png" />
+                                    <Setter Property="Text" Value="&#xF6FA;" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Phase}" Value="VerifyingSha256">
-                                    <Setter Property="Source" Value="/Assets/Fluent3D/search.png" />
+                                    <Setter Property="Text" Value="&#xE928;" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Phase}" Value="VerifyingGpg">
-                                    <Setter Property="Source" Value="/Assets/Fluent3D/shield.png" />
+                                    <Setter Property="Text" Value="&#xF552;" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </Image.Style>
-                </Image>
+                    </TextBlock.Style>
+                </TextBlock>
             </Grid>
 
             <TextBlock Text="{Binding PhaseDisplay}"

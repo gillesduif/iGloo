@@ -56,7 +56,8 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     [ObservableProperty] private DirectInstallPhase _currentPhase;
     [ObservableProperty] private bool _isRebooting;
 
-    [ObservableProperty] private bool _logsExpanded;
+    // Open by default: partitioning is the step users most want to watch.
+    [ObservableProperty] private bool _logsExpanded = true;
     [ObservableProperty] private string? _logTail;
 
     // Serilog keeps today's file open, so the tail is read with FileShare.ReadWrite.

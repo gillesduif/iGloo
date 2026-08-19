@@ -1,36 +1,15 @@
 <UserControl
     x:Class="Igloo.App.Views.DirectInstallPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:Igloo.App.ViewModels"
+    mc:Ignorable="d"
+    d:DataContext="{d:DesignInstance Type=vm:DirectInstallDesignData, IsDesignTimeCreatable=True}"
+    d:DesignWidth="900" d:DesignHeight="1100">
 
     <UserControl.Resources>
-        <!-- Chevron overlaying the slide edge; disabled at the ends of the run. -->
-        <Style x:Key="SlideChevron" TargetType="Button">
-            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="Width" Value="32" />
-            <Setter Property="Height" Value="32" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bg" CornerRadius="16" Background="#66000000">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="#99000000" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.25" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </UserControl.Resources>
 
 
@@ -80,14 +59,12 @@
 
                 <Border Style="{StaticResource Card.Accent}" Margin="0,18,0,0">
                     <StackPanel>
-            <TextBlock Text="System Preparation"
+                        <TextBlock Text="System Preparation"
                                    FontWeight="SemiBold" FontSize="13"
                                    Foreground="{StaticResource Brush.Text.Primary}"
                                    Margin="0,0,0,6" />
-            <TextBlock Style="{StaticResource Text.Body}" FontSize="12.5" Foreground="#FFC4C7D1">
-              iGloo creates a temporary partition and copies the installation image. Next it configures the bootloader. Windows will then restart into the Linux installer after clicking   <Run FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}">Reboot</Run>.
-            </TextBlock>
-                       
+                        <TextBlock Style="{StaticResource Text.Body}" FontSize="12.5" Foreground="#FFC4C7D1"><Run Text="The installation files are being prepared."/><Run Language="nl-be" Text="..."/></TextBlock>
+
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -108,50 +85,30 @@
                 <!-- Ready banner -->
                 <Border Style="{StaticResource Card.Success}" Padding="16,12" Margin="0,0,0,18">
                     <StackPanel Orientation="Horizontal">
-                        <Border Width="30" Height="30" CornerRadius="15"
-                                Background="{StaticResource Brush.Success.Faint}"
-                                BorderBrush="{StaticResource Brush.Success}" BorderThickness="1.5"
-                                VerticalAlignment="Center">
+                       
                             <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Brush.Success}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                        
                         <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="Installer partition ready"
+                            <TextBlock Text="Setup complete"
                                        FontSize="15" FontWeight="SemiBold"
                                        Foreground="{StaticResource Brush.Success}" />
-              <TextBlock Text="All components are ready. The system will restart directly into the Linux installer."
+                            <TextBlock Text="Restart your computer via the Reboot button to proceed to the Linux installer."
                                        Style="{StaticResource Text.Body}" FontSize="12" Margin="0,2,0,0" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <!-- The journey ahead: one slide per step, arrows or Left/Right -->
-                <TextBlock Text="WHAT HAPPENS NEXT" Style="{StaticResource Text.Section}" Margin="2,0,0,4" />
-                <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,18">
-                    <StackPanel>
-                        <!-- Fixed frame: the image scales into it, so the card never
-                             changes height between slides of different proportions. -->
-                        <!-- Viewbox, not a fixed height: the frame keeps the image's
-                             proportions as the window resizes instead of cropping it. -->
-                        <Grid Background="{StaticResource Brush.Surface}">
-                            <Viewbox Stretch="Uniform" MaxHeight="360">
-                                <Image x:Name="SlideImage" />
-                            </Viewbox>
-                            <Button x:Name="PrevSlide" Style="{StaticResource SlideChevron}" Content="&#xE76B;"
-                                    HorizontalAlignment="Left"  Margin="10,0,0,0" Click="PrevSlide_Click"
-                                    AutomationProperties.Name="Previous step" />
-                            <Button x:Name="NextSlide" Style="{StaticResource SlideChevron}" Content="&#xE76C;"
-                                    HorizontalAlignment="Right" Margin="0,0,10,0" Click="NextSlide_Click"
-                                    AutomationProperties.Name="Next step" />
-                        </Grid>
-                        <TextBlock x:Name="SlideCaption" Style="{StaticResource Text.Body}"
-                                   FontSize="12.5" TextWrapping="Wrap" Margin="16,14,16,16" />
+                <Border  Margin="0,0,0,18">
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                        <Image Source="/Assets/PNG/Tux.png"
+                               Width="331" Height="297"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock Text="Ready to launch Linux installation setup."
+                                   Style="{StaticResource Text.Body}"
+                                   FontSize="16" Margin="16,0,0,0" Width="287" />
                     </StackPanel>
                 </Border>
-
-
-                <!-- No action button here: rebooting is the wizard's last navigation
-                     step, so it lives on the shared forward button in the nav bar. -->
 
                 <TextBlock Style="{StaticResource Text.Caption}" Margin="2,10,0,0" MaxWidth="520"
                            HorizontalAlignment="Left">
@@ -182,25 +139,26 @@
                     </StackPanel>
                 </Border>
 
-        <Expander Header="Technical details" IsExpanded="False"
+                <Expander Header="Technical details" IsExpanded="False"
                           Visibility="{Binding HasErrorDetail, Converter={StaticResource BoolToVis}}">
-          <TextBox Text="{Binding ErrorDetail, Mode=OneWay}"
+                    <TextBox Text="{Binding ErrorDetail, Mode=OneWay}"
                              Style="{StaticResource TextBox.Detail}"
                              TextWrapping="Wrap" MaxHeight="200"
                              VerticalScrollBarVisibility="Auto" />
-        </Expander>
-      </StackPanel>
+                </Expander>
+            </StackPanel>
 
             <!--   LOGS: always available, for people who want the detail   -->
-            <Expander Header="Show logs" IsExpanded="{Binding LogsExpanded, Mode=TwoWay}"
+            <Expander Header="Logs" IsExpanded="{Binding LogsExpanded, Mode=TwoWay}"
                       Margin="0,4,0,0">
                 <StackPanel>
-                    <TextBox Text="{Binding LogTail, Mode=OneWay}"
+                    <TextBox x:Name="LogBox" Text="{Binding LogTail, Mode=OneWay}"
                              Style="{StaticResource TextBox.Detail}"
                              FontFamily="Cascadia Mono, Consolas"
                              TextWrapping="NoWrap" MaxHeight="240"
                              VerticalScrollBarVisibility="Auto"
-                             HorizontalScrollBarVisibility="Auto" />
+                             HorizontalScrollBarVisibility="Auto"
+                             TextChanged="LogBox_TextChanged" />
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                         <Button Content="Refresh" Style="{StaticResource Button.Ghost}"
                                 Command="{Binding RefreshLogTailCommand}" />

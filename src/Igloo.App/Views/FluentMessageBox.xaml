@@ -79,7 +79,7 @@
                     <Button x:Name="PrimaryButton" MinWidth="104"
                             Style="{StaticResource Button.Primary}"
                             Content="OK" IsDefault="True" Click="OnPrimary"
-                            Foreground="White" />
+                            Foreground="Black" Background="#FF4CC2FF" />
                 </StackPanel>
             </Border>
         </Grid>

@@ -29,7 +29,7 @@
     <!-- Microsoft Fluent 3D icons (fluentui-emoji, MIT)  the Settings-style
          3D illustrative icons; embedded so pack URIs work from any location. -->
     <Resource Include="Assets\Fluent3D\*.png" />
-    <Resource Include="Assets\Journey\*.png" />
+    <Resource Include="Assets\PNG\*.png" />
   </ItemGroup>
 
   <!--
