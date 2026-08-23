@@ -10,14 +10,15 @@ public static class WindowsAppScanner
 {
     //   Registry paths that list installed applications            ─
 
-    private static readonly string[] HklmUninstallPaths =
-    [
-        @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
-        @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",  // 32-bit on 64-bit
-    ];
-
-    private const string HkcuUninstallPath =
+    private const string UninstallPath =
         @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+
+    // iGloo publishes win-x86, and WOW64 redirects a 32-bit process's HKLM reads to
+    // WOW6432Node - which hides every 64-bit-only install. Naming the views defeats
+    // that the way FindNativeExe defeats the System32 redirect, and stays correct if
+    // the app is ever published x64. Registry32 resolves to WOW6432Node by itself.
+    private static readonly RegistryView[] HklmViews =
+        [RegistryView.Registry64, RegistryView.Registry32];
 
     //   Mapping: Windows keyword(s) → Linux equivalent             
     //
@@ -86,9 +87,11 @@ public static class WindowsAppScanner
         new(["filezilla"],
             "FileZilla",            "org.filezillaproject.Filezilla",    null),
 
-        //   Web browsers                             
-        // Firefox and Falkon ship with Fedora KDE, so they are not listed here.
-        // These are third-party browsers the user installed on Windows.
+        //   Web browsers
+        // Firefox is absent on purpose: every distribution iGloo installs already
+        // ships it, so offering it would put a second Firefox on the machine.
+        // GetSelectedSuggestions relies on FlatpakFor returning null for it.
+        // These are the third-party browsers the user installed on Windows.
         new(["zen browser", "zen-browser"],
             "Zen Browser",          "app.zen_browser.zen",               null),
         new(["brave"],
@@ -105,19 +108,35 @@ public static class WindowsAppScanner
 
     public static IReadOnlyList<DetectedSuggestion> Scan() => Match(ReadInstalledDisplayNames());
 
+    /// <summary>The Flatpak that provides <paramref name="linuxAppName"/>, or null when
+    /// iGloo has no mapping for it (Firefox, for one, ships with the distribution).</summary>
+    public static string? FlatpakFor(string linuxAppName)
+        => Mappings.FirstOrDefault(m =>
+            string.Equals(m.LinuxAppName, linuxAppName, StringComparison.Ordinal))?.FlatpakId;
+
     //   Private                                ─
 
-    private static HashSet<string> ReadInstalledDisplayNames()
+    internal static HashSet<string> ReadInstalledDisplayNames()
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // HKLM - system-wide installs (64-bit and 32-bit on 64-bit Windows)
-        foreach (var path in HklmUninstallPaths)
-            AddDisplayNames(Registry.LocalMachine, path, names);
+        // HKLM - system-wide installs, both registry views.
+        foreach (var view in HklmViews)
+            names.UnionWith(ReadHklmView(view));
 
-        // HKCU - per-user installs (Spotify installs here by default)
-        AddDisplayNames(Registry.CurrentUser, HkcuUninstallPath, names);
+        // HKCU - per-user installs (Spotify installs here by default). This path is
+        // not redirected, so the process view is the right one.
+        using var hkcu = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Default);
+        AddDisplayNames(hkcu, UninstallPath, names);
 
+        return names;
+    }
+
+    internal static HashSet<string> ReadHklmView(RegistryView view)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var hklm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
+        AddDisplayNames(hklm, UninstallPath, names);
         return names;
     }
 
