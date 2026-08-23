@@ -26,6 +26,21 @@ sudo cp -r /var/log/igloo "$USB/igloo-logs" 2>/dev/null; sudo cp /var/log/igloo-
 
 
 ===============================================================================
+ STEP 3 - THE FULL BUNDLE  (preferred: it collects far more than STEP 1)
+===============================================================================
+sudo bash "$USB/igloo-collect.sh"
+
+  Installs itself as /usr/local/bin/igloo-logs, so every later run is just:
+
+sudo igloo-logs
+
+  Writes <stick>/igloo-logs-<host>-<timestamp>/ plus a .tar.gz. This is the one
+  to send back - it includes the browser, display and credential evidence that
+  STEP 1 does not gather. The manifest inside is redacted (password and Wi-Fi
+  keys stripped); check redacted-manifest.json yourself before sharing.
+
+
+===============================================================================
  THE THREE CHECKS WORTH READING ON SCREEN
 ===============================================================================
 
@@ -86,6 +101,105 @@ cat ~/.config/monitors.xml 2>/dev/null || echo "no monitors.xml written"
 
 
 ===============================================================================
+ IF BROWSER DATA DID NOT COME ACROSS
+===============================================================================
+FIRST - did the fixed agent actually ship? Nothing below means anything until
+this answers 2 and 2. A published build carries whatever agent.py was on disk
+when it was published, so this is the one line that separates "the fix is wrong"
+from "the fix was not in that run".
+
+grep -c normalise_gecko_profiles /opt/igloo/agent.py
+grep -c _chromium_config_homes  /opt/igloo/agent.py
+
+  2 and 2 -> the fix shipped; carry on reading.
+  0       -> the payload predates it. Rebuild + publish, reinstall, stop here.
+
+
+FIREFOX / ZEN - where did the profile end up?
+-------------------------------------------------------------------------------
+On Debian the agent installs Flathub Firefox (the distro only has ESR, which is
+too old for a profile Windows 153 touched) and moves the profile into its
+Flatpak home. Mint and Fedora ship release Firefox and keep the native path.
+
+ls -d ~/.mozilla/firefox ~/.var/app/org.mozilla.firefox/.mozilla/firefox 2>/dev/null
+flatpak list --app | grep -i firefox
+
+  Exactly one of those two directories should hold the profile. Debian: expect
+  the Flatpak one AND org.mozilla.firefox in the list. Mint/Fedora: expect the
+  native one and NO Firefox flatpak.
+
+grep -iE "firefox|profile is from" /var/log/igloo/agent.log
+
+  Says which way it went and why, e.g. "Profile is from Firefox 153 but this
+  distribution ships 140 - installing org.mozilla.firefox".
+
+Then read profiles.ini in whichever directory won (FF=that path):
+
+cat "$FF/profiles.ini"
+
+  GOOD : Default=1 sits on the profile that holds the data, and there is NO
+         [Install<HEX>] section left in the file.
+  BAD  : an [Install...] section is still there -> the agent never rewrote it,
+         and Firefox is falling back to whatever old profile has Default=1.
+
+for d in "$FF"/Profiles/*/; do du -sh "$d"; done
+
+  The profile carrying Default=1 must be the big one (hundreds of MB). If
+  Default=1 points at a 1 KB stub, that is the whole bug.
+
+ls "$FF"/Profiles/*/compatibility.ini
+
+  Must say "No such file". A leftover one makes Firefox refuse the profile,
+  because Windows ran a newer build than the ESR the distro ships.
+
+
+BRAVE - where did the passwords land?
+-------------------------------------------------------------------------------
+flatpak list --app | grep -i brave
+find ~/.var/app/*/config -maxdepth 5 -name "Login Data" -exec ls -la {} \;
+ls -la ~/.config/BraveSoftware/Brave-Browser/Default/"Login Data"
+
+  Login Data must exist under whichever form of Brave is installed. A Flatpak
+  Brave never reads ~/.config, and a packaged Brave never reads ~/.var/app.
+
+cat ~/.local/state/igloo-credentials.log
+
+  "Imported N browser login(s)" -> done.
+  No such file                  -> the login hook never ran.
+
+ls -la ~/.local/share/igloo/credentials.json
+
+  Still present -> the import has not completed: wrong password, or cancelled.
+  It retries at the next login until the attempts run out.
+
+BRAVE - did the rest of the profile come across?
+-------------------------------------------------------------------------------
+Bookmarks, history, favicons and cookies are NOT protected by the Windows master
+key, so they are copied off the NTFS partition like any other file. Check the
+profile that Brave actually reads (Flatpak Brave never uses ~/.config):
+
+P=~/.var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser/Default
+ls -la "$P/Bookmarks" "$P/History" "$P/Favicons" "$P/Network/Cookies"
+sqlite3 "$P/History" "select count(*) from urls"
+sqlite3 "$P/Network/Cookies" "select count(*) from cookies"
+
+  A History of a few hundred KB with a non-zero url count means it came across.
+  An 8 KB file with 0 rows means Brave created a fresh one.
+
+  Extensions and payment cards are NOT migrated. Extensions are signed against
+  the machine; cards are left behind on purpose.
+
+
+APPS THAT SHOULD HAVE BEEN INSTALLED
+-------------------------------------------------------------------------------
+flatpak list --app --columns=application
+
+  Every browser you ticked under BROWSER PROFILES must appear here too, even if
+  it was not ticked under SUGGESTED LINUX APPS - migrating a profile onto a
+  machine without the browser is useless.
+
+
+===============================================================================
  IF THE DRIVER DID NOT LOAD - the two lines that say why
 ===============================================================================
 mokutil --sb-state
@@ -106,6 +220,10 @@ sudo grep -iE "nvidia|secure boot|refused|module" /var/log/igloo/agent.log | tai
 [ ] Install ran unattended - no language / keyboard / network prompts
 [ ] Windows still boots (check the GRUB menu has a Windows entry)
 [ ] Any other Linux I wanted to keep is still there
+[ ] ...and that other Linux still BOOTS - pick it from the menu, do not
+    assume it. A sibling entry with root=/dev/nvmeXnYpZ instead of
+    root=UUID= hangs on "Job dev-...device/start running (no limit)".
+    grep -n 'root=/dev/' /boot/grub/grub.cfg  must print nothing.
 [ ] Desktop reaches the login screen (no black screen / bare cursor)
 [ ] Screen is at native resolution
 [ ] lspci says "Kernel driver in use: nvidia"
@@ -116,5 +234,9 @@ sudo grep -iE "nvidia|secure boot|refused|module" /var/log/igloo/agent.log | tai
 [ ] Debian: NO language / country question during install
 [ ] My files are in ~/Documents, ~/Downloads, ~/Pictures
 [ ] OEMDRV installer partition is gone (check with lsblk)
+[ ] Firefox opens with my bookmarks, history and saved logins
+[ ] Every browser I ticked is actually installed (flatpak list --app)
+[ ] Brave has my saved passwords
+[ ] Rotation survived a REBOOT, not just the first login
 
 Notes:

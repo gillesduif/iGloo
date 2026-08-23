@@ -135,7 +135,7 @@ run  display-agent-log.txt   bash -c 'grep -iE "display|monitor|output|pnp" /var
 # files whatever they contain, so a -s test silently skips every monitor on the machine.
 run  display-connectors.txt  bash -c 'for c in /sys/class/drm/card*-*; do [ -r "$c/status" ] || continue; s=$(cat "$c/status" 2>/dev/null); echo "== $(basename "$c")  status=$s"; [ "$s" = connected ] || continue; (edid-decode "$c/edid" 2>/dev/null | grep -iE "manufacturer|model year|serial|Display Product Name") || xxd -p -l 32 "$c/edid" 2>/dev/null; done 2>&1 | head -80'
 run  display-modes.txt       bash -c 'for m in /sys/class/drm/card*-*/modes; do [ -s "$m" ] || continue; echo "== $(basename "$(dirname "$m")")"; head -8 "$m"; done 2>&1'
-run  display-monitors-xml.txt bash -c 'for h in /home/*/; do echo "== $h"; cat "$h.config/monitors.xml" 2>/dev/null || echo "(no monitors.xml for this user)"; done'
+run  display-monitors-xml.txt bash -c 'for h in /home/*/; do for f in monitors.xml cinnamon-monitors.xml; do echo "== $h.config/$f"; cat "$h.config/$f" 2>/dev/null || echo "(not present)"; done; done'
 run  display-manifest.txt    bash -c 'python3 -c "import json;d=json.load(open(\"/var/lib/igloo/manifest.json\"));print(json.dumps(d.get(\"displays\",\"NO displays KEY\"),indent=2))" 2>/dev/null || echo "(manifest unreadable)"'
 
 #   3c. Login-time display hook (the Cinnamon/X11 applier chain)
@@ -149,6 +149,11 @@ grab /etc/xdg/autostart/igloo-display-layout.desktop autostart-display-layout.de
 run  display-hook-user.txt   bash -c 'for h in /home/*/; do echo "== $h"; cat "$h.local/state/igloo-display.log" 2>/dev/null || echo "(no igloo-display.log - the hook never ran)"; [ -f "$h.config/.igloo-display-done" ] && echo "done-marker: PRESENT" || echo "done-marker: absent"; done'
 run  session-desktop.txt     bash -c 'echo "XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-unset} XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-unset}"; loginctl list-sessions --no-legend 2>/dev/null'
 run  xrandr-verbose.txt      bash -c 'xrandr --verbose 2>/dev/null | head -150'
+# What the compositor itself says when it loads (or rejects) the stored layout.
+# The 2026-08-19 bug was solved by exactly one such line - "Expected a number,
+# got -826" - and nothing else in this bundle would have shown it. Collected for
+# every user, because mutter logs into the user's own journal, not the system's.
+run  mutter-session-log.txt  bash -c 'for u in $(loginctl list-users --no-legend 2>/dev/null | awk "{print \$1}"); do echo "===== uid $u"; journalctl _UID="$u" -b --no-pager 2>/dev/null | grep -iE "monitor|gnome-shell|mutter|kscreen|config" | tail -120; done; echo "===== this boot, whole system"; journalctl -b --no-pager 2>/dev/null | grep -iE "monitors\.xml|monitor config|MonitorsConfig|failed to read monitors" | tail -40'
 
 #   3e. Wallpaper migration
 # The image lands in ~/Pictures and is set via dconf default (GNOME/Cinnamon)
@@ -168,6 +173,28 @@ grab /etc/dconf/profile/user dconf-profile-user.txt
 grab /etc/dconf/db/local.d/00-igloo-keyboard dconf-igloo-keyboard.txt
 run  keyboard-live.txt       bash -c 'cat /etc/default/keyboard 2>/dev/null; gsettings get org.gnome.desktop.input-sources sources 2>/dev/null'
 run  second-pass.txt         bash -c 'systemctl status igloo-display-layout.service --no-pager 2>/dev/null; journalctl -b -u igloo-display-layout.service --no-pager 2>/dev/null; ls /var/lib/igloo/.display-done 2>/dev/null && echo "display-done: PRESENT" || echo "display-done: absent"'
+
+#   3f. Browser migration (Gecko profiles + Chromium credentials)
+# Two independent mechanisms. The root agent copies the Gecko profile roots off
+# NTFS and rewrites profiles.ini; the Chromium passwords ride a login hook that
+# writes Login Data inside the browser's Flatpak config home. The first leaves
+# its evidence in agent.log and the profile itself, the second only in the
+# user's home - and agent-version.txt says which agent actually shipped, which
+# settles "is this fixed" before anyone reads a single log line.
+echo "[3f/6] Browser migration"
+run  agent-version.txt       bash -c 'ls -la /opt/igloo/agent.py /opt/igloo/display-apply-gnome.py 2>/dev/null; echo "gecko-profile fix   : $(grep -c normalise_gecko_profiles /opt/igloo/agent.py 2>/dev/null)  (want >0)"; echo "flatpak-config fix  : $(grep -c _chromium_config_homes /opt/igloo/agent.py 2>/dev/null)  (want >0)"; echo "keeps compatibility : $(grep -c _clear_windows_install_paths /opt/igloo/agent.py 2>/dev/null)  (want >0)"; echo "flathub firefox fix : $(grep -c ensure_matching_firefox /opt/igloo/agent.py 2>/dev/null)  (want >0)"; echo "apply method        : $(grep -oE "APPLY_METHOD_TEMPORARY = [0-9]" /opt/igloo/display-apply-gnome.py 2>/dev/null)  (want 1 - 2 makes mutter prompt)"; sha256sum /opt/igloo/agent.py /opt/igloo/display-apply-gnome.py 2>/dev/null'
+run  browser-agent-log.txt   bash -c 'grep -iE "browser|profile|mozilla|firefox|zen|gecko|credential|flatpak" /var/log/igloo/agent.log 2>/dev/null || echo "(no browser lines in agent.log)"'
+run  browser-manifest.txt    bash -c 'python3 -c "import json;d=json.load(open(\"/var/lib/igloo/manifest.json\"));print(json.dumps([dict(b,credentialsBlob=(\"<present>\" if b.get(\"credentialsBlob\") else None)) for b in d.get(\"browsers\",[])],indent=2));print(\"suggested:\",[s.get(\"flatpakId\") for s in d.get(\"suggestedPackages\",[])])" 2>/dev/null || echo "(manifest unreadable)"'
+# du is called once per directory on purpose: a single du that gets both a parent
+# and its child counts the child once and prints one line, hiding the profile the
+# whole question is about.
+run  gecko-profiles.txt      bash -c 'for h in /home/*/ /home/*/.var/app/*/; do for r in .mozilla/firefox .zen .waterfox; do [ -d "$h$r" ] || continue; echo "===== $h$r"; du -sh "$h$r" 2>/dev/null; echo "-- profiles.ini"; cat "$h$r/profiles.ini" 2>/dev/null || echo "(no profiles.ini)"; echo "-- profile directories"; for d in "$h$r"/*/ "$h$r"/Profiles/*/; do [ -d "$d" ] && du -sh "$d" 2>/dev/null; done; echo "-- leftover Windows version stamps"; st=$(find "$h$r" -maxdepth 3 -name compatibility.ini 2>/dev/null); if [ -n "$st" ]; then echo "$st"; else echo "(none - as intended)"; fi; done; done'
+run  browser-flatpaks.txt    bash -c 'flatpak list --app --columns=application,version 2>/dev/null || echo "(flatpak not installed)"'
+run  chromium-logins.txt     bash -c 'for h in /home/*/; do echo "===== $h"; echo "-- native ~/.config"; for rel in .config/google-chrome .config/microsoft-edge .config/BraveSoftware/Brave-Browser .config/vivaldi .config/opera; do ls -la "$h$rel/Default/Login Data" 2>/dev/null; done; echo "-- Flatpak ~/.var/app"; for a in "$h".var/app/*/config; do [ -d "$a" ] || continue; find "$a" -maxdepth 5 -name "Login Data" -exec ls -la {} \; 2>/dev/null; done; done'
+# The plain half of a Chromium profile. Sizes alone answer "did anything come
+# across"; the row counts say whether the file is readable rather than a stub.
+run  chromium-profile.txt    bash -c 'for h in /home/*/; do for base in "$h".config "$h".var/app/*/config; do [ -d "$base" ] || continue; for p in "$base"/*/Default "$base"/*/*/Default; do [ -d "$p" ] || continue; echo "===== $p"; ls -la "$p/Bookmarks" "$p/History" "$p/Favicons" "$p/Top Sites" "$p/Network/Cookies" 2>/dev/null; command -v sqlite3 >/dev/null && { echo -n "  urls in History : "; sqlite3 "$p/History" "select count(*) from urls" 2>/dev/null || echo "(unreadable)"; echo -n "  cookies         : "; sqlite3 "$p/Network/Cookies" "select count(*) from cookies" 2>/dev/null || echo "(unreadable)"; echo -n "  logins          : "; sqlite3 "$p/Login Data" "select count(*) from logins" 2>/dev/null || echo "(unreadable)"; }; done; done; done'
+run  credential-hook.txt     bash -c 'for h in /home/*/; do echo "===== $h"; ls -la "$h.local/share/igloo/credentials.json" 2>/dev/null || echo "(no credentials.json - already imported, or never staged)"; cat "$h.local/state/igloo-credentials.log" 2>/dev/null || echo "(no igloo-credentials.log - the login hook never ran)"; done; ls -la /etc/xdg/autostart/igloo-credential-import.desktop 2>/dev/null || echo "(no credential autostart entry)"'
 
 #   4. Desktop session (the black-screen question)
 echo "[4/6] Desktop session"
