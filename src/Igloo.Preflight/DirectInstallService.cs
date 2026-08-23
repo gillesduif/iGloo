@@ -1472,6 +1472,10 @@ public sealed partial class DirectInstallService : IDirectInstallService
             if (letter is null)
                 return;
 
+            // Every run copies {bootmgr}; bootsequence consumes the copy but never
+            // deletes it, so without this they pile up in the firmware store.
+            RemoveStaleBcdEntries();
+
             var created = RunBcdedit($"/copy {{bootmgr}} /d \"{BootEntryDescription}\"");
             // Output: 'The entry was successfully copied to {xxxxxxxx-....}.'
             var guid = Regex.Match(created ?? string.Empty, @"\{[0-9a-fA-F-]{36}\}").Value;
@@ -1499,6 +1503,50 @@ public sealed partial class DirectInstallService : IDirectInstallService
             _logger.LogWarning(ex, "Could not register the BCD boot entry (non-fatal) - "
                                    + "the NVRAM BootNext above still applies");
         }
+    }
+
+    /// <summary>Deletes firmware BCD entries this service created on earlier runs.</summary>
+    /// <remarks>
+    /// Matched on the description rather than a stored GUID: a run that ended in a crash
+    /// or a reinstall leaves entries behind that no state file knows about. Windows Boot
+    /// Manager carries its own description, so it can never match.
+    /// </remarks>
+    private void RemoveStaleBcdEntries()
+    {
+        var listing = RunBcdedit("/enum firmware");
+        if (string.IsNullOrEmpty(listing))
+            return;
+
+        foreach (var id in ParseStaleBcdIds(listing, BootEntryDescription))
+        {
+            RunBcdedit($"/delete {id} /f");
+            _logger.LogInformation("Removed a leftover BCD boot entry {Guid}", id);
+        }
+    }
+
+    /// <summary>Identifiers of every <c>bcdedit /enum</c> block carrying <paramref name="description"/>.</summary>
+    /// <remarks>
+    /// Split on a blank line that tolerates CRLF: bcdedit writes Windows line endings, so
+    /// splitting on "\n\n" matches nothing, leaves the listing as one block and yields a
+    /// single identifier - which deleted one entry per run instead of all of them.
+    /// </remarks>
+    internal static IReadOnlyList<string> ParseStaleBcdIds(string? listing, string description)
+    {
+        if (string.IsNullOrEmpty(listing))
+            return [];
+
+        var ids = new List<string>();
+        foreach (var block in Regex.Split(listing, @"\r?\n[ \t]*\r?\n"))
+        {
+            if (!block.Contains(description, StringComparison.Ordinal))
+                continue;
+
+            var id = Regex.Match(block, @"^identifier\s+(\{[0-9a-fA-F-]{36}\})",
+                                 RegexOptions.Multiline).Groups[1].Value;
+            if (id.Length > 0)
+                ids.Add(id);
+        }
+        return ids;
     }
 
     private string? RunBcdedit(string arguments)
