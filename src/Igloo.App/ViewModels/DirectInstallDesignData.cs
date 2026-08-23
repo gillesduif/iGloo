@@ -30,7 +30,9 @@ public sealed class DirectInstallDesignData
     public string ErrorMessage { get; set; } = "Could not shrink the Windows partition.";
     public string ErrorDetail { get; set; } = "diskpart: the volume has unmovable files at the end.";
 
-    public bool LogsExpanded { get; set; } = true;
+    // Matches the state IsComplete puts the page in; set it to true to preview
+    // the running page, where the log stays open.
+    public bool LogsExpanded { get; set; }
     public string LogTail { get; } =
         "2026-08-18 21:14:02 [INF] Shrinking Windows partition\n" +
         "2026-08-18 21:14:48 [INF] Created installer partition (2.0 GB)\n" +

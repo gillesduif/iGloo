@@ -22,16 +22,16 @@
                     Width="460">
 
             <!-- Phase icon with an orbiting verification ring: a faint full
-                 track (Win11 progress-ring reference), a soft sweep and a bright
-                 accent comet circling the static icon. Runs only while
-                 IsRunning. Dash units are multiples of the 3px stroke:
-                 circumference ≈ 96.3 units, so dash+gap always sum to that. -->
+                 track (Win11 progress-ring reference) and one accent arc
+                 circling the static icon. Runs only while IsRunning. Dash units
+                 are multiples of the 3px stroke: circumference ≈ 96.3 units,
+                 so dash+gap always sum to that. -->
             <Grid Width="96" Height="96" HorizontalAlignment="Center" Margin="0,0,0,20">
 
                 <!-- Static track -->
                 <Ellipse Margin="2" Stroke="#12FFFFFF" StrokeThickness="3" />
 
-                <!-- Rotating layer: soft tail + bright comet -->
+                <!-- Rotating layer -->
                 <Grid RenderTransformOrigin="0.5,0.5">
                     <Grid.RenderTransform>
                         <RotateTransform />
@@ -57,16 +57,10 @@
                         </Style>
                     </Grid.Style>
 
-                    <!-- Soft sweep trailing the comet (static -46° phase offset) -->
-                    <Ellipse Margin="2" Stroke="#2E4CC2FF" StrokeThickness="3"
-                             StrokeDashArray="34 62.3" StrokeDashCap="Round"
-                             RenderTransformOrigin="0.5,0.5">
-                        <Ellipse.RenderTransform>
-                            <RotateTransform Angle="-46" />
-                        </Ellipse.RenderTransform>
-                    </Ellipse>
-
-                    <!-- Bright comet head -->
+                    <!-- Accent arc. Two layers, not three: a faint tail between
+                         the arc and the track read as a third ring rather than
+                         as motion, which is what Win11's own progress ring
+                         avoids by drawing one arc on one track. -->
                     <Ellipse Margin="2" Stroke="{StaticResource Brush.AccentW11}" StrokeThickness="3"
                              StrokeDashArray="20 76.3" StrokeDashCap="Round" />
                 </Grid>
@@ -154,7 +148,7 @@
                 </TextBlock>
             </StackPanel>
 
-      <TextBlock Text="The installation image is verified against the official SHA-256 checksum."
+      <TextBlock Text="Verifying the installation image using the official SHA-256 checksum."
                        Style="{StaticResource Text.Caption}"
                        HorizontalAlignment="Center" Margin="0,18,0,0" Foreground="#FF9A9CA1" />
 

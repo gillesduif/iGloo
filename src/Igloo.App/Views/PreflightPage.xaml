@@ -143,7 +143,7 @@
       <TextBlock Text="Checking system configuration"
                        Style="{StaticResource Text.Body}" FontSize="14"
                        Margin="0,16,0,0" HorizontalAlignment="Center" />
-            <TextBlock Text="firmware · secure boot · TPM · BitLocker · memory · storage"
+            <TextBlock Text="Firmware · Secure boot · TPM · BitLocker · Memory · Storage"
                        Style="{StaticResource Text.Caption}"
                        Margin="0,6,0,0" HorizontalAlignment="Center" />
         </StackPanel>
@@ -171,10 +171,10 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="72" />
-                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="100" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="24" />
-                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="100" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
@@ -228,33 +228,10 @@
                     </Grid>
                 </Border>
 
-                <!-- Findings -->
-                <!-- The section header belongs to a list; with nothing to list it just
-                     labels its own absence. -->
-                <TextBlock Text="FINDINGS" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
+                <!-- Findings. Header and list appear together: with nothing to report, the whole
+                     section stays out of the way rather than announcing its emptiness. -->
+                <TextBlock Text="RESULTS" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
                            Visibility="{Binding HasFindings, Converter={StaticResource BoolToVis}}" />
-
-                <!-- Clean result: the same badge-and-title card the acquisition page uses
-                     for "Installer ready", so a finished check reads the same everywhere. -->
-                <Border Style="{StaticResource Card}" Padding="26,22" Margin="0,22,0,0"
-                        Visibility="{Binding HasNoFindings, Converter={StaticResource BoolToVis}}">
-                    <StackPanel Orientation="Horizontal">
-                        <Border Width="34" Height="34" CornerRadius="17"
-                                Background="{StaticResource Brush.Success.Faint}"
-                                BorderBrush="{StaticResource Brush.Success}" BorderThickness="1.5">
-                            <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Brush.Success}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel VerticalAlignment="Center" Margin="14,0,0,0">
-                            <TextBlock Text="System compatible"
-                                       FontSize="19" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Brush.Text.Primary}" />
-                            <TextBlock Text="Ready to proceed."
-                                       Style="{StaticResource Text.Body}" FontSize="13"
-                                       Margin="0,2,0,0" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
 
                 <ItemsControl ItemsSource="{Binding Findings}"
                               Visibility="{Binding HasFindings, Converter={StaticResource BoolToVis}}">
@@ -315,7 +292,7 @@
                 </Border>
 
                 <!--   Existing Linux installations              ─ -->
-                <TextBlock Text="LINUX ON THIS PC" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
+        <TextBlock Text="DISTRIBUTIONS" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
                            Visibility="{Binding HasLinux, Converter={StaticResource BoolToVis}}" />
 
                 <!-- Single installation: one card, one clear action -->
@@ -339,10 +316,16 @@
                                        Foreground="{StaticResource Brush.Text.Tertiary}" />
                         </StackPanel>
 
-                        <Button Grid.Column="2" Content="Remove Linux"
+                        <!-- Icon only, so it needs a name of its own: the label was
+                             the only thing telling a screen reader what it does. -->
+                        <Button Grid.Column="2" Content="&#xE74D;"
+                                FontFamily="Segoe Fluent Icons" FontSize="16"
                                 Style="{StaticResource Button.Danger}"
+                                Padding="11,6"
                                 Command="{Binding RemoveLinuxCommand}"
-                                VerticalAlignment="Center" Foreground="White" />
+                                ToolTip="Remove this Linux installation"
+                                AutomationProperties.Name="Remove this Linux installation"
+                                VerticalAlignment="Center" />
                     </Grid>
                 </Border>
 
@@ -380,10 +363,21 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-            <Button Content="Remove Selected"
-                                Style="{StaticResource Button.Danger}"
+                        <!-- Icon plus label: the glyph alone would not say that this
+                             acts on the ticked rows rather than on all of them. -->
+                        <Button Style="{StaticResource Button.Danger}"
                                 Command="{Binding RemoveSelectedLinuxCommand}"
-                                HorizontalAlignment="Left" Margin="4,10,0,2" Foreground="White" />
+                                Padding="14,5"
+                                ToolTip="Remove the selected Linux installations"
+                                AutomationProperties.Name="Remove the selected Linux installations"
+                                HorizontalAlignment="Left" Margin="4,10,0,2">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE74D;" FontFamily="Segoe Fluent Icons"
+                                           FontSize="15" VerticalAlignment="Center" />
+                                <TextBlock Text="Remove" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Border>
 

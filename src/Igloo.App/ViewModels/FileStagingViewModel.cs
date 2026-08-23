@@ -162,6 +162,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
             var userSetup = new UserSetup
             {
                 WindowsUsername = _setup.WindowsUsername,
+                WindowsComputerName = _setup.WindowsComputerName,
                 LinuxUsername = _setup.LinuxUsername,
                 LinuxPassword = _setup.LinuxPassword,
                 Locale = _setup.Locale,

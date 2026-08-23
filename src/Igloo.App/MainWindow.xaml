@@ -54,7 +54,7 @@
                 <Border Background="{StaticResource Brush.Layer.Card}"
                         BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="1"
                         CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="ALPHA 0.1" FontSize="9" FontWeight="SemiBold"
+                    <TextBlock Text="ALPHA 0.2" FontSize="9" FontWeight="SemiBold"
                                Foreground="{StaticResource Brush.Text.Tertiary}" />
                 </Border>
             </StackPanel>
@@ -237,12 +237,22 @@
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <!-- One forward button for the whole wizard: "Next", then "Finish"
-                         or "Reboot" on the last step depending on the install path. -->
+                         or "Restart" on the last step depending on the install path. -->
                     <Button Command="{Binding NextCommand}"
                             IsEnabled="{Binding CanGoNext}"
-                            Content="{Binding PrimaryActionLabel}"
-                          
-                            MinWidth="120" Background="#0DFFFFFF" Foreground="White" />
+                            MinWidth="120" Background="#0DFFFFFF" Foreground="White">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- Collapsed on every step but the restart one, so
+                                 "Next  →" keeps its arrow trailing the word. -->
+                            <TextBlock Text="{Binding PrimaryActionGlyph}"
+                                       FontFamily="Segoe Fluent Icons" FontSize="15"
+                                       VerticalAlignment="Center" Margin="0,0,8,0"
+                                       Visibility="{Binding HasPrimaryActionGlyph,
+                                                    Converter={StaticResource BoolToVis}}" />
+                            <TextBlock Text="{Binding PrimaryActionLabel}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>

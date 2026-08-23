@@ -152,15 +152,10 @@
                FontSize="22" TextAlignment="Center" TextWrapping="Wrap" Foreground="White" Width="685" FontWeight="Bold" ><Run Language="nl-be" Text="iGloo"/></TextBlock>
         <TextBlock
                        Style="{StaticResource Text.Body}"
-                       FontSize="14" TextAlignment="Center" TextWrapping="Wrap" Foreground="#FF8A8A8A" Width="685" ><Run Text="A windows tool for "/><Run Text="Linux i"/><Run Text="nstallation. "/></TextBlock>
+                       FontSize="14" TextAlignment="Center" TextWrapping="Wrap" Foreground="#FF8A8A8A" Width="685" ><Run Text="A windows application for "/><Run Text="Linux i"/><Run Text="nstallation. "/></TextBlock>
       </StackPanel>
 
-      <!--   What iGloo does for you: four feature rows (mockup 2026-07)    -->
-      <!-- 3x2: exactly six features, so the grid divides evenly with no orphan card
-           on a short final row. UniformGrid also keeps every card the same height
-           regardless of caption length, which a WrapPanel would not. -->
-      <!-- Right margin clears the overlay scrollbar (same 16px as the other
-           scrolling pages); the cards' own 5px margins form the inner gutters. -->
+    
       <UniformGrid Grid.Row="2" Rows="2" Columns="3" MaxWidth="760" Margin="0,24,16,0">
         <Border Style="{StaticResource FeatureCard}">
           <StackPanel>
@@ -245,10 +240,6 @@
         </StackPanel>
       </Border>
 
-      <!-- The alpha warning is no longer a card here: a banner on a page the user
-           scrolls past is read once and then becomes furniture. It is shown as a modal
-           on startup instead (see WelcomePage.xaml.cs), which has to be acknowledged
-           before anything can touch a disk. -->
 
     </Grid>
   </ScrollViewer>

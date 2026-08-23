@@ -76,10 +76,13 @@
                             Content="Cancel" IsCancel="True" Click="OnSecondary"
                             Foreground="White"
                             Visibility="Collapsed" />
+                    <!-- No local Background or Foreground: Show() swaps this Style to
+                         Button.Danger for destructive prompts, and a local value would
+                         outrank that setter and keep the button accent-blue. The style
+                         already paints #4CC2FF with near-black text. -->
                     <Button x:Name="PrimaryButton" MinWidth="104"
                             Style="{StaticResource Button.Primary}"
-                            Content="OK" IsDefault="True" Click="OnPrimary"
-                            Foreground="Black" Background="#FF4CC2FF" />
+                            Content="OK" IsDefault="True" Click="OnPrimary" />
                 </StackPanel>
             </Border>
         </Grid>

@@ -12,6 +12,7 @@ namespace Igloo.App.ViewModels;
 public sealed class PreflightDesignData
 {
     public bool IsRunning { get; set; }
+    public bool IsRemovingLinux { get; set; }
     public bool HasReport { get; set; } = true;
     public bool HasError { get; set; }
     public string ErrorMessage { get; set; } =
@@ -31,14 +32,10 @@ public sealed class PreflightDesignData
     public string BitLockerActionStatus { get; } = "";
 
     public bool HasFindings => Findings.Count > 0;
-    public bool HasNoFindings => Findings.Count == 0;
 
     // Copied verbatim from WindowsPreflightChecker: a preview that invents its own
-    // codes and wording teaches the wrong house style. One long message and one short
-    // one, so the layout is exercised in both directions.
-    // Copied verbatim from WindowsPreflightChecker: a preview that invents its own
-    // codes and wording teaches the wrong house style.
-    // Empty this list to preview the clean-result card instead.
+    // codes and wording teaches the wrong house style. Empty the list to preview the
+    // page with the findings section hidden.
     public IReadOnlyList<PreflightFinding> Findings { get; } =
     [
         new PreflightFinding(FindingSeverity.Info, "SECURE_BOOT_ON",

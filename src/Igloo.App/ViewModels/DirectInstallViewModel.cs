@@ -83,6 +83,14 @@ public sealed partial class DirectInstallViewModel : ObservableObject
             RefreshLogTail();
     }
 
+    // Collapse the log on success only: the finished page is a result, not a
+    // console. An error keeps it open, because there the log is the answer.
+    partial void OnIsCompleteChanged(bool value)
+    {
+        if (value)
+            LogsExpanded = false;
+    }
+
     [RelayCommand]
     private void RefreshLogTail()
     {

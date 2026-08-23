@@ -95,8 +95,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         MigrationSetupViewModel setup => setup.CanProceed,
         DiskSelectionViewModel disk => disk.CanProceed,
         FileStagingViewModel fs => fs.IsComplete && !fs.HasError,
-        // The dual-boot path ends by rebooting into the installer: the forward
-        // button becomes "Reboot" once preparation succeeds (and locks while it fires).
+        // The dual-boot path ends by restarting into the installer: the forward
+        // button becomes "Restart" once preparation succeeds (and locks while it fires).
         DirectInstallViewModel di => di.IsComplete && !di.HasError && !di.IsRebooting,
         UsbWriterViewModel usb => usb.IsComplete && !usb.HasError,
         _ => false,
@@ -104,10 +104,25 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public string PrimaryActionLabel => CurrentPage switch
     {
-        DirectInstallViewModel di => di.IsRebooting ? "Rebooting…" : "Reboot  ↻",
+        // "Restart", not "Reboot": Windows uses Restart everywhere it offers this.
+        DirectInstallViewModel di => di.IsRebooting ? "Restarting…" : "Restart",
         _ when IsLastStep => "Finish",
         _ => "Next  →",
     };
+
+    /// <summary>Segoe Fluent Icons glyph shown before the label, empty for none.</summary>
+    /// <remarks>
+    /// Only the restart step gets one. "Next" keeps its arrow inside the label,
+    /// where it trails the word and points the way the wizard is going; a leading
+    /// glyph there would point backwards at the text it precedes.
+    /// </remarks>
+    public string PrimaryActionGlyph => CurrentPage switch
+    {
+        DirectInstallViewModel => "\uE7E8",  // PowerButton
+        _ => string.Empty,
+    };
+
+    public bool HasPrimaryActionGlyph => PrimaryActionGlyph.Length > 0;
 
     /// <summary>
     /// Whether the shell shows its page heading above the current step.
@@ -239,6 +254,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(CanGoNext));
                 OnPropertyChanged(nameof(PrimaryActionLabel));
+                OnPropertyChanged(nameof(PrimaryActionGlyph));
+                OnPropertyChanged(nameof(HasPrimaryActionGlyph));
             }
         };
 
@@ -273,7 +290,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        // Last step of the dual-boot path: "Reboot" hands the machine to the installer.
+        // Last step of the dual-boot path: "Restart" hands the machine to the installer.
         if (CurrentPage is DirectInstallViewModel directInstall && directInstall.IsComplete)
         {
             await directInstall.RebootToInstallCommand.ExecuteAsync(null);
@@ -371,6 +388,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(CanGoBack));
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(PrimaryActionLabel));
+        OnPropertyChanged(nameof(PrimaryActionGlyph));
+        OnPropertyChanged(nameof(HasPrimaryActionGlyph));
         OnPropertyChanged(nameof(StepDescription));
         OnPropertyChanged(nameof(ShowStepTitle));
         OnPropertyChanged(nameof(IsLastStep));

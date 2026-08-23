@@ -41,33 +41,22 @@
                              IsIndeterminate="{Binding IsProgressIndeterminate}"
                              Margin="0,0,0,10" />
 
-                <TextBlock FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsProgressIndeterminate}" Value="False">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
+        <TextBlock FontSize="12" Foreground="{StaticResource Brush.Text.Secondary}">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock">
+              <Setter Property="Visibility" Value="Collapsed" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsProgressIndeterminate}" Value="False">
+                  <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
                     <Run Text="{Binding BytesWritten, Converter={StaticResource BytesToSize}, Mode=OneWay}" />
                     <Run Text=" of " Foreground="{StaticResource Brush.Text.Tertiary}" />
                     <Run Text="{Binding BytesTotal, Converter={StaticResource BytesToSize}, Mode=OneWay}" />
-                </TextBlock>
-
-                <Border Style="{StaticResource Card.Accent}" Margin="0,18,0,0">
-                    <StackPanel>
-                        <TextBlock Text="System Preparation"
-                                   FontWeight="SemiBold" FontSize="13"
-                                   Foreground="{StaticResource Brush.Text.Primary}"
-                                   Margin="0,0,0,6" />
-                        <TextBlock Style="{StaticResource Text.Body}" FontSize="12.5" Foreground="#FFC4C7D1"><Run Text="The installation files are being prepared."/><Run Language="nl-be" Text="..."/></TextBlock>
-
-                    </StackPanel>
-                </Border>
-            </StackPanel>
+        </TextBlock>
+      </StackPanel>
 
             <!--   COMPLETE: the point of no return               ─ -->
             <StackPanel>
@@ -85,24 +74,24 @@
                 <!-- Ready banner -->
                 <Border Style="{StaticResource Card.Success}" Padding="16,12" Margin="0,0,0,18">
                     <StackPanel Orientation="Horizontal">
-                       
-                            <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Brush.Success}"
+
+                        <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Brush.Success}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        
+
                         <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="Setup complete"
                                        FontSize="15" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.Text.Primary}" />
-                            <TextBlock Text="Restart your computer via the Reboot button to proceed to the Linux installer."
-                                       Style="{StaticResource Text.Body}" FontSize="12" Margin="0,2,0,0" />
-                        </StackPanel>
+              <TextBlock
+                                       Style="{StaticResource Text.Body}" FontSize="12" Margin="0,2,0,0" ><Run Language="nl-be" Text="Click"/><Run Text=" "/><Run Language="nl-be" Text="r"/><Run Text="estart to proceed to the Linux installer."/></TextBlock>
+            </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <Border  Margin="0,0,0,18">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                         <Image Source="/Assets/PNG/Tux.png"
-                               Width="331" Height="297"
+                               Width="306" Height="241"
                                RenderOptions.BitmapScalingMode="HighQuality" />
                         <TextBlock Text="Ready to launch Linux."
                                    Style="{StaticResource Text.Body}"
@@ -112,7 +101,7 @@
 
                 <TextBlock Style="{StaticResource Text.Caption}" Margin="2,10,0,0" MaxWidth="520"
                            HorizontalAlignment="Left">
-                   Save all open documents before proceeding. Windows will restart approximately 10 seconds after clicking "Reboot".
+                   Save all open documents before proceeding. 
                 </TextBlock>
             </StackPanel>
 

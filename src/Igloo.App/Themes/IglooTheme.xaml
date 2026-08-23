@@ -137,6 +137,7 @@
     <SolidColorBrush x:Key="Brush.AccentW11.Hover"    Color="#5FCBFF" />
     <SolidColorBrush x:Key="Brush.AccentW11.Pressed"  Color="#3DAEE8" />
     <SolidColorBrush x:Key="Brush.OnAccent"        Color="#053345" />
+    <SolidColorBrush x:Key="Brush.OnDanger"        Color="#FFFFFF" />
 
     <!-- Win11-style focus ring: light 2px rounded ring, offset from the control.
          Applied app-wide; never suppress focus visuals (accessibility charter). -->
@@ -292,6 +293,9 @@
     <Style x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
         <Setter Property="Background"  Value="{StaticResource Brush.Danger.Deep}" />
         <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+        <!-- Button.Primary's near-black OnAccent is tuned for the light blue fill and
+             is unreadable on red. -->
+        <Setter Property="Foreground"  Value="{StaticResource Brush.OnDanger}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
