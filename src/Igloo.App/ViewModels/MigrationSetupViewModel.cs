@@ -14,6 +14,10 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     
     public string WindowsUsername { get; } = Environment.UserName;
 
+    // Carried over as the Linux hostname: the machine keeps the name its owner
+    // gave it instead of one derived from the account.
+    public string WindowsComputerName { get; } = Environment.MachineName;
+
     //   Linux username                             
 
     [ObservableProperty]
@@ -227,11 +231,23 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             }
             else
             {
-                // Chromium family - recorded only (Phase 2).
+                // Chromium: the detected path is the profile, the folder the agent
+                // copies from is its parent (the "User Data" root). Passwords and
+                // cookies ride the encrypted blob instead; bookmarks, history and
+                // favicons are plain files the agent lifts off the NTFS partition.
+                var root = Directory.GetParent(b.ProfilePath)?.FullName;
+                var srcRel = root is not null
+                    ? Path.GetRelativePath(profile, root).Replace('\\', '/')
+                    : string.Empty;
+                var portable = !string.IsNullOrEmpty(srcRel)
+                    && !srcRel.StartsWith("..", StringComparison.Ordinal)
+                    && !Path.IsPathRooted(srcRel);
+
                 result.Add(new BrowserMigration
                 {
                     Name = b.Name,
                     Engine = "chromium",
+                    SourceRelativePath = portable ? srcRel : string.Empty,
                     IncludesPasswords = false,
                 });
             }
@@ -242,7 +258,8 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     
     public IReadOnlyList<SuggestedPackage> GetSelectedSuggestions()
-        => DetectedSuggestions
+    {
+        var packages = DetectedSuggestions
             .Where(s => s.IsSelected)
             .Select(s => new SuggestedPackage
             {
@@ -253,6 +270,28 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
                 AutoInstall = true,
             })
             .ToList();
+
+        // Browsers and apps are two separate lists on the page, so a browser can be
+        // picked for migration while its app is not - which lands the profile on a
+        // machine that cannot open it. Migrating a browser implies installing it.
+        foreach (var browser in DetectedBrowsers.Where(b => b.IsSelected))
+        {
+            var flatpakId = WindowsAppScanner.FlatpakFor(browser.Name);
+            if (flatpakId is null
+                || packages.Any(p => string.Equals(p.FlatpakId, flatpakId, StringComparison.Ordinal)))
+                continue;
+
+            packages.Add(new SuggestedPackage
+            {
+                WindowsAppName = browser.Name,
+                LinuxAppName = browser.Name,
+                FlatpakId = flatpakId,
+                AutoInstall = true,
+            });
+        }
+
+        return packages;
+    }
 
     //   Browser detection                           ─
 

@@ -86,18 +86,19 @@ public static partial class BrowserCredentialMigration
         }
 
         var extraction = ChromiumCredentialExtractor.Extract(userDataRoot, logger);
-        if (extraction.Logins.Count == 0)
+        if (!extraction.HasAnything)
             return entry;
 
-        var payload = CredentialProtector.BuildPayload(entry.Name, extraction.Logins);
+        var payload = CredentialProtector.BuildPayload(
+            entry.Name, extraction.Logins, extraction.Cookies);
         var envelope = CredentialProtector.Protect(payload, linuxPassword);
         CryptographicOperations.ZeroMemory(payload);
 
-        LogAttached(logger, entry.Name, extraction.Logins.Count);
+        LogAttached(logger, entry.Name, extraction.Logins.Count, extraction.Cookies.Count);
         return entry with
         {
             CredentialsBlob = Convert.ToBase64String(envelope),
-            IncludesPasswords = true,
+            IncludesPasswords = extraction.Logins.Count > 0,
         };
     }
 
@@ -111,6 +112,8 @@ public static partial class BrowserCredentialMigration
     private static partial void LogRootMissing(ILogger logger, string root);
 
     [LoggerMessage(Level = LogLevel.Information,
-        Message = "Encrypted {LoginCount} login(s) for {Browser} into the migration manifest")]
-    private static partial void LogAttached(ILogger logger, string browser, int loginCount);
+        Message = "Encrypted {LoginCount} login(s) and {CookieCount} cookie(s) for {Browser} "
+                  + "into the migration manifest")]
+    private static partial void LogAttached(
+        ILogger logger, string browser, int loginCount, int cookieCount);
 }

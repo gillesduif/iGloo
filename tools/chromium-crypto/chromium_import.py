@@ -272,24 +272,69 @@ def _aes_self_test() -> None:
 _CHROMIUM_ENVELOPE_MAGIC = b"IGCRD001"
 _CHROMIUM_PBKDF2_ITERATIONS = 600_000
 
-# Browser display name (as the Windows wizard records it) to the Linux config
-# directory relative to the user's home.
+# Browser display name (as the Windows wizard records it) to its Flathub id, its
+# config directory relative to XDG_CONFIG_HOME, and the commands a distro package
+# installs. iGloo installs these as Flatpaks, but the user may already run a
+# packaged build, so both forms have to be reachable.
 _CHROMIUM_LINUX_DIRS = {
-    "Google Chrome": ".config/google-chrome",
-    "Microsoft Edge": ".config/microsoft-edge",
-    "Brave": ".config/BraveSoftware/Brave-Browser",
-    "Vivaldi": ".config/vivaldi",
-    "Opera": ".config/opera",
+    "Google Chrome": ("com.google.Chrome", "google-chrome",
+                      ("google-chrome", "google-chrome-stable")),
+    "Microsoft Edge": ("com.microsoft.Edge", "microsoft-edge",
+                       ("microsoft-edge", "microsoft-edge-stable")),
+    "Brave": ("com.brave.Browser", "BraveSoftware/Brave-Browser",
+              ("brave-browser", "brave")),
+    "Vivaldi": ("com.vivaldi.Vivaldi", "vivaldi",
+                ("vivaldi", "vivaldi-stable")),
+    "Opera": ("com.opera.Opera", "opera", ("opera",)),
 }
+
+
+def _native_config_home(home: Path | None) -> Path:
+    # XDG_CONFIG_HOME is only meaningful for the user's own session. The
+    # first-boot agent runs as root and passes the home explicitly, where
+    # root's environment would point at the wrong place entirely.
+    if home is not None:
+        return home / ".config"
+    return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+
+
+def _chromium_config_homes(app_id: str, binaries: tuple[str, ...],
+                           home: Path | None = None) -> list[Path]:
+    """Every config root this browser could read, most likely first.
+
+    Flatpak overrides XDG_CONFIG_HOME, so a Flatpak build never sees ~/.config
+    and a packaged build never sees ~/.var/app. Picking one means guessing, and
+    a wrong guess writes the passwords where nothing reads them - so write to
+    each root that has a matching install, and to ~/.config when neither does.
+    """
+    base = home or Path.home()
+    roots: list[Path] = []
+    if shutil.which("flatpak") and subprocess.run(
+            ["flatpak", "info", app_id],
+            capture_output=True, text=True, check=False).returncode == 0:
+        roots.append(base / ".var" / "app" / app_id / "config")
+    if any(shutil.which(b) for b in binaries):
+        roots.append(_native_config_home(home))
+    return roots or [_native_config_home(home)]
 
 # Chromium timestamps count microseconds since 1601-01-01 UTC.
 _CHROMIUM_EPOCH_OFFSET_US = 11644473600 * 1_000_000
 
-# Classic logins schema. Newer Chromium versions upgrade older databases on
-# first launch (password-store migrations only ADD columns), so writing the
-# classic form is the compatible choice. Validated in VM testing per
-# CONTRIBUTING.md rule 4.
-_LOGINS_SCHEMA = """
+# The logins table exactly as Chromium's own builder produces it at schema
+# version 31, and labelled 31 - the two must agree. Labelling a modern table as
+# an old version is what emptied Brave on 2026-08-21: the stored version drives
+# LoginDatabase::MigrateDatabase, which then runs "ALTER TABLE logins ADD COLUMN
+# possible_username_pairs" (a version 19 step) against a column that is already
+# there, the migration fails, Init returns false and the caller recreates the
+# file from scratch.
+#
+# 31 is chosen because every later step only ADDS columns (37, 39, 41, 42, 43),
+# so any Brave from 31 onwards migrates this table upwards cleanly. Chromium
+# creates the logins table before migrating and insecure_credentials /
+# password_notes after it, so the tables we leave out are not our problem.
+# See docs/reference/browser-migration.md.
+_LOGINS_SCHEMA_VERSION = 31
+_LOGINS_SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS logins (
     origin_url VARCHAR NOT NULL,
     action_url VARCHAR,
@@ -300,11 +345,11 @@ CREATE TABLE IF NOT EXISTS logins (
     submit_element VARCHAR,
     signon_realm VARCHAR NOT NULL,
     date_created INTEGER NOT NULL,
-    date_last_used INTEGER NOT NULL DEFAULT 0,
-    date_password_modified INTEGER NOT NULL DEFAULT 0,
     blacklisted_by_user INTEGER NOT NULL,
     scheme INTEGER NOT NULL,
-    times_used INTEGER NOT NULL DEFAULT 1,
+    password_type INTEGER,
+    times_used INTEGER,
+    form_data BLOB,
     display_name VARCHAR,
     icon_url VARCHAR,
     federation_url VARCHAR,
@@ -312,23 +357,83 @@ CREATE TABLE IF NOT EXISTS logins (
     generation_upload_status INTEGER,
     possible_username_pairs BLOB,
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date_synced INTEGER NOT NULL DEFAULT 0
+    date_last_used INTEGER NOT NULL DEFAULT 0,
+    moving_blocked_for BLOB,
+    date_password_modified INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (origin_url, username_element, username_value, password_element,
+            signon_realm)
 );
+CREATE INDEX IF NOT EXISTS logins_signon ON logins (signon_realm);
 CREATE TABLE IF NOT EXISTS meta (
     key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY,
     value LONGVARCHAR
 );
-INSERT OR IGNORE INTO meta(key, value) VALUES ('version', '8');
+INSERT OR IGNORE INTO meta(key, value)
+    VALUES ('version', '{_LOGINS_SCHEMA_VERSION}'),
+           ('last_compatible_version', '{_LOGINS_SCHEMA_VERSION}');
 """
 
 
-def _chromium_v10_encrypt(password: str) -> bytes:
-    """Encode one password the way Linux Chromium stores it in Login Data:
-    "v10" || AES-128-CBC(PKCS7), key PBKDF2-HMAC-SHA1("peanuts", "saltysalt",
-    1 iteration), IV of 16 spaces. This scheme is Chromium's documented
-    fallback when no desktop keyring holds the key."""
+def _chromium_v10_encrypt_bytes(data: bytes) -> bytes:
+    """Encode a value the way Linux Chromium stores it: "v10" ||
+    AES-128-CBC(PKCS7), key PBKDF2-HMAC-SHA1("peanuts", "saltysalt", 1
+    iteration), IV of 16 spaces. This scheme is Chromium's documented fallback
+    when no desktop keyring holds the key."""
     key = hashlib.pbkdf2_hmac("sha1", b"peanuts", b"saltysalt", 1, 16)
-    return b"v10" + aes_cbc_encrypt(key, b" " * 16, password.encode("utf-8"))
+    return b"v10" + aes_cbc_encrypt(key, b" " * 16, data)
+
+
+def _chromium_v10_encrypt(password: str) -> bytes:
+    return _chromium_v10_encrypt_bytes(password.encode("utf-8"))
+
+
+# The cookie jar moved under Network/ in Chromium 77; both layouts still exist.
+_COOKIE_DB_NAMES = ("Network/Cookies", "Cookies")
+
+
+def _reencrypt_cookies(profile_dir: Path, cookies: list[dict]) -> int:
+    """Rewrite a copied Cookies database so the Linux browser can read it.
+
+    The file came off the Windows profile verbatim, so its rows are still
+    encrypted under the Windows master key and its schema is a real Chromium's
+    rather than one we reconstruct. Only encrypted_value changes. Rows we have
+    no plaintext for are deleted: a cookie the browser cannot decrypt keeps the
+    user logged out while looking like it should not.
+    """
+    db = next((profile_dir / n for n in _COOKIE_DB_NAMES
+               if (profile_dir / n).is_file()), None)
+    if db is None:
+        return 0
+
+    con = sqlite3.connect(db)
+    try:
+        updated = 0
+        for c in cookies:
+            try:
+                value = base64.b64decode(c.get("value", ""))
+            except (ValueError, TypeError):
+                continue
+            cur = con.execute(
+                "UPDATE cookies SET encrypted_value = ? "
+                "WHERE host_key = ? AND name = ? AND path = ?",
+                (_chromium_v10_encrypt_bytes(value), c.get("host", ""),
+                 c.get("name", ""), c.get("path", "")))
+            updated += cur.rowcount
+
+        # Both platforms use the "v10" prefix, so the rows we rewrote cannot be
+        # told apart from the ones we did not. Name them instead.
+        con.execute("CREATE TEMP TABLE igloo_keep (h TEXT, n TEXT, p TEXT)")
+        con.executemany(
+            "INSERT INTO igloo_keep VALUES (?, ?, ?)",
+            [(c.get("host", ""), c.get("name", ""), c.get("path", "")) for c in cookies])
+        con.execute(
+            "DELETE FROM cookies WHERE NOT EXISTS ("
+            "  SELECT 1 FROM igloo_keep k WHERE k.h = cookies.host_key"
+            "    AND k.n = cookies.name AND k.p = cookies.path)")
+        con.commit()
+        return updated
+    finally:
+        con.close()
 
 
 def _decrypt_envelope(blob_b64: str, password: str) -> dict:
@@ -360,18 +465,20 @@ def _login_row_values(url: str, username: str, v10_blob: bytes,
         "date_password_modified": now_us,
         "blacklisted_by_user": 0,
         "scheme": 0,
+        "password_type": 0,
         "times_used": 1,
+        "form_data": b"",
         "display_name": "",
         "icon_url": "",
         "federation_url": "",
         "skip_zero_click": 0,
         "generation_upload_status": 0,
         "possible_username_pairs": b"",
-        "date_synced": 0,
-        # Columns added by newer Chromium versions.
         "moving_blocked_for": b"",
+        # Columns added after version 31; dropped again for a database that
+        # predates them, by the PRAGMA table_info filter in the caller.
+        "sender_email": "",
         "sender_name": "",
-        "sender_origin": "",
         "sender_profile_image_url": "",
         "date_received": 0,
         "sharing_notification_displayed": 0,
@@ -470,8 +577,12 @@ def stage_credential_import(manifest: dict) -> None:
                          for e in entries],
         }), encoding="utf-8")
         store.chmod(0o600)
+        # Chown from .local down, not just the igloo directory: mkdir(parents=True) ran
+        # as root, so any level it had to create is root-owned. Leaving .local that way
+        # locks the user out of their own ~/.local/state - which breaks gnome-keyring,
+        # xdg-user-dirs and every autostart hook, not only ours.
         run_cmd(["chown", "-R", f"{linux_user}:{linux_user}",
-                 str(home / ".local" / "share" / "igloo")], check=False)
+                 str(home / ".local")], check=False)
 
         hook = Path("/opt/igloo/credential-import.sh")
         hook.write_text(
@@ -597,10 +708,11 @@ def run_user_credential_import() -> int:
     wrong_password = False
     for entry in entries:
         name = entry.get("name", "")
-        config_rel = _CHROMIUM_LINUX_DIRS.get(name)
-        if config_rel is None:
+        mapping = _CHROMIUM_LINUX_DIRS.get(name)
+        if mapping is None:
             logger.info("No Linux profile mapping for browser %r - skipping", name)
             continue
+        app_id, config_rel, binaries = mapping
         try:
             payload = _decrypt_envelope(entry["blob"], password)
         except Exception:
@@ -611,14 +723,34 @@ def run_user_credential_import() -> int:
             continue
 
         logins = payload.get("logins", [])
-        if not logins:
+        cookies = payload.get("cookies", [])
+        if not logins and not cookies:
             continue
-        try:
-            profile_dir = Path.home() / config_rel / "Default"
-            profile_dir.mkdir(parents=True, exist_ok=True)
-            imported += _import_into_login_data(profile_dir / "Login Data", logins)
-        except Exception:
-            logger.exception("Failed to import credentials for %s (non-fatal)", name)
+        # Counted per browser, not per root: the same logins written to both a
+        # Flatpak and a packaged install is one migration, not two.
+        landed = 0
+        for root in _chromium_config_homes(app_id, binaries):
+            profile_dir = root / config_rel / "Default"
+            try:
+                if logins:
+                    profile_dir.mkdir(parents=True, exist_ok=True)
+                    landed = max(landed,
+                                 _import_into_login_data(profile_dir / "Login Data", logins))
+                    logger.info("Imported %s logins into %s", name, profile_dir)
+            except Exception:
+                logger.exception("Failed to import credentials for %s into %s "
+                                 "(non-fatal)", name, root)
+            try:
+                # Cookies are a separate failure domain: the jar being unusable
+                # must not cost the passwords that came from the same profile.
+                if cookies:
+                    rewritten = _reencrypt_cookies(profile_dir, cookies)
+                    logger.info("Re-encrypted %d %s cookie(s) in %s",
+                                rewritten, name, profile_dir)
+            except Exception:
+                logger.exception("Failed to re-encrypt cookies for %s in %s "
+                                 "(non-fatal)", name, profile_dir)
+        imported += landed
 
     if wrong_password and imported == 0:
         data["attempts"] = attempts
@@ -641,6 +773,7 @@ if __name__ == "__main__":
     import logging
     import shutil
     import tempfile
+    import types
 
     logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(message)s")
     logger = logging.getLogger("chromium-import-test")
@@ -691,11 +824,35 @@ if __name__ == "__main__":
             "SELECT origin_url, username_value, password_value, signon_realm "
             "FROM logins ORDER BY username_value"))
         meta = list(con.execute("SELECT value FROM meta WHERE key='version'"))
+        columns = {r[1] for r in con.execute("PRAGMA table_info(logins)")}
         con.close()
+
+        # Chromium's logins table at schema version 31, reconstructed from
+        # InitializeBuilders in login_database.cc. If this drifts from what we
+        # declare in meta, MigrateDatabase runs an ALTER TABLE that fails and
+        # the caller recreates the file - which is how Brave came up empty.
+        expected_v31 = {
+            "origin_url", "action_url", "username_element", "username_value",
+            "password_element", "password_value", "submit_element", "signon_realm",
+            "date_created", "blacklisted_by_user", "scheme", "password_type",
+            "times_used", "form_data", "display_name", "icon_url", "federation_url",
+            "skip_zero_click", "generation_upload_status", "possible_username_pairs",
+            "id", "date_last_used", "moving_blocked_for", "date_password_modified",
+        }
+        check(columns == expected_v31,
+              "logins table matches Chromium's version 31 schema"
+              + ("" if columns == expected_v31 else
+                 f" (extra={sorted(columns - expected_v31)}"
+                 f" missing={sorted(expected_v31 - columns)})"))
+        # Dropped at version 31: present here means the version label is a lie.
+        check("date_synced" not in columns, "date_synced is gone (dropped at 31)")
 
         check(rows[0][0] == "https://example.com/login", "origin_url stored")
         check(rows[0][3] == "https://example.com/", "signon_realm derived")
-        check(meta and meta[0][0] == "8", "meta version written")
+        # The stored version drives Chromium's migration, so it has to match the
+        # columns actually present - see _LOGINS_SCHEMA.
+        check(meta and meta[0][0] == str(_LOGINS_SCHEMA_VERSION),
+              f"meta version is {_LOGINS_SCHEMA_VERSION}")
 
         # v10 blob is deterministic (fixed key + IV): recompute and compare.
         expect = _chromium_v10_encrypt("s3cret!")
@@ -757,11 +914,87 @@ if __name__ == "__main__":
         globals()["_ask_password"] = lambda: (True, PASSWORD)
         run_user_credential_import()
         check(not store.exists(), "successful import removes the store")
-        db = tmp2 / _CHROMIUM_LINUX_DIRS["Google Chrome"] / "Default" / "Login Data"
+        _, config_rel, _ = _CHROMIUM_LINUX_DIRS["Google Chrome"]
+        db = tmp2 / ".config" / config_rel / "Default" / "Login Data"
         con = sqlite3.connect(db)
         rows = con.execute("SELECT COUNT(*) FROM logins").fetchone()[0]
         con.close()
         check(rows == 2, "logins landed in the user's own profile")
+
+        #   Cookies
+        # The jar is the Windows file, copied verbatim: real Chromium schema,
+        # rows still encrypted under the Windows master key. Only the values
+        # are rewritten, and only for cookies the envelope can account for.
+        jar_dir = tmp2 / "jar" / "Network"
+        jar_dir.mkdir(parents=True)
+        jar = jar_dir / "Cookies"
+        con = sqlite3.connect(jar)
+        con.execute("CREATE TABLE cookies (host_key TEXT, name TEXT, path TEXT, "
+                    "encrypted_value BLOB, value TEXT)")
+        con.executemany(
+            "INSERT INTO cookies VALUES (?, ?, ?, ?, '')",
+            [(".example.com", "session", "/", b"v10windows-ciphertext"),
+             (".example.com", "theme", "/", b"v10windows-ciphertext"),
+             (".orphan.test", "stale", "/", b"v10windows-ciphertext")])
+        con.commit()
+        con.close()
+
+        # A domain-hash prefix would live inside these bytes; carrying them
+        # opaquely is what makes that Chromium detail none of our business.
+        secret = b"\x01\x02\x03deadbeef-session-token"
+        rewritten = _reencrypt_cookies(tmp2 / "jar", [
+            {"host": ".example.com", "name": "session", "path": "/",
+             "value": base64.b64encode(secret).decode()},
+            {"host": ".example.com", "name": "theme", "path": "/",
+             "value": base64.b64encode(b"dark").decode()},
+        ])
+        check(rewritten == 2, f"both known cookies rewritten (got {rewritten})")
+
+        con = sqlite3.connect(jar)
+        jar_rows = dict(con.execute("SELECT name, encrypted_value FROM cookies"))
+        con.close()
+        check("stale" not in jar_rows,
+              "a cookie with no plaintext is deleted, not left undecryptable")
+        check(jar_rows.keys() == {"session", "theme"}, "only the known cookies remain")
+        check(jar_rows["session"] == _chromium_v10_encrypt_bytes(secret),
+              "the value is re-encrypted byte-for-byte in Chromium's Linux form")
+        check(jar_rows["session"].startswith(b"v10"), "v10 prefix on the cookie")
+
+        check(_reencrypt_cookies(tmp2 / "no-such-profile", [{"host": "x"}]) == 0,
+              "a profile without a cookie jar is a no-op")
+
+        # Flatpak overrides XDG_CONFIG_HOME and a distro package does not, so the
+        # four install combinations must each reach a root the browser reads.
+        real_which, real_run = shutil.which, subprocess.run
+        real_xdg = os.environ.pop("XDG_CONFIG_HOME", None)
+        flatpak_root = tmp2 / ".var" / "app" / "com.brave.Browser" / "config"
+        native_root = tmp2 / ".config"
+
+        def stub(has_flatpak: bool, has_native: bool) -> None:
+            shutil.which = lambda name: (
+                "/usr/bin/flatpak" if name == "flatpak" and has_flatpak
+                else "/usr/bin/" + name if name.startswith("brave") and has_native
+                else None)
+            subprocess.run = lambda *a, **k: types.SimpleNamespace(
+                returncode=0 if has_flatpak else 1)
+
+        def roots() -> list:
+            app_id, _, binaries = _CHROMIUM_LINUX_DIRS["Brave"]
+            return _chromium_config_homes(app_id, binaries)
+
+        try:
+            stub(has_flatpak=True, has_native=False)
+            check(roots() == [flatpak_root], "Flatpak only -> the Flatpak root")
+            stub(has_flatpak=False, has_native=True)
+            check(roots() == [native_root], "package only -> ~/.config")
+            stub(has_flatpak=True, has_native=True)
+            check(roots() == [flatpak_root, native_root], "both installed -> both roots")
+            stub(has_flatpak=False, has_native=False)
+            check(roots() == [native_root], "neither installed -> ~/.config")
+        finally:
+            shutil.which, subprocess.run = real_which, real_run
+            if real_xdg is not None:
+                os.environ["XDG_CONFIG_HOME"] = real_xdg
 
         store.write_text(json.dumps({
             "attempts": _CRED_MAX_ATTEMPTS,

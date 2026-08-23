@@ -39,6 +39,7 @@ public static class ManifestGeneratorService
             User = new MigrationUser
             {
                 WindowsUsername = userSetup.WindowsUsername,
+                WindowsComputerName = userSetup.WindowsComputerName,
                 PreferredLinuxUsername = userSetup.LinuxUsername,
                 Locale = userSetup.Locale,
                 Timezone = userSetup.Timezone,
@@ -92,6 +93,7 @@ public static class ManifestGeneratorService
 public sealed record UserSetup
 {
     public required string WindowsUsername { get; init; }
+    public string? WindowsComputerName { get; init; }
     public required string LinuxUsername { get; init; }
     public string? LinuxPassword { get; init; }
     public string Locale { get; init; } = "en_US.UTF-8";

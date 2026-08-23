@@ -117,6 +117,9 @@ public sealed record DisplayLayout
 public sealed record MigrationUser
 {
     [JsonPropertyName("windowsUsername")] public required string WindowsUsername { get; init; }
+
+    /// <summary>The Windows computer name, used as the Linux hostname.</summary>
+    [JsonPropertyName("windowsComputerName")] public string? WindowsComputerName { get; init; }
     [JsonPropertyName("preferredLinuxUsername")] public required string PreferredLinuxUsername { get; init; }
     [JsonPropertyName("fullName")] public string? FullName { get; init; }
     [JsonPropertyName("locale")] public string Locale { get; init; } = "en_US.UTF-8";

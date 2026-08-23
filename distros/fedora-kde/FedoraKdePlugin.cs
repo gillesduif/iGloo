@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
+using Igloo.Core.Services;
 
 namespace Igloo.Distro.FedoraKde;
 
@@ -276,15 +277,23 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             : string.Join("\n", m.Files.IncludedFolders.Select(n => $"{n}|{n}"));
 
         // Browser map for the %post copy loop: one "source/relative|dest/relative"
-        // entry per migratable browser profile. Only Gecko browsers (Firefox / Zen
-        // / Waterfox) carry non-empty paths - their profile roots are OS-portable
-        // and include saved passwords. Chromium browsers were recorded with empty
-        // paths (DPAPI-bound passwords, Phase 2) and are skipped here.
+        // entry per migratable Gecko profile (Firefox / Zen / Waterfox). Their
+        // profile roots are OS-portable and include saved passwords, so they move
+        // wholesale. Chromium carries no destination - see chromiumMap below.
         var browserMap = string.Join("\n",
             m.Browsers
                 .Where(b => !string.IsNullOrEmpty(b.SourceRelativePath)
                          && !string.IsNullOrEmpty(b.DestRelativePath))
                 .Select(b => $"{b.SourceRelativePath}|{b.DestRelativePath}"));
+
+        // Chromium map: one "Browser Name|source/relative" entry. The name is the
+        // key the agent maps to a Flatpak id and config directory, which is why
+        // this half cannot name its own destination the way the Gecko map does.
+        var chromiumMap = string.Join("\n",
+            m.Browsers
+                .Where(b => string.Equals(b.Engine, "chromium", StringComparison.OrdinalIgnoreCase)
+                         && !string.IsNullOrEmpty(b.SourceRelativePath))
+                .Select(b => $"{b.Name}|{b.SourceRelativePath}"));
 
         // Password: use the user's chosen password (--plaintext). It MUST be double-quoted:
         // A $6$ crypt hash contains only [./A-Za-z0-9$], so it needs no shlex escaping -
@@ -341,7 +350,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             .Replace("{{KEYMAP}}", m.User.Keymap, StringComparison.Ordinal)
             .Replace("{{XLAYOUT}}", m.User.Keymap, StringComparison.Ordinal)
             .Replace("{{TIMEZONE}}", m.User.Timezone, StringComparison.Ordinal)
-            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc", StringComparison.Ordinal)
+            .Replace("{{HOSTNAME}}", LinuxHostname.FromMachine(m.User.WindowsComputerName, m.User.PreferredLinuxUsername), StringComparison.Ordinal)
             .Replace("{{WINDOWS_USERNAME}}", m.User.WindowsUsername, StringComparison.Ordinal)
             .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername, StringComparison.Ordinal)
             .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername, StringComparison.Ordinal)
@@ -354,6 +363,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             .Replace("{{INCLUDED_FOLDERS}}", folderList, StringComparison.Ordinal)
             .Replace("{{FOLDER_MAP}}", folderMap, StringComparison.Ordinal)
             .Replace("{{BROWSER_MAP}}", browserMap, StringComparison.Ordinal)
+            .Replace("{{CHROMIUM_MAP}}", chromiumMap, StringComparison.Ordinal)
             .Replace("{{WIFI_SSID}}", wifiSsid, StringComparison.Ordinal)
             .Replace("{{WIFI_PSK}}", wifiPsk, StringComparison.Ordinal)
             .Replace("{{WIFI_LIST}}", wifiList, StringComparison.Ordinal);

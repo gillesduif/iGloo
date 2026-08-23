@@ -512,6 +512,448 @@ def _copy_tree(src: Path, dst: Path) -> None:
     f"{src}/", f"{dst}/"], check=False, timeout=3600)
 
 
+#   Gecko browser profiles
+
+# KEEP IN SYNC between distros/_debian-family/agent/agent.py and
+# distros/fedora-kde/agent/agent.py (same convention as the Wi-Fi section).
+_GECKO_PROFILE_ROOTS = (".mozilla/firefox", ".zen", ".waterfox")
+
+# A Gecko profile lives under $HOME, and Flatpak gives an app without host
+# filesystem access its own $HOME - so a Flatpak build never reads ~/.mozilla.
+_GECKO_FLATPAKS = {
+    ".mozilla/firefox": "org.mozilla.firefox",
+    ".zen": "app.zen_browser.zen",
+    ".waterfox": "net.waterfox.waterfox",
+}
+
+
+def _flatpak_installed(app_id: str) -> bool:
+    if shutil.which("flatpak") is None:
+        return False
+    return run_cmd(["flatpak", "info", app_id], check=False).returncode == 0
+
+
+def _flatpak_home(app_id: str, user_home: Path) -> Path | None:
+    """The private $HOME Flatpak gives this app, or None when it sees the real one."""
+    res = run_cmd(["flatpak", "info", "--show-permissions", app_id], check=False)
+    if res.returncode != 0:
+        return None
+    for line in (res.stdout or "").splitlines():
+        key, sep, value = line.partition("=")
+        if sep and key.strip() == "filesystems":
+            # "home", "host" and their :ro / :rw forms all mean the real home.
+            if any(f.split(":")[0] in ("home", "host") for f in value.split(";")):
+                return None
+    return user_home / ".var" / "app" / app_id
+
+
+_FIREFOX_COMMANDS = ("firefox", "firefox-esr")
+
+
+def _version_major(text: str) -> int | None:
+    match = re.search(r"\d+", text or "")
+    return int(match.group()) if match else None
+
+
+def _installed_firefox_major() -> int | None:
+    """Major version of the Firefox the distribution ships, if any."""
+    for cmd in _FIREFOX_COMMANDS:
+        if shutil.which(cmd) is None:
+            continue
+        major = _version_major(run_cmd([cmd, "--version"], check=False).stdout or "")
+        if major is not None:
+            return major
+    return None
+
+
+def _profile_firefox_major(root: Path) -> int | None:
+    """Newest Firefox that ever opened the copied profile, per compatibility.ini."""
+    best: int | None = None
+    for depth in ("*/compatibility.ini", "*/*/compatibility.ini"):
+        for stamp in root.glob(depth):
+            try:
+                text = stamp.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for line in text.splitlines():
+                key, sep, value = line.partition("=")
+                if sep and key.strip() == "LastVersion":
+                    major = _version_major(value)
+                    if major is not None and (best is None or major > best):
+                        best = major
+    return best
+
+
+def ensure_matching_firefox(user_home: Path) -> None:
+    """Add Flathub's Firefox when the distribution's build is older than the profile.
+
+    Debian ships firefox-esr, which trails the Windows release channel by whole
+    versions and refuses a profile a newer build has opened. Mint and Fedora ship
+    release, so they compare equal and no second Firefox is installed. Must run
+    before the version stamps are cleared, since those carry the answer.
+    """
+    root = user_home / ".mozilla" / "firefox"
+    app_id = _GECKO_FLATPAKS[".mozilla/firefox"]
+    if not root.is_dir() or _flatpak_installed(app_id):
+        return
+
+    profile_major = _profile_firefox_major(root)
+    installed_major = _installed_firefox_major()
+    if profile_major is None or installed_major is None:
+        logger.info("Firefox versions unknown (profile=%s installed=%s) - keeping "
+                    "the distribution build", profile_major, installed_major)
+        return
+    if profile_major <= installed_major:
+        logger.info("This distribution ships Firefox %d and the profile is from "
+                    "%d - no second build needed", installed_major, profile_major)
+        return
+
+    logger.info("Profile is from Firefox %d but this distribution ships %d - "
+                "installing %s", profile_major, installed_major, app_id)
+    run_cmd(["flatpak", "install", "-y", "--noninteractive", "flathub", app_id],
+            check=False, timeout=1800)
+
+    # Only now that it is really there: hiding the packaged launcher before
+    # knowing the download worked would leave the user with no browser at all.
+    if not _flatpak_installed(app_id):
+        logger.warning("%s did not install - keeping the distribution build as it "
+                       "is, the profile stays where the packaged Firefox reads it",
+                       app_id)
+        return
+    _hide_packaged_firefox()
+    _set_default_browser(user_home, f"{app_id}.desktop")
+
+
+# The distribution's own Firefox, whose launcher is hidden once the Flathub build
+# holds the migrated profile. Debian names it firefox-esr.
+_PACKAGED_FIREFOX_DESKTOPS = ("firefox-esr.desktop", "firefox.desktop")
+
+
+def _hide_packaged_firefox(
+        system_dir: Path = Path("/usr/share/applications"),
+        target_dir: Path = Path("/usr/local/share/applications")) -> None:
+    """Take the distribution's Firefox out of the menu without touching apt.
+
+    Two Firefoxes in the launcher and no way to tell which one holds your data
+    is worse than one. This writes a NoDisplay copy into /usr/local/share, which
+    XDG_DATA_DIRS ranks above /usr/share, so the package's own file is untouched
+    and deleting one override brings the entry back.
+    """
+    for name in _PACKAGED_FIREFOX_DESKTOPS:
+        source = system_dir / name
+        if not source.is_file():
+            continue
+        try:
+            sections = _ini_split(source.read_text(encoding="utf-8", errors="replace"))
+            out: list[str] = []
+            for header, body in sections:
+                if header:
+                    out.append(header)
+                # NoDisplay belongs to [Desktop Entry]; the file's action groups
+                # must keep theirs, so this cannot just be appended at the end.
+                body = [ln for ln in body
+                        if ln.partition("=")[0].strip() != "NoDisplay"]
+                out.extend(body)
+                if header == "[Desktop Entry]":
+                    out.append("NoDisplay=true")
+            target_dir.mkdir(parents=True, exist_ok=True)
+            (target_dir / name).write_text("\n".join(out).strip() + "\n",
+                                           encoding="utf-8")
+            logger.info("Hid %s behind a NoDisplay override in %s", name, target_dir)
+        except OSError:
+            logger.warning("Could not hide %s - the user will see two Firefoxes", name)
+
+
+def _set_default_browser(user_home: Path, desktop_id: str) -> None:
+    """Point the user's http/https handlers at the browser holding their data."""
+    handlers = ("x-scheme-handler/http", "x-scheme-handler/https", "text/html")
+    path = user_home / ".config" / "mimeapps.list"
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+        sections = _ini_split(text) if text else [("", [])]
+
+        kept: list[tuple[str, list[str]]] = []
+        seen_defaults = False
+        for header, body in sections:
+            if header == "[Default Applications]":
+                seen_defaults = True
+                body = [ln for ln in body
+                        if ln.partition("=")[0].strip() not in handlers]
+                body = [ln for ln in body if ln.strip()]
+                body += [f"{h}={desktop_id}" for h in handlers]
+            kept.append((header, body))
+        if not seen_defaults:
+            kept.append(("[Default Applications]",
+                         [f"{h}={desktop_id}" for h in handlers]))
+
+        out = "\n".join("\n".join(([h] if h else []) + b) for h, b in kept)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(out.strip() + "\n", encoding="utf-8")
+        logger.info("Set %s as the default browser in %s", desktop_id, path)
+    except OSError:
+        logger.warning("Could not set the default browser - both Firefoxes will "
+                       "answer links")
+
+
+def relocate_gecko_profiles(user_home: Path) -> None:
+    """Move each copied profile into the Flatpak home of the browser that reads it.
+
+    Both directories sit in the user's home, so this is a rename, not a second
+    copy of a profile that can run to hundreds of megabytes.
+    """
+    for rel, app_id in _GECKO_FLATPAKS.items():
+        src = user_home / rel
+        if not src.is_dir() or not _flatpak_installed(app_id):
+            continue
+        home = _flatpak_home(app_id, user_home)
+        if home is None:
+            continue
+        dst = home / rel
+        if dst.exists():
+            logger.info("%s already exists - leaving %s where it is", dst, src)
+            continue
+        try:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dst))
+            logger.info("Moved %s into the Flatpak home at %s", src, dst)
+        except OSError:
+            logger.exception("Could not move %s to %s - the Flatpak build will "
+                             "start with an empty profile", src, dst)
+
+
+def _ini_split(text: str) -> list[tuple[str, list[str]]]:
+    """Split an INI file into (header, body) pairs; the preamble gets header ""."""
+    sections: list[tuple[str, list[str]]] = [("", [])]
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            sections.append((stripped, []))
+        else:
+            sections[-1][1].append(line)
+    return sections
+
+
+def _ini_get(body: list[str], key: str) -> str:
+    for line in body:
+        name, sep, value = line.partition("=")
+        if sep and name.strip().lower() == key:
+            return value.strip().replace("\\", "/")
+    return ""
+
+
+def _normalise_profiles_ini(ini: Path) -> None:
+    """Promote the profile Windows was using to the one Linux opens by default."""
+    sections = _ini_split(ini.read_text(encoding="utf-8", errors="replace"))
+
+    # [InstallHASH] is keyed on the Windows install directory, so no Linux build
+    # ever matches it. Firefox then falls back to the legacy Default=1 flag, which
+    # on a Windows profiles.ini usually sits on an old and empty profile.
+    wanted = ""
+    for header, body in sections:
+        if header.lower().startswith("[install"):
+            wanted = _ini_get(body, "default") or wanted
+    if not wanted:
+        logger.info("%s has no install section - left unchanged", ini)
+        return
+
+    kept: list[tuple[str, list[str]]] = []
+    target = -1
+    for header, body in sections:
+        low = header.lower()
+        # Both sections name Windows paths and mean nothing here.
+        if low.startswith("[install") or low.startswith("[backgroundtasksprofiles"):
+            continue
+        if low.startswith("[profile"):
+            body = [ln for ln in body
+                    if ln.partition("=")[0].strip().lower() != "default"]
+            if _ini_get(body, "path") == wanted:
+                target = len(kept)
+        kept.append((header, body))
+
+    if target < 0:
+        logger.warning("%s names %s but has no matching profile section", ini, wanted)
+        return
+
+    header, body = kept[target]
+    while body and not body[-1].strip():
+        body.pop()
+    kept[target] = (header, body + ["Default=1", ""])
+
+    text = "\n".join("\n".join(([h] if h else []) + b) for h, b in kept)
+    ini.write_text(text.strip() + "\n", encoding="utf-8")
+    logger.info("%s now opens %s by default", ini, wanted)
+
+
+# Windows paths in compatibility.ini. Firefox reads LastPlatformDir to decide
+# whether a profile belongs to the running install; absent means "yes, it does".
+_WINDOWS_INSTALL_KEYS = ("LastPlatformDir", "LastAppDir")
+
+
+def _clear_windows_install_paths(root: Path) -> None:
+    """Strip the Windows install paths from every copied compatibility.ini.
+
+    The file itself has to stay. Firefox only adopts a migrated profile when
+    compatibility.ini exists and does not name a foreign install directory -
+    deleting the whole file makes it start a brand new profile instead, which is
+    exactly what happened on the Debian run of 2026-08-21. LastOSABI keeps this
+    off genuine Linux profiles, whose paths are already correct.
+    """
+    for depth in ("*/compatibility.ini", "*/*/compatibility.ini"):
+        for stamp in root.glob(depth):
+            try:
+                text = stamp.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if "WINNT" not in text:
+                continue
+            lines = text.splitlines()
+            kept = [ln for ln in lines
+                    if ln.partition("=")[0].strip() not in _WINDOWS_INSTALL_KEYS]
+            if len(kept) == len(lines):
+                continue
+            stamp.write_text("\n".join(kept).strip() + "\n", encoding="utf-8")
+            logger.info("Cleared the Windows install paths in %s", stamp)
+
+
+_STARTUP_PAGE_PREF = "browser.startup.page"
+
+
+def _restore_session_on_next_start(root: Path) -> None:
+    """Have the migrated profiles reopen the tabs that were open on Windows.
+
+    Written into prefs.js, not user.js: user.js re-applies its value at every
+    start, which would stop the user from ever changing this back. Only profiles
+    that came from Windows are touched, and only until Firefox rewrites the
+    stamp on its first run, so this fires once.
+    """
+    for depth in ("*/compatibility.ini", "*/*/compatibility.ini"):
+        for stamp in root.glob(depth):
+            try:
+                if "WINNT" not in stamp.read_text(encoding="utf-8", errors="replace"):
+                    continue
+                prefs = stamp.parent / "prefs.js"
+                lines = (prefs.read_text(encoding="utf-8", errors="replace").splitlines()
+                         if prefs.is_file() else [])
+                kept = [ln for ln in lines
+                        if not ln.startswith(f'user_pref("{_STARTUP_PAGE_PREF}"')]
+                kept.append(f'user_pref("{_STARTUP_PAGE_PREF}", 3);')
+                prefs.write_text("\n".join(kept).strip() + "\n", encoding="utf-8")
+                logger.info("Set %s=3 in %s so the migrated tabs reopen",
+                            _STARTUP_PAGE_PREF, prefs)
+            except OSError:
+                logger.warning("Could not set %s in %s - the tabs are there but "
+                               "will not reopen on their own",
+                               _STARTUP_PAGE_PREF, stamp.parent)
+
+
+def normalise_gecko_profiles(user_home: Path) -> None:
+    """Make the copied Firefox/Zen/Waterfox profiles usable on Linux."""
+    homes = [user_home]
+    homes += [user_home / ".var" / "app" / a for a in dict.fromkeys(_GECKO_FLATPAKS.values())]
+    for home in homes:
+        for rel in _GECKO_PROFILE_ROOTS:
+            ini = home / rel / "profiles.ini"
+            if not ini.is_file():
+                continue
+            try:
+                _normalise_profiles_ini(ini)
+                _clear_windows_install_paths(ini.parent)
+                _restore_session_on_next_start(ini.parent)
+            except OSError:
+                logger.warning("Could not normalise %s - the browser may open an "
+                               "empty profile", ini)
+
+
+# Portable files in a Chromium profile: no master key is involved, so they cross
+# as they are. Cookies come along verbatim too - the login hook re-encrypts the
+# values in place, which leaves the schema a real Chromium's instead of one we
+# would have to reconstruct. See docs/reference/browser-migration.md.
+_CHROMIUM_PLAIN_FILES = (
+    "Bookmarks",
+    "History",
+    "Favicons",
+    "Top Sites",
+    "Network/Cookies",
+)
+
+# Open tabs. Chromium keeps them in a directory of Session_* / Tabs_* files, not
+# in one database, so this half is copied whole. A Gecko browser needs no
+# equivalent: its session store sits inside the profile root that already moves.
+_CHROMIUM_PLAIN_DIRS = ("Sessions",)
+
+
+# Where the Fedora kickstart leaves the files it lifted off the Windows
+# partition. It runs before any Flatpak exists and so cannot know the
+# destination; the agent resolves that once the browsers are installed.
+_CHROMIUM_STAGE_DIR = Path("/var/lib/igloo/chromium")
+
+
+def _place_chromium_files(name: str, src_default: Path, user_home: Path) -> None:
+    """Put one profile's portable files where the installed browser will read them."""
+    mapping = _CHROMIUM_LINUX_DIRS.get(name)
+    if mapping is None:
+        logger.info("  No Linux profile mapping for %r - skipping its files", name)
+        return
+    app_id, config_rel, binaries = mapping
+
+    for root in _chromium_config_homes(app_id, binaries, user_home):
+        dst = root / config_rel / "Default"
+        copied = []
+        for rel in _CHROMIUM_PLAIN_FILES:
+            source = src_default / rel
+            if not source.is_file():
+                continue
+            target = dst / rel
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target)
+                target.chmod(0o600)
+                copied.append(rel)
+            except OSError:
+                logger.warning("  Could not place %s for %s", rel, name)
+
+        for rel in _CHROMIUM_PLAIN_DIRS:
+            source = src_default / rel
+            if not source.is_dir():
+                continue
+            try:
+                shutil.copytree(source, dst / rel, dirs_exist_ok=True)
+                copied.append(f"{rel}/")
+            except OSError:
+                logger.warning("  Could not place %s for %s", rel, name)
+
+        if copied:
+            logger.info("  Placed %s profile files in %s: %s",
+                        name, dst, ", ".join(copied))
+
+
+def _copy_chromium_profile(name: str, src_root: Path, user_home: Path) -> None:
+    """Copy one Chromium profile's portable files off the Windows partition."""
+    # Default only: a "Profile N" would need an entry in Local State to be
+    # reachable, and Local State is machine state we deliberately do not carry.
+    src = src_root / "Default"
+    if not src.is_dir():
+        logger.info("  Skipping %s (no Default profile under %s)", name, src_root)
+        return
+    _place_chromium_files(name, src, user_home)
+
+
+def place_staged_chromium_profiles(user_home: Path) -> None:
+    """Move the Chromium files an installer staged into the profile that reads them.
+
+    Used by the distributions whose installer, not the agent, reads the Windows
+    partition. A no-op everywhere else, since the staging directory only exists
+    when something put files in it.
+    """
+    if not _CHROMIUM_STAGE_DIR.is_dir():
+        return
+    for staged in sorted(_CHROMIUM_STAGE_DIR.iterdir()):
+        if not staged.is_dir():
+            continue
+        _place_chromium_files(staged.name, staged, user_home)
+        shutil.rmtree(staged, ignore_errors=True)
+
+
 def migrate_user_files(manifest: dict[str, Any]) -> None:
     """Copy the user's selected folders + browser profiles from Windows NTFS."""
     user = manifest.get("user", {})
@@ -545,18 +987,34 @@ def migrate_user_files(manifest: dict[str, Any]) -> None:
             _copy_tree(src, user_home / name)
             logger.info("  Copied folder %s <- %s", name, rel)
 
-        # Gecko browser profiles: {sourceRelativePath, destRelativePath}.
+        # Browser profiles. Gecko carries {sourceRelativePath, destRelativePath}
+        # and moves wholesale; Chromium carries only the source, because its
+        # Linux destination depends on whether the browser is a Flatpak.
         for br in manifest.get("browsers", []):
             src_rel = br.get("sourceRelativePath")
-            dst_rel = br.get("destRelativePath")
-            if not src_rel or not dst_rel:
+            if not src_rel:
                 continue
             src = win_home / src_rel
             if not src.is_dir():
                 logger.info("  Skipping browser profile %s (source not found)", src_rel)
                 continue
+
+            if (br.get("engine") or "").lower() == "chromium":
+                _copy_chromium_profile(br.get("name", ""), src, user_home)
+                continue
+
+            dst_rel = br.get("destRelativePath")
+            if not dst_rel:
+                continue
             _copy_tree(src, user_home / dst_rel)
             logger.info("  Copied browser profile %s -> %s", src_rel, dst_rel)
+
+        # Order matters: the version stamps decide whether a second Firefox is
+        # needed, the move has to happen before the profiles are rewritten, and
+        # normalise clears those stamps last.
+        ensure_matching_firefox(user_home)
+        relocate_gecko_profiles(user_home)
+        normalise_gecko_profiles(user_home)
 
         # Fix ownership of everything we just dropped in.
         run_cmd(["chown", "-R", f"{linux_user}:{linux_user}", str(user_home)], check=False)
@@ -1000,24 +1458,69 @@ def _aes_self_test() -> None:
 _CHROMIUM_ENVELOPE_MAGIC = b"IGCRD001"
 _CHROMIUM_PBKDF2_ITERATIONS = 600_000
 
-# Browser display name (as the Windows wizard records it) to the Linux config
-# directory relative to the user's home.
+# Browser display name (as the Windows wizard records it) to its Flathub id, its
+# config directory relative to XDG_CONFIG_HOME, and the commands a distro package
+# installs. iGloo installs these as Flatpaks, but the user may already run a
+# packaged build, so both forms have to be reachable.
 _CHROMIUM_LINUX_DIRS = {
-    "Google Chrome": ".config/google-chrome",
-    "Microsoft Edge": ".config/microsoft-edge",
-    "Brave": ".config/BraveSoftware/Brave-Browser",
-    "Vivaldi": ".config/vivaldi",
-    "Opera": ".config/opera",
+    "Google Chrome": ("com.google.Chrome", "google-chrome",
+                      ("google-chrome", "google-chrome-stable")),
+    "Microsoft Edge": ("com.microsoft.Edge", "microsoft-edge",
+                       ("microsoft-edge", "microsoft-edge-stable")),
+    "Brave": ("com.brave.Browser", "BraveSoftware/Brave-Browser",
+              ("brave-browser", "brave")),
+    "Vivaldi": ("com.vivaldi.Vivaldi", "vivaldi",
+                ("vivaldi", "vivaldi-stable")),
+    "Opera": ("com.opera.Opera", "opera", ("opera",)),
 }
+
+
+def _native_config_home(home: Path | None) -> Path:
+    # XDG_CONFIG_HOME is only meaningful for the user's own session. The
+    # first-boot agent runs as root and passes the home explicitly, where
+    # root's environment would point at the wrong place entirely.
+    if home is not None:
+        return home / ".config"
+    return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+
+
+def _chromium_config_homes(app_id: str, binaries: tuple[str, ...],
+                           home: Path | None = None) -> list[Path]:
+    """Every config root this browser could read, most likely first.
+
+    Flatpak overrides XDG_CONFIG_HOME, so a Flatpak build never sees ~/.config
+    and a packaged build never sees ~/.var/app. Picking one means guessing, and
+    a wrong guess writes the passwords where nothing reads them - so write to
+    each root that has a matching install, and to ~/.config when neither does.
+    """
+    base = home or Path.home()
+    roots: list[Path] = []
+    if shutil.which("flatpak") and subprocess.run(
+            ["flatpak", "info", app_id],
+            capture_output=True, text=True, check=False).returncode == 0:
+        roots.append(base / ".var" / "app" / app_id / "config")
+    if any(shutil.which(b) for b in binaries):
+        roots.append(_native_config_home(home))
+    return roots or [_native_config_home(home)]
 
 # Chromium timestamps count microseconds since 1601-01-01 UTC.
 _CHROMIUM_EPOCH_OFFSET_US = 11644473600 * 1_000_000
 
-# Classic logins schema. Newer Chromium versions upgrade older databases on
-# first launch (password-store migrations only ADD columns), so writing the
-# classic form is the compatible choice. Validated in VM testing per
-# CONTRIBUTING.md rule 4.
-_LOGINS_SCHEMA = """
+# The logins table exactly as Chromium's own builder produces it at schema
+# version 31, and labelled 31 - the two must agree. Labelling a modern table as
+# an old version is what emptied Brave on 2026-08-21: the stored version drives
+# LoginDatabase::MigrateDatabase, which then runs "ALTER TABLE logins ADD COLUMN
+# possible_username_pairs" (a version 19 step) against a column that is already
+# there, the migration fails, Init returns false and the caller recreates the
+# file from scratch.
+#
+# 31 is chosen because every later step only ADDS columns (37, 39, 41, 42, 43),
+# so any Brave from 31 onwards migrates this table upwards cleanly. Chromium
+# creates the logins table before migrating and insecure_credentials /
+# password_notes after it, so the tables we leave out are not our problem.
+# See docs/reference/browser-migration.md.
+_LOGINS_SCHEMA_VERSION = 31
+_LOGINS_SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS logins (
     origin_url VARCHAR NOT NULL,
     action_url VARCHAR,
@@ -1028,11 +1531,11 @@ CREATE TABLE IF NOT EXISTS logins (
     submit_element VARCHAR,
     signon_realm VARCHAR NOT NULL,
     date_created INTEGER NOT NULL,
-    date_last_used INTEGER NOT NULL DEFAULT 0,
-    date_password_modified INTEGER NOT NULL DEFAULT 0,
     blacklisted_by_user INTEGER NOT NULL,
     scheme INTEGER NOT NULL,
-    times_used INTEGER NOT NULL DEFAULT 1,
+    password_type INTEGER,
+    times_used INTEGER,
+    form_data BLOB,
     display_name VARCHAR,
     icon_url VARCHAR,
     federation_url VARCHAR,
@@ -1040,23 +1543,83 @@ CREATE TABLE IF NOT EXISTS logins (
     generation_upload_status INTEGER,
     possible_username_pairs BLOB,
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date_synced INTEGER NOT NULL DEFAULT 0
+    date_last_used INTEGER NOT NULL DEFAULT 0,
+    moving_blocked_for BLOB,
+    date_password_modified INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (origin_url, username_element, username_value, password_element,
+            signon_realm)
 );
+CREATE INDEX IF NOT EXISTS logins_signon ON logins (signon_realm);
 CREATE TABLE IF NOT EXISTS meta (
     key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY,
     value LONGVARCHAR
 );
-INSERT OR IGNORE INTO meta(key, value) VALUES ('version', '8');
+INSERT OR IGNORE INTO meta(key, value)
+    VALUES ('version', '{_LOGINS_SCHEMA_VERSION}'),
+           ('last_compatible_version', '{_LOGINS_SCHEMA_VERSION}');
 """
 
 
-def _chromium_v10_encrypt(password: str) -> bytes:
-    """Encode one password the way Linux Chromium stores it in Login Data:
-    "v10" || AES-128-CBC(PKCS7), key PBKDF2-HMAC-SHA1("peanuts", "saltysalt",
-    1 iteration), IV of 16 spaces. This scheme is Chromium's documented
-    fallback when no desktop keyring holds the key."""
+def _chromium_v10_encrypt_bytes(data: bytes) -> bytes:
+    """Encode a value the way Linux Chromium stores it: "v10" ||
+    AES-128-CBC(PKCS7), key PBKDF2-HMAC-SHA1("peanuts", "saltysalt", 1
+    iteration), IV of 16 spaces. This scheme is Chromium's documented fallback
+    when no desktop keyring holds the key."""
     key = hashlib.pbkdf2_hmac("sha1", b"peanuts", b"saltysalt", 1, 16)
-    return b"v10" + aes_cbc_encrypt(key, b" " * 16, password.encode("utf-8"))
+    return b"v10" + aes_cbc_encrypt(key, b" " * 16, data)
+
+
+def _chromium_v10_encrypt(password: str) -> bytes:
+    return _chromium_v10_encrypt_bytes(password.encode("utf-8"))
+
+
+# The cookie jar moved under Network/ in Chromium 77; both layouts still exist.
+_COOKIE_DB_NAMES = ("Network/Cookies", "Cookies")
+
+
+def _reencrypt_cookies(profile_dir: Path, cookies: list[dict]) -> int:
+    """Rewrite a copied Cookies database so the Linux browser can read it.
+
+    The file came off the Windows profile verbatim, so its rows are still
+    encrypted under the Windows master key and its schema is a real Chromium's
+    rather than one we reconstruct. Only encrypted_value changes. Rows we have
+    no plaintext for are deleted: a cookie the browser cannot decrypt keeps the
+    user logged out while looking like it should not.
+    """
+    db = next((profile_dir / n for n in _COOKIE_DB_NAMES
+               if (profile_dir / n).is_file()), None)
+    if db is None:
+        return 0
+
+    con = sqlite3.connect(db)
+    try:
+        updated = 0
+        for c in cookies:
+            try:
+                value = base64.b64decode(c.get("value", ""))
+            except (ValueError, TypeError):
+                continue
+            cur = con.execute(
+                "UPDATE cookies SET encrypted_value = ? "
+                "WHERE host_key = ? AND name = ? AND path = ?",
+                (_chromium_v10_encrypt_bytes(value), c.get("host", ""),
+                 c.get("name", ""), c.get("path", "")))
+            updated += cur.rowcount
+
+        # Both platforms use the "v10" prefix, so the rows we rewrote cannot be
+        # told apart from the ones we did not. Name them instead.
+        con.execute("CREATE TEMP TABLE igloo_keep (h TEXT, n TEXT, p TEXT)")
+        con.executemany(
+            "INSERT INTO igloo_keep VALUES (?, ?, ?)",
+            [(c.get("host", ""), c.get("name", ""), c.get("path", "")) for c in cookies])
+        con.execute(
+            "DELETE FROM cookies WHERE NOT EXISTS ("
+            "  SELECT 1 FROM igloo_keep k WHERE k.h = cookies.host_key"
+            "    AND k.n = cookies.name AND k.p = cookies.path)")
+        con.commit()
+        return updated
+    finally:
+        con.close()
 
 
 def _decrypt_envelope(blob_b64: str, password: str) -> dict:
@@ -1088,18 +1651,20 @@ def _login_row_values(url: str, username: str, v10_blob: bytes,
         "date_password_modified": now_us,
         "blacklisted_by_user": 0,
         "scheme": 0,
+        "password_type": 0,
         "times_used": 1,
+        "form_data": b"",
         "display_name": "",
         "icon_url": "",
         "federation_url": "",
         "skip_zero_click": 0,
         "generation_upload_status": 0,
         "possible_username_pairs": b"",
-        "date_synced": 0,
-        # Columns added by newer Chromium versions.
         "moving_blocked_for": b"",
+        # Columns added after version 31; dropped again for a database that
+        # predates them, by the PRAGMA table_info filter in the caller.
+        "sender_email": "",
         "sender_name": "",
-        "sender_origin": "",
         "sender_profile_image_url": "",
         "date_received": 0,
         "sharing_notification_displayed": 0,
@@ -1198,8 +1763,12 @@ def stage_credential_import(manifest: dict) -> None:
                          for e in entries],
         }), encoding="utf-8")
         store.chmod(0o600)
+        # Chown from .local down, not just the igloo directory: mkdir(parents=True) ran
+        # as root, so any level it had to create is root-owned. Leaving .local that way
+        # locks the user out of their own ~/.local/state - which breaks gnome-keyring,
+        # xdg-user-dirs and every autostart hook, not only ours.
         run_cmd(["chown", "-R", f"{linux_user}:{linux_user}",
-                 str(home / ".local" / "share" / "igloo")], check=False)
+                 str(home / ".local")], check=False)
 
         hook = Path("/opt/igloo/credential-import.sh")
         hook.write_text(
@@ -1254,6 +1823,29 @@ def _ask_password() -> tuple[bool, str | None]:
             return True, None
         return True, res.stdout.rstrip("\n")
     return False, None
+
+
+def _run_boot_order_mode() -> int:
+    """Entry point for --fix-boot-order: re-assert the UEFI boot order, then exit.
+
+    Windows Boot Manager puts itself back at the front on updates and on some
+    ordinary boots, and when it does the firmware runs bootmgfw.efi directly -
+    shim never loads, the menu never appears, and the machine looks like Linux
+    was never installed. The first-boot agent already did this once, but once is
+    not enough for something that keeps happening, so a unit runs this every
+    boot. Never returns non-zero: a failure here must not mark the unit failed.
+    """
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    if igloo_boot is None:
+        logger.error("igloo_boot.py is not staged in /opt/igloo - boot order untouched")
+        return 0
+    try:
+        igloo_boot.put_self_first_in_boot_order(
+            igloo_boot.debian_family(run_cmd, logger))
+    except Exception:
+        logger.exception("Could not re-assert the UEFI boot order (non-fatal)")
+    return 0
 
 
 def _run_user_mode() -> int:
@@ -1325,10 +1917,11 @@ def run_user_credential_import() -> int:
     wrong_password = False
     for entry in entries:
         name = entry.get("name", "")
-        config_rel = _CHROMIUM_LINUX_DIRS.get(name)
-        if config_rel is None:
+        mapping = _CHROMIUM_LINUX_DIRS.get(name)
+        if mapping is None:
             logger.info("No Linux profile mapping for browser %r - skipping", name)
             continue
+        app_id, config_rel, binaries = mapping
         try:
             payload = _decrypt_envelope(entry["blob"], password)
         except Exception:
@@ -1339,14 +1932,34 @@ def run_user_credential_import() -> int:
             continue
 
         logins = payload.get("logins", [])
-        if not logins:
+        cookies = payload.get("cookies", [])
+        if not logins and not cookies:
             continue
-        try:
-            profile_dir = Path.home() / config_rel / "Default"
-            profile_dir.mkdir(parents=True, exist_ok=True)
-            imported += _import_into_login_data(profile_dir / "Login Data", logins)
-        except Exception:
-            logger.exception("Failed to import credentials for %s (non-fatal)", name)
+        # Counted per browser, not per root: the same logins written to both a
+        # Flatpak and a packaged install is one migration, not two.
+        landed = 0
+        for root in _chromium_config_homes(app_id, binaries):
+            profile_dir = root / config_rel / "Default"
+            try:
+                if logins:
+                    profile_dir.mkdir(parents=True, exist_ok=True)
+                    landed = max(landed,
+                                 _import_into_login_data(profile_dir / "Login Data", logins))
+                    logger.info("Imported %s logins into %s", name, profile_dir)
+            except Exception:
+                logger.exception("Failed to import credentials for %s into %s "
+                                 "(non-fatal)", name, root)
+            try:
+                # Cookies are a separate failure domain: the jar being unusable
+                # must not cost the passwords that came from the same profile.
+                if cookies:
+                    rewritten = _reencrypt_cookies(profile_dir, cookies)
+                    logger.info("Re-encrypted %d %s cookie(s) in %s",
+                                rewritten, name, profile_dir)
+            except Exception:
+                logger.exception("Failed to re-encrypt cookies for %s in %s "
+                                 "(non-fatal)", name, profile_dir)
+        imported += landed
 
     if wrong_password and imported == 0:
         data["attempts"] = attempts
@@ -1513,17 +2126,28 @@ def _match_display_layouts(
     Returns (monitors.xml logical-monitor fragments, staged layout for the
     login-time appliers, match count).
     """
-    by_pnp = {o["pnp_id"]: o for o in outputs}
+    # A pool per PnP id, not one output per id: two panels of the same model
+    # report the same id and the same EDID serial, and a dict would collapse them
+    # onto whichever came last - putting both logical monitors on one connector.
+    # Each output is consumed once, in order, so identical panels still pair up.
+    by_pnp: dict[str, list[dict[str, Any]]] = {}
+    for o in outputs:
+        by_pnp.setdefault(o["pnp_id"], []).append(o)
     logical: list[str] = []
     cinnamon_layout: list[dict[str, Any]] = []
     matched = 0
 
+    # Mutter discards the whole file over one negative coordinate - shift to 0,0.
+    origin_x = min((int(w.get("positionX") or 0) for w in wanted), default=0)
+    origin_y = min((int(w.get("positionY") or 0) for w in wanted), default=0)
+
     for want in wanted:
         pnp = (want.get("pnpId") or "").upper()
-        out = by_pnp.get(pnp)
-        if out is None:
+        pool = by_pnp.get(pnp)
+        if not pool:
             logger.info("  Monitor %s from Windows is not attached here - skipped", pnp or "?")
             continue
+        out = pool.pop(0)
 
         width, height = int(want.get("widthPx", 0)), int(want.get("heightPx", 0))
         if width <= 0 or height <= 0:
@@ -1543,8 +2167,8 @@ def _match_display_layouts(
 
         logical.append(
             "    <logicalmonitor>\n"
-            f"      <x>{int(want.get('positionX') or 0)}</x>\n"
-            f"      <y>{int(want.get('positionY') or 0)}</y>\n"
+            f"      <x>{int(want.get('positionX') or 0) - origin_x}</x>\n"
+            f"      <y>{int(want.get('positionY') or 0) - origin_y}</y>\n"
             "      <scale>1</scale>\n"
             + ("      <primary>yes</primary>\n" if want.get("isPrimary") else "")
             + f"      <transform><rotation>{rotation}</rotation></transform>\n"
@@ -1572,8 +2196,8 @@ def _match_display_layouts(
             "rate": rate,
             "rotation": {0: "none", 90: "left", 180: "inverted", 270: "right"}.get(
                 rotation_deg, "none"),
-            "x": int(want.get("positionX") or 0),
-            "y": int(want.get("positionY") or 0),
+            "x": int(want.get("positionX") or 0) - origin_x,
+            "y": int(want.get("positionY") or 0) - origin_y,
             "primary": bool(want.get("isPrimary")),
             "scalePercent": int(want.get("scalePercent") or 100) or 100,
         })
@@ -1583,8 +2207,12 @@ def _match_display_layouts(
     return logical, cinnamon_layout, matched
 
 
+# Mutter and muffin read the same schema under different names - both, or Mint forgets.
+_MONITOR_CONFIG_NAMES = ("monitors.xml", "cinnamon-monitors.xml")
+
+
 def _write_user_monitors_xml(username: str, xml: str, matched: int) -> bool:
-    """Write monitors.xml into the user's ~/.config. False if the home is missing."""
+    """Write the monitor layout into the user's ~/.config. False if the home is missing."""
     home = Path("/home") / username if username else None
     if home is None or not home.is_dir():
         logger.warning("User home not found - cannot write the display layout")
@@ -1592,9 +2220,10 @@ def _write_user_monitors_xml(username: str, xml: str, matched: int) -> bool:
 
     cfg = home / ".config"
     cfg.mkdir(parents=True, exist_ok=True)
-    (cfg / "monitors.xml").write_text(xml, encoding="utf-8")
+    for name in _MONITOR_CONFIG_NAMES:
+        (cfg / name).write_text(xml, encoding="utf-8")
     run_cmd(["chown", "-R", f"{username}:{username}", str(cfg)], check=False)
-    logger.info("Wrote %s for %d monitor(s)", cfg / "monitors.xml", matched)
+    logger.info("Wrote the layout for %d monitor(s) into %s", matched, cfg)
     return True
 
 
@@ -1604,15 +2233,24 @@ def _write_greeter_monitors_xml(xml: str) -> None:
     # the user sees. Best-effort: not every display manager uses this path.
     for gdm_dir in (Path("/var/lib/gdm3/.config"), Path("/var/lib/gdm/.config"),
                     Path("/var/lib/lightdm/.config")):
-        if gdm_dir.parent.is_dir():
-            try:
-                gdm_dir.mkdir(parents=True, exist_ok=True)
-                (gdm_dir / "monitors.xml").write_text(xml, encoding="utf-8")
-                owner = gdm_dir.parent.name
-                run_cmd(["chown", "-R", f"{owner}:{owner}", str(gdm_dir)], check=False)
-                logger.info("Applied the same layout to the %s greeter", owner)
-            except OSError:
-                logger.info("Could not write the greeter layout in %s (non-fatal)", gdm_dir)
+        home = gdm_dir.parent
+        if not home.is_dir():
+            continue
+        try:
+            # Take the uid/gid from the home directory itself. The account name does
+            # not follow the directory name - Debian's gdm3 runs as "Debian-gdm" - and
+            # guessing it leaves this .config owned by root, which stops gdm booting.
+            st = home.stat()
+            gdm_dir.mkdir(parents=True, exist_ok=True)
+            os.chown(gdm_dir, st.st_uid, st.st_gid)
+            for name in _MONITOR_CONFIG_NAMES:
+                target = gdm_dir / name
+                target.write_text(xml, encoding="utf-8")
+                os.chown(target, st.st_uid, st.st_gid)
+            logger.info("Applied the same layout to the greeter in %s (uid %d)",
+                        home, st.st_uid)
+        except OSError:
+            logger.exception("Could not write the greeter layout in %s (non-fatal)", gdm_dir)
 
 
 def _stage_display_login_hook(cinnamon_layout: list[dict[str, Any]]) -> None:
@@ -1625,21 +2263,33 @@ def _stage_display_login_hook(cinnamon_layout: list[dict[str, Any]]) -> None:
         apply_sh = Path("/opt/igloo/display-apply.sh")
         apply_sh.write_text(
             "#!/usr/bin/env bash\n"
-            "# iGloo display layout - runs once per user at login. Retries on later\n"
-            "# logins until the applier reports success (done-marker convention).\n"
+            "# iGloo display layout.\n"
+            "# Runs at EVERY login, not once. The layout only survives a logout\n"
+            "# if the compositor's own stored configuration matches the attached\n"
+            "# monitors, and on this hardware it does not - two panels sharing an\n"
+            "# EDID serial. Re-asserting each login is what the user actually\n"
+            "# needs; the marker below is left for the log bundle to read.\n"
             'DONE_MARKER="$HOME/.config/.igloo-display-done"\n'
-            '[ -f "$DONE_MARKER" ] && exit 0\n'
             'mkdir -p "$HOME/.local/state"\n'
             'case " $XDG_CURRENT_DESKTOP " in\n'
             '  *GNOME*) HELPER=/opt/igloo/display-apply-gnome.py ;;\n'
             '  *)       HELPER=/opt/igloo/display-apply.py ;;\n'
             "esac\n"
+            'LOG="$HOME/.local/state/igloo-display.log"\n'
+            'echo "[$(date +%F\\ %T)] start: desktop=$XDG_CURRENT_DESKTOP '
+            'session=$XDG_SESSION_TYPE helper=$HELPER" >> "$LOG"\n'
             'if [ ! -f "$HELPER" ]; then\n'
-            '  echo "[$(date +%F\\ %T)] ERROR: $HELPER is missing" '
-            '>> "$HOME/.local/state/igloo-display.log"\n'
+            '  echo "[$(date +%F\\ %T)] ERROR: $HELPER is missing" >> "$LOG"\n'
+            "  exit 0\n"
             "fi\n"
-            'python3 "$HELPER" --layout /opt/igloo/display-layout.json \\\n'
-            '  && touch "$DONE_MARKER"\n',
+            "# Capture the helper's own output: without this a failure leaves no trace\n"
+            "# and the next boot is diagnosed blind.\n"
+            'if python3 "$HELPER" --layout /opt/igloo/display-layout.json >> "$LOG" 2>&1; then\n'
+            '  echo "[$(date +%F\\ %T)] applied" >> "$LOG"\n'
+            '  touch "$DONE_MARKER"\n'
+            "else\n"
+            '  echo "[$(date +%F\\ %T)] FAILED with exit $? - will retry next login" >> "$LOG"\n'
+            "fi\n",
             encoding="utf-8",
         )
         apply_sh.chmod(0o755)
@@ -1684,8 +2334,17 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
         logger.info("No Windows monitors matched the attached outputs - nothing written")
         return
 
-    xml = ('<monitors version="2">\n  <configuration>\n'
-            + "".join(logical) + "  </configuration>\n</monitors>\n")
+    # One configuration per layout mode. Mutter picks a stored configuration by
+    # the mode the session runs in, so a file that names none matches nothing and
+    # is silently ignored - which is why the layout used to fall back on the next
+    # login. Mutter writes both itself; this mirrors its own output. The two are
+    # identical because the scale is 1, where logical and physical pixels agree.
+    body = "".join(logical)
+    xml = ('<monitors version="2">\n'
+           + "".join(f"  <configuration>\n    <layoutmode>{mode}</layoutmode>\n"
+                     f"{body}  </configuration>\n"
+                     for mode in ("physical", "logical"))
+           + "</monitors>\n")
 
     username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
     if not _write_user_monitors_xml(username, xml, matched):
@@ -1931,10 +2590,17 @@ def main() -> int:
                     help="Run as the logged-in user from the autostart hook: ask "
                         "for the account password once and import the staged "
                         "browser credentials. Needs neither --manifest nor root.")
+    p.add_argument("--fix-boot-order", action="store_true",
+                    help="Put the entry we booted from back at the front of the "
+                        "UEFI boot order. Runs on every boot, because Windows "
+                        "reasserts itself there. Needs neither --manifest nor a "
+                        "log directory.")
     args = p.parse_args()
 
     if args.import_credentials:
         return _run_user_mode()
+    if args.fix_boot_order:
+        return _run_boot_order_mode()
     if args.manifest is None or args.log_dir is None:
         p.error("--manifest and --log-dir are required for the first-boot pass")
 

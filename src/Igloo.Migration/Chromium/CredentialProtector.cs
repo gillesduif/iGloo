@@ -96,16 +96,20 @@ public static partial class CredentialProtector
     }
 
     /// <summary>Serialises the payload exactly as the Linux agents expect it.</summary>
-    public static byte[] BuildPayload(string browserName, IReadOnlyList<ChromiumLogin> logins)
+    public static byte[] BuildPayload(string browserName, IReadOnlyList<ChromiumLogin> logins,
+        IReadOnlyList<ChromiumCookie>? cookies = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(browserName);
         ArgumentNullException.ThrowIfNull(logins);
 
         // Hand-built JSON is avoided on purpose: System.Text.Json escapes
-        // correctly for every password the wizard can encounter.
+        // correctly for every password the wizard can encounter. Cookie values
+        // are base64: they are bytes, not text, and one of them is a hash.
         var payload = new CredentialPayload(
             browserName,
-            logins.Select(l => new CredentialPayloadEntry(l.Origin, l.Username, l.Password)).ToArray());
+            logins.Select(l => new CredentialPayloadEntry(l.Origin, l.Username, l.Password)).ToArray(),
+            (cookies ?? []).Select(c => new CookiePayloadEntry(
+                c.HostKey, c.Name, c.Path, Convert.ToBase64String(c.Value.Span))).ToArray());
         return JsonSerializer.SerializeToUtf8Bytes(payload, PayloadJsonContext.Default.CredentialPayload);
     }
 
@@ -116,12 +120,21 @@ public static partial class CredentialProtector
 
     private sealed record CredentialPayload(
         [property: JsonPropertyName("browser")] string Browser,
-        [property: JsonPropertyName("logins")] CredentialPayloadEntry[] Logins);
+        [property: JsonPropertyName("logins")] CredentialPayloadEntry[] Logins,
+        [property: JsonPropertyName("cookies")] CookiePayloadEntry[] Cookies);
 
     private sealed record CredentialPayloadEntry(
         [property: JsonPropertyName("url")] string Url,
         [property: JsonPropertyName("username")] string Username,
         [property: JsonPropertyName("password")] string Password);
+
+    // host/name/path identify the row in the copied Cookies database that this
+    // value belongs to; the Linux side matches on all three.
+    private sealed record CookiePayloadEntry(
+        [property: JsonPropertyName("host")] string Host,
+        [property: JsonPropertyName("name")] string Name,
+        [property: JsonPropertyName("path")] string Path,
+        [property: JsonPropertyName("value")] string ValueBase64);
 
     // Source-generated serializer: keeps the library trim-safe and avoids
     // reflection over credential-shaped types at runtime.
