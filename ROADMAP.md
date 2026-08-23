@@ -8,7 +8,7 @@ real-hardware validation, not aspirations.
 Scope lives on the [milestones](https://github.com/gillesduif/iGloo/milestones)
 so there is one source of truth. This page is the index.
 
-Current release: 0.1-alpha. Fedora KDE, Linux Mint Cinnamon and Debian each
+Current release: 0.2-alpha. Fedora KDE, Linux Mint Cinnamon and Debian each
 install unattended alongside Windows 11 on real hardware.
 
 ## Now

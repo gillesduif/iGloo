@@ -28,7 +28,7 @@
   #define IglooPublishDir "publish"
 #endif
 #ifndef IglooVersion
-  #define IglooVersion "0.1-alpha"
+  #define IglooVersion "0.2-alpha"
 #endif
 
 [Setup]
