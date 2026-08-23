@@ -6,14 +6,24 @@ Validated end-to-end on bare metal, dual-boot alongside Windows 11:
 - Linux Mint Cinnamon
 - Debian (GNOME)
 
-## New in 0.2-alpha
+## Added
 
-- **Your browsers come with you.** 0.1-alpha carried saved passwords. A ticked browser now arrives with its bookmarks, history, favicons, cookies and the tabs that were open on Windows. Firefox and Zen keep their profile rather than getting a fresh one; Chrome, Edge, Brave, Vivaldi and Opera keep theirs. The migrated browser becomes the default.
-- **Your Windows account picture becomes your Linux avatar.**
-- **A boot menu that reads like one.** One entry per operating system, each with its own logo, the Windows entry named rather than numbered, and no *Advanced options* submenu.
-- **The machine keeps coming back to Linux.** Picking Windows from the menu once no longer makes Windows the permanent default, and this system re-asserts its place in the UEFI boot order on every boot instead of only at install time.
+- Browser migration carries the whole profile. 0.1-alpha moved saved passwords only. A ticked browser now arrives with its bookmarks, history, favicons, cookies and the tabs that were open on Windows. Firefox and Zen keep their existing profile directory instead of being handed a new one, and the installed Firefox is matched to the profile's major version. The migrated browser is made the default.
+- The Windows account picture is carried over as the Linux avatar.
+- The boot menu is themed and lists one entry per operating system, each with its own logo, and names the Windows entry instead of numbering it. There is no *Advanced options* submenu.
+- The hostname is derived from the Windows computer name where that is a valid hostname, instead of always from the user name.
+- `igloo-boot-order.service` puts this system back at the front of the UEFI boot order on every boot, not only at install time.
 
-The full list, including the fixes, is in the [changelog](https://github.com/gillesduif/iGloo/blob/main/CHANGELOG.md).
+## Fixed
+
+- Choosing Windows from the boot menu once made Windows the permanent default. The machine then went straight to Windows on every following boot and looked like Linux had never been installed.
+- A Linux installed earlier stopped booting once another distribution was installed next to it, hanging indefinitely on a device that did not exist. The boot entry for it named a partition by kernel name, which changes with probe order.
+- The migrated display layout reverted to the distribution default after logging out.
+- The application scan missed roughly a quarter of the installed programs.
+- Brave and Chrome discarded the imported passwords and reset their password database.
+- Every install left an orphaned entry behind in the Windows boot store.
+
+The full list is in the [changelog](https://github.com/gillesduif/iGloo/blob/main/CHANGELOG.md).
 
 ## Known limitations
 
@@ -28,7 +38,7 @@ The full list, including the fixes, is in the [changelog](https://github.com/gil
 SHA256 of `iGloo-Setup-0.2-alpha.exe`:
 
 ```
-<vul in na het bouwen van de installer>
+2f9b154f561398e468ff74760ca728c3e95ec8cf72b760157132618387e6556e
 ```
 
 Requires Windows 10 (version 1809) or Windows 11. On systems with an NVIDIA GPU and Secure Boot enabled, the installation completes but the locally compiled NVIDIA module is rejected by the kernel; the pre-flight check warns about this in advance. Linux Mint is the exception: it ships pre-signed NVIDIA modules and works with Secure Boot enabled. Read the [README](https://github.com/gillesduif/iGloo#readme) for the full safety model before running.
