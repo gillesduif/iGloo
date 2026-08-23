@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
+using Igloo.Core.Services;
 
 namespace Igloo.Distro.Ubuntu;
 
@@ -163,7 +164,7 @@ public sealed class UbuntuPlugin : IDistroPlugin
             .Replace("{{LOCALE}}", m.User.Locale, StringComparison.Ordinal)
             .Replace("{{KEYMAP}}", m.User.Keymap, StringComparison.Ordinal)
             .Replace("{{TIMEZONE}}", m.User.Timezone, StringComparison.Ordinal)
-            .Replace("{{HOSTNAME}}", m.User.PreferredLinuxUsername + "-pc", StringComparison.Ordinal)
+            .Replace("{{HOSTNAME}}", LinuxHostname.FromMachine(m.User.WindowsComputerName, m.User.PreferredLinuxUsername), StringComparison.Ordinal)
             .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername, StringComparison.Ordinal)
             .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername, StringComparison.Ordinal)
             .Replace("{{PASSWORD}}", m.User.LinuxPasswordCrypted ?? "", StringComparison.Ordinal)
