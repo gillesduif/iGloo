@@ -17,9 +17,9 @@ gnome-control-center drives - so every guess disappears:
 
   * GetCurrentState returns the EXACT mode ids mutter accepts, refresh rates
     included; the wanted mode is matched by resolution and nearest rate.
-  * ApplyMonitorsConfig applies the layout immediately, in-session, and (with
-    the persistent method) makes mutter write its own monitors.xml - the file
-    path's job, but done by the one party that never misreads it.
+  * ApplyMonitorsConfig applies the layout immediately, in-session, with the
+    temporary method - no prompt. Keeping it across logouts stays the file's
+    job; the persistent method would ask the user to confirm instead.
   * Monitors are matched by EDID identity (vendor/product/serial), the same
     identity Windows and the first-boot agent use, never by output order.
 
@@ -46,9 +46,14 @@ GDBUS_IFACE = "org.gnome.Mutter.DisplayConfig"
 # 0 normal, 1 = 90 CCW ("left"), 2 = 180, 3 = 270 CCW = 90 CW ("right")).
 ROTATION_TO_TRANSFORM = {"none": 0, "left": 1, "inverted": 2, "right": 3}
 
-# ApplyMonitorsConfig method 1 = persistent: mutter applies AND rewrites
-# monitors.xml itself in its own format with its own validated values.
-METHOD_PERSISTENT = 1
+# org.gnome.Mutter.DisplayConfig.ApplyMonitorsConfig: "0: verify 1: temporary
+# 2: persistent". Temporary, deliberately: persistence comes from the
+# monitors.xml the agent writes, which mutter reads at every session start. 2
+# makes mutter run request_persistent_confirmation() instead - the "Keep this
+# display setup?" prompt, which reverts after 20 seconds if nobody clicks. That
+# is unacceptable on a machine the user has just migrated to, and buys nothing
+# the file does not already give us.
+APPLY_METHOD_TEMPORARY = 1
 
 
 def log(msg: str) -> None:
@@ -229,8 +234,11 @@ def main() -> int:
             f"at ({x},{y}){' primary' if m.get('primary') else ''}")
 
     variant = "[" + ", ".join(logical_monitors) + "]"
-    log(f"applying via ApplyMonitorsConfig(serial={serial}, method=persistent)")
-    res = gdbus_call("ApplyMonitorsConfig", str(serial), str(METHOD_PERSISTENT),variant, "{}", timeout=30)
+    # Log the number, not a word for it: the word said "persistent" while the
+    # number said temporary, and the log looked correct for weeks.
+    log(f"applying via ApplyMonitorsConfig(serial={serial}, method={APPLY_METHOD_TEMPORARY})")
+    res = gdbus_call("ApplyMonitorsConfig", str(serial), str(APPLY_METHOD_TEMPORARY),
+                     variant, "{}", timeout=30)
     if res.returncode != 0:
         log(f"ApplyMonitorsConfig failed: {(res.stderr or res.stdout or '').strip()[:400]}"
             " - will retry at next login")
