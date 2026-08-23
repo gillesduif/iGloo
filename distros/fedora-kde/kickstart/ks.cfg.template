@@ -473,6 +473,50 @@ FOLDERMAP
 {{BROWSER_MAP}}
 BROWSERMAP
 
+                # ── Chromium profiles (the plain half) ───────────────────────
+                # CHROMIUM_MAP holds one "Browser Name|source/relative" entry per
+                # Chromium browser. Bookmarks, history, favicons, top sites and
+                # the cookie jar are NOT protected by the Windows master key, so
+                # they cross as ordinary files. They are staged rather than placed:
+                # the destination depends on whether the browser turns out to be a
+                # Flatpak, and nothing is installed yet at %post time. The
+                # first-boot agent moves them once it knows, then clears the
+                # staging directory. Passwords and cookie values still ride the
+                # encrypted blob. See docs/reference/browser-migration.md.
+                while IFS='|' read -r cname csrc; do
+                    [ -n "$cname" ] || continue
+                    src="$WIN_HOME/$csrc/Default"
+                    if [ ! -d "$src" ]; then
+                        log "  Skipping $cname (no Default profile under '$csrc')"
+                        continue
+                    fi
+                    stage="$SYSIMAGE/var/lib/igloo/chromium/$cname"
+                    install -d -m 0700 "$stage" "$stage/Network"
+                    staged_any=0
+                    for f in Bookmarks History Favicons "Top Sites" "Network/Cookies"; do
+                        [ -f "$src/$f" ] || continue
+                        if cp -p "$src/$f" "$stage/$f" 2>/dev/null; then
+                            chmod 0600 "$stage/$f"
+                            staged_any=1
+                        else
+                            log "  WARNING: could not stage $f for $cname"
+                        fi
+                    done
+                    # Open tabs: a directory of Session_* / Tabs_* files.
+                    if [ -d "$src/Sessions" ]; then
+                        if cp -a "$src/Sessions" "$stage/" 2>/dev/null; then
+                            staged_any=1
+                        else
+                            log "  WARNING: could not stage Sessions for $cname"
+                        fi
+                    fi
+                    [ "$staged_any" = "1" ] \
+                        && log "  Staged $cname profile files for the first-boot agent" \
+                        || rmdir "$stage/Network" "$stage" 2>/dev/null || true
+                done <<'CHROMIUMMAP'
+{{CHROMIUM_MAP}}
+CHROMIUMMAP
+
                 umount "$NTFS_MNT"
                 copy_user_files_done=1
                 break
@@ -554,7 +598,16 @@ fi
 # Verified on Fedora 44: 99-grub-mkconfig.install re-runs grub2-mkconfig on
 # kernel install when this is false (RHBZ 1899903), and grubby-deprecated is
 # neither available nor needed.
-if ! grep -q "^GRUB_ENABLE_BLSCFG=" "$SYSIMAGE/etc/default/grub" 2>/dev/null; then
+# Replace, do not skip. Anaconda writes GRUB_ENABLE_BLSCFG=true itself, so a
+# guard of the "add it only when absent" shape never fires and the setting
+# silently stays on - measured on the Fedora 44 install of 2026-08-23, whose
+# /etc/default/grub still read "true" and whose agent then reported
+# "VERIFICATION FAILED: the Advanced options submenu is still in grub.cfg".
+if grep -q "^GRUB_ENABLE_BLSCFG=" "$SYSIMAGE/etc/default/grub" 2>/dev/null; then
+    sed -i 's/^GRUB_ENABLE_BLSCFG=.*/GRUB_ENABLE_BLSCFG=false/' \
+        "$SYSIMAGE/etc/default/grub"
+    log "Disabled BootLoaderSpec (replaced an existing GRUB_ENABLE_BLSCFG line)"
+else
     echo "GRUB_ENABLE_BLSCFG=false" >> "$SYSIMAGE/etc/default/grub"
     log "Disabled BootLoaderSpec (GRUB_ENABLE_BLSCFG=false)"
 fi

@@ -19,13 +19,29 @@ _LINUX_SCRIPT = Path("/etc/grub.d/10_linux")
 _DROPIN = Path("/etc/default/grub.d/99-igloo-menu.cfg")
 _GRUB_DEFAULT = Path("/etc/default/grub")
 
-_HINT_SCRIPT_TEMPLATE = r"""#!/bin/sh
-# igloo: grub-probe emits no hints on NVMe, so derive one per search line.
+_GRUB_HOOK_TEMPLATE = r"""#!/bin/sh
+# igloo: repairs the generated grub.cfg; re-run at boot and on kernel updates.
 cfg={cfg}
 [ -f "$cfg" ] || exit 0
+
+# os-prober falls back to root=/dev/sdXN for any OS whose boot config it cannot
+# read. Kernel names follow probe order, so such an entry boots whatever holds
+# that name next time. See docs/reference/boot-menu.md.
+grep -o -- 'root=/dev/[A-Za-z0-9/_.+-]*' "$cfg" | sort -u |
+while read -r arg; do
+    dev=$(printf '%s' "$arg" | cut -c6-)
+    uuid=$(blkid -o value -s UUID "$dev" 2>/dev/null)
+    if [ -z "$uuid" ]; then
+        echo "igloo: $dev has no UUID, entry left alone" >&2
+        continue
+    fi
+    sed -i "s|root=$dev\([[:space:]]\)|root=UUID=$uuid\1|g" "$cfg"
+    sed -i "s|root=$dev\$|root=UUID=$uuid|g" "$cfg"
+done
+
+# grub-probe emits no hints on NVMe, so derive one per search line.
 # hd0 is only unambiguous with a single disk.
 [ "$(lsblk -dno NAME -e 7,11 | wc -l)" -eq 1 ] || exit 0
-
 grep -o -- '--set=root [0-9A-Fa-f-]\{{4,\}}' "$cfg" | awk '{{print $2}}' | sort -u |
 while read -r uuid; do
     dev=$(blkid -U "$uuid" 2>/dev/null) || continue
@@ -51,21 +67,21 @@ class Boot:
     grub_cfg: Path
     themes_dir: Path
     regenerate_cmd: list[str]
-    hint_hook: Path
+    grub_hook: Path
 
 
 def debian_family(run_cmd: Callable[..., Any], logger: Any) -> Boot:
     cfg = Path("/boot/grub/grub.cfg")
     cmd = ["update-grub"] if shutil.which("update-grub") else ["grub-mkconfig", "-o", str(cfg)]
     return Boot(run_cmd, logger, cfg, Path("/boot/grub/themes/stylish"), cmd,
-                Path("/etc/kernel/postinst.d/zzz-igloo-grub-hints"))
+                Path("/etc/kernel/postinst.d/zzz-igloo-grub-fixups"))
 
 
 def fedora(run_cmd: Callable[..., Any], logger: Any) -> Boot:
     cfg = Path("/boot/grub2/grub.cfg")
     return Boot(run_cmd, logger, cfg, Path("/boot/grub2/themes/stylish"),
                 ["grub2-mkconfig", "-o", str(cfg)],
-                Path("/etc/kernel/install.d/99-igloo-grub-hints.install"))
+                Path("/etc/kernel/install.d/99-igloo-grub-fixups.install"))
 
 
 def theme_variant(manifest: dict[str, Any]) -> str:
@@ -102,8 +118,12 @@ def _write_dropin(b: Boot, variant: str, themed: bool, single_entry: bool,
         "# blacklist lives in that variable on this family.",
         "GRUB_TIMEOUT=10",
         "GRUB_TIMEOUT_STYLE=menu",
-        "GRUB_DEFAULT=saved",
-        "GRUB_SAVEDEFAULT=true",
+        # Entry 0 is this system: 10_linux runs before 30_os-prober, so the
+        # distro's own entry is always first. NOT GRUB_DEFAULT=saved with
+        # GRUB_SAVEDEFAULT=true - that writes whatever was picked last into
+        # grubenv, so one visit to Windows makes Windows the permanent default
+        # and the machine never comes back on its own. See docs/reference/boot-menu.md.
+        "GRUB_DEFAULT=0",
         "GRUB_TERMINAL_OUTPUT=gfxterm",
         f"GRUB_GFXMODE={gfxmode}",
         # Redundant when the 10_linux patch landed (those entries sit in the
@@ -198,8 +218,8 @@ def _patch_linux_submenu(b: Boot) -> bool:
         f"{_SUBMENU_MARKER} (M15).",
         "# The cleanly titled entry for the newest kernel has just been printed;",
         "# everything below this point builds the submenu, the per-kernel entries",
-        "# and the recovery entries. title_correction_code is empty with",
-        "# GRUB_DEFAULT=saved; echoing it keeps the patch behaviour-neutral.",
+        "# and the recovery entries. Echoing title_correction_code first keeps",
+        "# the patch behaviour-neutral whatever GRUB_DEFAULT is set to.",
         'echo "$title_correction_code"',
         "exit 0",
     ))
@@ -209,34 +229,70 @@ def _patch_linux_submenu(b: Boot) -> bool:
     return True
 
 
-def _inject_hints(b: Boot) -> None:
-    """Add the search hint grub-probe cannot produce on NVMe.
+def _apply_grub_fixups(b: Boot) -> None:
+    """Repair the two things grub-mkconfig leaves wrong on a multi-boot disk.
 
-    Each line gets the hint for the UUID on that line: one shared hint would be
-    wrong for the os-prober entries of every other OS on the disk. The UUID stays
-    the source of truth, so a stale hint only costs the old scan.
+    Kernel-name root= arguments become UUIDs, and each search line gets the
+    device hint grub-probe cannot produce on NVMe. Both are per-line: one shared
+    value would be wrong for the os-prober entries of every other OS on the disk.
+    See docs/reference/boot-menu.md.
     """
-    script = _HINT_SCRIPT_TEMPLATE.format(cfg=b.grub_cfg.as_posix())
+    script = _GRUB_HOOK_TEMPLATE.format(cfg=b.grub_cfg.as_posix())
     try:
-        b.hint_hook.parent.mkdir(parents=True, exist_ok=True)
-        b.hint_hook.write_text(script, encoding="utf-8")
-        b.hint_hook.chmod(0o755)
+        b.grub_hook.parent.mkdir(parents=True, exist_ok=True)
+        b.grub_hook.write_text(script, encoding="utf-8")
+        b.grub_hook.chmod(0o755)
     except OSError:
-        b.logger.exception("Could not install the GRUB hint hook (non-fatal)")
+        b.logger.exception("Could not install the GRUB fixup hook (non-fatal)")
         return
 
-    res = b.run_cmd([str(b.hint_hook)], check=False, timeout=120)
+    res = b.run_cmd([str(b.grub_hook)], check=False, timeout=120)
     if res.returncode != 0:
-        b.logger.warning("GRUB hint script exited %d - the menu keeps its full scans",
-                         res.returncode)
+        b.logger.warning("GRUB fixup script exited %d - entries keep whatever "
+                         "grub-mkconfig wrote", res.returncode)
         return
     try:
-        hints = len(re.findall(r"--hint=", b.grub_cfg.read_text(encoding="utf-8",
-                                                                errors="replace")))
+        cfg = b.grub_cfg.read_text(encoding="utf-8", errors="replace")
     except OSError:
-        hints = 0
-    b.logger.info("Added %d device hint(s) to grub.cfg; %s re-applies them after "
-                  "kernel updates", hints, b.hint_hook)
+        cfg = ""
+    b.logger.info("grub.cfg now has %d device hint(s) and %d kernel-name root= "
+                  "argument(s); %s re-applies this after kernel updates",
+                  len(re.findall(r"--hint=", cfg)),
+                  len(re.findall(r"root=/dev/", cfg)), b.grub_hook)
+    _install_fixup_unit(b)
+
+
+_FIXUP_UNIT = Path("/etc/systemd/system/igloo-grub-fixups.service")
+
+
+def _install_fixup_unit(b: Boot) -> None:
+    """Run the same hook on every boot, not only on kernel updates.
+
+    A grub package upgrade re-runs grub-mkconfig by itself and throws both fixups
+    away, and nothing in /etc/kernel fires for that. Repairing at boot means one
+    failed attempt at worst instead of a machine that stays unbootable.
+    """
+    try:
+        _FIXUP_UNIT.parent.mkdir(parents=True, exist_ok=True)
+        _FIXUP_UNIT.write_text(
+            "[Unit]\n"
+            "Description=Igloo - repair root= and search hints in grub.cfg\n"
+            f"ConditionPathIsReadWrite={b.grub_cfg.parent.as_posix()}\n"
+            "After=local-fs.target\n"
+            "\n"
+            "[Service]\n"
+            "Type=oneshot\n"
+            f"ExecStart={b.grub_hook.as_posix()}\n"
+            "\n"
+            "[Install]\n"
+            "WantedBy=multi-user.target\n",
+            encoding="utf-8")
+        b.run_cmd(["systemctl", "enable", "igloo-grub-fixups.service"], check=False)
+        b.logger.info("Installed igloo-grub-fixups.service - grub.cfg is repaired "
+                      "on every boot, not only after a kernel update")
+    except OSError:
+        b.logger.exception("Could not install the grub fixup unit; the kernel hook "
+                           "still covers kernel updates")
 
 
 def _regenerate(b: Boot) -> None:
@@ -266,6 +322,15 @@ def _verify(b: Boot, themed: bool) -> None:
     else:
         b.logger.warning("no --hint= in grub.cfg - every boot scans all devices")
 
+    # A kernel name here is a hang waiting to happen: the entry boots whatever
+    # holds that name after the next probe, and systemd waits for it with no limit.
+    stale = sorted(set(re.findall(r"root=/dev/\S+", cfg)))
+    if stale:
+        b.logger.error("VERIFICATION FAILED: %d entr(y/ies) boot a kernel-name device "
+                       "path: %s", len(stale), ", ".join(stale))
+    else:
+        b.logger.info("verified: every entry names its root by UUID")
+
     if "gnulinux-advanced" in cfg:
         b.logger.error("VERIFICATION FAILED: the Advanced options submenu is still "
                        "in grub.cfg")
@@ -284,9 +349,82 @@ def _verify(b: Boot, themed: bool) -> None:
         b.logger.warning("no Windows menuentry found in grub.cfg")
 
 
+_BOOT_ORDER_UNIT = Path("/etc/systemd/system/igloo-boot-order.service")
+
+
+def install_boot_order_unit(b: Boot) -> None:
+    """Re-assert the UEFI boot order on every boot, not just the first one.
+
+    put_self_first_in_boot_order() below fixes the order once, but Windows puts
+    itself back whenever it feels like it, and the first-boot agent is gated on
+    /var/lib/igloo/.done so it never runs again. A one-shot fix for a recurring
+    condition is no fix: the machine boots straight into Windows a week later and
+    looks like Linux was never installed. This unit closes that.
+    """
+    try:
+        _BOOT_ORDER_UNIT.parent.mkdir(parents=True, exist_ok=True)
+        _BOOT_ORDER_UNIT.write_text(
+            "[Unit]\n"
+            "Description=Igloo - keep this system first in the UEFI boot order\n"
+            # efivarfs must be mounted before efibootmgr can read or write.
+            "After=local-fs.target\n"
+            "ConditionPathExists=/opt/igloo/agent.py\n"
+            "ConditionPathIsDirectory=/sys/firmware/efi\n"
+            "\n"
+            "[Service]\n"
+            "Type=oneshot\n"
+            "ExecStart=/usr/bin/python3 /opt/igloo/agent.py --fix-boot-order\n"
+            "\n"
+            "[Install]\n"
+            "WantedBy=multi-user.target\n",
+            encoding="utf-8")
+        b.run_cmd(["systemctl", "enable", "igloo-boot-order.service"], check=False)
+        b.logger.info("Installed igloo-boot-order.service - the boot order is now "
+                      "re-asserted on every boot")
+    except OSError:
+        b.logger.exception("Could not install the boot-order unit; the order is "
+                           "still set for this boot, but Windows can take it back")
+
+
+def put_self_first_in_boot_order(b: Boot) -> None:
+    """Move the entry we booted from to the front of the UEFI boot order.
+
+    Windows Boot Manager reasserts itself at the top on updates and on some ordinary
+    boots. When it does, the firmware runs bootmgfw.efi directly, shim never loads and
+    the menu never appears - the machine looks like Linux was never installed. Nothing
+    else puts it back, so the agent does.
+
+    BootCurrent is used rather than matching on a distro name: this agent is running
+    from that entry by definition, so it is the right one without guessing.
+    """
+    try:
+        res = b.run_cmd(["efibootmgr"], check=False)
+        out = res.stdout or ""
+        current = re.search(r"^BootCurrent:\s*([0-9A-Fa-f]{4})", out, re.M)
+        order = re.search(r"^BootOrder:\s*([0-9A-Fa-f,]+)", out, re.M)
+        if not current or not order:
+            b.logger.info("No BootCurrent/BootOrder from efibootmgr - boot order left alone")
+            return
+
+        me = current.group(1).upper()
+        entries = [e.strip().upper() for e in order.group(1).split(",") if e.strip()]
+        if entries and entries[0] == me:
+            b.logger.info("UEFI boot order already starts with Boot%s", me)
+            return
+
+        new_order = [me] + [e for e in entries if e != me]
+        if b.run_cmd(["efibootmgr", "-o", ",".join(new_order)], check=False).returncode == 0:
+            b.logger.info("Moved Boot%s to the front of the UEFI boot order (was %s)",
+                       me, ",".join(entries))
+        else:
+            b.logger.warning("Could not set the UEFI boot order - Windows may boot directly")
+    except Exception:
+        b.logger.exception("Boot-order fix failed (non-fatal)")
+
+
 def configure_boot_menu(manifest: dict[str, Any], b: Boot,
                         collapse: bool = True) -> None:
-    """Theme the menu, boot the last-used OS by default, rename the Windows entry.
+    """Theme the menu, boot this system by default, rename the Windows entry.
 
     Every failure here is cosmetic: the stock menu remains and the system stays
     bootable. collapse=False keeps the per-kernel submenu, for the case where the
@@ -298,7 +436,16 @@ def configure_boot_menu(manifest: dict[str, Any], b: Boot,
     # Before the drop-in: its content depends on whether this patch landed.
     single_entry = _patch_linux_submenu(b) if collapse else False
     _write_dropin(b, variant, themed, single_entry, collapse)
+    # A machine installed by an earlier build may already carry saved_entry=Windows
+    # in grubenv. GRUB_DEFAULT=0 ignores it, but leaving it there is a trap for
+    # whoever reads grubenv next; both grub-editenv names exist across families.
+    for editenv in ("grub-editenv", "grub2-editenv"):
+        if shutil.which(editenv):
+            b.run_cmd([editenv, "-", "unset", "saved_entry"], check=False)
+            break
     _regenerate(b)
+    put_self_first_in_boot_order(b)
+    install_boot_order_unit(b)
 
     try:
         cfg = b.grub_cfg.read_text(encoding="utf-8", errors="replace")
@@ -324,5 +471,5 @@ def configure_boot_menu(manifest: dict[str, Any], b: Boot,
         _regenerate(b)
 
     # After the last regeneration: every one of them drops the hint again.
-    _inject_hints(b)
+    _apply_grub_fixups(b)
     _verify(b, themed)
