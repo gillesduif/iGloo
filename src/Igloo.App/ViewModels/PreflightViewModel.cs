@@ -24,6 +24,12 @@ public sealed partial class PreflightViewModel : ObservableObject
     [ObservableProperty]
     private bool _isRunning;
 
+    // Removal repartitions the disk, so the report on screen is stale while it runs and
+    // the wizard must not advance on it.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanProceed))]
+    private bool _isRemovingLinux;
+
     [ObservableProperty]
     private PreflightReport? _report;
 
@@ -32,11 +38,10 @@ public sealed partial class PreflightViewModel : ObservableObject
     public bool HasReport => Report is not null;
     public bool HasError => ErrorMessage is not null;
     public bool HasFindings => Findings.Count > 0;
-    public bool HasNoFindings => HasReport && !HasFindings;
     public bool HasBlockers => Findings.Any(f => f.Severity == FindingSeverity.Blocker);
 
     
-    public bool CanProceed => HasReport && !HasBlockers;
+    public bool CanProceed => HasReport && !HasBlockers && !IsRemovingLinux;
 
     public string FirmwareDisplay => Report?.IsUefi == true ? "UEFI" : "Legacy BIOS";
     public bool FirmwareOk => Report?.IsUefi == true;
@@ -146,19 +151,27 @@ public sealed partial class PreflightViewModel : ObservableObject
                 $"{ByteFormat.Format(s.Partition.SizeBytes)} on {s.DiskModel}"))
             .ToList();
 
+        // Singular when the removal touches exactly one partition, so the warning agrees
+        // with the list printed directly above it.
+        var partitionCount = targets.Sum(t => t.Partitions.Count) + leftovers.Count;
+        var dataLine = partitionCount == 1
+            ? "All data on this partition will be permanently lost."
+            : "All data on these partitions will be permanently lost.";
+
         // Danger severity: the safe button takes the default, so Enter cancels rather
         // than erasing partitions.
         if (!FluentMessageBox.Confirm(
-                targets.Count > 0 ? "Uninstall Linux operating system?" : "Remove iGloo system components?",
-                 "This action permanently deletes the following components:\n\n" + string.Join("\n", lines) + "\n\n" +
-                 "All data on these partitions will be destroyed. This action cannot be undone.\n" +
-                 "Unallocated space adjacent to your Windows partition will be automatically reclaimed.",
+                targets.Count > 0 ? "Uninstall Linux?" : "Remove iGloo system components?",
+                 "This permanently deletes the following:\n\n" + string.Join("\n", lines) + "\n\n" +
+                 dataLine + "\n" +
+                 "Windows will automatically reclaim the freed space.",
                 FluentMessageSeverity.Danger,
-                primaryText: targets.Count > 0 ? "Uninstall Linux " : "Remove components"))
+                primaryText: targets.Count > 0 ? "Uninstall" : "Remove"))
             return;
 
         try
         {
+            IsRemovingLinux = true;
             LinuxActionStatus = "Removing…";
             var progress = new Progress<string>(s => LinuxActionStatus = s);
             await _linuxRemoval.RemoveAsync(targets, leftovers, removingAllLinux, progress);
@@ -172,6 +185,10 @@ public sealed partial class PreflightViewModel : ObservableObject
         {
             _logger.LogError(ex, "Linux removal failed");
             LinuxActionStatus = $"An error occurred during removal: {ex.Message}";
+        }
+        finally
+        {
+            IsRemovingLinux = false;
         }
     }
 
@@ -472,7 +489,6 @@ public sealed partial class PreflightViewModel : ObservableObject
         // Fire all display properties that depend on Report in one pass.
         OnPropertyChanged(nameof(HasReport));
         OnPropertyChanged(nameof(HasFindings));
-        OnPropertyChanged(nameof(HasNoFindings));
         OnPropertyChanged(nameof(HasBlockers));
         OnPropertyChanged(nameof(CanProceed));
         OnPropertyChanged(nameof(FirmwareDisplay));
