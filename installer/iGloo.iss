@@ -52,7 +52,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\iGloo.exe
-VersionInfoVersion=0.1.0.0
+VersionInfoVersion=0.2.0.0
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

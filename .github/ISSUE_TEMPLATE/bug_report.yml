@@ -20,7 +20,7 @@ body:
     id: version
     attributes:
       label: iGloo version or commit
-      placeholder: "0.0.1-alpha, or the commit hash"
+      placeholder: "0.2-alpha, or the commit hash"
     validations:
       required: true
 
