@@ -87,7 +87,8 @@ def run_hook(tmp: Path, cfg_text: str, uuids: dict[str, str]) -> tuple[str, int]
         f"{cases}"
         "        *) exit 2 ;;\n"
         "esac\n", encoding="utf-8", newline="\n")
-    os.chmod(stub / "blkid", 0o755)
+    # Owner-only: sh execs the stub as this user, so group/world rx buys nothing.
+    os.chmod(stub / "blkid", 0o700)
 
     env = dict(os.environ, PATH=str(stub) + os.pathsep + os.environ.get("PATH", ""))
     res = subprocess.run(["sh", str(hook)], env=env, capture_output=True, text=True)
