@@ -138,12 +138,10 @@ public static partial class ChromiumCredentialExtractor
             return;
         }
 
-        foreach (var row in rows)
+        // v20 (App-Bound) cookies are skipped for the same reason v20 passwords
+        // are; the rest of the jar still migrates.
+        foreach (var row in rows.Where(r => Classify(r.EncryptedValue.Span) == EntryKind.V10))
         {
-            // v20 (App-Bound) cookies are skipped for the same reason v20
-            // passwords are; the rest of the jar still migrates.
-            if (Classify(row.EncryptedValue.Span) != EntryKind.V10)
-                continue;
             if (TryDecryptV10Bytes(masterKey, row.EncryptedValue.Span, out var value))
                 cookies.Add(new ChromiumCookie(row.HostKey, row.Name, row.Path, value));
         }
