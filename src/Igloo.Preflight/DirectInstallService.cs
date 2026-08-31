@@ -1535,18 +1535,12 @@ public sealed partial class DirectInstallService : IDirectInstallService
         if (string.IsNullOrEmpty(listing))
             return [];
 
-        var ids = new List<string>();
-        foreach (var block in Regex.Split(listing, @"\r?\n[ \t]*\r?\n"))
-        {
-            if (!block.Contains(description, StringComparison.Ordinal))
-                continue;
-
-            var id = Regex.Match(block, @"^identifier\s+(\{[0-9a-fA-F-]{36}\})",
-                                 RegexOptions.Multiline).Groups[1].Value;
-            if (id.Length > 0)
-                ids.Add(id);
-        }
-        return ids;
+        return Regex.Split(listing, @"\r?\n[ \t]*\r?\n")
+            .Where(block => block.Contains(description, StringComparison.Ordinal))
+            .Select(block => Regex.Match(block, @"^identifier\s+(\{[0-9a-fA-F-]{36}\})",
+                                         RegexOptions.Multiline).Groups[1].Value)
+            .Where(id => id.Length > 0)
+            .ToList();
     }
 
     private string? RunBcdedit(string arguments)
