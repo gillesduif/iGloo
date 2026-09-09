@@ -2,15 +2,15 @@
   "$schema": "../_schema/distro.schema.json",
   "id": "deepin",
   "displayName": "deepin",
-  "description": "deepin 25 with the Deepin Desktop Environment (DDE), the foundation of UOS. China's flagship consumer Linux: a fully self-developed desktop with polished animations, an integrated app store, and its own built-in AI assistant.",
+  "description": "deepin 25 with the Deepin Desktop Environment (DDE), an integrated app store, and an immutable system core. Safe automated installation alongside Windows is still under investigation in iGloo.",
   "logo": "logo/deepin-logo.png",
   "status": "coming-soon",
   "defaultDesktopEnvironment": "DDE",
   "installerType": "Custom",
 
   "iso": {
-    "downloadUrl": "https://www.deepin.org/en/download/",
-    "sha256": ""
+    "downloadUrl": "https://cdimage.deepin.com/releases/25.2.0/amd64/deepin-desktop-community-25.2.0-amd64.iso",
+    "sha256": "f875c9a605bfe6a8425d1d353a3c1ec755bf37f5b0a3231ca19e2145da0ff450"
   },
 
   "tags": [
@@ -21,12 +21,12 @@
   "minimumRequirements": {
     "minRamBytes": 4294967296,
     "minDiskBytes": 68719476736,
-    "requiresUefi": false,
+    "requiresUefi": true,
     "requires64Bit": true
   },
 
   "maintainer": {
     "github": "gillesduif",
-    "note": "Catalog-only entry: no install plugin yet. downloadUrl points at the official download portal; pin a direct ISO URL and SHA-256 checksum when the plugin is written. Official logo asset still to be shipped (see logo/NOTICE)."
+    "note": "Blocked integration; see distros/deepin/STATUS.md. The 25.2.0 AMD64 ISO and SHA-256 were verified against the official release directory and local image on 2026-09-08. That directory lists no signature; the pin is not a verified publisher signature. Four GiB RAM is the documented VM floor; eight GiB is recommended. UEFI is the intended iGloo scope. No safe root-only installation or migration agent has been validated."
   }
 }

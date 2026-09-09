@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Igloo.Distro.Deepin</RootNamespace>
+    <AssemblyName>Igloo.Distro.Deepin</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Igloo.Core\Igloo.Core.csproj" />
+    <InternalsVisibleTo Include="Igloo.Distro.Deepin.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- No prototype hooks or unvalidated family agent are packaged. -->
+    <Content Include="distro.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CopyPluginToDistroRoot" AfterTargets="Build">
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"
+          DestinationFolder="$(MSBuildProjectDirectory)"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>
