@@ -45,6 +45,14 @@ A single C# class implementing `IDistroPlugin` from `Igloo.Core.Abstractions`. T
 
 See `fedora-kde/FedoraKdePlugin.cs` for the reference implementation.
 
+An integration that needs an explicitly owned installation target also declares
+`IInstallationTargetConsumer`. The generic
+[target identity contract](../docs/reference/installation-target-identity.md)
+provides Windows creation/capture and read-only Linux GPT resolution. GPT type,
+labels and `PreCreateRootPartition` do not prove ownership. Such a plugin must
+stay blocked until its boot handoff and writer enforce that contract; Deepin is
+the first declared consumer and still emits no installation configuration.
+
 ### 3. The installer driver config (`installer/`)
 
 The unattended-install config for your distro's installer:

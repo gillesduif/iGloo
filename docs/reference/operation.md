@@ -27,3 +27,10 @@ so configuration completes before the first login. A fallback USB path (raw
 ISO write plus staging partition on removable media) is available for machines
 where direct installation is not possible. The complete description is in
 [`docs/architecture.md`](../architecture.md).
+
+New integrations that require an explicitly owned GPT target use the opt-in
+[installation target identity contract](installation-target-identity.md).
+Its creation receipt travels in this same manifest. Linux verifies the complete
+GPT identity set before deriving device paths. The legacy shrink/staging flow
+above does not establish that guarantee; Deepin remains blocked while its boot
+and deployment orchestration are unimplemented.

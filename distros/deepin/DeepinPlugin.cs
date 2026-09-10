@@ -8,7 +8,7 @@ namespace Igloo.Distro.Deepin;
 /// Catalog metadata and compatibility findings while safe Deepin installation remains
 /// unverified. No executable installer configuration or migration payload is exposed.
 /// </summary>
-public sealed class DeepinPlugin : IDistroPlugin
+public sealed class DeepinPlugin : IDistroPlugin, IInstallationTargetConsumer
 {
     private const long MinimumRamBytes = 4L * 1024 * 1024 * 1024;
     private const long RecommendedRamBytes = 8L * 1024 * 1024 * 1024;
@@ -18,6 +18,8 @@ public sealed class DeepinPlugin : IDistroPlugin
         "has not been verified. See distros/deepin/STATUS.md.";
 
     public string Id => "deepin";
+
+    public InstallationTargetRequirement TargetRequirement => InstallationTargetRequirement.CreatedRootAndEsp;
 
     public DistroMetadata Metadata { get; }
 

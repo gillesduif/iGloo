@@ -105,6 +105,7 @@ public partial class IglooApp : Application
         services.AddSingleton<ILinuxRemovalService, LinuxRemovalService>();
         services.AddSingleton<IPartitionResizeService, PartitionResizeService>();
         services.AddSingleton<IDirectInstallService, DirectInstallService>();
+        services.AddSingleton<IInstallationTargetPreparer, WindowsInstallationTargetPreparer>();
         services.AddSingleton<IIsoAcquisitionService, IsoAcquisitionService>();
         services.AddSingleton<IFileStagingService, FileStagingService>();
         services.AddSingleton<IUsbWriterService, UsbWriterService>();

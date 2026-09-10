@@ -55,6 +55,11 @@ public sealed record InstallerBootSpec
     
     public Uri? InitrdUrl { get; init; }
 
+    /// <summary>
+    /// Legacy installer preparation; may reuse Linux-type partitions and provides no ownership
+    /// claim. New identity-requiring plugins use IInstallationTargetConsumer and the explicit
+    /// target preparation API; they must not treat this flag as authorization.
+    /// </summary>
     public bool PreCreateRootPartition { get; init; }
 }
 

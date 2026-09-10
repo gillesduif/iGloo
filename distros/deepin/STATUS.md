@@ -85,6 +85,23 @@ for production. Neither path has been exercised here.
 
 ## Disk safety prerequisite
 
+**Target identity phase (2026-09-10):** the generic
+[creation and resolution boundary](../../docs/reference/installation-target-identity.md)
+is implemented separately from installation. Windows can create one explicitly
+authorized root in an already-free extent, verify the returned PARTUUID against
+the refreshed table, and publish a versioned receipt in the migration manifest.
+The read-only Linux resolver checks GPT disk GUID, root/ESP PARTUUIDs, exact
+sector geometry and the complete partition identity set before returning paths.
+It rejects ambiguity and changed layouts. This resolves the missing identity
+model and resolver; it does not validate the full Windows-to-Deepin boot workflow.
+
+Deepin now declares that it requires an owned root and explicit ESP. It still
+emits no boot spec, install config or agent, even with valid identity. The legacy
+app preparation path refuses this requirement. The new preparer does not use
+the old shrink or seed heuristics. Actual Windows CIM creation, boot-bound run-ID
+delivery, seed/ISO identification, cross-reboot resolution and deployment still
+need disposable VM validation. See VALIDATION.md for executed checks.
+
 Before formatting anything, Windows must record the disk GPT GUID and exact
 iGloo-created root PARTUUID, offset, length and logical sector size, plus the
 existing ESP PARTUUID and seed/ISO identities. The live driver must find exactly
@@ -95,11 +112,11 @@ order. No fallback target. Only the owned root may be formatted; the existing ES
 may be mounted without formatting. Preserve GPT, Windows, MSR, recovery, other
 Linux/data partitions and Microsoft EFI files. Refuse unknown layouts.
 
-The current generic `PreCreateRootPartition` cannot provide that guarantee:
-`EnsureRootPartition` reuses any Linux-type GPT partition, and the manifest only
-carries disk model/size. `BuildStoragePartitionList` also marks every Linux-type
-partition as root. Do not turn that flag on for Deepin until explicit ownership
-and identity are implemented and tested. Existing supported distro paths are
+The legacy generic `PreCreateRootPartition` cannot provide that guarantee:
+`EnsureRootPartition` reuses any Linux-type GPT partition, and that legacy path
+does not produce the new manifest claim. `BuildStoragePartitionList` also marks
+every Linux-type partition as root. Do not turn that flag on for Deepin; use the
+explicit creation/identity API. Existing supported distro paths are
 outside this change; their behavior is not evidence that Deepin is safe.
 
 ## First boot and hardware

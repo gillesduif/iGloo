@@ -7,6 +7,15 @@ public sealed record MigrationManifest
     [JsonPropertyName("schemaVersion")]
     public int SchemaVersion { get; init; } = 1;
 
+    // No deserialization default: an old manifest must not acquire a new authorization.
+    [JsonPropertyName("installationId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? InstallationId { get; init; }
+
+    [JsonPropertyName("installationTarget")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public InstallationTargetClaim? InstallationTarget { get; init; }
+
     [JsonPropertyName("generatedAtUtc")]
     public DateTime GeneratedAtUtc { get; init; } = DateTime.UtcNow;
 

@@ -37,3 +37,10 @@ jobs:
 
       - name: Test
         run: dotnet test Igloo.sln -c Release --no-build --verbosity normal
+
+  installation-target:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate target identity using synthetic layouts and disposable GPT files
+        run: python3 tests/installer/target_identity_test.py

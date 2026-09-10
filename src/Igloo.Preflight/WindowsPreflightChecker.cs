@@ -521,7 +521,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         {
             using var searcher = new ManagementObjectSearcher(
                 @"root\Microsoft\Windows\Storage",
-                "SELECT Number, FriendlyName, Size, AllocatedSize, PartitionStyle FROM MSFT_Disk");
+                "SELECT Number, FriendlyName, Size, AllocatedSize, PartitionStyle, Guid, LogicalSectorSize FROM MSFT_Disk");
             using var results = searcher.Get();
             foreach (ManagementBaseObject disk in results)
             {
@@ -538,7 +538,13 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 };
                 var partitions = QueryPartitionsForDisk(number);
                 disks.Add(new DiskInfo(
-                    $"\\\\.\\PHYSICALDRIVE{number}", model, total, total - allocated, style, partitions));
+                    $"\\\\.\\PHYSICALDRIVE{number}", model, total, total - allocated, style, partitions)
+                {
+                    GptDiskGuid = Guid.TryParse(disk["Guid"] as string, out var diskGuid) && diskGuid != Guid.Empty
+                        ? diskGuid : null,
+                    LogicalSectorSize = disk["LogicalSectorSize"] is uint sector && sector is 512 or 4096
+                        ? (int)sector : null,
+                });
             }
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
@@ -555,7 +561,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         {
             using var searcher = new ManagementObjectSearcher(
                 @"root\Microsoft\Windows\Storage",
-                $"SELECT PartitionNumber, Size, Offset, GptType, IsSystem, IsBoot, DriveLetter " +
+                $"SELECT PartitionNumber, Size, Offset, GptType, Guid, IsSystem, IsBoot, DriveLetter " +
                 $"FROM MSFT_Partition WHERE DiskNumber = {diskNumber}");
             using var results = searcher.Get();
             foreach (ManagementBaseObject p in results)
@@ -572,7 +578,11 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 var (fs, label) = QueryVolumeInfo(dl);
                 var shrinkable = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index, p) : 0L;
                 partitions.Add(new PartitionInfo(index, fs, size, label, isSystem, isBoot, shrinkable,
-                                                 offset, gptType));
+                                                 offset, gptType)
+                {
+                    GptPartitionGuid = Guid.TryParse(p["Guid"] as string, out var partitionGuid) && partitionGuid != Guid.Empty
+                        ? partitionGuid : null,
+                });
             }
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)

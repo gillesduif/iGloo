@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gillesduif/iGloo/docs/schemas/installation-target.schema.json",
+  "title": "iGloo migration manifest with a verified installation target",
+  "description": "This validates the target-bearing manifest envelope, not all migration fields. Runtime validation additionally enforces disk/partition uniqueness, exact geometry, alignment, ownership provenance and installation identity equality.",
+  "type": "object",
+  "required": ["schemaVersion", "installationId", "installationTarget"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "installationId": { "$ref": "#/$defs/guid" },
+    "installationTarget": { "$ref": "#/$defs/claim" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "guid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "not": { "const": "00000000-0000-0000-0000-000000000000" }
+    },
+    "positiveBytes": { "type": "integer", "minimum": 1, "maximum": 9223372036854775807 },
+    "partition": {
+      "type": "object",
+      "required": ["partitionGuid", "gptType", "offsetBytes", "lengthBytes"],
+      "properties": {
+        "partitionGuid": { "$ref": "#/$defs/guid" },
+        "gptType": { "$ref": "#/$defs/guid" },
+        "offsetBytes": { "$ref": "#/$defs/positiveBytes" },
+        "lengthBytes": { "$ref": "#/$defs/positiveBytes" }
+      },
+      "additionalProperties": false
+    },
+    "disk": {
+      "type": "object",
+      "required": ["diskGuid", "logicalSectorSize", "diskSizeBytes", "partitions"],
+      "properties": {
+        "diskGuid": { "$ref": "#/$defs/guid" },
+        "logicalSectorSize": { "enum": [512, 4096] },
+        "diskSizeBytes": { "type": "integer", "minimum": 2097152, "maximum": 9223372036854775807 },
+        "partitions": { "type": "array", "minItems": 1, "maxItems": 4096, "items": { "$ref": "#/$defs/partition" } }
+      },
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "required": ["version", "installationId", "ownership", "disk", "rootPartitionGuid", "espPartitionGuid"],
+      "properties": {
+        "version": { "const": 1 },
+        "installationId": { "$ref": "#/$defs/guid" },
+        "ownership": { "const": "created-by-igloo" },
+        "disk": { "$ref": "#/$defs/disk" },
+        "rootPartitionGuid": { "$ref": "#/$defs/guid" },
+        "espPartitionGuid": { "anyOf": [{ "$ref": "#/$defs/guid" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    }
+  }
+}

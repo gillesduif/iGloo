@@ -2,7 +2,12 @@ namespace Igloo.Core.Abstractions;
 
 
 public sealed record DiskInfo(string DeviceId, string Model, long TotalBytes, long FreeBytes,
-    string PartitionStyle, IReadOnlyList<PartitionInfo> Partitions);
+    string PartitionStyle, IReadOnlyList<PartitionInfo> Partitions)
+{
+    /// <summary>Discovery hint for selecting a fresh strict snapshot; never a creation receipt.</summary>
+    public Guid? GptDiskGuid { get; init; }
+    public int? LogicalSectorSize { get; init; }
+}
 
 
 /// <summary>One partition on a physical disk, as reported by the storage provider.</summary>
@@ -17,4 +22,8 @@ public sealed record DiskInfo(string DeviceId, string Model, long TotalBytes, lo
 /// label-less service partitions (EFI, MSR, recovery, Linux).
 /// </param>
 public sealed record PartitionInfo(int Index, string FileSystem, long SizeBytes, string? Label,
-    bool IsSystem, bool IsBoot, long ShrinkableBytes = 0, long OffsetBytes = -1, string? GptType = null);
+    bool IsSystem, bool IsBoot, long ShrinkableBytes = 0, long OffsetBytes = -1, string? GptType = null)
+{
+    /// <summary>GPT unique partition GUID, distinct from its type or filesystem UUID.</summary>
+    public Guid? GptPartitionGuid { get; init; }
+}

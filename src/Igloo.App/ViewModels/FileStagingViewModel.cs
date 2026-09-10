@@ -199,6 +199,10 @@ public sealed partial class FileStagingViewModel : ObservableObject
             //   Step 3: Plugin renders installer config + agent        
             if (_registry.TryGet(_distroId, out var plugin))
             {
+                if (plugin is IInstallationTargetConsumer { TargetRequirement: not InstallationTargetRequirement.None })
+                    throw new NotSupportedException(
+                        "This distribution requires explicit installation-target preparation and live identity validation. " +
+                        "The legacy staging workflow cannot provide that guarantee.");
                 // Kickstart (or preseed / Calamares config, depending on the distro).
                 var installerConfig = await plugin.RenderInstallerConfigAsync(manifest, ct);
                 var ksPath = Path.Join(stagingResult.StagingDirectory, installerConfig.FileName);

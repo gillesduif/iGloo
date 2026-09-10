@@ -34,6 +34,7 @@ public static class ManifestGeneratorService
 
         return new MigrationManifest
         {
+            InstallationId = Guid.NewGuid(),
             DistroId = distroId,
 
             User = new MigrationUser

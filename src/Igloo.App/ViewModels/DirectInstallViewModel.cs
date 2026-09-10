@@ -235,6 +235,10 @@ public sealed partial class DirectInstallViewModel : ObservableObject
                 throw new InvalidOperationException(
                     $"No installer plugin is loaded for distro '{_distroId}'. " +
                     "Ensure the distro's Igloo.Distro.*.dll is present in its distros/ folder.");
+            if (plugin is IInstallationTargetConsumer { TargetRequirement: not Igloo.Core.Models.InstallationTargetRequirement.None })
+                throw new NotSupportedException(
+                    "This distribution requires an explicitly owned installation target. " +
+                    "Legacy disk preparation cannot satisfy its identity requirement.");
             var bootSpec = plugin.GetInstallerBootSpec();
 
             await _installer.PrepareAsync(

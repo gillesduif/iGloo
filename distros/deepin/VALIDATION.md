@@ -1,4 +1,80 @@
-# Validation — 2026-09-09
+# Validation
+
+## Target identity phase — 2026-09-10
+
+Scope: generic target creation receipts and read-only Linux identity resolution.
+No Deepin installer, deployment, formatting, GRUB/EFI writer or migration agent
+was run. No host block device was opened by the tests. The Windows mutation
+adapter was tested through injected fake storage; it was not run against a real
+disk or VHD. Deepin remains blocked and coming-soon.
+
+| Check | Result |
+|---|---|
+| Full Release solution build, SDK 9.0.304, `--no-restore -warnaserror` | Passed, zero warnings/errors. Full repository CA/style analyzer policy enabled. |
+| Full solution `dotnet test -c Release --no-build --verbosity minimal` | **506 passed**, zero failed/skipped: Core 185, Preflight 136, Deepin 64, App 59, Iso 19, Migration 20, UsbWriter 23. |
+| `wsl -d Ubuntu-24.04 -- python3 tests/installer/target_identity_test.py` | **38 tests passed**, including many malformed/ambiguity subcases. A Linux CI job runs this suite. |
+| Disposable GPT-file integration | Passed for 512-byte and 4096-byte logical sectors, fragmented extents and nonconsecutive slots, using the production raw GPT parser. Header/table corruption, duplicate GUIDs, independently valid but disagreeing GPT copies, and fake stale sysfs/device IDs fail closed. No loop attachment, mount, privileged utility or host disk access. |
+| Target JSON Schema Draft 2020-12 | Schema and shared fixture passed. Final root-run validation rejected all 21 missing/invalid variants; the independent schema review also checked nullable ESP and additional malformed cases. |
+| Catalog schema | 18/19 catalog entries pass; `_template` also passes. Ubuntu's existing `in-development` enum failure remains, confirmed against `main`. Deepin passes. |
+| Existing `tests/agent/*_test.py` | All six scripts passed under WSL. |
+| Protected work | All eight UNRELATED/UNCERTAIN files in REVIEW.md remain SHA256-identical to the initial snapshot. |
+| CodeQL / VM / physical hardware | Not run. CodeQL remains a CI gate; no local CLI was available. |
+
+New tests exercise before/after creation invariants, no mutation on rejected
+requests, exact returned GUID capture, no retry on partial/error/cancelled
+creation, snapshot freezing, pending-manifest digest checks, preservation of
+unknown migration fields, serialization, strict version/field parsing, same
+model/size decoys, stale geometry, renamed/reordered devices, unrelated Linux
+partitions and explicit ESP selection. The app test proves a strong-identity
+plugin cannot reach legacy disk preparation; Deepin tests prove a valid claim
+still cannot enable config, boot-spec or agent output.
+
+Test issues corrected during validation: two tests assumed MiB rather than
+sector alignment, and a mutable-collection fixture assumed a compiler-generated
+read-only collection was an array. New-code analyzer findings were corrected;
+the deliberate synchronous `Flush(true)` durability barrier is justified locally.
+
+The identity model, capture postconditions, manifest transfer and Linux resolver
+are implemented and validated synthetically. The real cross-reboot guarantee
+still requires a disposable Windows/Linux VM run: prove the actual CIM embedded
+return binding and refreshed GUIDs, carry the expected installation ID in the
+boot handoff, and resolve the same virtual disk through Linux with a different
+controller/name. Preserve and compare every GPT partition; attempt stale/clone
+cases and require refusal. No formatter or installer should be part of that run.
+
+The live collector intentionally refuses corrupt/unsupported GPT-looking media,
+including hybrid layouts. A booted ISO's loop/optical devices may therefore
+require further observation during that VM experiment; do not fix a refusal by
+blindly omitting devices that could contain a duplicate target identity.
+
+Later Deepin work still needs exact Windows space reservation and seed/ISO
+staging, safe medium/run-ID delivery, root quiescence and filesystem checks,
+constrained immutable deployment, ESP-preserving boot integration, OOBE and
+migration. Physical-hardware validation must cover real storage-provider
+behavior, 512e/4Kn, NVMe/SATA, firmware/Windows boot preservation and BitLocker.
+See the generic [identity contract](../../docs/reference/installation-target-identity.md)
+for the single-writer assumption, observation-time limitation and clone threat
+model. Passing tests do not authorize formatting or prove a Deepin install.
+
+Research checkpoint: `6ae25ab` (`Deepin: document installer research and block
+unsafe integration`). Target identity is a separate subsequent commit on
+`feature/deepin`; `main` remains at `2f8f8cea148915042b137536d12e9cfcbcad1890`.
+Protected work is intentionally left uncommitted. No pushes were made.
+
+### Identity-phase file inventory
+
+15 added files, 15 modified files, no deletions. Paths are repository-relative.
+
+| Area | Added | Modified |
+|---|---|---|
+| Core contracts | `src/Igloo.Core/Abstractions/IInstallationTargetConsumer.cs`, `src/Igloo.Core/Abstractions/IInstallationTargetPreparer.cs`, `src/Igloo.Core/Models/InstallationTargetClaim.cs` | `src/Igloo.Core/Abstractions/DiskInfo.cs`, `src/Igloo.Core/Abstractions/IDistroPlugin.cs`, `src/Igloo.Core/Models/MigrationManifest.cs` |
+| Core validation/transfer | `src/Igloo.Core/Services/InstallationTargetValidation.cs`, `src/Igloo.Core/Services/InstallationTargetManifest.cs` | `src/Igloo.Core/Services/ManifestGeneratorService.cs` |
+| Windows | `src/Igloo.Preflight/WindowsInstallationTargetPreparer.cs` | `src/Igloo.Preflight/WindowsPreflightChecker.cs`, `src/Igloo.App/App.xaml.cs`, `src/Igloo.App/ViewModels/DirectInstallViewModel.cs`, `src/Igloo.App/ViewModels/FileStagingViewModel.cs` |
+| Linux | `distros/_shared/installer/igloo_target.py` | — |
+| Tests/schema | `tests/Igloo.Core.Tests/InstallationTargetIdentityTests.cs`, `tests/Igloo.Preflight.Tests/InstallationTargetPreparationTests.cs`, `tests/Igloo.App.Tests/InstallationTargetWorkflowTests.cs`, `tests/Igloo.Distro.Deepin.Tests/DeepinTargetIdentityTests.cs`, `tests/installer/target_identity_test.py`, `tests/fixtures/installation-target.json`, `docs/schemas/installation-target.schema.json` | `.github/workflows/ci.yml` |
+| Deepin/docs | `docs/reference/installation-target-identity.md` | `distros/deepin/DeepinPlugin.cs`, `distros/deepin/STATUS.md`, `distros/deepin/VALIDATION.md`, `distros/README.md`, `docs/architecture.md`, `docs/reference/operation.md` |
+
+## Research checkpoint validation — 2026-09-09
 
 Scope: the blocked Deepin plugin and preservation of existing repository behavior.
 These results do **not** validate Linux installation, partitioning or migration.
