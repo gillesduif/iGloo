@@ -113,7 +113,7 @@ internal sealed class WindowsInstallationTargetStorage : IInstallationTargetStor
     {
         using var searcher = new ManagementObjectSearcher(StorageNamespace, "SELECT * FROM MSFT_Disk");
         using var disks = searcher.Get();
-        ManagementObject? match = null;
+        var matches = new List<ManagementObject>();
         try
         {
             foreach (ManagementObject disk in disks)
@@ -122,17 +122,21 @@ internal sealed class WindowsInstallationTargetStorage : IInstallationTargetStor
                 {
                     if (!Guid.TryParse(disk["Guid"] as string, out var candidate) || candidate != diskGuid)
                         continue;
-                    if (match is not null)
+                    if (matches.Count != 0)
                         throw new InvalidDataException("Multiple disks have the requested GPT GUID; refusing ambiguous storage.");
-                    match = (ManagementObject)disk.Clone();
+                    matches.Add((ManagementObject)disk.Clone());
                 }
             }
-            return match ?? throw new InvalidDataException("The requested GPT disk is absent; no fallback is permitted.");
+            if (matches.Count == 0)
+                throw new InvalidDataException("The requested GPT disk is absent; no fallback is permitted.");
+            var match = matches[0];
+            matches.Clear(); // Transfer ownership to DiskSession only after enumeration succeeds.
+            return match;
         }
-        catch
+        finally
         {
-            match?.Dispose();
-            throw;
+            foreach (var match in matches)
+                ((IDisposable)match).Dispose();
         }
     }
 
@@ -230,7 +234,7 @@ internal sealed class WindowsInstallationTargetStorage : IInstallationTargetStor
                 throw new InvalidDataException("The requested disk must be online and writable.");
         }
 
-        public void Dispose() => _disk.Dispose();
+        public void Dispose() => ((IDisposable)_disk).Dispose();
     }
 
     private static GptPartitionIdentity ReadPartition(ManagementBaseObject partition) => new()

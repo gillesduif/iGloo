@@ -3,6 +3,52 @@
 Decision recorded 2026-09-08, before replacement implementation. No installation
 has been executed during this review. The previous prototype is unsafe to ship.
 
+## Experimental VM work — 2026-09-12
+
+The user has now requested an experimental installation path. The production
+plugin remains blocked while that path is developed. Changing the catalog to
+`available` alone does not implement or enable installation.
+
+The pinned ISO has now actually booted in QEMU/KVM through its 6.6 kernel and
+initrd, loading both squashfs layers. This direct-kernel console test bypasses
+the stock installer and does not validate UEFI. Runtime package versions match
+the extracted evidence: installer 7.0.60, immutable control 1.0.31, OSTree
+2024.6-1deepin10 and GRUB EFI binaries 2.12-7deepin14.
+
+The first runtime identity test exposed the hybrid ISO's 512-byte embedded GPT
+on a 2048-byte optical device. The generic collector now supports an explicit
+trusted SHA256/size pin for read-only optical media, while retaining strict GPT
+checks for installation disks. The exact ISO passed this check in the VM;
+unknown optical media are not exempted by name, label or drive order.
+
+Reproducible probes live in `tools/deepin-vm/`. The immutable experiment creates
+a fresh synthetic GPT image, resolves its root claim, and tests repository
+extraction/checkouts and immutable mounting. It cannot accept an existing target
+image or host disk. It is not a deployable distro driver: it does not configure
+accounts, install EFI files, implement OOBE/migration or prove Windows boot.
+Do not connect it directly to the app's legacy disk preparation workflow.
+
+The root-only deployment command has completed in the disposable fixture. Its
+generated 6.18 kernel/initrd booted without the ISO, and immutable status reported
+the new deployment as booted with `/usr` read-only. This was direct kernel boot
+through a fresh qcow2 overlay, not EFI/GRUB boot. The native account-creation
+screen appeared after resolving two handoff omissions: disable automatic GPT
+mount discovery and generate the installer config with the ISO's OEM settings
+still present. Account creation and its cleanup hooks have not been executed.
+The fixture ESP is blank; its failed automatic mount also prevented the DDE
+configuration service from starting. The experiment now records the authorized
+ESP PARTUUID as a read-only, no-auto fstab entry and disables GPT auto-discovery.
+These changes still require a fresh deployment/boot validation.
+
+A separate disposable overlay has also booted through OVMF and GRUB, without a
+QEMU-supplied kernel or ISO. GRUB was confined to `EFI/IglooDeepinVm`; Microsoft
+and fallback-file canaries survived, as did reserved/non-target samples. A new
+BootNext entry left existing BootOrder and entries unchanged. The initial
+backup-GPT mismatch was a zero-byte host extraction, corrected with byte-count
+validation. These are synthetic-file tests, not Windows dual-boot validation.
+The intended user test platform is VMware with Windows already installed; the
+Windows preparation/boot handoff and app opt-in are still not connected.
+
 ## Image and observed stack
 
 The [official download page](https://www.deepin.org/en/download/) still selects

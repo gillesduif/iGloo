@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from contextlib import redirect_stderr, redirect_stdout
 import copy
+import hashlib
 import importlib.util
 import io
 import json
@@ -497,6 +498,25 @@ class GptFileTests(unittest.TestCase):
         with self.assertRaisesRegex(target.IdentityError, "unsupported"):
             target.read_gpt(io.BytesIO(data), 2048, len(data))
 
+    def test_optical_gpt_identities_remain_visible_to_collision_checks(self):
+        with self.path.open("rb") as stream:
+            disks, partitions = target._optical_identities(stream, self.geometry["size"])
+        claim = self.manifest["installationTarget"]["disk"]
+        self.assertEqual(disks, {claim["diskGuid"]})
+        self.assertEqual(partitions, {part["partitionGuid"] for part in claim["partitions"]})
+        with self.assertRaisesRegex(target.IdentityError, "disk GUID"):
+            target._check_optical_collisions([claim], disks, set())
+        with self.assertRaisesRegex(target.IdentityError, "partition GUID"):
+            target._check_optical_collisions([claim], set(), partitions)
+        target._check_optical_collisions([claim], {OTHER_GUID}, {OTHER_GUID})
+
+    def test_optical_identity_check_rejects_corrupt_gpt(self):
+        with self.path.open("r+b") as stream:
+            stream.seek(self.geometry["size"] - 512 + 16)
+            stream.write(b"BAD!")
+        with self.path.open("rb") as stream, self.assertRaises(target.IdentityError):
+            target._optical_identities(stream, self.geometry["size"])
+
     def test_empty_gpt_keeps_disk_identity_for_clone_detection(self):
         self.manifest["installationTarget"]["disk"]["partitions"] = []
         self.geometry = make_gpt(self.path, self.manifest)
@@ -618,7 +638,8 @@ class KernelBindingTests(unittest.TestCase):
         with mock.patch.object(target.os, "stat", side_effect=regular_device), self.assertRaises(target.IdentityError):
             target._bind_kernel_table(self.disk, self.disk_node, self.nodes)
 
-    def collect(self, ioctl_override=None, inventory_changed=False, open_error=None, change_after_bind=None):
+    def collect(self, ioctl_override=None, inventory_changed=False, open_error=None, change_after_bind=None,
+                optical_pins=None):
         """Exercise collector with every external surface replaced by fixtures."""
         fake_root = mock.Mock()
         fake_root.iterdir.side_effect = [iter(self.nodes), iter(self.nodes[:-1] if inventory_changed else self.nodes)]
@@ -660,7 +681,32 @@ class KernelBindingTests(unittest.TestCase):
                 mock.patch.object(target.sys, "platform", "linux"), \
                 mock.patch.dict("sys.modules", {"fcntl": fake_fcntl}), \
                 mock.patch.object(target, "_bind_kernel_table", side_effect=bind_and_change):
-            return target.collect_layouts()
+            return target.collect_layouts(verified_optical_media=optical_pins)
+
+    def test_hybrid_optical_exemption_requires_exact_pin_in_real_collector(self):
+        data = bytearray(8192)
+        data[450] = 0xEE
+        self.image.write_bytes(data)
+        self.nodes = [self.disk_node]
+        (self.disk_node / "queue/logical_block_size").write_text("2048")
+        (self.disk_node / "size").write_text("16")
+        (self.disk_node / "device").mkdir()
+        (self.disk_node / "device/type").write_text("5")
+        (self.disk_node / "ro").write_text("1")
+
+        def optical_ioctl(fd, request, buffer):
+            return {0x80081272: struct.pack("=Q", 8192),
+                    0x1268: struct.pack("=I", 2048),
+                    0x125E: struct.pack("=I", 1)}[request]
+
+        with self.assertRaises(target.IdentityError):
+            self.collect(ioctl_override=optical_ioctl)
+        pins = {hashlib.sha256(data).hexdigest(): len(data)}
+        self.assertEqual(self.collect(ioctl_override=optical_ioctl, optical_pins=pins), [])
+        with self.assertRaisesRegex(target.IdentityError, "checksum"):
+            self.collect(ioctl_override=optical_ioctl, optical_pins={"0" * 64: 8192})
+        with self.assertRaisesRegex(target.IdentityError, "inventory changed"):
+            self.collect(ioctl_override=optical_ioctl, optical_pins=pins, inventory_changed=True)
 
     def test_full_collector_uses_only_fake_devices_and_production_gpt_parser(self):
         layouts = self.collect()

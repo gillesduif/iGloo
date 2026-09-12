@@ -15,6 +15,7 @@ Names, labels, partition numbers and enumeration order never select a target.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -345,20 +346,95 @@ def _bind_kernel_table(disk: dict, disk_node: Path, nodes: list[Path]) -> dict:
     return disk
 
 
-def collect_layouts() -> list[dict]:
+def _optical_pins(value: dict[str, int] | None) -> dict[str, int]:
+    if value is None:
+        return {}
+    if type(value) is not dict or len(value) > 8:
+        raise IdentityError("expected at most eight trusted optical media pins")
+    result = dict(value)
+    for digest, size in result.items():
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise IdentityError("optical media pin must be a lowercase SHA256")
+        if _integer(size, "optical media size") % 2048:
+            raise IdentityError("optical media size must align to 2048 bytes")
+    return result
+
+
+def _verified_optical(stream: BinaryIO, node: Path, sector: int, size: int,
+                      pins: dict[str, int], ioctl) -> bool:
+    # An optical ISO can contain a hybrid 512-byte GPT while the drive exposes
+    # 2048-byte sectors. Never treat this exception as a generic GPT parse retry.
+    # Pins come from trusted installer code, NOT from the migration manifest.
+    if not pins or sector != 2048 or size not in pins.values():
+        return False
+    if _sysfs_int(node / "device/type") != 5 or _sysfs_int(node / "ro") != 1:
+        return False
+    if struct.unpack("=I", ioctl(stream.fileno(), 0x125E, bytes(4)))[0] != 1:
+        return False  # BLKROGET: require the opened device itself to be read-only.
+    stream.seek(0)
+    digest = hashlib.sha256()
+    remaining = size
+    while remaining:
+        chunk = stream.read(min(1024 * 1024, remaining))
+        if not chunk:
+            raise IdentityError("short read while verifying optical media")
+        digest.update(chunk)
+        remaining -= len(chunk)
+    if pins.get(digest.hexdigest()) != size:
+        raise IdentityError("optical media checksum does not match the trusted pin")
+    if _sysfs_int(node / "ro") != 1 or struct.unpack("=I", ioctl(stream.fileno(), 0x125E, bytes(4)))[0] != 1:
+        raise IdentityError("optical media read-only state changed during verification")
+    return True
+
+
+def _optical_identities(stream: BinaryIO, size: int) -> tuple[set[str], set[str]]:
+    """Retain hybrid image GUIDs for collision detection, never target resolution."""
+    disks, partitions = set(), set()
+    for sector in (512, 4096):
+        if size % sector or size < 4 * sector:
+            continue
+        if _read_at(stream, sector, 8) != b"EFI PART":
+            continue
+        head = _header(stream, sector, size, 1)
+        if head != _header(stream, sector, size, size // sector - 1):
+            raise IdentityError("verified optical GPT copies disagree")
+        disks.add(head["diskGuid"])
+        for index in range(head["count"]):
+            entry = head["table"][index * 128:(index + 1) * 128]
+            if entry[:16] != bytes(16):
+                guid = _guid(str(uuid.UUID(bytes_le=entry[16:32])), "optical partition GUID")
+                if guid in partitions:
+                    raise IdentityError("duplicate optical partition GUID")
+                partitions.add(guid)
+    return disks, partitions
+
+
+def _check_optical_collisions(layouts: list[dict], disks: set[str], partitions: set[str]) -> None:
+    for layout in layouts:
+        if layout["diskGuid"] in disks:
+            raise IdentityError("disk GUID also occurs on verified optical media")
+        if any(part["partitionGuid"] in partitions for part in layout["partitions"]):
+            raise IdentityError("partition GUID also occurs on verified optical media")
+
+
+def collect_layouts(*, verified_optical_media: dict[str, int] | None = None) -> list[dict]:
     """Read all nonempty whole block devices on Linux, failing closed on errors.
 
     Unreadable/corrupt GPT-looking devices are not skipped: they could contain a
     duplicate identity. Loop/device-mapper aliases are included, so ambiguity
-    fails closed. No external commands or partition rescans are performed.
+    fails closed. Trusted caller-supplied SHA256/size pins may exclude exact,
+    read-only 2048-byte optical media; they must never come from a manifest.
+    No external commands or partition rescans are performed.
     """
     if sys.platform != "linux":
         raise IdentityError("live collection requires Linux")
+    pins = _optical_pins(verified_optical_media)
     import fcntl  # Linux-only; the pure parser/resolver also run on Windows.
 
     sysfs = Path("/sys/class/block")
     nodes = sorted(sysfs.iterdir())
     layouts = []
+    optical_disks, optical_partitions = set(), set()
     for node in nodes:
         if (node / "partition").exists():
             continue
@@ -374,7 +450,15 @@ def collect_layouts() -> list[dict]:
             sector = struct.unpack("=I", fcntl.ioctl(stream.fileno(), 0x1268, bytes(4)))[0]
             if size != sysfs_size or sector != _sysfs_int(node / "queue/logical_block_size"):
                 raise IdentityError("kernel disk geometry changed during collection")
-            layout = read_gpt(stream, sector, size)
+            if _verified_optical(stream, node, sector, size, pins, fcntl.ioctl):
+                disks, partitions = _optical_identities(stream, size)
+                if optical_disks.intersection(disks) or optical_partitions.intersection(partitions):
+                    raise IdentityError("duplicate GPT identities on verified optical media")
+                optical_disks.update(disks)
+                optical_partitions.update(partitions)
+                layout = None
+            else:
+                layout = read_gpt(stream, sector, size)
             if layout is not None:
                 layout["devicePath"] = path
                 _bind_kernel_table(layout, node, nodes)
@@ -388,8 +472,11 @@ def collect_layouts() -> list[dict]:
                 layouts.append(layout)
             if _sysfs_int(node / "size") * 512 != size or _device_id(node) != (os.major(info.st_rdev), os.minor(info.st_rdev)):
                 raise IdentityError("disk changed during collection")
+            if struct.unpack("=Q", fcntl.ioctl(stream.fileno(), 0x80081272, bytes(8)))[0] != size or struct.unpack("=I", fcntl.ioctl(stream.fileno(), 0x1268, bytes(4)))[0] != sector:
+                raise IdentityError("opened device geometry changed during collection")
     if [node.name for node in sorted(sysfs.iterdir())] != [node.name for node in nodes]:
         raise IdentityError("block device inventory changed during collection")
+    _check_optical_collisions(layouts, optical_disks, optical_partitions)
     return layouts
 
 

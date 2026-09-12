@@ -1,5 +1,68 @@
 # Validation
 
+## Experimental VM phase — 2026-09-12 (in progress)
+
+The user requested an experimental installation path. The app integration is
+not enabled yet. All eight protected files from REVIEW.md still match their
+initial SHA256 snapshots. No new commit or push has been made in this phase.
+
+| Check | Result |
+|---|---|
+| Full Release build, SDK 9.0.304, warnings as errors, one build worker | Passed, zero warnings/errors. An initial parallel attempt exhausted host memory. Two analyzer findings in the target preparer's WMI cleanup were addressed with explicit ownership transfer and IDisposable cleanup; selection semantics are unchanged. |
+| Full .NET suite | 505 passed, 1 failed. The existing catalog assertion requires `coming-soon`; the user's pre-existing local `distro.json` edit says `available`. That edit is preserved, and the plugin's execution blockers remain enforced. |
+| Python installer suite | 67 passed. Includes optical pin validation and embedded GPT GUID collision checks, real collector with fake optical sysfs/device I/O, mount postconditions, ISO OEM handoff checks, preservation sampling, VM attachment constraints, and refusal to overwrite an existing experiment directory. CI now discovers all installer test files. |
+| Actual pinned-ISO console boot | Passed in QEMU/KVM, stock 6.6 kernel/initrd, both live layers, no writable disks/network. This is direct kernel boot, not UEFI validation. |
+| Collector inside Deepin | Initial tests correctly failed on an unreadable emulated floppy and then on the hybrid optical ISO. The final probe removes unused default emulated devices and verifies the complete pinned read-only optical image; collection passed with an empty target inventory. No blanket unreadable-device exception was introduced. |
+| Immutable extraction/mount experiment | **Passed** against a newly created synthetic GPT disk file. Exact root resolution, empty-root check, ext4 creation, both repository checkouts and structured immutable mount postconditions succeeded. Raw GPT/reserved regions and sampled non-root data were unchanged. No host physical disk was exposed. |
+| Immutable deployment experiment | **Passed** in `igloo-deepin-deploy-mount2-20260912`. Target initramfs generation and `deepin-immutable-ctl admin deploy -v` completed; status JSON reports the new deployment. GPT identity and reserved/non-root samples remained unchanged. No ESP or EFI writes occurred. Installed-system boot remains unverified. |
+| Installed root direct boot | **Passed to serial login**, with the generated 6.18 kernel/initrd and generated `ostree=auto` command line, no ISO/network and a fresh qcow2 overlay over the disposable fixture. Immutable status reports the new deployment booted; `/usr` remains read-only. This bypasses EFI/GRUB. |
+| Native first-boot UI | Account-creation screen observed after stopping the fixture's failing GPT-generated ESP automount and generating the missing config in the running guest. No account was submitted. The fresh-deployment fix must generate that config while the ISO OEM settings are present; the post-boot generator alone produces incorrect upstream UOS defaults. |
+| Fresh deployment with handoff changes | `igloo-deepin-handoff-20260912` completed deployment with GPT identity and non-root/reserved samples unchanged. Fresh installed boot of this revision is pending. The later explicit OEM-setting validator was added after that VM uploaded its script. |
+| EFI file and entry experiment | In a fresh qcow2 overlay, a new synthetic FAT ESP carried Microsoft/fallback-file canaries. Exact claim resolution preceded GRUB installation with a unique vendor directory and `--no-nvram --no-uefi-secure-boot`. Existing file hashes and ESP filesystem UUID remained unchanged; GPT resolution passed afterward. An explicit `efibootmgr --create-only` entry and BootNext preserved existing BootOrder and Boot entries. This is not proof of Windows bootability. |
+| Complete OVMF → GRUB → installed kernel boot | Reached serial login without an ISO or QEMU-supplied kernel/initrd. Firmware log identifies the exact ESP GUID and `EFI/IglooDeepinVm/grubx64.efi`. **Post-boot bounded preservation passed:** all reserved/non-target samples and both existing EFI file canaries match. The initial apparent mismatch was an empty extraction, not changed GPT bytes. This still does not prove preservation of an actual Windows installation. |
+
+Reproduction: [VM probes](../../tools/deepin-vm/README.md). Evidence logs are
+retained under `/home/gillesduif/igloo-deepin-probe-pinned-20260912` and the
+`igloo-deepin-immutable-*-20260912` directories in the Ubuntu-24.04 WSL instance.
+Failed runs are retained too. The initial immutable run refused before formatting
+because virtio's 20-byte serial limit truncated the fixture's extra serial fence;
+the full GPT GUID resolution was not weakened to address that harness issue.
+Some earlier runs were interrupted by WSL shutdown after their Windows launcher
+exited; this was not evidence of installer failure or necessarily memory exhaustion.
+The completed run kept a Windows WSL client alive, with a temporary 5 GiB memory
+scope and direct I/O. The shipped mount helper's `LIBMOUNT_FORCE_MOUNT2=always`
+setting was also necessary for the temporary writable overlay remount. None of
+these tests proves EFI boot, Windows preservation, completed OOBE or migration.
+Direct boot logs and the account-screen image are retained in
+`igloo-deepin-deploy-mount2-20260912/boot-inspection/`. Both boot tests used fresh
+qcow2 overlays; the original deployment image was not modified. A debug serial
+root shell was enabled only in the second diagnostic VM, not in staged config.
+
+EFI scripts, logs, private firmware variables, overlays and preservation samples
+are retained in `igloo-deepin-deploy-mount2-20260912/efi-inspection/`. The host
+sample extraction uses `qemu-img dd`; its output length/content must be checked
+before interpreting the mismatch. Follow-up inspection was interrupted by WSL
+startup errors (`E_UNEXPECTED`, then `0x80072746`). At that time VMware was using
+about 17 GB and Windows reported about 1.4 GB free commit space. The user's VM
+was not stopped or modified. The requested test platform is VMware with Windows
+already installed. The app integration is still disabled.
+
+After the user closed the VMware guest, inspection resumed. QEMU 8.2's `dd`
+count includes skipped input blocks: using the sample length alone produced a
+zero-byte file at the backup-GPT offset. Corrected extraction with an explicit
+byte-count assertion passed every reserved/non-target sample and the Microsoft
+and fallback EFI canaries. Results are in `efi-inspection/postboot-corrected/`.
+`extract_image_range` now encapsulates this behavior and rejects short output;
+focused tests cover the end-position calculation, empty output and invalid ranges.
+
+The fresh handoff revision subsequently booted from its own generated kernel and
+initrd in another new qcow2 overlay, without an ISO or debug shell. The native
+account-creation screen appeared without repair commands. Its deployed config
+also passed the explicit OEM repository/mode validator. Screenshot and console
+evidence are in `igloo-deepin-handoff-20260912/boot-check/`. The screen uses the
+ISO's default Chinese locale; mapping the user's selected locale remains part
+of app integration. No account creation or cleanup hooks were submitted.
+
 ## Target identity phase — 2026-09-10
 
 Scope: generic target creation receipts and read-only Linux identity resolution.

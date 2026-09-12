@@ -43,4 +43,4 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Validate target identity using synthetic layouts and disposable GPT files
-        run: python3 tests/installer/target_identity_test.py
+        run: python3 -m unittest discover -s tests/installer -p '*_test.py'

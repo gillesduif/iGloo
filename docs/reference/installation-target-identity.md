@@ -127,6 +127,20 @@ number as cross-reboot identity. Sparse-file tests use the same GPT parser.
 Known non-GPT media can be excluded after inspection; unreadable or corrupt
 GPT-looking devices cannot be silently skipped, since they could hide a clone.
 
+The optional `verified_optical_media` collector argument is a trusted-code map
+of pinned SHA256 digests to exact image sizes. It is not read from a manifest.
+This permits the exact installer ISO's hybrid boot structures to be excluded
+only on a 2048-byte optical device (SCSI type 5) whose kernel read-only state is
+confirmed before and after hashing its entire contents. A wrong checksum,
+short read or changing state fails. No exemption applies to writable media,
+512/4096-byte disks, loop devices, or a match by label/path alone. The default
+collector has no exemptions. This capability was motivated by an actual Deepin
+ISO boot: its optical geometry differs from its embedded hybrid GPT geometry.
+Embedded GPT GUIDs are still retained for collision checks: a disk or partition
+GUID shared with the verified optical image, or duplicate optical-image GUIDs,
+fails closed. Excluding optical media as installation candidates does not exempt
+their GUIDs from uniqueness requirements.
+
 `resolve` requires a complete trusted inventory, rejects duplicate disk or
 partition GUIDs globally, requires the entire claimed layout to match, and only
 then returns `diskDevice`, `rootDevice`, `espDevice` and `installationId`. A path

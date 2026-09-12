@@ -125,6 +125,32 @@ OEM default mode keeps Deepin account/OOBE setup; agent activation must follow
 actual account creation. Locale/timezone/user configuration has its own hook
 stages and must be audited before being reused.
 
+## Runtime immutable mount experiment (2026-09-12)
+
+The checksum-pinned ISO was booted under QEMU/KVM with the 6.6 kernel and both
+live layers. A synthetic GPT disk with multiple Linux-type entries was resolved
+using the generic claim, and only the selected empty root was formatted. Both
+repositories were extracted and checked out successfully:
+
+- Base ref `beige/develop/25.35/base` resolves to
+  `dbea853bce7e082a70a2fb747e65305758ad825da7f76475df7d58d079882219`.
+- Extension ref `deb-ostree/main` resolves to
+  `c7b4a2b7f32e608b852c1493376e89204e3f1ef46705767febb5969f4c0aa8c3`.
+- Extension `usr/share/deepin-immutable-ctl/state/ostree-parent` contains the
+  **base deployment directory ID including `.0`**, not just its commit checksum.
+
+Running the shipped mount helper through `/bin/sh -e`, with an explicit
+extension checkout and empty `--persistent=`, succeeded. Hooks were disabled.
+Structured mount checks confirmed read-only `/usr`, writable `/etc` and `/opt`
+overlays in the expected layer order, and the expected root-backed `/var` and
+read-only repository binds. No separate persistent or boot partition was used.
+After unmount/shutdown, GPT identities, raw reserved GPT regions and bounded
+non-root data samples were unchanged. This is not a full non-root data checksum
+or a Windows boot test. Reproduction is in `tools/deepin-vm/immutable_probe.py`.
+
+This establishes extraction and mounting, **not** successful immutable deployment,
+UEFI installation or first boot. Those remain separate experiments.
+
 ## File fingerprints
 
 SHA256 values allow a future reviewer to distinguish this exact image from an
