@@ -6,6 +6,7 @@ using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
 using Igloo.Core.Plugins;
 using Igloo.Core.Services;
+using Igloo.Migration;
 using Igloo.Migration.Chromium;
 using Igloo.Preflight;
 using Microsoft.Extensions.Logging;
@@ -28,12 +29,6 @@ public sealed partial class FileStagingViewModel : ObservableObject
 
     private static readonly JsonSerializerOptions PrettyJson =
         new() { WriteIndented = true };
-
-    // A plugin skips any file it cannot find on disk, so a missing one is silent.
-    // These four carry behaviour the user will notice.
-    private static readonly string[] RequiredAgentFiles =
-        ["agent.py", "igloo_boot.py",
-         "grub-theme-stylish-1080p.tar.gz", "grub-theme-stylish-4k.tar.gz"];
 
     //   Observable state                           
 
@@ -199,42 +194,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
             //   Step 3: Plugin renders installer config + agent        
             if (_registry.TryGet(_distroId, out var plugin))
             {
-                // Kickstart (or preseed / Calamares config, depending on the distro).
-                var installerConfig = await plugin.RenderInstallerConfigAsync(manifest, ct);
-                var ksPath = Path.Join(stagingResult.StagingDirectory, installerConfig.FileName);
-                await File.WriteAllBytesAsync(ksPath, installerConfig.Contents, ct);
-                _logger.LogInformation("Installer config written to {Path}", ksPath);
-
-                foreach (var extra in installerConfig.Extras)
-                {
-                    var extraPath = Path.Join(stagingResult.StagingDirectory, extra.RelativePath);
-                    Directory.CreateDirectory(Path.GetDirectoryName(extraPath)!);
-                    await File.WriteAllBytesAsync(extraPath, extra.Contents, ct);
-                }
-
-                // First-boot agent files.
-                var agentPayload = await plugin.GetAgentPayloadAsync(ct);
-                var agentDir = Path.Join(stagingResult.StagingDirectory, "igloo-agent");
-                Directory.CreateDirectory(agentDir);
-
-                foreach (var agentFile in agentPayload.Files)
-                {
-                    var filePath = Path.Join(agentDir, agentFile.RelativePath);
-                    Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-                    await File.WriteAllBytesAsync(filePath, agentFile.Contents, ct);
-                }
-
-                var staged = agentPayload.Files.Select(f => f.RelativePath).ToList();
-                _logger.LogInformation("Agent payload written to {Dir}: {Files}",
-                    agentDir, string.Join(", ", staged));
-
-                foreach (var required in RequiredAgentFiles
-                             .Where(f => !staged.Contains(f, StringComparer.OrdinalIgnoreCase)))
-                {
-                        _logger.LogError(
-                            "Agent payload is missing {File} - the plugin could not find it. " +
-                            "The first boot will run without it.", required);
-                }
+                await PluginArtifactWriter.WriteAsync(plugin, manifest, stagingResult.StagingDirectory, _logger, ct);
             }
             else
             {
