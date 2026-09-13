@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="xunit" Version="2.7.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7" />
+    <ProjectReference Include="..\..\src\Igloo.Fleet.Agent\Igloo.Fleet.Agent.csproj" />
+    <ProjectReference Include="..\..\src\Igloo.Fleet.Server\Igloo.Fleet.Server.csproj" />
+    <ProjectReference Include="..\..\src\Igloo.Fleet.Web\Igloo.Fleet.Web.csproj" />
+  </ItemGroup>
+</Project>
