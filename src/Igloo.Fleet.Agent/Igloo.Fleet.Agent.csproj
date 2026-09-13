@@ -6,6 +6,7 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <ProjectReference Include="..\Igloo.Fleet.Domain\Igloo.Fleet.Domain.csproj" />
     <ProjectReference Include="..\Igloo.Fleet.Contracts\Igloo.Fleet.Contracts.csproj" />

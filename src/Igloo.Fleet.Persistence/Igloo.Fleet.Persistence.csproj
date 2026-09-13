@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.4" />
     <ProjectReference Include="..\Igloo.Fleet.Domain\Igloo.Fleet.Domain.csproj" />
   </ItemGroup>
 </Project>

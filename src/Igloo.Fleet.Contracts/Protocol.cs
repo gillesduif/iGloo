@@ -28,7 +28,10 @@ public enum FleetErrorCode
 {
     CommunicationFailure, UnsupportedAgentVersion, UnsupportedProtocol, InvalidRequest,
     PreflightBlocker, LocalExecutionFailure, ServerFailure, EnrollmentFailure, NotFound, Conflict,
-
+    EnrollmentTokenInvalid, EnrollmentTokenExpired, EnrollmentTokenConsumed, EnrollmentTokenRevoked,
+    CertificateInvalid, CertificateRevoked, AgentDisabled, CapabilityUnsupported, WorkExpired,
+    DryRunFailed, EvidenceInvalid, ProfileInvalid, EligibilityBlocked, ApprovalNotAllowed,
+    ApprovalStale, PreparedPlanInvalid, PersistenceFailure,
 }
 
 public sealed record FleetError(FleetErrorCode Code, string Diagnostic);

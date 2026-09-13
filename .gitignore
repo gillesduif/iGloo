@@ -72,11 +72,21 @@ distros/**/*.pdb
 
 # Secrets and credentials — should never be committed
 *.pfx
+*.p12
 *.key
 *.pem
+*.dpapi
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+.env
+.env.*
 secrets/
 appsettings.local.json
 appsettings.Development.json
+# Local IDE launch settings; Fleet listeners are configured explicitly by each host.
+src/Igloo.Fleet.Server/Properties/launchSettings.json
 /.claude
 /docs/dev-vault
 

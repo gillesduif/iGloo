@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <ProjectReference Include="..\Igloo.Fleet.Domain\Igloo.Fleet.Domain.csproj" />
     <ProjectReference Include="..\Igloo.Fleet.Persistence\Igloo.Fleet.Persistence.csproj" />
   </ItemGroup>
