@@ -1,0 +1,52 @@
+publiccodeYmlVersion: 0.7.0
+name: iGloo
+url: https://github.com/gillesduif/iGloo.git
+landingURL: https://github.com/gillesduif/iGloo
+platforms:
+  - windows
+  - linux
+developmentStatus: development
+softwareType: standalone/desktop
+description:
+  en:
+    shortDescription: |
+      Open-source software for Windows-to-Linux workstation migration.
+    longDescription: >
+      iGloo is an open-source Windows application for preparing workstation
+      migrations to supported Linux distributions.
+
+      The codebase separates common migration functionality from
+      distribution-specific implementations. Shared components cover preflight
+      checks, migration data handling, ISO-related operations and other
+      migration services, while Linux distribution support is implemented
+      through separate distro plugins.
+
+      The Windows and Linux stages exchange migration information through a
+      structured migration manifest. This manifest is used to transfer the
+      information required by the installation and first-boot stages without
+      coupling the common migration logic to a specific Linux distribution.
+
+      The repository currently contains distro integrations for Debian, Fedora
+      KDE, Linux Mint Cinnamon. iGloo is under active development.
+    features:
+      - Windows-to-Linux workstation migration
+      - Preflight checks
+      - Distribution plugin architecture
+      - Structured migration manifest
+      - User-data migration
+      - Browser-profile migration
+      - Distribution-specific installation integration
+      - Debian support
+      - Fedora KDE support
+      - Linux Mint Cinnamon support
+legal:
+  license: GPL-3.0-or-later
+maintenance:
+  type: community
+  contacts:
+    - name: Gilles D'huyvetter
+      email: gilles.dhuyvetter@me.com
+localisation:
+  localisationReady: false
+  availableLanguages:
+    - en
