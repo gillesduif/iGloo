@@ -1848,8 +1848,7 @@ def _ask_password() -> tuple[bool, str | None]:
         (["zenity", "--password",
           "--title=iGloo", "--timeout=300"], None),
         (["kdialog", "--password",
-          "Enter your account password to import the browser passwords "
-          "migrated from Windows."], None),
+          "Enter your account password to import the browser passwords migrated from Windows."], None),
     ]
     for argv, _ in attempts:
         if shutil.which(argv[0]) is None:
@@ -1920,8 +1919,7 @@ def run_user_credential_import() -> int:
 
     asked, password = _ask_password()
     if not asked:
-        logger.warning("Neither zenity nor kdialog is installed - cannot ask "
-                       "for the password, leaving the envelopes in place")
+        logger.warning("Neither zenity nor kdialog is installed - cannot ask for the password, leaving the envelopes in place")
         return 0
     if not password:
         data["attempts"] = attempts

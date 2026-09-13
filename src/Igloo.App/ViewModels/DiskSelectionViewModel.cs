@@ -1,11 +1,29 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Igloo.Core.Abstractions;
+using Igloo.Core.Models;
 
 namespace Igloo.App.ViewModels;
 
 public sealed partial class DiskSelectionViewModel : ObservableObject
 {
+    public OwnedTargetSelectionViewModel? OwnedTarget { get; }
+    private long _ownedMinimumBytes;
+    public bool RequiresOwnedTarget { get; private set; }
+
+    public DiskSelectionViewModel(IInstallationTargetPreparer? preparer = null)
+    {
+        if (preparer is not null)
+        {
+            OwnedTarget = new OwnedTargetSelectionViewModel(preparer);
+            OwnedTarget.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(OwnedTargetSelectionViewModel.CanProceed))
+                    OnPropertyChanged(nameof(CanProceed));
+            };
+        }
+    }
+
     private const long MinDiskBytes = 20L * 1024 * 1024 * 1024; // 20 GB
     private const int MinLinuxGb = 25;                        // Fedora minimum
 
@@ -40,7 +58,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
 
     public DiskInfo? SelectedDisk => SelectedItem?.Disk;
     public bool IsInstallModeReplace => !IsInstallModeDualBoot;
-    public DiskInstallMode InstallMode => IsInstallModeDualBoot
+    public DiskInstallMode InstallMode => RequiresOwnedTarget || IsInstallModeDualBoot
                                             ? DiskInstallMode.DualBoot
                                             : DiskInstallMode.ReplaceDisk;
 
@@ -54,7 +72,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     
     public bool ShowPartitionSizer => IsInstallModeDualBoot && CanDualBoot;
 
-    public bool CanProceed => SelectedItem is not null
+    public bool CanProceed => RequiresOwnedTarget ? OwnedTarget?.CanProceed == true : SelectedItem is not null
                                         && (!IsInstallModeDualBoot || LinuxSizeGb >= MinLinuxGb);
 
     //   Display-only helpers for the proportional allocation bar       ─
@@ -73,9 +91,16 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
 
     //   API                                  ─
 
-    public void Prepare(PreflightReport report)
+    public void Prepare(PreflightReport report, IDistroPlugin? plugin = null)
     {
         ArgumentNullException.ThrowIfNull(report);
+        OwnedTarget?.Clear();
+        RequiresOwnedTarget = plugin is IInstallationTargetConsumer
+            { TargetRequirement: not InstallationTargetRequirement.None };
+        _ownedMinimumBytes = RequiresOwnedTarget && plugin is not null
+            ? plugin.Metadata.MinimumRequirements.MinDiskBytes : 0;
+        OnPropertyChanged(nameof(RequiresOwnedTarget));
+        OnPropertyChanged(nameof(InstallMode));
 
         DiskItems = report.Disks
             .Where(d => d.TotalBytes >= MinDiskBytes)
@@ -84,7 +109,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
             .Select(d => new DiskListItem(d))
             .ToList();
 
-        SelectedItem = DiskItems.FirstOrDefault(d => d.IsSystemDisk)
+        SelectedItem = RequiresOwnedTarget ? null : DiskItems.FirstOrDefault(d => d.IsSystemDisk)
                     ?? (DiskItems.Count > 0 ? DiskItems[0] : null);
 
         // Default to dual boot when viable, replace when not.
@@ -94,11 +119,21 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
         LinuxSizeGb = Math.Min(50, MaxShrinkableGb);
         if (LinuxSizeGb < MinLinuxGb)
             LinuxSizeGb = Math.Min(MinLinuxGb, MaxShrinkableGb);
+        OnPropertyChanged(nameof(CanProceed));
+    }
+
+    [RelayCommand]
+    private async Task InspectOwnedTargetAsync(CancellationToken ct)
+    {
+        if (!RequiresOwnedTarget || OwnedTarget is null || SelectedDisk is null)
+            return;
+        await OwnedTarget.LoadAsync(SelectedDisk, _ownedMinimumBytes, ct);
     }
 
     // Keep CanDualBoot / ShowPartitionSizer in sync when selection changes.
     partial void OnSelectedItemChanged(DiskListItem? value)
     {
+        OwnedTarget?.Clear();
         OnPropertyChanged(nameof(CanDualBoot));
         OnPropertyChanged(nameof(MaxShrinkableGb));
         OnPropertyChanged(nameof(ShowPartitionSizer));

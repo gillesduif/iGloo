@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
+using Igloo.Core.Plugins;
 using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace Igloo.App.ViewModels;
@@ -13,6 +14,7 @@ namespace Igloo.App.ViewModels;
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly List<object> _steps;
+    private readonly DistroRegistry _registry;
     private readonly WelcomeViewModel _welcome;
     private readonly PreflightViewModel _preflight;
     private readonly DistroSelectionViewModel _distroSelection;
@@ -201,7 +203,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         DiskSelectionViewModel diskSelection,
         FileStagingViewModel fileStaging,
         DirectInstallViewModel directInstall,
-        UsbWriterViewModel usbWriter)
+        UsbWriterViewModel usbWriter,
+        DistroRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(welcome);
         ArgumentNullException.ThrowIfNull(preflight);
@@ -212,6 +215,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(fileStaging);
         ArgumentNullException.ThrowIfNull(directInstall);
         ArgumentNullException.ThrowIfNull(usbWriter);
+        ArgumentNullException.ThrowIfNull(registry);
+        _registry = registry;
 
         _welcome = welcome;
         _preflight = preflight;
@@ -342,7 +347,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 break;
 
             case DiskSelectionViewModel disk:
-                disk.Prepare(_preflight.Report!);
+                disk.Prepare(_preflight.Report!, _registry.Get(_selectedDistro!.Id));
                 break;
 
             case FileStagingViewModel fs when !fs.IsRunning && !fs.IsComplete:

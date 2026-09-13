@@ -189,12 +189,34 @@
                 No suitable disks found. A disk of at least 20 GB is required.
             </TextBlock>
 
+            <StackPanel Margin="0,16,0,0"
+                        Visibility="{Binding RequiresOwnedTarget, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="INSTALL INTO EXISTING FREE SPACE" Style="{StaticResource Text.Section}" />
+                <TextBlock Text="Select a disk above, inspect its layout, then choose the free space and existing EFI partition to use."
+                           TextWrapping="Wrap" Margin="0,8" />
+                <Button Content="Inspect selected disk" Command="{Binding InspectOwnedTargetCommand}" HorizontalAlignment="Left" />
+                <StackPanel DataContext="{Binding OwnedTarget}">
+                    <TextBlock Text="{Binding Error}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Warning}" Margin="0,8" />
+                    <TextBlock Text="Available free space" />
+                    <ComboBox ItemsSource="{Binding FreeExtents}" SelectedItem="{Binding SelectedExtent}">
+                        <ComboBox.ItemTemplate><DataTemplate><TextBlock><Run Text="{Binding LengthBytes, Converter={StaticResource BytesToSize}}" /><Run Text=" starting at " /><Run Text="{Binding OffsetBytes, Converter={StaticResource BytesToSize}}" /></TextBlock></DataTemplate></ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="Existing EFI partition (GPT unique GUID)" Margin="0,8,0,0" />
+                    <ComboBox ItemsSource="{Binding EspChoices}" SelectedItem="{Binding SelectedEsp}" DisplayMemberPath="PartitionGuid" />
+                    <TextBlock Text="Linux space (GiB)" Margin="0,8,0,0" />
+                    <TextBox Text="{Binding RootSizeGiB, UpdateSourceTrigger=PropertyChanged, ValidatesOnExceptions=True}" />
+                </StackPanel>
+            </StackPanel>
+
             <!--   Installation type                      -->
             <StackPanel>
                 <StackPanel.Style>
                     <Style TargetType="StackPanel">
                         <Setter Property="Visibility" Value="Visible" />
                         <Style.Triggers>
+                            <DataTrigger Binding="{Binding RequiresOwnedTarget}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
                             <DataTrigger Binding="{Binding SelectedItem}" Value="{x:Null}">
                                 <Setter Property="Visibility" Value="Collapsed" />
                             </DataTrigger>

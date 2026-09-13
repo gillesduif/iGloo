@@ -5,7 +5,6 @@ keeps its files, so both are passed in through Boot rather than imported.
 """
 from __future__ import annotations
 
-import os
 import re
 import shutil
 from dataclasses import dataclass
@@ -185,8 +184,7 @@ def _patch_os_prober_labels(b: Boot) -> None:
                          "the generic icon")
 
     _OS_PROBER_SCRIPT.write_text(text, encoding="utf-8")
-    b.logger.info("Patched 30_os-prober: Windows reads 'Windows 11', %d entry class(es) "
-                  "now carry the distro icon", classes)
+    b.logger.info("Patched 30_os-prober: Windows reads 'Windows 11', %d entry class(es) now carry the distro icon", classes)
 
 
 def _patch_linux_submenu(b: Boot) -> bool:
@@ -203,8 +201,7 @@ def _patch_linux_submenu(b: Boot) -> bool:
     lines = text.splitlines(keepends=True)
     idx = next((i for i, ln in enumerate(lines) if "Advanced options for %s" in ln), None)
     if idx is None:
-        b.logger.warning("10_linux submenu anchor not found (grub version drift?) - "
-                         "falling back to GRUB_DISABLE_SUBMENU")
+        b.logger.warning("10_linux submenu anchor not found falling back to GRUB_DISABLE_SUBMENU")
         return False
     # Refuse to cut before an entry was printed: that would leave a menu with no
     # Linux entry at all, which is the one way this cosmetic patch could hurt.
@@ -248,15 +245,13 @@ def _apply_grub_fixups(b: Boot) -> None:
 
     res = b.run_cmd([str(b.grub_hook)], check=False, timeout=120)
     if res.returncode != 0:
-        b.logger.warning("GRUB fixup script exited %d - entries keep whatever "
-                         "grub-mkconfig wrote", res.returncode)
+        b.logger.warning("GRUB fixup script exited %d - entries keep whatever grub-mkconfig wrote", res.returncode)
         return
     try:
         cfg = b.grub_cfg.read_text(encoding="utf-8", errors="replace")
     except OSError:
         cfg = ""
-    b.logger.info("grub.cfg now has %d device hint(s) and %d kernel-name root= "
-                  "argument(s); %s re-applies this after kernel updates",
+    b.logger.info("grub.cfg now has %d device hint(s) and %d kernel-name root= argument(s); %s re-applies this after kernel updates",
                   len(re.findall(r"--hint=", cfg)),
                   len(re.findall(r"root=/dev/", cfg)), b.grub_hook)
     _install_fixup_unit(b)
@@ -288,11 +283,9 @@ def _install_fixup_unit(b: Boot) -> None:
             "WantedBy=multi-user.target\n",
             encoding="utf-8")
         b.run_cmd(["systemctl", "enable", "igloo-grub-fixups.service"], check=False)
-        b.logger.info("Installed igloo-grub-fixups.service - grub.cfg is repaired "
-                      "on every boot, not only after a kernel update")
+        b.logger.info("Installed igloo-grub-fixups.service - grub.cfg is repaired on every boot, not only after a kernel update")
     except OSError:
-        b.logger.exception("Could not install the grub fixup unit; the kernel hook "
-                           "still covers kernel updates")
+        b.logger.exception("Could not install the grub fixup unit; the kernel hook still covers kernel updates")
 
 
 def _regenerate(b: Boot) -> None:
@@ -311,11 +304,9 @@ def _verify(b: Boot, themed: bool) -> None:
     if "stylish/theme.txt" in cfg:
         b.logger.info("verified: Stylish theme is referenced in grub.cfg")
     elif not themed:
-        b.logger.error("no theme in grub.cfg because none was installed - the theme "
-                       "archive was missing from /opt/igloo, not a drop-in problem")
+        b.logger.error("no theme in grub.cfg because none was installed. The theme archive was missing from /opt/igloo, not a drop-in problem")
     else:
-        b.logger.error("VERIFICATION FAILED: the theme installed but grub.cfg does not "
-                       "reference it - the drop-in was not sourced")
+        b.logger.error("VERIFICATION FAILED: the theme installed but grub.cfg does not reference it. The drop-in was not sourced")
 
     if "--hint=" in cfg:
         b.logger.info("verified: search lines carry a device hint")
@@ -326,14 +317,12 @@ def _verify(b: Boot, themed: bool) -> None:
     # holds that name after the next probe, and systemd waits for it with no limit.
     stale = sorted(set(re.findall(r"root=/dev/\S+", cfg)))
     if stale:
-        b.logger.error("VERIFICATION FAILED: %d entr(y/ies) boot a kernel-name device "
-                       "path: %s", len(stale), ", ".join(stale))
+        b.logger.error("VERIFICATION FAILED: %d entr(y/ies) boot a kernel-name device path: %s", len(stale), ", ".join(stale))
     else:
         b.logger.info("verified: every entry names its root by UUID")
 
     if "gnulinux-advanced" in cfg:
-        b.logger.error("VERIFICATION FAILED: the Advanced options submenu is still "
-                       "in grub.cfg")
+        b.logger.error("VERIFICATION FAILED: the Advanced options submenu is still in grub.cfg")
     else:
         b.logger.info("verified: no Advanced options submenu in grub.cfg")
 
@@ -379,11 +368,9 @@ def install_boot_order_unit(b: Boot) -> None:
             "WantedBy=multi-user.target\n",
             encoding="utf-8")
         b.run_cmd(["systemctl", "enable", "igloo-boot-order.service"], check=False)
-        b.logger.info("Installed igloo-boot-order.service - the boot order is now "
-                      "re-asserted on every boot")
+        b.logger.info("Installed igloo-boot-order.service - the boot order is now re-asserted on every boot")
     except OSError:
-        b.logger.exception("Could not install the boot-order unit; the order is "
-                           "still set for this boot, but Windows can take it back")
+        b.logger.exception("Could not install the boot-order unit; the order is still set for this boot, but Windows can take it back")
 
 
 def put_self_first_in_boot_order(b: Boot) -> None:

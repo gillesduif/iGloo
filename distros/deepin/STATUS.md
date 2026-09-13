@@ -5,6 +5,29 @@ has been executed during this review. The previous prototype is unsafe to ship.
 
 ## Experimental VM work — 2026-09-12
 
+### Application integration — 2026-09-13 (incomplete)
+
+The generic disk-selection page now offers explicit free-extent and ESP selection
+for identity-requiring plugins. It refreshes GPT state by GUID and discards stale
+asynchronous results. Creation/config sequencing has synthetic tests, but is not
+yet connected to boot staging; the production plugin and legacy staging guards
+remain blocked. No Windows-side partition operation was run on this host.
+
+A new read-only QEMU test stored the original pinned ISO as `/deepin.iso` inside
+a disposable NTFS/GPT image, with no optical drive and no installation target.
+Booting the original 6.6 kernel/initrd with `findiso=/deepin.iso` and the media
+PARTUUID did **not** reach live boot. The initramfs recognized the NTFS partition
+and PARTUUID but contained no `ntfs-3g` helper. Native live-boot source requires
+that helper to accept NTFS. Supplying matching ISO-packaged dependencies to the
+staged initrd is under investigation; no corrected NTFS boot has passed yet.
+
+Evidence: `/home/gillesduif/igloo-deepin-isofile-20260913`, including the exact
+QEMU arguments, GPT media layout, failure console and `initramfs-inspection`.
+Reproduction tools: `tools/deepin-vm/iso_file_probe.py` and
+`iso_file_diagnose.py`. These are read-only guest boot probes, not an app-driven
+installation or EFI handoff validation. The previously validated deployment
+backend remains unchanged.
+
 The user has now requested an experimental installation path. The production
 plugin remains blocked while that path is developed. Changing the catalog to
 `available` alone does not implement or enable installation.

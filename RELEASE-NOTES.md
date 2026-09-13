@@ -31,7 +31,6 @@ The full list is in the [changelog](https://github.com/gillesduif/iGloo/blob/mai
 - Mint: wallpaper scaling on landscape monitors uses zoom instead of fit ([#2](https://github.com/gillesduif/iGloo/issues/2))
 - Debian: creates a second 1 GB EFI partition instead of reusing the Windows one ([#227](https://github.com/gillesduif/iGloo/issues/227))
 - The boot menu labels the Windows entry "Windows 11" on Windows 10 machines ([#228](https://github.com/gillesduif/iGloo/issues/228))
-- Boot can take around 100 seconds between the menu and the login screen on NVMe ([#221](https://github.com/gillesduif/iGloo/issues/221))
 - Locales without a glibc equivalent, such as en-BE, fall back rather than map ([#220](https://github.com/gillesduif/iGloo/issues/220))
 - Unsigned installer: SmartScreen will warn (click "More info" > "Run anyway")
 

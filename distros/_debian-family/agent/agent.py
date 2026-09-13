@@ -218,10 +218,12 @@ def install_nvidia_driver_ubuntu(manifest: dict[str, Any]) -> bool:
 
 def _log_nvidia_module_state(manifest: dict[str, Any] | None = None) -> bool:
     """Check whether the NVIDIA kernel module is present and loadable."""
-    present = run_cmd(["bash", "-c",
-                        "ls /lib/modules/$(uname -r)/updates/dkms/nvidia*.ko* 2>/dev/null "
-                        "|| ls /lib/modules/$(uname -r)/kernel/drivers/video/nvidia*.ko* 2>/dev/null "
-                        "|| modinfo -n nvidia 2>/dev/null"], check=False)
+    # DKMS build, distro package, then whatever modinfo knows: first hit wins.
+    probe = """\
+ls /lib/modules/$(uname -r)/updates/dkms/nvidia*.ko* 2>/dev/null ||
+ls /lib/modules/$(uname -r)/kernel/drivers/video/nvidia*.ko* 2>/dev/null ||
+modinfo -n nvidia 2>/dev/null"""
+    present = run_cmd(["bash", "-c", probe], check=False)
     found = (present.stdout or "").strip()
 
     if not found:
@@ -1808,8 +1810,7 @@ def _ask_password() -> tuple[bool, str | None]:
         (["zenity", "--password",
           "--title=iGloo", "--timeout=300"], None),
         (["kdialog", "--password",
-          "Enter your account password to import the browser passwords "
-          "migrated from Windows."], None),
+          "Enter your account password to import the browser passwords migrated from Windows."], None),
     ]
     for argv, _ in attempts:
         if shutil.which(argv[0]) is None:
@@ -1823,29 +1824,6 @@ def _ask_password() -> tuple[bool, str | None]:
             return True, None
         return True, res.stdout.rstrip("\n")
     return False, None
-
-
-def _run_boot_order_mode() -> int:
-    """Entry point for --fix-boot-order: re-assert the UEFI boot order, then exit.
-
-    Windows Boot Manager puts itself back at the front on updates and on some
-    ordinary boots, and when it does the firmware runs bootmgfw.efi directly -
-    shim never loads, the menu never appears, and the machine looks like Linux
-    was never installed. The first-boot agent already did this once, but once is
-    not enough for something that keeps happening, so a unit runs this every
-    boot. Never returns non-zero: a failure here must not mark the unit failed.
-    """
-    logging.basicConfig(level=logging.INFO,
-                        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    if igloo_boot is None:
-        logger.error("igloo_boot.py is not staged in /opt/igloo - boot order untouched")
-        return 0
-    try:
-        igloo_boot.put_self_first_in_boot_order(
-            igloo_boot.debian_family(run_cmd, logger))
-    except Exception:
-        logger.exception("Could not re-assert the UEFI boot order (non-fatal)")
-    return 0
 
 
 def _run_user_mode() -> int:
@@ -1903,8 +1881,7 @@ def run_user_credential_import() -> int:
 
     asked, password = _ask_password()
     if not asked:
-        logger.warning("Neither zenity nor kdialog is installed - cannot ask "
-                       "for the password, leaving the envelopes in place")
+        logger.warning("Neither zenity nor kdialog is installed - cannot ask for the password, leaving the envelopes in place")
         return 0
     if not password:
         data["attempts"] = attempts

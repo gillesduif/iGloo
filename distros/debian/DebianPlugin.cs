@@ -74,7 +74,7 @@ public sealed class DebianPlugin : IDistroPlugin
                 FindingSeverity.Warning, "RAM_BELOW_RECOMMENDED",
                 $"This machine has {report.TotalRamBytes / (1024.0 * 1024 * 1024):F1} GiB of RAM. " +
                 $"Debian recommends at least {Metadata.MinimumRequirements.MinRamBytes / (1024.0 * 1024 * 1024):F0} GiB.",
-                "Installation will proceed but the desktop may feel sluggish."));
+                "Installation will proceed but performance might be slow."));
         }
 
         return findings;

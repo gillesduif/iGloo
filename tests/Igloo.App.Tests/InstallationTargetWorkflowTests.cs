@@ -11,6 +11,32 @@ namespace Igloo.App.Tests;
 public sealed class InstallationTargetWorkflowTests
 {
     [Fact]
+    public async Task Owned_plugin_never_defaults_to_a_disk_or_replace_mode()
+    {
+        var repository = new DirectoryInfo(AppContext.BaseDirectory);
+        while (repository is not null && !File.Exists(Path.Join(repository.FullName, "Igloo.sln")))
+            repository = repository.Parent;
+        var registry = new DistroRegistry(NullLogger<DistroRegistry>.Instance);
+        await registry.LoadAsync(Path.Join(repository!.FullName, "distros"));
+        var disk = new DiskInfo("runtime-location", "fixture", 128L << 30, 0, "GPT", []);
+        var vm = new DiskSelectionViewModel();
+        vm.Prepare(new PreflightReport
+        {
+            IsUefi = true, SecureBootEnabled = false, TpmPresent = true,
+            BitLocker = BitLockerState.NotEncrypted, Disks = [disk], GpuVendor = "intel",
+            TotalRamBytes = 8L << 30, Findings = [],
+        }, registry.Get("deepin"));
+        vm.RequiresOwnedTarget.Should().BeTrue();
+        vm.SelectedItem.Should().BeNull();
+        vm.InstallMode.Should().Be(DiskInstallMode.DualBoot);
+        vm.CanProceed.Should().BeFalse();
+        vm.SelectedItem = vm.DiskItems[0];
+        vm.SetReplaceCommand.Execute(null);
+        vm.InstallMode.Should().Be(DiskInstallMode.DualBoot);
+        vm.CanProceed.Should().BeFalse("missing inspection capability must not fall back to legacy preparation");
+    }
+
+    [Fact]
     public async Task Identity_requiring_plugin_cannot_reach_legacy_disk_preparation()
     {
         var repository = new DirectoryInfo(AppContext.BaseDirectory);
