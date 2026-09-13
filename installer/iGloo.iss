@@ -4,7 +4,7 @@
 ; Builds iGloo-Setup-<version>.exe from a `dotnet publish` output folder.
 ;
 ; 1. Publish (self-contained, includes the distros\ tree):
-;      dotnet publish src\Igloo.App\Igloo.App.csproj -c Release -r win-x64 ^
+;      dotnet publish src\Igloo.Community.App\Igloo.Community.App.csproj -c Release -r win-x64 ^
 ;          --self-contained true -o installer\publish
 ;    NOTE: publish from a path WITHOUT an apostrophe. Under
 ;    C:\Users\Gilles D'huyvetter\... the SDK's publish Copy step collapses

@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.0.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Igloo.App", "src\Igloo.App\Igloo.App.csproj", "{11111111-0001-0000-0000-000000000001}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Igloo.Core", "src\Igloo.Core\Igloo.Core.csproj", "{11111111-0002-0000-0000-000000000002}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Igloo.Preflight", "src\Igloo.Preflight\Igloo.Preflight.csproj", "{11111111-0003-0000-0000-000000000003}"
@@ -19,11 +17,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Igloo.Distro.FedoraKde", "d
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Igloo.Core.Tests", "tests\Igloo.Core.Tests\Igloo.Core.Tests.csproj", "{11111111-0006-0000-0000-000000000006}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{22222222-0000-0000-0000-000000000001}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Shared", "Shared", "{22222222-0000-0000-0000-000000000001}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "distros", "distros", "{22222222-0000-0000-0000-000000000002}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Distros", "Distros", "{22222222-0000-0000-0000-000000000002}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{22222222-0000-0000-0000-000000000003}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{22222222-0000-0000-0000-000000000003}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.Distro.Debian", "distros\debian\Igloo.Distro.Debian.csproj", "{37BEDA26-4F8E-4AE6-9296-EFA9883BE29F}"
 EndProject
@@ -35,11 +33,17 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.Migration.Tests", "te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.Iso.Tests", "tests\Igloo.Iso.Tests\Igloo.Iso.Tests.csproj", "{904914E9-A075-499A-A29D-7AE1BBAD2504}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.App.Tests", "tests\Igloo.App.Tests\Igloo.App.Tests.csproj", "{3E8C6E99-9CDA-436C-8835-00309C8560B0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.Community.App.Tests", "tests\Igloo.Community.App.Tests\Igloo.Community.App.Tests.csproj", "{3E8C6E99-9CDA-436C-8835-00309C8560B0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.Preflight.Tests", "tests\Igloo.Preflight.Tests\Igloo.Preflight.Tests.csproj", "{57874414-D27B-45E4-AEFD-B7D7909023D9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.UsbWriter.Tests", "tests\Igloo.UsbWriter.Tests\Igloo.UsbWriter.Tests.csproj", "{51F93F1F-15B6-4E89-AC0B-D80275D344D3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Community", "Community", "{2AD32DA2-603E-9D61-5692-6FBE7087F604}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.Community.App", "src\Igloo.Community.App\Igloo.Community.App.csproj", "{253E121E-E6B7-4DD2-9212-74B835E1FF91}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Fleet", "Fleet", "{6405D305-39EA-285F-1351-7E991D287589}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,18 +55,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{11111111-0001-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Debug|x86.Build.0 = Debug|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Release|x86.ActiveCfg = Release|Any CPU
-		{11111111-0001-0000-0000-000000000001}.Release|x86.Build.0 = Release|Any CPU
 		{11111111-0002-0000-0000-000000000002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{11111111-0002-0000-0000-000000000002}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{11111111-0002-0000-0000-000000000002}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -243,12 +235,23 @@ Global
 		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Release|x64.Build.0 = Release|Any CPU
 		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Release|x86.ActiveCfg = Release|Any CPU
 		{51F93F1F-15B6-4E89-AC0B-D80275D344D3}.Release|x86.Build.0 = Release|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Debug|x64.Build.0 = Debug|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Debug|x86.Build.0 = Debug|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Release|Any CPU.Build.0 = Release|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Release|x64.ActiveCfg = Release|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Release|x64.Build.0 = Release|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Release|x86.ActiveCfg = Release|Any CPU
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{11111111-0001-0000-0000-000000000001} = {22222222-0000-0000-0000-000000000001}
 		{11111111-0002-0000-0000-000000000002} = {22222222-0000-0000-0000-000000000001}
 		{11111111-0003-0000-0000-000000000003} = {22222222-0000-0000-0000-000000000001}
 		{11111111-0004-0000-0000-000000000004} = {22222222-0000-0000-0000-000000000001}
@@ -264,5 +267,6 @@ Global
 		{3E8C6E99-9CDA-436C-8835-00309C8560B0} = {22222222-0000-0000-0000-000000000003}
 		{57874414-D27B-45E4-AEFD-B7D7909023D9} = {22222222-0000-0000-0000-000000000003}
 		{51F93F1F-15B6-4E89-AC0B-D80275D344D3} = {22222222-0000-0000-0000-000000000003}
+		{253E121E-E6B7-4DD2-9212-74B835E1FF91} = {2AD32DA2-603E-9D61-5692-6FBE7087F604}
 	EndGlobalSection
 EndGlobal

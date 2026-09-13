@@ -15,7 +15,7 @@ git clone https://github.com/gillesduif/iGloo.git
 cd iGloo
 dotnet restore
 dotnet build
-dotnet run --project src/Igloo.App
+dotnet run --project src/Igloo.Community.App
 ```
 
 The application requests UAC elevation at startup because partition resize,

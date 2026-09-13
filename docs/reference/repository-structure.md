@@ -3,7 +3,7 @@
 ```
 iGloo/
 ├── src/
-│   ├── Igloo.App/             # WPF application (wizard UI, dependency injection)
+│   ├── Igloo.Community.App/             # WPF application (wizard UI, dependency injection)
 │   ├── Igloo.Core/            # Plugin abstractions (IDistroPlugin, InstallerBootSpec),
 │   │                          #   manifest models, service contracts
 │   ├── Igloo.Preflight/       # Hardware detection (WMI), DirectInstallService

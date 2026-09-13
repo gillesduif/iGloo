@@ -13,7 +13,7 @@ file-level companion.
 
 ```
 src/
-├── Igloo.App/         WPF wizard (UI + ViewModels + DI wiring)      - the shell
+├── Igloo.Community.App/         WPF wizard (UI + ViewModels + DI wiring)      - the shell
 ├── Igloo.Core/        contracts, models, plugin loading             - the vocabulary
 ├── Igloo.Preflight/   hardware detection + ALL disk work            - the muscle
 ├── Igloo.Iso/         download + cryptographic verification        - the gatekeeper
@@ -29,15 +29,15 @@ Two dependency rules keep this sane (enforced by review, stated in
 
 ## Per-project tour
 
-### Igloo.App - the wizard shell
+### Igloo.Community.App - the wizard shell
 | File | Why it matters |
 |---|---|
-| [`App.xaml.cs`](../../src/Igloo.App/App.xaml.cs) | Entry point: Serilog (file log in `%LOCALAPPDATA%\Igloo\logs`), DI container (`RegisterServices` - every service + ViewModel is registered here), plugin discovery at startup, crash logging |
-| [`ViewModels/MainWindowViewModel.cs`](../../src/Igloo.App/ViewModels/MainWindowViewModel.cs) | The wizard conductor: ordered `_steps` list, `NextAsync()` drives navigation, branches dual-boot → `DirectInstallViewModel` vs replace → `UsbWriterViewModel`, and calls each page's `Prepare(...)` on entry |
-| [`ViewModels/PreflightViewModel.cs`](../../src/Igloo.App/ViewModels/PreflightViewModel.cs) | Runs the hardware report; `CanProceed => HasReport && !HasBlockers` is the wizard's first safety gate |
-| [`ViewModels/DistroSelectionViewModel.cs`](../../src/Igloo.App/ViewModels/DistroSelectionViewModel.cs) | Catalog: merges manifest data with **plugin `CheckCompatibility` findings** - a Blocker greys the distro out with its reason (this is where BR-06 lives) |
-| [`ViewModels/IsoAcquisitionViewModel.cs`](../../src/Igloo.App/ViewModels/IsoAcquisitionViewModel.cs) | Drives download+verify; loads the bundled GPG key from the distro folder; wraps progress in `ThrottledProgress` |
-| [`ViewModels/DirectInstallViewModel.cs`](../../src/Igloo.App/ViewModels/DirectInstallViewModel.cs) | Resolves the plugin's `InstallerBootSpec`, calls `PrepareAsync`, then `RegisterBootEntryAsync` + 10-second countdown reboot |
+| [`App.xaml.cs`](../../src/Igloo.Community.App/App.xaml.cs) | Entry point: Serilog (file log in `%LOCALAPPDATA%\Igloo\logs`), DI container (`RegisterServices` - every service + ViewModel is registered here), plugin discovery at startup, crash logging |
+| [`ViewModels/MainWindowViewModel.cs`](../../src/Igloo.Community.App/ViewModels/MainWindowViewModel.cs) | The wizard conductor: ordered `_steps` list, `NextAsync()` drives navigation, branches dual-boot → `DirectInstallViewModel` vs replace → `UsbWriterViewModel`, and calls each page's `Prepare(...)` on entry |
+| [`ViewModels/PreflightViewModel.cs`](../../src/Igloo.Community.App/ViewModels/PreflightViewModel.cs) | Runs the hardware report; `CanProceed => HasReport && !HasBlockers` is the wizard's first safety gate |
+| [`ViewModels/DistroSelectionViewModel.cs`](../../src/Igloo.Community.App/ViewModels/DistroSelectionViewModel.cs) | Catalog: merges manifest data with **plugin `CheckCompatibility` findings** - a Blocker greys the distro out with its reason (this is where BR-06 lives) |
+| [`ViewModels/IsoAcquisitionViewModel.cs`](../../src/Igloo.Community.App/ViewModels/IsoAcquisitionViewModel.cs) | Drives download+verify; loads the bundled GPG key from the distro folder; wraps progress in `ThrottledProgress` |
+| [`ViewModels/DirectInstallViewModel.cs`](../../src/Igloo.Community.App/ViewModels/DirectInstallViewModel.cs) | Resolves the plugin's `InstallerBootSpec`, calls `PrepareAsync`, then `RegisterBootEntryAsync` + 10-second countdown reboot |
 
 ### Igloo.Core - the vocabulary
 | File | Why it matters |
@@ -95,7 +95,7 @@ copies `agent.py` + `manifest.json` → agent applies the manifest step by step,
 
 ```powershell
 dotnet build                                   # whole solution
-dotnet run --project src/Igloo.App             # run (UAC prompt is by design)
+dotnet run --project src/Igloo.Community.App             # run (UAC prompt is by design)
 
 # Publish + installer (what testers and releases run):
 installer\build-setup.bat

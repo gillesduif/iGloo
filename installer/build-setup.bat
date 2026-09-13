@@ -6,7 +6,7 @@ rem
 rem   1. Copies src\ + distros\ to C:\Temp\igloo-build  (publishing straight
 rem      from this checkout fails: the SDK's publish Copy step chokes on the
 rem      apostrophe in "Gilles D'huyvetter" with MSB3094 - SDK quirk, not ours)
-rem   2. Reads the version from src\Igloo.App\Igloo.App.csproj (<Version>)
+rem   2. Reads the version from src\Igloo.Community.App\Igloo.Community.App.csproj (<Version>)
 rem   3. dotnet publish  (win-x64, self-contained - this is what makes the
 rem      installer work on PCs WITHOUT .NET installed; a plain VS build does
 rem      NOT produce this payload)
@@ -15,7 +15,7 @@ rem   5. Compiles installer\iGloo.iss with Inno Setup
 rem
 rem Result: installer\output\iGloo-Setup-<version>.exe + SHA256 on screen.
 rem
-rem Version bumps: edit <Version> in src\Igloo.App\Igloo.App.csproj only.
+rem Version bumps: edit <Version> in src\Igloo.Community.App\Igloo.Community.App.csproj only.
 rem (iGloo.iss picks it up via /DIglooVersion; update VersionInfoVersion in
 rem the .iss by hand when major.minor changes.)
 rem ==========================================================================
@@ -50,13 +50,13 @@ rem robocopy exit codes 0-7 are success; do not errorlevel-check them
 
 echo [2/5] Versie lezen uit csproj ...
 set "PSH=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-for /f "usebackq delims=" %%v in (`%PSH% -NoProfile -Command "([xml](Get-Content '%BUILD%\src\Igloo.App\Igloo.App.csproj')).Project.PropertyGroup.Version | Select-Object -First 1"`) do set "VER=%%v"
+for /f "usebackq delims=" %%v in (`%PSH% -NoProfile -Command "([xml](Get-Content '%BUILD%\src\Igloo.Community.App\Igloo.Community.App.csproj')).Project.PropertyGroup.Version | Select-Object -First 1"`) do set "VER=%%v"
 if "%VER%"=="" (echo FOUT: geen versie gevonden & exit /b 1)
 echo     Versie: %VER%
 
 echo [3/5] dotnet publish (win-x64, self-contained) ...
 pushd "%BUILD%"
-dotnet publish src\Igloo.App\Igloo.App.csproj -c Release -r win-x64 --self-contained true -o publish --nologo -v q
+dotnet publish src\Igloo.Community.App\Igloo.Community.App.csproj -c Release -r win-x64 --self-contained true -o publish --nologo -v q
 if errorlevel 1 (echo FOUT: publish mislukt & popd & exit /b 1)
 popd
 

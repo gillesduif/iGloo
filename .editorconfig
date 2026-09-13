@@ -113,16 +113,16 @@ dotnet_naming_style.begins_with_i.capitalization = pascal_case
 # that is fine, it is just not required).
 dotnet_diagnostic.CA1848.severity = none
 
-# ── Igloo.App (WPF) analyzer policy ─────────────────────────────────────────
-# CA2007 (call ConfigureAwait) is a library concern. Igloo.App is a WPF UI app:
+# ── Igloo.Community.App (WPF) analyzer policy ─────────────────────────────────────────
+# CA2007 (call ConfigureAwait) is a library concern. Igloo.Community.App is a WPF UI app:
 # ConfigureAwait(false) drops the caller off the UI thread, so any await that is
 # followed by UI access (a very common pattern in view-models) would throw a
 # cross-thread InvalidOperationException. App project templates disable CA2007 for
 # exactly this reason; the library projects keep it on.
-[src/Igloo.App/**.cs]
+[src/Igloo.Community.App/**.cs]
 dotnet_diagnostic.CA2007.severity = none
 
-# CA1515 (make public types internal) targets library API hygiene. Igloo.App is the
+# CA1515 (make public types internal) targets library API hygiene. Igloo.Community.App is the
 # leaf WinExe entry assembly — no external consumers — and its public types are
 # referenced from XAML (x:Class code-behind, {x:Type}, <local:Converter/>, DataTemplate
 # DataType). Forcing them internal risks breaking XAML compilation and the designer for

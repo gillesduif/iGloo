@@ -38,7 +38,7 @@ remains under its own license, held by its own authors.
 ## Bundled assets
 
 ### Microsoft Fluent 3D emoji icons
-`src/Igloo.App/Assets/Fluent3D/*.png` - from Microsoft's **fluentui-emoji**
+`src/Igloo.Community.App/Assets/Fluent3D/*.png` - from Microsoft's **fluentui-emoji**
 project, MIT licensed. © Microsoft.
 <https://github.com/microsoft/fluentui-emoji>
 

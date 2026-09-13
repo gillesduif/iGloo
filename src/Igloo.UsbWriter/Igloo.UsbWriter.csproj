@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!--
-      net8.0-windows10.0.19041.0 matches Igloo.App and Igloo.Preflight, keeps the
+      net8.0-windows10.0.19041.0 matches Igloo.Community.App and Igloo.Preflight, keeps the
       Windows 10 2004+ API surface consistent and grants access to System.Management.
     -->
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>

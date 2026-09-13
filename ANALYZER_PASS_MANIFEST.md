@@ -37,24 +37,24 @@ Per-rule policy (why, not just what) lives in `.editorconfig` and in the
 - `distros/fedora-kde/FedoraKdePlugin.cs` - StringComparison (CA1307/1310) ×24; contract: string->Uri (CA1054/1056) ×2; null-guard (CA1062) ×2; culture (CA1304/1305) ×2; narrowed catch (CA1031) ×1; ConfigureAwait (CA2007) ×1
 - `distros/linuxmint-cinnamon/LinuxmintCinnamonPlugin.cs` - StringComparison (CA1307/1310) ×9; null-guard (CA1062) ×2; ConfigureAwait (CA2007) ×2; narrowed catch (CA1031) ×1
 - `distros/ubuntu/UbuntuPlugin.cs` - StringComparison (CA1307/1310) ×9; null-guard (CA1062) ×2; ConfigureAwait (CA2007) ×2; narrowed catch (CA1031) ×1
-- `src/Igloo.App/App.xaml.cs` - suppression ×1; culture (CA1304/1305) ×1
-- `src/Igloo.App/Behaviors/SmoothScroll.cs` - null-guard (CA1062) ×2
-- `src/Igloo.App/ChromeInterop.cs` - P/Invoke partial ×9; LibraryImport (CA/SYSLIB, rule 1) ×8; P/Invoke search-path pin (CA5392) ×1
-- `src/Igloo.App/Controls/CoverFlow3DControl.cs` - null-guard (CA1062) ×3
-- `src/Igloo.App/Controls/PartitionBarPanel.cs` - null-guard (CA1062) ×2
-- `src/Igloo.App/Igloo.App.csproj` - LibraryImport (CA/SYSLIB, rule 1) ×1; csproj: AllowUnsafeBlocks ×1
-- `src/Igloo.App/ViewModels/DirectInstallViewModel.cs` - null-guard (CA1062) ×3; contract: string->Uri (CA1054/1056) ×2; culture (CA1304/1305) ×2; suppression ×2
-- `src/Igloo.App/ViewModels/DiskSelectionViewModel.cs` - null-guard (CA1062) ×2
-- `src/Igloo.App/ViewModels/DistroRecommender.cs` - null-guard (CA1062) ×1
-- `src/Igloo.App/ViewModels/DistroSelectionViewModel.cs` - null-guard (CA1062) ×1; suppression ×1
-- `src/Igloo.App/ViewModels/FileStagingViewModel.cs` - null-guard (CA1062) ×2; suppression ×1
-- `src/Igloo.App/ViewModels/IsoAcquisitionViewModel.cs` - null-guard (CA1062) ×1; contract: byte[]->ReadOnlyMemory (CA1819) ×1; narrowed catch (CA1031) ×1; suppression ×1
-- `src/Igloo.App/ViewModels/KeymapDetection.cs` - StringComparison (CA1307/1310) ×24; narrowed catch (CA1031) ×1
-- `src/Igloo.App/ViewModels/LinuxUsernameRules.cs` - suppression ×1
-- `src/Igloo.App/ViewModels/MainWindowViewModel.cs` - null-guard (CA1062) ×9
-- `src/Igloo.App/ViewModels/MigrationSetupViewModel.cs` - null-guard (CA1062) ×1
-- `src/Igloo.App/ViewModels/PreflightViewModel.cs` - suppression ×5
-- `src/Igloo.App/ViewModels/UsbWriterViewModel.cs` - null-guard (CA1062) ×2; suppression ×2; culture (CA1304/1305) ×2
+- `src/Igloo.Community.App/App.xaml.cs` - suppression ×1; culture (CA1304/1305) ×1
+- `src/Igloo.Community.App/Behaviors/SmoothScroll.cs` - null-guard (CA1062) ×2
+- `src/Igloo.Community.App/ChromeInterop.cs` - P/Invoke partial ×9; LibraryImport (CA/SYSLIB, rule 1) ×8; P/Invoke search-path pin (CA5392) ×1
+- `src/Igloo.Community.App/Controls/CoverFlow3DControl.cs` - null-guard (CA1062) ×3
+- `src/Igloo.Community.App/Controls/PartitionBarPanel.cs` - null-guard (CA1062) ×2
+- `src/Igloo.Community.App/Igloo.Community.App.csproj` - LibraryImport (CA/SYSLIB, rule 1) ×1; csproj: AllowUnsafeBlocks ×1
+- `src/Igloo.Community.App/ViewModels/DirectInstallViewModel.cs` - null-guard (CA1062) ×3; contract: string->Uri (CA1054/1056) ×2; culture (CA1304/1305) ×2; suppression ×2
+- `src/Igloo.Community.App/ViewModels/DiskSelectionViewModel.cs` - null-guard (CA1062) ×2
+- `src/Igloo.Community.App/ViewModels/DistroRecommender.cs` - null-guard (CA1062) ×1
+- `src/Igloo.Community.App/ViewModels/DistroSelectionViewModel.cs` - null-guard (CA1062) ×1; suppression ×1
+- `src/Igloo.Community.App/ViewModels/FileStagingViewModel.cs` - null-guard (CA1062) ×2; suppression ×1
+- `src/Igloo.Community.App/ViewModels/IsoAcquisitionViewModel.cs` - null-guard (CA1062) ×1; contract: byte[]->ReadOnlyMemory (CA1819) ×1; narrowed catch (CA1031) ×1; suppression ×1
+- `src/Igloo.Community.App/ViewModels/KeymapDetection.cs` - StringComparison (CA1307/1310) ×24; narrowed catch (CA1031) ×1
+- `src/Igloo.Community.App/ViewModels/LinuxUsernameRules.cs` - suppression ×1
+- `src/Igloo.Community.App/ViewModels/MainWindowViewModel.cs` - null-guard (CA1062) ×9
+- `src/Igloo.Community.App/ViewModels/MigrationSetupViewModel.cs` - null-guard (CA1062) ×1
+- `src/Igloo.Community.App/ViewModels/PreflightViewModel.cs` - suppression ×5
+- `src/Igloo.Community.App/ViewModels/UsbWriterViewModel.cs` - null-guard (CA1062) ×2; suppression ×2; culture (CA1304/1305) ×2
 - `src/Igloo.Core/Abstractions/IDirectInstallService.cs` - contract: string->Uri (CA1054/1056) ×1
 - `src/Igloo.Core/Abstractions/IDistroPlugin.cs` - contract: byte[]->ReadOnlyMemory (CA1819) ×3
 - `src/Igloo.Core/Abstractions/IIsoAcquisitionService.cs` - contract: byte[]->ReadOnlyMemory (CA1819) ×1
@@ -79,7 +79,7 @@ Per-rule policy (why, not just what) lives in `.editorconfig` and in the
 - `src/Igloo.UsbWriter/UsbWriterService.DiskPreparation.cs` - ConfigureAwait (CA2007) ×1; suppression ×1
 - `src/Igloo.UsbWriter/UsbWriterService.GrubPatching.cs` - StringComparison (CA1307/1310) ×5; suppression ×1
 - `src/Igloo.UsbWriter/UsbWriterService.cs` - ConfigureAwait (CA2007) ×17; culture (CA1304/1305) ×2; narrowed catch (CA1031) ×2; null-guard (CA1062) ×1; suppression ×1
-- `tests/Igloo.App.Tests/DistroRecommenderTests.cs` - contract: string->Uri (CA1054/1056) ×1
+- `tests/Igloo.Community.App.Tests/DistroRecommenderTests.cs` - contract: string->Uri (CA1054/1056) ×1
 - `tests/Igloo.Core.Tests/DistroManifestTests.cs` - contract: string->Uri (CA1054/1056) ×1
 - `tests/Igloo.Iso.Tests/PgpDetachedVerifierTests.cs` - suppression ×1
 - `tests/Igloo.Migration.Tests/FileStagingServiceTests.cs` - async I/O (CA1849) ×3

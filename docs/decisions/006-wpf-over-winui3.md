@@ -27,7 +27,7 @@ In practice, the development experience proved too costly for a pre-alpha, solo-
 
 ## Decision
 
-Replace `<UseWinUI>true</UseWinUI>` with `<UseWPF>true</UseWPF>` in `Igloo.App.csproj`.
+Replace `<UseWinUI>true</UseWinUI>` with `<UseWPF>true</UseWPF>` in `Igloo.Community.App.csproj`.
 All other projects (`Igloo.Core`, `Igloo.Preflight`, `Igloo.Iso`, plugin assemblies) are
 unchanged - they have no UI-framework dependency.
 

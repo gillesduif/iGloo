@@ -1,0 +1,518 @@
+<UserControl
+    x:Class="Igloo.Community.App.Views.PreflightPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:Igloo.Community.App.ViewModels"
+    mc:Ignorable="d"
+    d:DataContext="{d:DesignInstance Type=vm:PreflightDesignData, IsDesignTimeCreatable=True}"
+    d:DesignWidth="900" d:DesignHeight="1100"
+    xmlns:abstractions="clr-namespace:Igloo.Core.Abstractions;assembly=Igloo.Core"
+    xmlns:controls="clr-namespace:Igloo.Community.App.Controls"
+    xmlns:conv="clr-namespace:Igloo.Community.App.Converters">
+
+    <UserControl.Resources>
+
+        <conv:PartitionKindToBrushConverter x:Key="PartitionKindToBrush" />
+
+        <!-- Shared look of a partition-bar segment and its legend swatch:
+             kind-keyed fill, hairline stroke; unallocated = dashed outline. -->
+        <Style x:Key="SegmentFillStyle" TargetType="Rectangle">
+            <Setter Property="Fill" Value="{Binding Kind, Converter={StaticResource PartitionKindToBrush}}" />
+            <Setter Property="Stroke" Value="#26FFFFFF" />
+            <Setter Property="StrokeThickness" Value="1" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsUnallocated}" Value="True">
+                    <Setter Property="Stroke" Value="#42FFFFFF" />
+                    <Setter Property="StrokeDashArray" Value="3 2" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Finding rows: InfoBar idiom  neutral surface, severity marked by a
+             3px left rule only (color = meaning, never a tinted box). -->
+        <Style x:Key="FindingCardStyle" TargetType="Border">
+            <Setter Property="Background"      Value="{StaticResource Brush.Layer.Card}" />
+            <Setter Property="BorderBrush"     Value="{StaticResource Brush.Stroke.Card}" />
+            <Setter Property="BorderThickness" Value="3,1,1,1" />
+            <Setter Property="CornerRadius"    Value="8" />
+            <Setter Property="Padding"         Value="14,10" />
+            <Setter Property="Margin"          Value="0,0,0,8" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Severity}"
+                             Value="{x:Static abstractions:FindingSeverity.Warning}">
+                    <Setter Property="BorderBrush" Value="#52FFC163" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Severity}"
+                             Value="{x:Static abstractions:FindingSeverity.Blocker}">
+                    <Setter Property="BorderBrush" Value="#52FF7B72" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="FindingSeverityLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground"  Value="{StaticResource Brush.Text.Tertiary}" />
+            <Setter Property="FontSize"    Value="10.5" />
+            <Setter Property="FontWeight"  Value="Bold" />
+            <Setter Property="Margin"      Value="0,0,0,3" />
+            <Setter Property="Text"        Value="INFO" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Severity}"
+                             Value="{x:Static abstractions:FindingSeverity.Warning}">
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Warning}" />
+                    <Setter Property="Text"       Value="WARNING" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Severity}"
+                             Value="{x:Static abstractions:FindingSeverity.Blocker}">
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                    <Setter Property="Text"       Value="BLOCKER" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Instrument row label -->
+        <Style x:Key="GaugeLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+    </UserControl.Resources>
+
+    <Grid>
+
+        <!--   1. RUNNING                          ─ -->
+        <StackPanel Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+
+            <!-- Searching magnifier: a slow Lissajous wander (two sine axes with
+                 different periods, so the path never visibly repeats) plus a
+                 gentle tilt  reads as "scanning the machine". Storyboards are
+                 attached to IsRunning so an idle page animates nothing. -->
+            <TextBlock Text="&#xF78B;" FontFamily="Segoe Fluent Icons" FontSize="64"
+                   Foreground="{StaticResource Brush.AccentW11}"
+                   HorizontalAlignment="Center" Margin="0,0,0,24"
+                   RenderTransformOrigin="0.5,0.5">
+                <TextBlock.RenderTransform>
+                    <TransformGroup>
+                        <TranslateTransform />
+                        <RotateTransform />
+                    </TransformGroup>
+                </TextBlock.RenderTransform>
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard x:Name="SearchWander">
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(TranslateTransform.X)"
+                                                From="-18" To="18" Duration="0:0:2.6" AutoReverse="True">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <SineEase EasingMode="EaseInOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[0].(TranslateTransform.Y)"
+                                                From="-10" To="10" Duration="0:0:1.7" AutoReverse="True">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <SineEase EasingMode="EaseInOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(RotateTransform.Angle)"
+                                                From="-8" To="8" Duration="0:0:2.1" AutoReverse="True">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <SineEase EasingMode="EaseInOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <RemoveStoryboard BeginStoryboardName="SearchWander" />
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <ProgressBar IsIndeterminate="True" Width="340" />
+      <TextBlock Text="Checking system configuration"
+                       Style="{StaticResource Text.Body}" FontSize="14"
+                       Margin="0,16,0,0" HorizontalAlignment="Center" />
+            <TextBlock Text="Firmware · Secure boot · TPM · BitLocker · Memory · Storage"
+                       Style="{StaticResource Text.Caption}"
+                       Margin="0,6,0,0" HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <!--   2. ERROR                           ─ -->
+        <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
+                Style="{StaticResource Card.Danger}" VerticalAlignment="Top">
+            <StackPanel>
+                <TextBlock Text="System check failed"
+                           FontSize="16" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.Danger}" />
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Style="{StaticResource Text.Body}" Margin="0,8,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!--   3. RESULTS: the instrument panel               ─ -->
+        <ScrollViewer Visibility="{Binding HasReport, Converter={StaticResource BoolToVis}}"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="{StaticResource Scroll.ContentGutter}">
+
+                <!-- System overview -->
+                <TextBlock Text="DEVICE" Style="{StaticResource Text.Section}" Margin="2,0,0,4" />
+                <Border Style="{StaticResource Card}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="72" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30" />
+                            <RowDefinition Height="30" />
+                            <RowDefinition Height="30" />
+                        </Grid.RowDefinitions>
+                        <Image Grid.Column="0" Grid.RowSpan="3"
+                               Source="/Assets/Fluent3D/mouse.png"
+                               Width="48" Height="48" VerticalAlignment="Center"
+                               HorizontalAlignment="Left" Margin="4,0,0,0"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+
+                        <!-- left column -->
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Firmware" Style="{StaticResource GaugeLabel}" />
+                        <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding FirmwareDisplay}" Foreground="{StaticResource Brush.Text.Primary}" FontSize="13" />
+                            <TextBlock Text="  ●" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{StaticResource Brush.Success}"
+                                       Visibility="{Binding FirmwareOk, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Secure Boot" Style="{StaticResource GaugeLabel}" />
+                        <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SecureBootDisplay}" Foreground="{StaticResource Brush.Text.Primary}" FontSize="13" />
+                            <TextBlock Text="  ●" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{StaticResource Brush.Warning}"
+                                       Visibility="{Binding SecureBootWarn, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="TPM" Style="{StaticResource GaugeLabel}" />
+                        <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding TpmDisplay}"
+                                   Foreground="{StaticResource Brush.Text.Primary}" FontSize="13" VerticalAlignment="Center" />
+
+                        <!-- right column -->
+                        <TextBlock Grid.Row="0" Grid.Column="4" Text="BitLocker" Style="{StaticResource GaugeLabel}" />
+                        <StackPanel Grid.Row="0" Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding BitLockerDisplay}" Foreground="{StaticResource Brush.Text.Primary}" FontSize="13" />
+                            <TextBlock Text="  ●" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{StaticResource Brush.Danger}"
+                                       Visibility="{Binding BitLockerBlocked, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="1" Grid.Column="4" Text="Memory" Style="{StaticResource GaugeLabel}" />
+                        <TextBlock Grid.Row="1" Grid.Column="5" Text="{Binding RamDisplay}"
+                                   Foreground="{StaticResource Brush.Text.Primary}" FontSize="13" VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="4" Text="GPU" Style="{StaticResource GaugeLabel}" />
+                        <TextBlock Grid.Row="2" Grid.Column="5" Text="{Binding GpuDisplay}"
+                                   Foreground="{StaticResource Brush.Text.Primary}" FontSize="13" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+
+                <!-- Findings. Header and list appear together: with nothing to report, the whole
+                     section stays out of the way rather than announcing its emptiness. -->
+                <TextBlock Text="RESULTS" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
+                           Visibility="{Binding HasFindings, Converter={StaticResource BoolToVis}}" />
+
+                <ItemsControl ItemsSource="{Binding Findings}"
+                              Visibility="{Binding HasFindings, Converter={StaticResource BoolToVis}}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource FindingCardStyle}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource FindingSeverityLabelStyle}" />
+                                    <TextBlock Text="{Binding Message}"
+                                               Foreground="{StaticResource Brush.Text.Primary}"
+                                               TextWrapping="Wrap" FontSize="13" />
+                                    <TextBlock Text="{Binding Remediation}"
+                                               Margin="0,4,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+                                                <Setter Property="FontSize" Value="12" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Remediation}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- One-click fix: Disable BitLocker -->
+                                    <Button Margin="0,10,0,2"
+                                            HorizontalAlignment="Left"
+                                            Content="Disable BitLocker now"
+                                            Command="{Binding DataContext.DisableBitLockerCommand,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Code}" Value="BITLOCKER_ACTIVE">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- BitLocker action status (while manage-bde runs) -->
+                <Border Style="{StaticResource Card.Accent}" Padding="14,10" Margin="0,2,0,0"
+                        Visibility="{Binding HasBitLockerActionStatus, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⟳  " Foreground="{StaticResource Brush.Accent.Bright}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding BitLockerActionStatus}"
+                                   Foreground="{StaticResource Brush.Accent.Bright}"
+                                   TextWrapping="Wrap" FontSize="13" />
+                    </StackPanel>
+                </Border>
+
+                <!--   Existing Linux installations              ─ -->
+        <TextBlock Text="DISTRIBUTIONS" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
+                           Visibility="{Binding HasLinux, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Single installation: one card, one clear action -->
+                <Border Style="{StaticResource Card}" Padding="16,12"
+                        Visibility="{Binding HasSingleLinux, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Image Grid.Column="0" Source="/Assets/PNG/Tux.png"
+                               Width="40" Height="40" VerticalAlignment="Center"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+
+                        <StackPanel Grid.Column="1" Margin="14,0,14,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SingleLinux.Title}" FontWeight="SemiBold" FontSize="13"
+                                       Foreground="{StaticResource Brush.Text.Primary}" />
+                            <TextBlock Text="{Binding SingleLinux.Detail}" FontSize="12" Margin="0,1,0,0"
+                                       Foreground="{StaticResource Brush.Text.Tertiary}" />
+                        </StackPanel>
+
+                        <!-- Icon only, so it needs a name of its own: the label was
+                             the only thing telling a screen reader what it does. -->
+                        <Button Grid.Column="2" Content="&#xE74D;"
+                                FontFamily="Segoe Fluent Icons" FontSize="16"
+                                Style="{StaticResource Button.Danger}"
+                                Padding="11,6"
+                                Command="{Binding RemoveLinuxCommand}"
+                                ToolTip="Remove this Linux installation"
+                                AutomationProperties.Name="Remove this Linux installation"
+                                VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+
+                <!-- Multiple installations: pick which ones go -->
+                <Border Style="{StaticResource Card}" Padding="16,12"
+                        Visibility="{Binding HasMultipleLinux, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+              <Image Source="/Assets/PNG/Tux.png" Width="34" Height="34"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                            <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="Multiple Linux installations found"
+                                           FontWeight="SemiBold" FontSize="13"
+                                           Foreground="{StaticResource Brush.Text.Primary}" />
+                <TextBlock Text="Select the systems to remove."
+                                           FontSize="12" Margin="0,1,0,0"
+                                           Foreground="{StaticResource Brush.Text.Tertiary}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <ItemsControl ItemsSource="{Binding LinuxInstalls}" Margin="4,10,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsSelected}" Margin="0,3">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Text.Primary}" />
+                                            <TextBlock Text="{Binding Detail}" FontSize="12" Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Brush.Text.Tertiary}" />
+                                        </StackPanel>
+                                    </CheckBox>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Icon plus label: the glyph alone would not say that this
+                             acts on the ticked rows rather than on all of them. -->
+                        <Button Style="{StaticResource Button.Danger}"
+                                Command="{Binding RemoveSelectedLinuxCommand}"
+                                Padding="14,5"
+                                ToolTip="Remove the selected Linux installations"
+                                AutomationProperties.Name="Remove the selected Linux installations"
+                                HorizontalAlignment="Left" Margin="4,10,0,2">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE74D;" FontFamily="Segoe Fluent Icons"
+                                           FontSize="15" VerticalAlignment="Center" />
+                                <TextBlock Text="Remove" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- Leftover iGloo installer partitions (OEMDRV) are cleaned silently
+                     during the system check (PreflightViewModel.RunCheckAsync); there
+                     is deliberately no card or button for them - see that method. -->
+
+                <!-- Removal status banner -->
+                <Border Style="{StaticResource Card.Accent}" Padding="14,10" Margin="0,8,0,0"
+                        Visibility="{Binding HasLinuxActionStatus, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⟳  " Foreground="{StaticResource Brush.Accent.Bright}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding LinuxActionStatus}"
+                                   Foreground="{StaticResource Brush.Accent.Bright}"
+                                   TextWrapping="Wrap" FontSize="13" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Storage inventory -->
+                <TextBlock Text="STORAGE" Style="{StaticResource Text.Section}" Margin="2,22,0,4" />
+
+                <ItemsControl ItemsSource="{Binding DiskViews}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Card}" Padding="16,12" Margin="0,0,0,8">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xEDA2;" FontFamily="Segoe Fluent Icons"
+                                                   FontSize="28" Margin="0,0,12,0"
+                                                   Foreground="{StaticResource Brush.Text.Secondary}"
+                                                   VerticalAlignment="Center" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Model}" FontWeight="SemiBold" FontSize="13"
+                                                       Foreground="{StaticResource Brush.Text.Primary}" />
+                                            <TextBlock Foreground="{StaticResource Brush.Text.Tertiary}" FontSize="12" Margin="0,1,0,0">
+                                                <Run Text="{Binding TotalBytes, Converter={StaticResource BytesToSize}, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding PartitionStyle, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Disk Management's partition map, WinUI-styled:
+                                         one proportional bar, every segment at its true
+                                         disk position, unallocated gaps included. -->
+                                    <ItemsControl ItemsSource="{Binding Segments}" Height="30" Margin="0,14,0,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <controls:PartitionBarPanel Gap="3" MinSegmentWidth="12" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemContainerStyle>
+                                            <Style TargetType="ContentPresenter">
+                                                <Setter Property="controls:PartitionBarPanel.Weight" Value="{Binding Weight}" />
+                                            </Style>
+                                        </ItemsControl.ItemContainerStyle>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Rectangle RadiusX="3" RadiusY="3"
+                                                           Style="{StaticResource SegmentFillStyle}">
+                                                    <Rectangle.ToolTip>
+                                                        <ToolTip>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{Binding Detail}" Margin="0,2,0,0" />
+                                                            </StackPanel>
+                                                        </ToolTip>
+                                                    </Rectangle.ToolTip>
+                                                </Rectangle>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- Legend: swatch · name · filesystem/size, plus role pills -->
+                                    <ItemsControl ItemsSource="{Binding Segments}" Margin="0,10,0,2">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Margin="0,3,20,3">
+                                                    <Rectangle Width="10" Height="10" RadiusX="2" RadiusY="2"
+                                                               VerticalAlignment="Center"
+                                                               Style="{StaticResource SegmentFillStyle}" />
+                                                    <TextBlock FontSize="12" Margin="7,0,0,0" VerticalAlignment="Center">
+                                                        <Run Text="{Binding Name, Mode=OneWay}"
+                                                             Foreground="{StaticResource Brush.Text.Secondary}" /><Run
+                                                             Text="  " /><Run Text="{Binding Detail, Mode=OneWay}"
+                                                             Foreground="{StaticResource Brush.Text.Tertiary}" />
+                                                    </TextBlock>
+
+                                                    <Border>
+                                                        <TextBlock Text="SYSTEM" FontSize="9.5" FontWeight="Bold"
+                                                                   Foreground="{StaticResource Brush.Accent.Bright}" />
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource Pill}">
+                                                                <Setter Property="Margin" Value="8,0,0,0" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsSystem}" Value="False">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                    </Border>
+                                                    <Border>
+                                                        <TextBlock Text="BOOT" FontSize="9.5" FontWeight="Bold"
+                                                                   Foreground="#C9B5FF" />
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Margin" Value="4,0,0,0" />
+                                                                <Setter Property="Background" Value="#2B8F6CFF" />
+                                                                <Setter Property="CornerRadius" Value="4" />
+                                                                <Setter Property="Padding" Value="7,2" />
+                                                                <Setter Property="VerticalAlignment" Value="Center" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsBoot}" Value="False">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                    </Border>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </Grid>
+</UserControl>

@@ -35,7 +35,7 @@ Trust boundaries: everything downloaded is verified (TLS + SHA-256 + GPG against
 
 ```mermaid
 flowchart TD
-    subgraph APP["src/Igloo.App - WPF wizard"]
+    subgraph APP["src/Igloo.Community.App - WPF wizard"]
         VM["ViewModels<br>(one per wizard step)"]
         THEME["Dark theme + Cover Flow catalog"]
     end
