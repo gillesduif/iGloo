@@ -11,7 +11,13 @@ iGloo/
 │   │                          #   registration), LinuxRemovalService
 │   ├── Igloo.Iso/             # Resumable download, SHA-256 and GPG verification
 │   ├── Igloo.Migration/       # User file staging to the staging volume
-│   └── Igloo.UsbWriter/       # USB fallback: raw ISO write + staging partition
+│   ├── Igloo.UsbWriter/       # USB fallback: raw ISO write + staging partition
+│   ├── Igloo.Fleet.Contracts/ # Versioned sanitized transport records
+│   ├── Igloo.Fleet.Domain/    # Lifecycle, eligibility, evidence, storage interfaces
+│   ├── Igloo.Fleet.Agent/     # Read-only Windows assessment host
+│   ├── Igloo.Fleet.Server/    # Trusted HTTPS and local development control plane
+│   ├── Igloo.Fleet.Persistence/ # Durable SQLite planning and Phase 0 memory storage
+│   └── Igloo.Fleet.Web/       # Engineering operator CLI and status API client
 ├── distros/
 │   ├── _schema/               # distro.json JSON Schema (validated in CI)
 │   ├── _template/             # Template for new distribution plugins
@@ -21,7 +27,7 @@ iGloo/
 │   ├── linuxmint-cinnamon/    # Ubiquity / preseed (casper live ISO)
 │   ├── ubuntu/                # subiquity / autoinstall (in development)
 │   └── .../                   # 15 "coming soon" catalog entries
-├── tests/                     # Six xUnit test projects
+├── tests/                     # Seven xUnit test projects, including Fleet
 ├── docs/
 │   ├── architecture.md        # System architecture
 │   ├── decisions/             # Architecture Decision Records

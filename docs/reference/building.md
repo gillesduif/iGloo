@@ -28,10 +28,13 @@ high-integrity token.
 dotnet test
 ```
 
-Six xUnit test projects cover the safety-critical logic: manifest handling,
+Seven xUnit test projects cover the safety-critical logic: manifest handling,
 ISO verification, partition calculations, installer configuration rendering
 and progress reporting. CI executes the build and the test suite on every
-push and pull request.
+push and pull request. Fleet tests also cover protocol/privacy boundaries,
+lifecycle transitions, headless assessment and the local HTTP workflow.
+See [Fleet Phase 1](../fleet/phase-1.md) for trusted planning operations and
+[Fleet Phase 0](../fleet/phase-0.md) for the separate development mode.
 
 ## Verifying an installation
 

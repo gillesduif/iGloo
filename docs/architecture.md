@@ -1,6 +1,6 @@
 # iGloo Architecture
 
-iGloo is a **two-half system**: a Windows-side *preparer* (the wizard you run) and a
+iGloo's migration engine is a **two-half system**: a Windows-side *preparer* (the wizard you run) and a
 Linux-side *committer* (the distro's own installer plus iGloo's first-boot agent),
 communicating exclusively through files staged on dedicated partitions. This split is
 forced by a fundamental constraint: destructive disk work cannot be done from the
@@ -9,6 +9,11 @@ running Windows system it targets - so **Windows stages, Linux commits**.
 This document is the map. For the *why* behind individual decisions, see
 [`decisions/`](decisions/); for the research-grade treatment, see the
 [white paper](whitepaper/igloo-whitepaper.md).
+
+This page describes the existing Community migration pipeline. The
+[Community/Fleet product architecture](architecture/product-boundaries.md)
+documents the shared engine and Fleet's separate, read-only assessment host.
+Fleet never uploads the local migration manifest.
 
 ## 1. System context
 
@@ -43,7 +48,7 @@ flowchart TD
     subgraph CORE["src/Igloo.Core"]
         IDP["IDistroPlugin +<br>InstallerBootSpec"]
         REG["DistroRegistry / DistroLoader<br>(plugin discovery, isolated load contexts)"]
-        MAN["MigrationManifest<br>(the single source of truth)"]
+        MAN["MigrationManifest<br>(local execution/handoff state)"]
         THR["ThrottledProgress"]
     end
 

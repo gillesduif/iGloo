@@ -14,6 +14,12 @@
 
 iGloo is a Windows application that simplifies migration from Windows to Linux.
 
+The desktop wizard is **iGloo Community**. **iGloo Fleet Phase 1** adds trusted
+enrollment, durable evidence and read-only migration planning around the same engine.
+See [product boundaries](docs/architecture/product-boundaries.md) and the
+[Fleet operations and demonstration](docs/fleet/phase-1.md). The separate
+[Phase 0 development demonstration](docs/fleet/phase-0.md) remains available.
+
 The key features are:
 
 * **Linux System**:  installs the distribution next to Windows in dual-boot and removes it cleanly, including partitions and boot entries.

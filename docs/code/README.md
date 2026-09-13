@@ -18,10 +18,17 @@ src/
 ├── Igloo.Preflight/   hardware detection + ALL disk work            - the muscle
 ├── Igloo.Iso/         download + cryptographic verification        - the gatekeeper
 ├── Igloo.Migration/   user-file staging on the Windows side
-└── Igloo.UsbWriter/   fallback USB path
+├── Igloo.UsbWriter/   fallback USB path
+└── Igloo.Fleet.*/     Contracts, Domain, Agent, Server, Persistence, Web
 distros/               one folder per distro (plugin + templates + agent)
 tests/                 xUnit suites
 ```
+
+The [product boundary map](../architecture/product-boundaries.md) gives the exact
+Fleet dependency graph and Community runtime compatibility details. The Fleet
+Agent registers only the existing preflight checker; it does not run the wizard.
+PluginArtifactWriter in Igloo.Migration now owns the plugin-generated local
+installer/first-boot artifact writes previously embedded in FileStagingViewModel.
 
 Two dependency rules keep this sane (enforced by review, stated in
 [BR-08](../business/business-rules.md)): **Core references nothing**, and
