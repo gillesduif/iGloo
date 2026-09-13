@@ -7,6 +7,17 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
+if (args.Length == 1 && args[0] is "--trusted" or "--enroll")
+{
+    try { await TrustedAgentCommand.RunAsync(args[0] == "--enroll").ConfigureAwait(false); }
+    catch (Exception ex) when (ex is FleetProtocolException or HttpRequestException or OperationCanceledException or IOException)
+    {
+        await Console.Error.WriteLineAsync(ex is FleetProtocolException protocol ? protocol.Error.Code.ToString() : "LocalOrCommunicationFailure: retained spool; rerun after recovery.").ConfigureAwait(false);
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
 if (!args.Contains("--development-local", StringComparer.Ordinal))
     throw new InvalidOperationException("Phase 0 requires --development-local; production enrollment is not implemented.");
 var token = Environment.GetEnvironmentVariable("IGLOO_FLEET_DEV_TOKEN");
