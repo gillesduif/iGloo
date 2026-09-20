@@ -10,11 +10,13 @@ namespace Igloo.Preflight;
 [SupportedOSPlatform("windows")]
 public sealed class PartitionResizeService : IPartitionResizeService
 {
-    private const string StorageNamespace = @"root\Microsoft\Windows\Storage";
+    private readonly IWindowsStorageReader _storage;
 
     private readonly ILogger<PartitionResizeService> _logger;
 
-    public PartitionResizeService(ILogger<PartitionResizeService> logger) => _logger = logger;
+    public PartitionResizeService(ILogger<PartitionResizeService> logger) : this(logger, new WindowsStorageReader()) { }
+    public PartitionResizeService(ILogger<PartitionResizeService> logger, IWindowsStorageReader storage)
+    { _logger = logger; _storage = storage; }
 
     //   IPartitionResizeService                        ─
 
@@ -43,8 +45,8 @@ public sealed class PartitionResizeService : IPartitionResizeService
             "Partition resize: disk {Disk}, need {LinuxMiB} MiB for Linux",
             diskNumber, linuxSizeBytes / MiB);
 
-        var (mo, shrinkable) = FindNtfsPartition(diskNumber);
-        if (mo is null)
+        var (selected, shrinkable) = FindNtfsPartition(diskNumber);
+        if (selected is null)
             throw new InvalidOperationException(
                 $"No shrinkable NTFS partition found on disk {diskNumber}.");
 
@@ -55,8 +57,9 @@ public sealed class PartitionResizeService : IPartitionResizeService
                 $"Not enough shrinkable space: need {linuxSizeBytes / MiB} MiB, " +
                 $"available {shrinkable / MiB} MiB.");
 
-        // Obtain precise size limits.
-        var outSizes = mo.InvokeMethod("GetSupportedSize", null, null)!;
+        // Obtain precise size limits again on the selected mutation target, as before.
+        using var mo = new ManagementObject(selected.ObjectPath);
+        var outSizes = WindowsStorageReader.ReadSupportedSize(mo).ValueOrThrow()!;
         var sizeMin = Convert.ToInt64(outSizes["SizeMin"], CultureInfo.InvariantCulture);
         var sizeMax = Convert.ToInt64(outSizes["SizeMax"], CultureInfo.InvariantCulture);
 
@@ -94,30 +97,28 @@ public sealed class PartitionResizeService : IPartitionResizeService
         progress?.Report("Windows partition shrunk successfully.");
     }
 
-    private (ManagementObject? mo, long shrinkable) FindNtfsPartition(int diskNumber)
+    internal static bool HasCandidateLetter(char letter) => letter != '\0';
+    internal static bool ImprovesCandidate(long delta, long best) => delta > best;
+
+    internal (WindowsStorageRow? row, long shrinkable) FindNtfsPartition(int diskNumber)
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                StorageNamespace,
-                $"SELECT * FROM MSFT_Partition WHERE DiskNumber = {diskNumber}");
-            using var results = searcher.Get();
-
-            ManagementObject? best = null;
+            WindowsStorageRow? best = null;
             long bestShrinkable = 0;
 
-            foreach (ManagementObject p in results.Cast<ManagementObject>())
+            foreach (var p in _storage.ReadPartitions(diskNumber).RowsOrThrow())
             {
                 // We only want to resize the main NTFS data partition.
                 // Heuristic: pick the largest partition that has a drive letter
                 // and a positive SizeMin/SizeMax delta.
                 char dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
-                if (dl == '\0')
+                if (!HasCandidateLetter(dl))
                     continue;
 
                 try
                 {
-                    var outSizes = p.InvokeMethod("GetSupportedSize", null, null);
+                    var outSizes = _storage.ReadSupportedSize(p).ValueOrThrow();
                     if (outSizes is null)
                         continue;
 
@@ -129,20 +130,15 @@ public sealed class PartitionResizeService : IPartitionResizeService
                     var sizeMax = Convert.ToInt64(outSizes["SizeMax"], CultureInfo.InvariantCulture);
                     var shrinkable = sizeMax - sizeMin;
 
-                    if (shrinkable > bestShrinkable)
+                    if (ImprovesCandidate(shrinkable, bestShrinkable))
                     {
-                        best?.Dispose();
-                        best = (ManagementObject)p.Clone();
+                        best = p;
                         bestShrinkable = shrinkable;
                     }
                 }
                 catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
                 {
                     _logger.LogDebug(ex, "GetSupportedSize skipped for drive {Letter}", dl);
-                }
-                finally
-                {
-                    p.Dispose();
                 }
             }
 

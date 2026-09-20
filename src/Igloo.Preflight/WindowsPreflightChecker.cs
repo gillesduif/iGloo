@@ -15,7 +15,12 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 {
     private readonly ILogger<WindowsPreflightChecker> _logger;
 
-    public WindowsPreflightChecker(ILogger<WindowsPreflightChecker> logger) => _logger = logger;
+    private readonly IWindowsStorageReader _storage;
+    private readonly IWindowsBitLockerReader _bitLocker;
+    public WindowsPreflightChecker(ILogger<WindowsPreflightChecker> logger)
+        : this(logger, new WindowsStorageReader(), new WindowsBitLockerReader()) { }
+    public WindowsPreflightChecker(ILogger<WindowsPreflightChecker> logger, IWindowsStorageReader storage, IWindowsBitLockerReader bitLocker)
+    { _logger = logger; _storage = storage; _bitLocker = bitLocker; }
 
     public Task<PreflightReport> RunAsync(CancellationToken ct = default) =>
         Task.Run(() => Collect(ct), ct);
@@ -265,13 +270,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         var distros = new List<string>();
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                @"root\Microsoft\Windows\Storage",
-                $"SELECT AccessPaths FROM MSFT_Partition WHERE DiskNumber = {diskNumber} " +
-                "AND GptType = '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'");
-            using var results = searcher.Get();
-
-            foreach (var esp in results.Cast<ManagementBaseObject>())
+            foreach (var esp in _storage.ReadPartitions((int)diskNumber, efiOnly: true).RowsOrThrow())
             {
                 var volumePath = (esp["AccessPaths"] as string[])?
                     .FirstOrDefault(p => p.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
@@ -347,13 +346,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                @"root\Microsoft\Windows\Storage",
-                $"SELECT AccessPaths FROM MSFT_Partition WHERE DiskNumber = {diskNumber} " +
-                "AND GptType = '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'");
-            using var results = searcher.Get();
-
-            foreach (var esp in results.Cast<ManagementBaseObject>())
+            foreach (var esp in _storage.ReadPartitions((int)diskNumber, efiOnly: true).RowsOrThrow())
             {
                 var volumePath = (esp["AccessPaths"] as string[])?
                     .FirstOrDefault(p => p.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
@@ -477,15 +470,11 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         }
     }
 
-    private BitLockerState QueryBitLockerState()
+    internal BitLockerState QueryBitLockerState()
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                @"root\CIMV2\Security\MicrosoftVolumeEncryption",
-                "SELECT ConversionStatus, ProtectionStatus FROM Win32_EncryptableVolume WHERE DriveLetter = 'C:'");
-            using var results = searcher.Get();
-            var obj = results.Cast<ManagementBaseObject>().FirstOrDefault();
+            var obj = _bitLocker.ReadByDriveLetter('C').RowsOrThrow().FirstOrDefault();
             if (obj == null)
                 return BitLockerState.Unknown;
 
@@ -494,18 +483,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             var conversion = Convert.ToUInt32(obj["ConversionStatus"], CultureInfo.InvariantCulture);
             var protection = Convert.ToUInt32(obj["ProtectionStatus"], CultureInfo.InvariantCulture);
 
-            // ConversionStatus values from Win32_EncryptableVolume:
-            //   0 = FullyDecrypted  1 = FullyEncrypted  2 = EncryptionInProgress
-            //   3 = DecryptionInProgress  4 = EncryptionPaused  5 = DecryptionPaused
-            if (conversion == 0)
-                return BitLockerState.NotEncrypted;
-            if (conversion == 3 || conversion == 5)
-                return BitLockerState.DecryptionInProgress;
-            if (protection == 1)
-                return BitLockerState.EncryptedAndUnlocked;
-            if (protection == 0)
-                return BitLockerState.SuspendedProtection;
-            return BitLockerState.Unknown;
+            return ProjectBitLocker(conversion, protection);
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
@@ -514,16 +492,24 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         }
     }
 
-    private List<DiskInfo> QueryDisks()
+    internal static DiskInfo ProjectDisk(uint number, string model, long total, long allocated,
+        string style, IReadOnlyList<PartitionInfo> partitions) =>
+        new($"\\\\.\\PHYSICALDRIVE{number}", model, total, total - allocated, style, partitions);
+    internal static long ProjectOffset(object? offset) => offset is null ? -1L : Convert.ToInt64(offset, CultureInfo.InvariantCulture);
+    internal static string? ProjectGptType(object? type) => (type as string)?.Trim();
+    internal static List<PartitionInfo> OrderPartitions(IEnumerable<PartitionInfo> partitions) =>
+        partitions.OrderBy(p => p.OffsetBytes >= 0 ? p.OffsetBytes : long.MaxValue).ToList();
+    internal static long ProjectShrinkable(long? minimum, long? maximum) =>
+        minimum.HasValue && maximum.HasValue ? Math.Max(0, maximum.Value - minimum.Value) : 0;
+    internal static BitLockerState ProjectBitLocker(uint? conversion, uint? protection) =>
+        WindowsBitLockerReader.Project(conversion, protection);
+
+    internal List<DiskInfo> QueryDisks()
     {
         var disks = new List<DiskInfo>();
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                @"root\Microsoft\Windows\Storage",
-                "SELECT Number, FriendlyName, Size, AllocatedSize, PartitionStyle FROM MSFT_Disk");
-            using var results = searcher.Get();
-            foreach (ManagementBaseObject disk in results)
+            foreach (var disk in _storage.ReadDisks().RowsOrThrow())
             {
                 var number = Convert.ToUInt32(disk["Number"], CultureInfo.InvariantCulture);
                 var model = (string?)disk["FriendlyName"] ?? "Unknown";
@@ -537,8 +523,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                     _ => "Unknown",
                 };
                 var partitions = QueryPartitionsForDisk(number);
-                disks.Add(new DiskInfo(
-                    $"\\\\.\\PHYSICALDRIVE{number}", model, total, total - allocated, style, partitions));
+                disks.Add(ProjectDisk(number, model, total, allocated, style, partitions));
             }
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
@@ -553,24 +538,19 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         var partitions = new List<PartitionInfo>();
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                @"root\Microsoft\Windows\Storage",
-                $"SELECT PartitionNumber, Size, Offset, GptType, IsSystem, IsBoot, DriveLetter " +
-                $"FROM MSFT_Partition WHERE DiskNumber = {diskNumber}");
-            using var results = searcher.Get();
-            foreach (ManagementBaseObject p in results)
+            foreach (var p in _storage.ReadPartitions((int)diskNumber).RowsOrThrow())
             {
                 var index = Convert.ToInt32(p["PartitionNumber"], CultureInfo.InvariantCulture);
                 var size = Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture);
-                var offset = p["Offset"] is null ? -1L : Convert.ToInt64(p["Offset"], CultureInfo.InvariantCulture);
-                var gptType = (p["GptType"] as string)?.Trim();
+                var offset = ProjectOffset(p["Offset"]);
+                var gptType = ProjectGptType(p["GptType"]);
                 var isSystem = p["IsSystem"] is bool bs && bs;
                 var isBoot = p["IsBoot"] is bool bb && bb;
 
                 char dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
 
                 var (fs, label) = QueryVolumeInfo(dl);
-                var shrinkable = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index, p) : 0L;
+                var shrinkable = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index) : 0L;
                 partitions.Add(new PartitionInfo(index, fs, size, label, isSystem, isBoot, shrinkable,
                                                  offset, gptType));
             }
@@ -580,24 +560,16 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             _logger.LogWarning(ex, "MSFT_Partition query failed for disk {DiskNumber}", diskNumber);
         }
         // Disk order, not enumeration order: WMI returns partitions in arbitrary sequence.
-        return partitions.OrderBy(p => p.OffsetBytes >= 0 ? p.OffsetBytes : long.MaxValue).ToList();
+        return OrderPartitions(partitions);
     }
 
-    private long QueryShrinkableBytes(uint diskNumber, uint partitionNumber, ManagementBaseObject partObj)
+    private long QueryShrinkableBytes(uint diskNumber, uint partitionNumber)
     {
         try
         {
-            // Re-query as ManagementObject so we can invoke methods on it.
-            using var searcher = new ManagementObjectSearcher(
-                @"root\Microsoft\Windows\Storage",
-                $"SELECT * FROM MSFT_Partition WHERE DiskNumber = {diskNumber} " +
-                $"AND PartitionNumber = {partitionNumber}");
-            using var results = searcher.Get();
-            var mo = results.Cast<ManagementObject>().FirstOrDefault();
-            if (mo is null)
-                return 0;
-
-            var outParams = mo.InvokeMethod("GetSupportedSize", null, null);
+            var partition = _storage.ReadPartitions((int)diskNumber, (int)partitionNumber).RowsOrThrow().FirstOrDefault();
+            if (partition is null) return 0;
+            var outParams = _storage.ReadSupportedSize(partition).ValueOrThrow();
             if (outParams is null)
                 return 0;
 
@@ -607,7 +579,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
             var sizeMin = Convert.ToInt64(outParams["SizeMin"], CultureInfo.InvariantCulture);
             var sizeMax = Convert.ToInt64(outParams["SizeMax"], CultureInfo.InvariantCulture);
-            return Math.Max(0, sizeMax - sizeMin);
+            return ProjectShrinkable(sizeMin, sizeMax);
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
@@ -623,10 +595,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             return ("Unknown", null);
         try
         {
-            using var searcher = new ManagementObjectSearcher(
-                $"SELECT FileSystem, Label FROM Win32_Volume WHERE DriveLetter = '{driveLetter}:'");
-            using var results = searcher.Get();
-            var vol = results.Cast<ManagementBaseObject>().FirstOrDefault();
+            var vol = _storage.ReadVolumes(driveLetter).RowsOrThrow().FirstOrDefault();
             return ((string?)vol?["FileSystem"] ?? "Unknown", (string?)vol?["Label"]);
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)

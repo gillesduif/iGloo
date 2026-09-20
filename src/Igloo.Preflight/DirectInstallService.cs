@@ -19,7 +19,6 @@ namespace Igloo.Preflight;
 [SupportedOSPlatform("windows")]
 public sealed partial class DirectInstallService : IDirectInstallService
 {
-    private const string StorageNs = @"root\Microsoft\Windows\Storage";
     private const string EfiGlobGuid = "{8be4df61-93ca-11d2-aa0d-00e098032b8c}";
     private const long MiB = 1024L * 1024;
     // Overhead on top of the measured squashfs + kernel + initrd sizes.
@@ -107,64 +106,24 @@ public sealed partial class DirectInstallService : IDirectInstallService
     // helpers so the same pipeline drives Anaconda, debian-installer, subiquity, …
     private InstallerBootSpec _bootSpec = null!;
 
+    private readonly IWindowsStorageReader _storage;
+    private readonly IWindowsBcdReader _bcd;
     private readonly IPartitionResizeService _resizer;
     private readonly ILogger<DirectInstallService> _logger;
-
-    //   P/Invoke                                
-
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    private static partial uint GetFirmwareEnvironmentVariableW(
-        string lpName, string lpGuid, byte[] pBuffer, uint nSize);
-
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetFirmwareEnvironmentVariableW(
-        string lpName, string lpGuid, byte[]? pValue, uint nSize);
-
-    [LibraryImport("advapi32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool OpenProcessToken(
-        IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
-
-    [LibraryImport("advapi32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool LookupPrivilegeValueW(
-        string? lpSystemName, string lpName, out long lpLuid);
-
-    [LibraryImport("advapi32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool AdjustTokenPrivileges(
-        IntPtr TokenHandle, [MarshalAs(UnmanagedType.Bool)] bool DisableAllPrivileges,
-        ref TokenPrivileges NewState, uint Length,
-        IntPtr PreviousState, IntPtr ReturnLength);
-
-    [LibraryImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool CloseHandle(IntPtr handle);
-
-    // Pack=4 is critical: on x64 .NET, LayoutKind.Sequential without Pack inserts
-    // 4 bytes of padding after uint PrivilegeCount to align the long Luid field to
-    // 8 bytes, producing a 24-byte struct.  Win32 TOKEN_PRIVILEGES is 16 bytes with
-    // no padding.  Without Pack=4 the LUID is at the wrong offset and
-    // AdjustTokenPrivileges silently receives a garbage LUID, leaving
-    // SeSystemEnvironmentPrivilege disabled → ERROR_PRIVILEGE_NOT_HELD (1314).
-    [StructLayout(LayoutKind.Sequential, Pack = 4)]
-    private struct TokenPrivileges
-    {
-        public uint PrivilegeCount;
-        public long Luid;            // LUID = LowPart (4 b) + HighPart (4 b) at offset 4
-        public uint Attributes;      // SE_PRIVILEGE_ENABLED = 2, at offset 12
-    }
 
     //   Constructor                              ─
 
     public DirectInstallService(
         IPartitionResizeService resizer,
         ILogger<DirectInstallService> logger)
-    {
-        _resizer = resizer;
-        _logger = logger;
-    }
+        : this(resizer, logger, new WindowsStorageReader()) { }
+
+    public DirectInstallService(IPartitionResizeService resizer, ILogger<DirectInstallService> logger, IWindowsStorageReader storage)
+        : this(resizer, logger, storage, new WindowsBcdReader()) { }
+
+    public DirectInstallService(IPartitionResizeService resizer, ILogger<DirectInstallService> logger,
+        IWindowsStorageReader storage, IWindowsBcdReader bcd)
+    { _resizer = resizer; _logger = logger; _storage = storage; _bcd = bcd; }
 
     //   IDirectInstallService                         ─
 
@@ -499,10 +458,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(StorageNs,
-                $"SELECT PartitionNumber, DriveLetter FROM MSFT_Partition WHERE DiskNumber = {diskNumber}");
-            using var results = searcher.Get();
-            foreach (ManagementBaseObject p in results)
+            foreach (var p in _storage.ReadPartitions(diskNumber).RowsOrThrow())
             {
                 char dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
                 if (char.ToUpperInvariant(dl) == char.ToUpperInvariant(letter))
@@ -784,15 +740,12 @@ public sealed partial class DirectInstallService : IDirectInstallService
 
     private void EnsureRootPartition(int diskNumber, CancellationToken ct)
     {
-        using (var searcher = new ManagementObjectSearcher(StorageNs,
-            $"SELECT GptType FROM MSFT_Partition WHERE DiskNumber = {diskNumber}"))
-        using (var results = searcher.Get())
-            foreach (ManagementBaseObject p in results)
-                if (string.Equals(p["GptType"]?.ToString(), LinuxFsGptType, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogInformation("Linux root partition already present on disk {D} - reusing", diskNumber);
-                    return;
-                }
+        foreach (var p in _storage.ReadPartitions(diskNumber).RowsOrThrow())
+            if (string.Equals(p["GptType"]?.ToString(), LinuxFsGptType, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Linux root partition already present on disk {D} - reusing", diskNumber);
+                return;
+            }
 
         _logger.LogInformation("Creating Linux root partition on disk {D} (fills remaining free space)", diskNumber);
         // No size argument: diskpart fills the largest free region, which is the
@@ -813,15 +766,12 @@ public sealed partial class DirectInstallService : IDirectInstallService
     private string BuildStoragePartitionList(int diskNumber)
     {
         var parts = new List<(uint number, long off, long size, string gptType, string guid)>();
-        using (var searcher = new ManagementObjectSearcher(StorageNs,
-            $"SELECT PartitionNumber, Offset, Size, GptType, Guid FROM MSFT_Partition WHERE DiskNumber = {diskNumber}"))
-        using (var results = searcher.Get())
-            foreach (ManagementBaseObject p in results)
-                parts.Add((Convert.ToUInt32(p["PartitionNumber"], CultureInfo.InvariantCulture),
-                           Convert.ToInt64(p["Offset"], CultureInfo.InvariantCulture),
-                           Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture),
-                           p["GptType"]?.ToString() ?? string.Empty,
-                           p["Guid"]?.ToString() ?? string.Empty));
+        foreach (var p in _storage.ReadPartitions(diskNumber).RowsOrThrow())
+            parts.Add((Convert.ToUInt32(p["PartitionNumber"], CultureInfo.InvariantCulture),
+                       Convert.ToInt64(p["Offset"], CultureInfo.InvariantCulture),
+                       Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture),
+                       p["GptType"]?.ToString() ?? string.Empty,
+                       p["Guid"]?.ToString() ?? string.Empty));
 
         if (parts.Count == 0)
             throw new InvalidOperationException($"No partitions found on disk {diskNumber}.");
@@ -1348,7 +1298,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         var bootVar = $"Boot{idx:X4}";
         _logger.LogInformation("Writing UEFI {Var} ({Bytes} bytes)", bootVar, loadOption.Length);
 
-        if (!SetFirmwareEnvironmentVariableW(bootVar, EfiGlobGuid, loadOption, (uint)loadOption.Length))
+        if (!FirmwareNative.SetFirmwareEnvironmentVariableW(bootVar, EfiGlobGuid, loadOption, (uint)loadOption.Length))
             throw new InvalidOperationException(
                 $"SetFirmwareEnvironmentVariable({bootVar}) failed: Win32 error {Marshal.GetLastWin32Error()}. " +
                 "Run Igloo as Administrator to allow UEFI NVRAM writes.");
@@ -1382,7 +1332,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
 
         // Write BootNext so the firmware uses that entry exactly once.
         var bootNext = BitConverter.GetBytes(bootNextIdx);
-        if (!SetFirmwareEnvironmentVariableW("BootNext", EfiGlobGuid, bootNext, 2))
+        if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootNext", EfiGlobGuid, bootNext, 2))
             throw new InvalidOperationException(
                 $"SetFirmwareEnvironmentVariable(BootNext) failed: Win32 error {Marshal.GetLastWin32Error()}.");
 
@@ -1513,7 +1463,11 @@ public sealed partial class DirectInstallService : IDirectInstallService
     /// </remarks>
     private void RemoveStaleBcdEntries()
     {
-        var listing = RunBcdedit("/enum firmware");
+        var observation = _bcd.ReadFirmware();
+        if (observation.ExitCode is not null and not 0)
+            _logger.LogWarning("bcdedit {Args} exited {Code}: {Err}", "/enum firmware",
+                observation.ExitCode, (observation.StandardError + observation.StandardOutput).Trim());
+        var listing = observation.StandardOutput;
         if (string.IsNullOrEmpty(listing))
             return;
 
@@ -1530,24 +1484,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
     /// splitting on "\n\n" matches nothing, leaves the listing as one block and yields a
     /// single identifier - which deleted one entry per run instead of all of them.
     /// </remarks>
-    internal static IReadOnlyList<string> ParseStaleBcdIds(string? listing, string description)
-    {
-        if (string.IsNullOrEmpty(listing))
-            return [];
-
-        var ids = new List<string>();
-        foreach (var block in Regex.Split(listing, @"\r?\n[ \t]*\r?\n"))
-        {
-            if (!block.Contains(description, StringComparison.Ordinal))
-                continue;
-
-            var id = Regex.Match(block, @"^identifier\s+(\{[0-9a-fA-F-]{36}\})",
-                                 RegexOptions.Multiline).Groups[1].Value;
-            if (id.Length > 0)
-                ids.Add(id);
-        }
-        return ids;
-    }
+    internal static IReadOnlyList<string> ParseStaleBcdIds(string? listing, string description) =>
+        BcdListingParser.ParseStaleBcdIds(listing, description);
 
     private string? RunBcdedit(string arguments)
     {
@@ -1574,22 +1512,15 @@ public sealed partial class DirectInstallService : IDirectInstallService
     /// <summary>
     /// Resolves a System32 executable, defeating the WOW64 redirect for a 32-bit process.
     /// </summary>
-    private static string FindNativeExe(string exeName)
-    {
-        var sysnative = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.Windows),
-            "Sysnative", exeName);
-        if (File.Exists(sysnative))
-            return sysnative;
-        return Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.System), exeName);
-    }
+    private static string FindNativeExe(string exeName) => WindowsBcdReader.FindNativeExecutable(exeName);
 
     private void PrependBootOrder(ushort idx)
     {
         try
         {
             // Read current BootOrder (array of uint16).
-            var buf = new byte[256];
-            var size = GetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, buf, (uint)buf.Length);
+            var buf = WindowsFirmwareReader.Shared.ReadBootOrder(256).Data?.ToArray() ?? [];
+            var size = buf.Length;
             var existing = new List<ushort>();
             for (var i = 0; i + 1 < size; i += 2)
                 existing.Add(BitConverter.ToUInt16(buf, i));
@@ -1602,7 +1533,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
             for (var i = 0; i < existing.Count; i++)
                 BitConverter.GetBytes(existing[i]).CopyTo(newOrder, i * 2);
 
-            if (!SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, newOrder, (uint)newOrder.Length))
+            if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, newOrder, (uint)newOrder.Length))
                 _logger.LogWarning("SetFirmwareEnvironmentVariable(BootOrder) failed: {Err} (non-fatal)",
                     Marshal.GetLastWin32Error());
             else
@@ -1639,8 +1570,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
                 "promoting them so the handoff survives if our own entry is pruned",
                 siblings.Count, string.Join(", ", siblings.Select(i => i.ToString("X4", CultureInfo.InvariantCulture))));
 
-            var buf = new byte[256];
-            var size = GetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, buf, (uint)buf.Length);
+            var buf = WindowsFirmwareReader.Shared.ReadBootOrder(256).Data?.ToArray() ?? [];
+            var size = buf.Length;
             var order = new List<ushort>();
             for (var i = 0; i + 1 < size; i += 2)
                 order.Add(BitConverter.ToUInt16(buf, i));
@@ -1654,7 +1585,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
             for (var i = 0; i < order.Count; i++)
                 BitConverter.GetBytes(order[i]).CopyTo(newOrder, i * 2);
 
-            if (!SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, newOrder, (uint)newOrder.Length))
+            if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, newOrder, (uint)newOrder.Length))
                 _logger.LogWarning("Could not reorder BootOrder for the firmware's own entries: {Err} (non-fatal)",
                     Marshal.GetLastWin32Error());
             else
@@ -1667,61 +1598,18 @@ public sealed partial class DirectInstallService : IDirectInstallService
         }
     }
 
-    private void EnableFirmwarePrivilege()
-    {
-        // TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES
-        if (!OpenProcessToken(Process.GetCurrentProcess().Handle, 0x0028, out var token))
-        {
-            _logger.LogWarning("OpenProcessToken failed: {Err}", Marshal.GetLastWin32Error());
-            return; // will fail at SetFirmwareEnvironmentVariable with a clear Win32 error
-        }
-
-        try
-        {
-            if (!LookupPrivilegeValueW(null, "SeSystemEnvironmentPrivilege", out var luid))
-            {
-                _logger.LogWarning("LookupPrivilegeValue(SeSystemEnvironmentPrivilege) failed: {Err}",
-                    Marshal.GetLastWin32Error());
-                return;
-            }
-
-            var tp = new TokenPrivileges
-            {
-                PrivilegeCount = 1,
-                Luid = luid,
-                Attributes = 2,  // SE_PRIVILEGE_ENABLED
-            };
-
-            // AdjustTokenPrivileges returns TRUE even when not all privileges were
-            // assigned - check GetLastError for ERROR_NOT_ALL_ASSIGNED (1300).
-            AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
-            var adjustErr = Marshal.GetLastWin32Error();
-            if (adjustErr != 0)
-                _logger.LogWarning(
-                    "AdjustTokenPrivileges(SeSystemEnvironmentPrivilege) returned error {Err} - " +
-                    "UEFI NVRAM write will likely fail. Is the process running as Administrator?",
-                    adjustErr);
-        }
-        finally
-        {
-            CloseHandle(token);
-        }
-    }
+    private void EnableFirmwarePrivilege() => FirmwareNative.EnablePrivilege(_logger, reportAssignmentFailures: true);
 
     private (ulong lbaStart, ulong lbaSize, Guid partGuid)
         GetPartitionGeometry(int diskNumber, uint partitionNumber)
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(StorageNs,
-                $"SELECT Offset, Size, Guid FROM MSFT_Partition " +
-                $"WHERE DiskNumber = {diskNumber} AND PartitionNumber = {partitionNumber}");
-            using var results = searcher.Get();
-            var mo = results.Cast<ManagementBaseObject>().First();
+            var mo = _storage.ReadPartitions(diskNumber, (int)partitionNumber).RowsOrThrow().First();
 
             var offset = Convert.ToUInt64(mo["Offset"], CultureInfo.InvariantCulture);
             var size = Convert.ToUInt64(mo["Size"], CultureInfo.InvariantCulture);
-            var guid = Guid.Parse((string)mo["Guid"]);
+            var guid = Guid.Parse((string)mo["Guid"]!);
             return (offset / 512, size / 512, guid);
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException
@@ -1736,9 +1624,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
     {
         for (ushort i = 0x0080; i < 0x00FF; i++)
         {
-            var buf = new byte[4096];
-            var read = GetFirmwareEnvironmentVariableW($"Boot{i:X4}", EfiGlobGuid, buf, (uint)buf.Length);
-            if (read == 0)
+            var observed = WindowsFirmwareReader.Shared.ReadBootEntry(i);
+            if (observed.Data is null)
                 return i; // variable doesn't exist → free slot
         }
         return 0x0090; // fallback - overwrite 0x0090

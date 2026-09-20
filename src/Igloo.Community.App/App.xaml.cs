@@ -100,6 +100,12 @@ public partial class IglooApp : Application
             client.Timeout = Timeout.InfiniteTimeSpan;
         });
 
+        // Canonical shared Windows observations; legacy services retain their own policies.
+        services.AddSingleton<IWindowsStorageReader, WindowsStorageReader>();
+        services.AddSingleton<IWindowsBitLockerReader, WindowsBitLockerReader>();
+        services.AddSingleton<IWindowsBcdReader, WindowsBcdReader>();
+        services.AddSingleton<IWindowsFirmwareReader, WindowsFirmwareReader>();
+
         // Core services
         services.AddSingleton<IPreflightChecker, WindowsPreflightChecker>();
         services.AddSingleton<ILinuxRemovalService, LinuxRemovalService>();

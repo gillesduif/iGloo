@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using System.Diagnostics;
+using Igloo.Core.Abstractions;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -50,25 +50,30 @@ internal static partial class EfiBootEntries
         {
             EnablePrivilege(logger);
 
-            var indices = new SortedSet<ushort>(ReadBootOrder());
-            for (ushort i = 0; i < 0x0100; i++)
-                indices.Add(i);
-
-            foreach (var index in indices)
-            {
-                var raw = ReadVariable($"Boot{index:X4}");
-                if (raw is null)
-                    continue;
-                var description = ParseDescription(raw);
-                if (description.Length > 0)
-                    entries.Add(new BootEntry(index, description));
-            }
+            entries.AddRange(EnumerateObserved(WindowsFirmwareReader.Shared));
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
         {
             logger.LogWarning(ex, "UEFI boot-entry enumeration failed (non-fatal)");
         }
         return entries;
+    }
+
+    internal static IEnumerable<BootEntry> EnumerateObserved(IWindowsFirmwareReader reader)
+    {
+        var indices = new SortedSet<ushort>(DecodeBootOrder(reader.ReadBootOrder().Data?.ToArray()));
+        for (ushort i = 0; i < 0x0100; i++)
+            indices.Add(i);
+
+        foreach (var index in indices)
+        {
+            var raw = reader.ReadBootEntry(index).Data?.ToArray();
+            if (raw is null)
+                continue;
+            var description = ParseDescription(raw);
+            if (description.Length > 0)
+                yield return new BootEntry(index, description);
+        }
     }
 
     /// <summary>
@@ -140,7 +145,7 @@ internal static partial class EfiBootEntries
         {
             EnablePrivilege(logger);
 
-            if (!SetFirmwareEnvironmentVariableW($"Boot{index:X4}", EfiGlobGuid, null, 0))
+            if (!FirmwareNative.SetFirmwareEnvironmentVariableW($"Boot{index:X4}", EfiGlobGuid, null, 0))
             {
                 logger.LogWarning("Delete of Boot{Index:X4} failed: Win32 error {Err}",
                     index, Marshal.GetLastWin32Error());
@@ -153,7 +158,7 @@ internal static partial class EfiBootEntries
                 var remaining = order.Where(i => i != index).ToArray();
                 var bytes = new byte[remaining.Length * 2];
                 Buffer.BlockCopy(remaining, 0, bytes, 0, bytes.Length);
-                if (!SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, bytes, (uint)bytes.Length))
+                if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, bytes, (uint)bytes.Length))
                     logger.LogWarning("BootOrder rewrite failed: Win32 error {Err} (non-fatal)",
                         Marshal.GetLastWin32Error());
             }
@@ -170,20 +175,12 @@ internal static partial class EfiBootEntries
 
     //   NVRAM plumbing                            ─
 
-    private static byte[]? ReadVariable(string name)
-    {
-        var buf = new byte[4096];
-        var read = GetFirmwareEnvironmentVariableW(name, EfiGlobGuid, buf, (uint)buf.Length);
-        if (read == 0)
-            return null;
-        var result = new byte[read];
-        Buffer.BlockCopy(buf, 0, result, 0, (int)read);
-        return result;
-    }
+    private static byte[]? ReadVariable(string name) => WindowsFirmwareReader.ReadVariable(name, 4096).Data?.ToArray();
 
-    private static ushort[] ReadBootOrder()
+    private static ushort[] ReadBootOrder() => DecodeBootOrder(ReadVariable("BootOrder"));
+
+    internal static ushort[] DecodeBootOrder(byte[]? raw)
     {
-        var raw = ReadVariable("BootOrder");
         if (raw is null || raw.Length < 2)
             return [];
         var order = new ushort[raw.Length / 2];
@@ -208,56 +205,5 @@ internal static partial class EfiBootEntries
         return sb.ToString().Trim();
     }
 
-    private static void EnablePrivilege(ILogger logger)
-    {
-        // TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES
-        if (!OpenProcessToken(Process.GetCurrentProcess().Handle, 0x0028, out var token))
-        {
-            logger.LogWarning("OpenProcessToken failed: {Err}", Marshal.GetLastWin32Error());
-            return;
-        }
-        try
-        {
-            if (!LookupPrivilegeValueW(null, "SeSystemEnvironmentPrivilege", out var luid))
-                return;
-            var tp = new TokenPrivileges { PrivilegeCount = 1, Luid = luid, Attributes = 2 };
-            AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
-        }
-        finally
-        {
-            CloseHandle(token);
-        }
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Luid { public uint LowPart; public int HighPart; }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 4)]
-    private struct TokenPrivileges { public uint PrivilegeCount; public Luid Luid; public uint Attributes; }
-
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    private static partial uint GetFirmwareEnvironmentVariableW(
-        string lpName, string lpGuid, byte[] pBuffer, uint nSize);
-
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetFirmwareEnvironmentVariableW(
-        string lpName, string lpGuid, byte[]? pValue, uint nSize);
-
-    [LibraryImport("advapi32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool OpenProcessToken(IntPtr processHandle, uint desiredAccess, out IntPtr tokenHandle);
-
-    [LibraryImport("advapi32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool LookupPrivilegeValueW(string? systemName, string name, out Luid luid);
-
-    [LibraryImport("advapi32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool AdjustTokenPrivileges(IntPtr tokenHandle, [MarshalAs(UnmanagedType.Bool)] bool disableAll,
-        ref TokenPrivileges newState, uint bufferLength, IntPtr previousState, IntPtr returnLength);
-
-    [LibraryImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool CloseHandle(IntPtr handle);
+    private static void EnablePrivilege(ILogger logger) => FirmwareNative.EnablePrivilege(logger, reportAssignmentFailures: false);
 }

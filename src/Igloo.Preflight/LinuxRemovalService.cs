@@ -13,11 +13,13 @@ namespace Igloo.Preflight;
 [SupportedOSPlatform("windows")]
 public sealed class LinuxRemovalService : ILinuxRemovalService
 {
-    private const string StorageNs = @"root\Microsoft\Windows\Storage";
+    private readonly IWindowsStorageReader _storage;
 
     private readonly ILogger<LinuxRemovalService> _logger;
 
-    public LinuxRemovalService(ILogger<LinuxRemovalService> logger) => _logger = logger;
+    public LinuxRemovalService(ILogger<LinuxRemovalService> logger) : this(logger, new WindowsStorageReader()) { }
+    public LinuxRemovalService(ILogger<LinuxRemovalService> logger, IWindowsStorageReader storage)
+    { _logger = logger; _storage = storage; }
 
     public Task RemoveAsync(IReadOnlyList<LinuxInstallation> installations,
         IReadOnlyList<SeedLeftover> seedLeftovers, bool removingAllLinux,
@@ -120,36 +122,26 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
         const long MiB = 1024L * 1024;
         try
         {
-            using var searcher = new ManagementObjectSearcher(StorageNs,
-                $"SELECT * FROM MSFT_Partition WHERE DiskNumber = {diskNumber}");
-            using var results = searcher.Get();
-
             // Same heuristic as the shrink service: the largest lettered
             // partition is the disk's main data partition.
-            ManagementObject? best = null;
+            WindowsStorageRow? best = null;
             long bestSize = 0;
             char bestLetter = '\0';
-            foreach (var p in results.Cast<ManagementObject>())
+            foreach (var p in _storage.ReadPartitions((int)diskNumber).RowsOrThrow())
             {
                 var dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
                 var size = dl == '\0' ? 0 : Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture);
                 if (size > bestSize)
                 {
-                    best?.Dispose();
                     (best, bestSize, bestLetter) = (p, size, dl);
-                }
-                else
-                {
-                    p.Dispose();
                 }
             }
             if (best is null)
                 return reclaimed;
 
-            using (best)
+            using (var target = new ManagementObject(best.ObjectPath))
             {
-                var supported = best.InvokeMethod("GetSupportedSize",
-                    best.GetMethodParameters("GetSupportedSize"), null)!;
+                var supported = WindowsStorageReader.ReadSupportedSize(target, explicitParameters: true).ValueOrThrow()!;
                 if (Convert.ToUInt32(supported["ReturnValue"], CultureInfo.InvariantCulture) != 0)
                     return reclaimed;
 
@@ -161,9 +153,9 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 var gainGb = gainBytes / (1024.0 * MiB);
                 progress?.Report($"Adding {gainGb:N1} GB back to {bestLetter}:…");
 
-                var inParams = best.GetMethodParameters("Resize");
+                var inParams = target.GetMethodParameters("Resize");
                 inParams["Size"] = (ulong)sizeMax;
-                var result = best.InvokeMethod("Resize", inParams, null)!;
+                var result = target.InvokeMethod("Resize", inParams, null)!;
                 var returnValue = Convert.ToUInt32(result["ReturnValue"], CultureInfo.InvariantCulture);
                 if (returnValue != 0)
                     _logger.LogWarning(
@@ -206,12 +198,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(StorageNs,
-                "SELECT AccessPaths FROM MSFT_Partition " +
-                "WHERE GptType = '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'");
-            using var results = searcher.Get();
-
-            foreach (var esp in results.Cast<ManagementBaseObject>())
+            foreach (var esp in _storage.ReadPartitions(efiOnly: true).RowsOrThrow())
             {
                 var volumePath = (esp["AccessPaths"] as string[])?
                     .FirstOrDefault(p => p.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
@@ -301,15 +288,10 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
     private readonly record struct EspInfo(int PartitionNumber, string VolumePath, bool IsSystem, long SizeBytes);
 
-    private static List<EspInfo> QueryEfiPartitions(uint diskNumber)
+    private List<EspInfo> QueryEfiPartitions(uint diskNumber)
     {
         var result = new List<EspInfo>();
-        using var searcher = new ManagementObjectSearcher(StorageNs,
-            "SELECT PartitionNumber, AccessPaths, IsSystem, Size FROM MSFT_Partition " +
-            $"WHERE DiskNumber = {diskNumber} AND GptType = '{{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}}'");
-        using var results = searcher.Get();
-
-        foreach (var p in results.Cast<ManagementBaseObject>())
+        foreach (var p in _storage.ReadPartitions((int)diskNumber, efiOnly: true).RowsOrThrow())
         {
             var volumePath = (p["AccessPaths"] as string[])?
                 .FirstOrDefault(a => a.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
@@ -417,11 +399,8 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(StorageNs,
-                $"SELECT * FROM MSFT_Partition WHERE DiskNumber = {diskNumber} " +
-                $"AND PartitionNumber = {partitionNumber}");
-            using var results = searcher.Get();
-            var partition = results.Cast<ManagementObject>().FirstOrDefault();
+            var observed = _storage.ReadPartitions((int)diskNumber, partitionNumber).RowsOrThrow().FirstOrDefault();
+            using var partition = observed is null ? null : new ManagementObject(observed.ObjectPath);
             if (partition is null)
             {
                 _logger.LogWarning("Partition {Disk}:{Part} no longer exists - skipped",

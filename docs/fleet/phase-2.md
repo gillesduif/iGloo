@@ -2,6 +2,162 @@
 
 Status: **implemented for deterministic fake adapters only; real execution remains disabled**.
 
+## Shared observation extraction milestone — 2026-09-20
+
+The reuse-audit extraction is implemented. This is consolidation of existing
+Community observations, not completion of Phase 2B identity/readiness semantics.
+The older feasibility assessments below remain historical records of host access.
+
+Core now exposes narrow storage, BitLocker, firmware and BCD read interfaces.
+WindowsStorageReader centralizes disk/partition/ESP enumeration, volume properties
+and GetSupportedSize. Raw WMI property values and nulls are retained in local
+property bags; failures remain explicit, including errors following partial
+enumeration. They are not exact-target proofs or public Fleet evidence.
+
+WindowsPreflightChecker, PartitionResizeService, DirectInstallService and
+LinuxRemovalService consume the shared storage implementation. Their existing
+compatibility conversions remain: physical-drive-number paths, unallocated
+capacity, offset ordering, -1/zero/null fallbacks and per-caller selection rules.
+Existing mutation services bind their selected WMI object path only within their
+existing mutation flow; no write methods are exposed by the observation interface.
+The shared size-query implementation retains the callers' null versus explicit
+method-parameter behavior.
+
+WindowsBitLockerReader owns the existing provider query and interpretation.
+Community still queries C: and still maps missing/failed observations to Unknown.
+No exact-volume BitLocker binding or lock-state claim was introduced.
+
+FirmwareNative contains the single firmware read/write declarations and privilege
+enablement implementation. Existing callers retain privilege-call placement and
+their differing diagnostic policies. WindowsFirmwareReader exposes only reads
+and retains native errors. DirectInstall's 256-byte BootOrder buffers and
+EfiBootEntries' 4096-byte reads, scanning ranges, description matching and failure
+fallbacks remain unchanged. Existing firmware writes were relocated to the common
+native declaration without adding or invoking a write operation.
+
+WindowsBcdReader exposes only fixed firmware enumeration. Raw results explicitly
+remain Unparsed, CommandFailed or Unavailable. BcdListingParser contains the moved
+stale-identifier parser; DirectInstall's compatibility method forwards to it.
+Existing private BCD write execution remains in DirectInstall. The native
+executable path resolver is shared; no generic command runner was introduced.
+
+Community DI registers the shared readers, and existing constructor overloads
+remain usable. Fleet's existing preflight composition reaches these same readers;
+no alternative Fleet inspector or project reference was added. Phase 2A contracts,
+journal and coordinator are unchanged. No WinRE, authorization, protected execution
+state, target revalidation, recovery-readiness evaluator or gate was implemented.
+
+Fourteen new characterization cases passed before observation extraction, followed
+by fourteen shared-reader/compatibility cases. Coverage includes disk and partition
+projections, BitLocker's C: query and failures, resize tie-breaking without an
+NTFS/OS-volume filter, partial enumeration, firmware failure/scanning behavior and
+unchanged BCD parser quirks. The solution now passes 352 tests with zero failures
+or skips; Release build with warnings as errors passes with zero warnings/errors.
+Restore, both real Windows read-only Fleet demonstrations, and git diff --check
+also pass. New untracked source files were checked separately for whitespace.
+No destructive demonstration, commit or push was performed.
+
+Remaining overlap is outside this extraction: UsbWriter's removable-media
+Win32_DiskDrive listing, existing private mutation plumbing, and unrelated GPU,
+TPM/display/application observations. The next semantic milestone should enrich
+these canonical providers and add strict Fleet projections around their results,
+without replacing the Community compatibility mappings. Complete boot/recovery
+feasibility remains subject to the documented read-access checks.
+
+## Phase 2B: read-only host inspection blocked
+
+### 2026-09-20 resumed feasibility inspection
+
+The resumed task expected an elevated session, but the actual 64-bit tool process
+reported `WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(Administrator)`
+as **false**. No elevation was attempted. Read-only probes independently confirmed
+that the required access is still unavailable:
+
+- `bcdedit.exe /enum all /v`: the boot configuration data store could not be
+  opened; access denied. Boot manager/loader identifiers, device references,
+  bootsequence and display order could not be captured.
+- `reagentc.exe /info`: requires an elevated command prompt; operation failed
+  with error 5. WinRE status, configured location and recovery-partition binding
+  could not be captured.
+- Exact-volume BitLocker was not re-probed after the stop condition. The prior
+  provider access denial remains unresolved; no volume-bound readiness is claimed.
+- EFI/NVRAM reads were not attempted after the stop condition. BootOrder,
+  BootNext, Boot#### contents and their ESP correlation remain unverified.
+- The temporary directory/ACL check was not reached. No ACL test directory was
+  created and protected-state feasibility remains unverified.
+
+Implementation stopped immediately after these access failures. Phase 2B remains
+unimplemented. This is an observed process-permission limitation, not evidence
+that Windows or this firmware cannot provide the necessary read interfaces.
+Successful storage inspection from the prior session does not substitute for
+missing boot/recovery evidence.
+
+The next session must verify elevation in the **actual command/tool process**,
+then repeat read-only feasibility checks. Proposed BCD probes are
+`bcdedit.exe /enum all /v` and `/enum firmware /v`; these enumeration commands
+do not modify BCD, but successful enumeration must still be evaluated for complete
+snapshot coverage. WinRE inspection uses `reagentc.exe /info`. Neither command's
+output has yet established an exact recoverable snapshot in this task. Firmware
+read access, exact-volume encryption correlation and ACL read-back still require
+their own successful checks. No production-directory, authorization, gate or
+adapter code was added, and no boot/storage mutation was performed.
+
+The requested post-inspection verification was rerun on 2026-09-20: restore
+passed; Release build passed with zero warnings/errors; all 324 tests passed
+with zero failures/skips; Phase 1 enrollment/planning/restart persistence and
+Phase 0 read-only assessment demonstrations passed; git diff --check passed.
+Only this assessment document changed among tracked files. Verification produced
+its normal ignored build/test artifacts; no feasibility-test directory or
+production execution state was created. No commit or push was performed.
+
+### 2026-09-19 initial assessment
+
+Phase 2B was attempted on 2026-09-19. It is **not implemented**. The initial
+read-only capability probes hit the requested stop conditions before any source
+code changes: this process is not elevated and cannot read the required boot
+configuration or obtain volume-bound BitLocker evidence. Phase 2A remains the
+implemented baseline; the findings below are diagnostic observations, not a new
+adapter, execution authorization or readiness result.
+
+| Read-only probe | Observed result | Implication |
+|---|---|---|
+| Get-Disk / Get-Partition | GPT disk GUID, hardware unique ID/serial, partition GUIDs, numbers, geometry, GPT types, access paths and boot/system roles available on the Windows disk | Stable target identity appears representable; full volume binding and revalidation remain unimplemented |
+| Additional attached disks | MBR layouts without GPT disk/partition GUIDs | Must be explicitly Unsupported by the proposed GPT identity adapter, never inferred from disk numbers or drive letters |
+| bcdedit.exe /enum firmware /v | Exit 1: boot configuration store access denied | Exact BCD/Windows boot manager snapshot cannot be proven in this session |
+| reagentc.exe /info | Exit 5: elevated command prompt required | WinRE configuration and resolvability remain Unknown |
+| Win32_EncryptableVolume through root/CIMV2/Security/MicrosoftVolumeEncryption | Access denied | BitLocker state cannot be associated with the exact target volume in this session; remains blocking Unknown |
+
+Hardware serials and volume identifiers are intentionally not copied into this
+public document. The probes did not select or authorize a mutation target. No
+partition changes, boot writes, firmware writes, BitLocker changes, elevation,
+reboot or Linux installation were attempted.
+
+The seven-step Phase 2B demonstration stopped during initial inspection. No exact
+boot snapshot, authorization, fresh plan revalidation or pre-commit gate result
+was fabricated. Protected-directory ACL verification and durable authorization
+consumption have not been implemented or tested for Phase 2B.
+
+The next prerequisite is an explicitly available elevated Windows inspection
+session in which the same read-only BCD, WinRE and volume-specific BitLocker
+queries succeed. Firmware-variable and EFI read access, complete snapshot scope,
+and protected-state ACL semantics must then be verified before continuing; an
+elevated token alone does not establish those properties. Community changes or
+destructive host operations are not needed to resolve the current access blocker.
+
+Phase 2C remains blocked by all unimplemented Phase 2B requirements: exact fresh
+plan/target/evidence binding, proven recovery readiness, complete deterministic
+boot capture, protected immutable local artifacts, durable single-use
+authorization and a read-only pre-commit gate. Real partition mutation, boot
+mutation/restoration, reboot execution, Linux completion receipts and production
+execution endpoints remain disabled.
+
+Baseline verification after these probes passed: solution restore; Release build
+with warnings as errors (zero warnings/errors); all 324 tests (zero failures or
+skips); Phase 1 enrollment/planning/restart-persistence demonstration; Phase 0
+actual Windows assessment demonstration; and git diff --check. No tests were
+added and no source/project dependencies changed. Verification logs are ignored
+local `test-logs/phase2b-*` artifacts. No commit or push was performed.
+
 ## Architecture and scope
 
 Core now defines immutable storage identities, exact before/after states, typed
