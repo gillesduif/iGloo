@@ -77,25 +77,14 @@ public sealed partial class PlanningService
 
     private void CurrentEvidence(PlanningState state, DryRunEvidence evidence)
     {
-        Authorized(state, evidence.Result.Assessment.Identity);
-        var work = state.Work[evidence.DryRunId];
-        if (work.ExpiresAtUtc <= Now || evidence.ReceivedAtUtc.AddHours(4) <= Now ||
-            work.Profile is null || state.Profiles.Values.Any(p => p.ProfileId == work.Profile.ProfileId && p.Revision > work.Profile.Revision))
-            throw new PlanningException(FleetErrorCode.ApprovalStale);
-        // Every later accepted assessment or dry-run invalidates approval, even if superficially compatible.
-        var latest = state.Audit.LastOrDefault(a => a.Action == "AssessmentReceived" &&
-            state.Evidence[a.TargetId].Result.Assessment.Identity.DeviceId == work.Identity.DeviceId);
-        if (latest?.TargetId != evidence.DryRunId)
-            throw new PlanningException(FleetErrorCode.ApprovalStale);
+        if (PlanningValidity.EvidenceError(state, evidence, Now) is { } error) throw new PlanningException(error);
     }
 
     private void RefreshValidity(PlanningState state)
     {
         foreach (var approval in state.Approvals.Values.Where(a => a.Status == ApprovalState.Approved).ToArray())
         {
-            var status = approval.ExpiresAtUtc <= Now ? ApprovalState.Expired : ApprovalState.Approved;
-            try { CurrentEvidence(state, state.Evidence[approval.DryRunId]); }
-            catch (PlanningException) { if (status == ApprovalState.Approved) status = ApprovalState.Superseded; }
+            var status = PlanningValidity.ApprovalStatus(state, approval, Now);
             if (status != approval.Status)
             {
                 state.Approvals[approval.ApprovalId] = approval with { Status = status };
@@ -105,9 +94,7 @@ public sealed partial class PlanningService
         foreach (var plan in state.Plans.Values.Where(p => p.Status == PreparedPlanState.Prepared).ToArray())
         {
             var approval = state.Approvals[plan.ApprovalId];
-            var status = plan.ExpiresAtUtc <= Now ? PreparedPlanState.Expired :
-                approval.Status == ApprovalState.Revoked ? PreparedPlanState.Invalidated :
-                approval.Status != ApprovalState.Approved ? PreparedPlanState.Superseded : PreparedPlanState.Prepared;
+            var status = PlanningValidity.PlanStatus(plan, approval.Status, Now);
             if (status != plan.Status)
             {
                 state.Plans[plan.PlanId] = plan with { Status = status };

@@ -116,9 +116,7 @@ public sealed partial class PlanningService(IPlanningStore store, TimeProvider c
 
     private void Active(TrustedDeviceView device)
     {
-        if (device.Status == AgentTrustStatus.Revoked) throw new PlanningException(FleetErrorCode.CertificateRevoked);
-        if (device.Status == AgentTrustStatus.Disabled) throw new PlanningException(FleetErrorCode.AgentDisabled);
-        if (device.CertificateExpiresAtUtc <= Now) throw new PlanningException(FleetErrorCode.CertificateInvalid);
+        if (PlanningValidity.DeviceError(device, Now) is { } error) throw new PlanningException(error);
     }
 
     private void Audit(PlanningState state, string actorType, string actor, string action, Guid target, Guid correlation) =>

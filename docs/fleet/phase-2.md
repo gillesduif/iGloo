@@ -1,8 +1,298 @@
-# Fleet Phase 2A: recoverable execution foundation
+# Fleet Phase 2: recoverable execution and read-only target identity
 
-Status: **implemented for deterministic fake adapters only; real execution remains disabled**.
+Status: **Phase 2A fake recovery, Phase 2B1 read-only identity, and Phase 2B2 local authority/gating are implemented. Real execution remains disabled; production recovery readiness remains unavailable.**
 
-## Shared observation extraction milestone — 2026-09-20
+## Phase 2B2 — protected local state, authorization and read-only gate
+
+This milestone adds local building blocks, not a production execution endpoint.
+No partition/boot mutation, restoration, reboot, WinRE probe, complete boot
+snapshot or Linux completion receipt is introduced. Community behavior and
+references, canonical observation readers, and Phase 2A journal semantics remain
+unchanged. The gate cannot invoke a mutation adapter.
+
+### Protected-state layout and authority
+
+`ProtectedExecutionState.ForMachine()` chooses one machine-local base, with no
+user-profile or staging fallback:
+
+```text
+%ProgramData%/iGloo-Fleet-Execution/<AgentId N>/<ExecutionId N>/
+  authority.json       schema-1 receipt: expected binding and manifest hash
+  manifest.json        schema-1 immutable artifact manifest
+  immutable/          explicitly named artifact bytes
+  mutable/            authorization.db; future execution journal files
+```
+
+The endpoint and execution directory components come only from validated GUIDs.
+Creation writes a protected pending sibling, flushes new files to disk, and uses
+a same-volume rename to publish the canonical directory. Competing publication
+has one winner; an existing execution is never overwritten or reused. Failed
+pending directories are non-authoritative and retained for explicit operator
+cleanup. There is no automatic deletion or reuse. Tests inject a temporary root;
+production composition must use the machine factory and must not substitute a
+weaker root after a protection failure.
+
+The manifest binds execution, Prepared plan, endpoint, profile revision, evidence
+hash, target-binding schema/fingerprint, operation set, and artifact name/size/hash.
+Serialization and SHA-256 reuse EvidenceIntegrity; object keys, artifact ordering
+and operation ordering are deterministic. Artifact names are deliberately flat,
+restricted relative filenames: traversal, rooted paths, alternate streams,
+reserved Windows device names, trailing dots and case aliases are rejected.
+Reparse points are rejected throughout checked paths. Immutable bytes, names,
+manifest identity and hashes are verified on every reopen; missing, changed or
+unexpected immutable artifacts block use. Mutable files are outside that hash
+set and still require protected ACLs and non-reparse paths.
+
+Restart calls Open with the already-approved ExecutionBinding. The ACL-protected
+authority receipt supplies the original manifest hash; it is not recomputed from
+newly observed files as a replacement authority. Supplying a different plan,
+execution, endpoint, target or operation set cannot reopen the original authority.
+
+### ACL boundary and threat model
+
+IProtectedDirectoryAcl separates protected creation from directory/file ACL
+verification. WindowsProtectedDirectoryAcl creates a protected DACL with only
+SYSTEM and built-in Administrators receiving FullControl, inherited by children;
+directory ownership must be SYSTEM or Administrators. Reopen reads back owner,
+inheritance, principals and rights. Unexpected or inherited directory ACEs,
+unexpected file principals, denied ACL reads and reparse paths fail closed.
+The intended Agent service identity for this policy is LocalSystem. Supporting
+another service principal requires an explicit policy change and verification.
+
+**This Windows ACL policy has not been verified on the elevated real host.**
+Deterministic tests use a fake ACL adapter. No production ACL writer was invoked
+for this milestone, and no success is inferred from setting an ACL alone.
+
+The threat model excludes malicious Administrators/SYSTEM, compromised trusted
+providers and whole-volume/VM rollback. Hashes detect changes against the
+protected local receipt; they are not signatures or proof against an administrator
+who replaces both artifacts and authority. Path checks rely on the protected
+parent directories excluding untrusted concurrent writers. Phase 2C must resolve
+privileged rollback, clock trust, freshness and mutation-boundary race handling
+before treating these local checks as execution authority.
+
+### Execution authorization lifecycle
+
+ExecutionAuthorization schema 1 is separate from a Phase 1 planning approval and
+from the execution journal. It binds a unique AuthorizationId (nonce), ExecutionId,
+PlanId, endpoint, profile revision, evidence hash, exact-target schema/fingerprint,
+and the exact set of typed operation IDs. Operations name permitted future storage
+resize or boot-configuration steps; they contain no command or executable payload.
+Issued/expires timestamps must be UTC, increasing, and at most ten minutes apart.
+No code derives an execution authorization from an old planning approval.
+
+SqliteExecutionAuthorizationStore is provisioned explicitly at a verified mutable
+directory. Initialize exclusively creates a new database; it never repairs or
+reinitializes an existing file. Database schema version 1 is checked when reading
+authority. Issuance rows are immutable, hashed, and unique by authorization and
+execution ID. Consumption is a separate immutable row. SQLite primary/unique
+constraints, foreign keys, no-update/no-delete triggers and an immediate transaction
+serialize competing consumers across store/process instances. Expiry and exact
+correlation are checked after obtaining the transaction's write reservation.
+Only one consumer succeeds, and committed consumption remains rejected after
+store reconstruction. Unknown schema, missing/corrupt authority and database
+errors fail closed. Expired authority cannot be replaced for the same execution;
+a new explicit workflow needs a new execution identity.
+
+Validate opens the database read-only, checks existence, lifetime, unused state
+and exact correlation, and does not consume. Consume is a separate explicit API
+for a future boundary immediately before the first authorized mutation. The gate
+has neither a store dependency nor a consumption call. There is no production
+provisioning/issuance route or destructive consumer in this milestone.
+
+### Phase 1 validity reuse and gate semantics
+
+The audit confirmed that Plans()/Approvals() refresh statuses and write audit
+events. PlanningValidity now contains the shared pure rules for device trust,
+certificate expiry, work/evidence expiry, newer profile revisions, latest accepted
+assessment, approval state and Prepared plan state. Existing Phase 1 refresh
+methods delegate to these rules and retain their externally visible behavior.
+Gate composition uses IPlanningStore.Read plus PlanningValidity.Evaluate, not the
+refreshing list accessors. The validity result records its evaluation instant;
+the gate requires the same captured instant for evaluation rather than accepting
+a stale validity result. Plan/approval identity and evidence correlation are also
+checked before reporting a valid plan.
+
+PreCommitGate evaluates trusted, freshly acquired inputs: expected execution and
+operation set, pure plan validity, explicit approved target binding, shared storage
+and exact-volume BitLocker observations, protected-state verification, recovery
+readiness and read-only authorization validation. It calls the existing pure
+TargetRevalidator and requires ExactMatch. Every applicable blocking category is
+returned, with target, authorization, protected-state and recovery detail retained.
+The result is Ready or Blocked; Ready is an observation result, not an execution
+capability, reservation or permission to skip fresh checks at consumption.
+
+RecoveryReadiness models Ready, NotReady, ObservationUnavailable, Unsupported and
+Ambiguous, with typed reasons. **Production always supplies
+ObservationUnavailable/NotImplemented.** Only deterministic tests supply Ready.
+The previously blocked elevated read-only BCD, WinRE, exact-volume BitLocker,
+EFI/NVRAM and ESP/Windows-boot association feasibility checks remain required.
+No recovery partition detection or Linux marker substitutes for verified recovery.
+
+### Validation and remaining Phase 2C prerequisites
+
+Tests cover publication races, restart/reopen, identity reuse rejection, traversal,
+artifact tampering/missing/unexpected files, ACL failure, authorization correlations,
+lifetime, immutable issuance, restart and concurrent consumption, corrupt/missing
+databases, pure validity reuse, every gate prerequisite, simultaneous blockers,
+unchanged authorization after repeated gate evaluation, and architecture boundaries.
+
+Verification completed with **452 passing tests (45 new)**, zero failures/skips,
+and a Release build with zero warnings/errors under warnings-as-errors. Restore,
+the Phase 1 and Phase 0 real Windows read-only demonstrations, and whitespace
+checks passed. New untracked source files were checked separately for whitespace.
+No production ACL write, elevated recovery probe, destructive operation, commit
+or push was performed.
+
+Files for this milestone:
+
+- Agent: `Execution/ProtectedExecutionState.cs`, `Execution/WindowsProtectedDirectoryAcl.cs`,
+  and `Execution/PreCommitGate.cs`.
+- Domain: `ExecutionAuthorization.cs`, `PlanningValidity.cs`, and shared changes to
+  `ApprovalService.cs`, `EnrollmentService.cs`, `EvidenceIntegrity.cs`.
+- Persistence: `SqliteExecutionAuthorizationStore.cs`.
+- Tests: `ExecutionBoundaryTests.cs`, with the existing target test fixture made
+  reusable in `TargetRevalidationTests.cs`.
+- Documentation: this file. Prior Phase 2B1 uncommitted work remains intact.
+
+Before Phase 2C: verify the production Windows ACL model on an elevated host;
+complete elevated recovery feasibility and real RecoveryReadiness; design a trusted
+explicit target-binding/authorization issuance workflow; integrate the protected
+directory and journal with fresh execution-boundary checks; and prove real shared
+mutation/verification/restoration semantics without changing Community selection
+or sequencing. Production execution remains disabled throughout these steps.
+
+## Phase 2B1 — completed identity milestone (historical scope)
+
+Phase 2B1 extends the consolidated readers; **Phase 2B remains incomplete**.
+There is no second Fleet Windows inspector. Core contains local, typed facts;
+Preflight owns WMI and native reads; Fleet.Agent/Targets contains immutable
+bindings and pure comparison. Community callers still use their existing
+compatibility projections. Phase 2A StorageState, journal records and recovery
+state transitions have not been reinterpreted or changed.
+
+### Observation availability and compatibility
+
+`Observation<T>` distinguishes Available, Unavailable, Unsupported, AccessDenied,
+Ambiguous and Absent. A failed fact cannot expose a default zero/false value.
+Missing WMI properties are Unsupported; present null or invalid properties are
+Unavailable. Partial/failed inventory enumeration cannot become a successful
+identity snapshot. Empty successful enumeration remains distinct from failure.
+Native error numbers remain available on firmware observations; diagnostic codes
+on typed observations contain no private device data.
+
+Community still receives physical-drive-number DeviceId paths, the original
+FreeBytes meaning, offset ordering, -1/null offsets/types and zero shrink fallback.
+Resize candidate selection, mutation sequencing, Linux removal safeguards,
+BitLocker's C: compatibility query and Unknown fallback remain unchanged.
+Legacy raw rows and ValueOrThrow behavior remain available to these callers.
+The strict supported-size projection preserves provider rejection separately
+from successful SizeMin/SizeMax, including unsupported and access-denied results.
+
+### Stable, structural and transient facts
+
+WindowsStorageReader now captures MSFT_Disk UniqueId, UniqueIdFormat, SerialNumber,
+BusType, FriendlyName, Size, PartitionStyle, GPT disk GUID, both sector sizes and
+Number. Partition facts include GUID, GPT type, disk/partition number, offset,
+size, system/boot/active flags, access paths and drive letter. Volume observations
+include GUID path identity, owning partition GUID, filesystem, label, drive
+letter, Status and DirtyBitSet when supplied by Windows. Volume ownership is
+joined through a matching GUID access path; drive letters never establish it.
+
+These fields follow Microsoft's [MSFT_Disk contract](https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-disk).
+The current conservative binding supports GPT with a nonempty provider UniqueId
+in EUI64, FCPH or SCSI-name format (2, 3, 8), known nonvirtual bus, disk GUID,
+partition GUID and volume GUID. Vendor-specific/missing identifiers and reported
+virtual/file-backed buses have reduced or unavailable identity strength and
+cannot produce ExactMatch. MBR is Unsupported; it is never promoted to GPT.
+Provider identifiers are correlation evidence, not hardware attestation: cloned
+identifiers, dishonest providers and observation races are not solved here.
+
+`ExactTargetBinding` schema **1** binds PlanId, ApprovalId, endpoint, profile
+revision and evidence hash to:
+
+- Stable facts: disk UniqueId/format and GPT GUID, partition GUID, volume GUID.
+- Structural facts: disk size/style/sector sizes, partition offset/size/type,
+  filesystem and label. This version conservatively requires filesystem/label.
+- Informational facts: disk number, partition number and drive letter.
+
+TargetFingerprint hashes schema, stable and structural facts only. Locator changes
+do not change equivalence. Within a fresh inventory, disk numbers only associate
+partition rows with disk rows; duplicate associations are ambiguous. Old locators
+can explain a replacement mismatch but can never prove a positive match.
+
+### Exact-volume BitLocker and firmware reads
+
+WindowsBitLockerReader adds an exact-volume path alongside the unchanged
+Community query. It correlates Win32_EncryptableVolume DeviceID to the observed
+volume GUID and reads GetConversionStatus, GetProtectionStatus and GetLockStatus.
+EncryptionMethod and drive letter are optional metadata. Missing/denied provider
+results and unknown status values block exact revalidation; evidence for another
+volume is rejected. No protector or key material is read. DeviceID correlation
+and fresh status methods follow the [Win32_EncryptableVolume contract](https://learn.microsoft.com/en-us/windows/win32/secprov/win32-encryptablevolume).
+
+The canonical firmware reader adds BootNext using the existing native read path.
+Decoding requires exactly one little-endian 16-bit entry index. Missing variable
+(native 203), access/privilege denial (5/1300/1314), unsupported call (1/50), other
+native failure, and a present value remain distinct; malformed BootNext is
+Ambiguous. Buffer sizes, EfiBootEntries behavior and privilege/write sequencing
+are unchanged. This does not constitute a complete boot recovery snapshot.
+
+### Revalidation and approval boundary
+
+TargetRevalidator takes an explicitly approved binding, its Prepared plan, a fresh
+shared storage observation and volume-correlated BitLocker observation. It has
+no Windows reader, process, native, journal or mutation dependency. Outcomes are:
+
+| Outcome | Meaning |
+| --- | --- |
+| ExactMatch | Required stable/structural facts agree and BitLocker observation belongs to that volume. |
+| Changed | Explicit plan/binding correlation or an identity/structural fact differs. |
+| Missing | Successful inventory does not contain the required target. |
+| Ambiguous | Duplicate identity or conflicting ownership prevents a unique match. |
+| Unsupported | Binding schema, identity strength/style or provider capability is unsupported. |
+| ObservationUnavailable | Required facts cannot be observed, including access denial or missing binding. |
+
+Each blocked result includes a typed reason. Unknown facts cannot trigger a
+heuristic fallback. An old Prepared plan without an explicitly approved binding
+returns BindingRequired; no factory enriches old approvals from current state.
+No binding is attached to existing plan persistence or network protocols.
+ExactMatch is only an identity result: it does not validate approval freshness,
+BitLocker execution safety, recovery capability or permission to execute.
+
+### Validation and remaining work
+
+Deterministic tests cover raw failure versus zero/absence, supported-size errors,
+provider identity projection, GUID-based volume ownership, BootNext decoding,
+locator changes, disk replacement, partition/volume replacement, geometry/type
+and filesystem/label drift, missing and duplicate targets, reduced VM identity,
+MBR rejection, wrong-volume/unknown BitLocker evidence, explicit approval
+correlation, old plans, binding fingerprints and pure comparison architecture.
+Existing Community compatibility and project-reference tests remain in place.
+No elevated identity or boot probe is required by these tests.
+
+Verification: 407 tests pass (55 added since the 352-test consolidation baseline),
+with zero failures/skips. Restore and the Release build with warnings treated as
+errors pass, with zero warnings/errors. Both existing Windows read-only Phase 0
+and Phase 1 demonstrations pass. Whitespace validation includes new source files.
+The demonstrations exercise Community-compatible preflight, not elevated proof
+of the new exact-volume or complete boot/recovery capabilities.
+
+At the end of Phase 2B1, the remaining work was recorded below. Phase 2B2 above
+supersedes its local-state, authorization and gate TODOs; elevated recovery work
+remains blocked.
+
+Before RecoveryReadiness can be implemented, the previously blocked elevated
+read-only BCD, WinRE, exact-volume BitLocker and EFI/NVRAM feasibility checks must
+succeed, including exact ESP/Windows boot association. A future approval workflow
+must explicitly approve schema-1 bindings; snapshot freshness/race handling and
+provider identity limitations need execution-boundary treatment. Protected local
+state/ACL verification, durable single-use authorization and a read-only gate are
+still outstanding. No WinRE implementation, RecoveryReadiness, protected execution
+directory, authorization, production endpoint, real partition/boot mutation or
+restoration, reboot or Linux completion receipt is enabled by Phase 2B1.
+
+## Historical shared observation extraction milestone — 2026-09-20
 
 The reuse-audit extraction is implemented. This is consolidation of existing
 Community observations, not completion of Phase 2B identity/readiness semantics.
@@ -64,7 +354,7 @@ these canonical providers and add strict Fleet projections around their results,
 without replacing the Community compatibility mappings. Complete boot/recovery
 feasibility remains subject to the documented read-access checks.
 
-## Phase 2B: read-only host inspection blocked
+## Historical host feasibility findings — recovery inspection still blocked
 
 ### 2026-09-20 resumed feasibility inspection
 

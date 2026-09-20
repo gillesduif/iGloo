@@ -12,6 +12,7 @@ public sealed class WindowsFirmwareReader : IWindowsFirmwareReader
 
     // Privilege enablement remains at the existing callers' boundaries, including write flows.
     public FirmwareVariableObservation ReadBootOrder(int bufferBytes = 4096) => ReadVariable("BootOrder", bufferBytes);
+    public FirmwareVariableObservation ReadBootNext(int bufferBytes = 4096) => ReadVariable("BootNext", bufferBytes);
     public FirmwareVariableObservation ReadBootEntry(ushort index, int bufferBytes = 4096) =>
         ReadVariable("Boot" + index.ToString("X4", CultureInfo.InvariantCulture), bufferBytes);
 

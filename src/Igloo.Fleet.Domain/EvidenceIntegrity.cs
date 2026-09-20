@@ -9,12 +9,19 @@ public static class EvidenceIntegrity
 {
     public static string Hash<T>(T payload)
     {
+        return HashBytes(CanonicalBytes(payload));
+    }
+
+    public static byte[] CanonicalBytes<T>(T payload)
+    {
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(payload));
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
             Write(writer, document.RootElement);
-        return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
+        return stream.ToArray();
     }
+
+    public static string HashBytes(ReadOnlySpan<byte> bytes) => Convert.ToHexString(SHA256.HashData(bytes));
 
     public static string SecretHash(string secret) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(secret)));

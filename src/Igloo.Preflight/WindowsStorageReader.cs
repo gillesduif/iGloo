@@ -10,7 +10,30 @@ public sealed class WindowsStorageReader : IWindowsStorageReader
     private const string StorageNamespace = @"root\Microsoft\Windows\Storage";
 
     public WindowsStorageBatch ReadDisks() => Query(StorageNamespace,
-        "SELECT Number, FriendlyName, Size, AllocatedSize, PartitionStyle FROM MSFT_Disk");
+        "SELECT * FROM MSFT_Disk");
+
+    public Observation<WindowsStorageSnapshot> ReadIdentitySnapshot()
+    {
+        try { return ReadIdentitySnapshotCore(); }
+        catch (Exception error) when (error is UnauthorizedAccessException or System.Security.SecurityException or NotSupportedException)
+        { return Observations.Failure<WindowsStorageSnapshot>(ObservationErrors.Classify(error), "StorageInventoryUnavailable"); }
+    }
+
+    private Observation<WindowsStorageSnapshot> ReadIdentitySnapshotCore()
+    {
+        var disks = ReadDisks();
+        var partitions = ReadPartitions();
+        var volumes = ReadAllVolumes();
+        foreach (var batch in new[] { disks, partitions, volumes })
+            if (batch.Availability != ObservationAvailability.Available)
+                return Observations.Failure<WindowsStorageSnapshot>(batch.Availability, "StorageInventoryIncomplete");
+        var partitionFacts = partitions.Rows.Select(StorageObservationProjection.Partition).ToImmutableArray();
+        return Observations.Available<WindowsStorageSnapshot>(new(
+            disks.Rows.Select(StorageObservationProjection.Disk).ToImmutableArray(), partitionFacts,
+            volumes.Rows.Select(row => StorageObservationProjection.Volume(row, partitionFacts)).ToImmutableArray()));
+    }
+
+    private static WindowsStorageBatch ReadAllVolumes() => Query(@"root\cimv2", "SELECT * FROM Win32_Volume");
 
     public WindowsStorageBatch ReadPartitions(int? diskNumber = null, int? partitionNumber = null, bool efiOnly = false)
     {
@@ -36,7 +59,7 @@ public sealed class WindowsStorageReader : IWindowsStorageReader
             using var target = new ManagementObject(partition.ObjectPath);
             return ReadSupportedSize(target, explicitParameters);
         }
-        catch (Exception ex) when (IsObservationError(ex)) { return new(null, ex); }
+        catch (Exception ex) when (IsObservationError(ex)) { return new(null, ex) { ProviderAvailability = ClassifyError(ex) }; }
     }
 
     // Existing mutation services can retain their selected WMI object and sequencing.
@@ -46,9 +69,15 @@ public sealed class WindowsStorageReader : IWindowsStorageReader
         {
             using var parameters = explicitParameters ? target.GetMethodParameters("GetSupportedSize") : null;
             using var result = target.InvokeMethod("GetSupportedSize", parameters, null);
-            return new(result is null ? null : Copy(result));
+            var row = result is null ? null : Copy(result);
+            var code = row is null ? null : StorageObservationProjection.Number(row, "ReturnValue");
+            return new(row)
+            {
+                ProviderAvailability = code?.Availability == ObservationAvailability.Available
+                    ? ObservationErrors.SupportedSizeReturn(code.Value) : ObservationAvailability.Unavailable,
+            };
         }
-        catch (Exception ex) when (IsObservationError(ex)) { return new(null, ex); }
+        catch (Exception ex) when (IsObservationError(ex)) { return new(null, ex) { ProviderAvailability = ClassifyError(ex) }; }
     }
 
     internal static WindowsStorageBatch Query(string scope, string query)
@@ -62,12 +91,22 @@ public sealed class WindowsStorageReader : IWindowsStorageReader
                 using (row) rows.Add(Copy(row));
             return new(rows);
         }
-        catch (Exception ex) when (IsObservationError(ex)) { return new(rows, ex); }
+        catch (Exception ex) when (IsObservationError(ex)) { return new(rows, ex) { ProviderAvailability = ClassifyError(ex) }; }
     }
 
     private static WindowsStorageRow Copy(ManagementBaseObject row) => new(
         row.Properties.Cast<PropertyData>().ToImmutableDictionary(p => p.Name, p => (object?)p.Value, StringComparer.OrdinalIgnoreCase),
         (row as ManagementObject)?.Path.Path);
+
+    internal static ObservationAvailability ClassifyError(Exception error) => error is ManagementException management
+        ? ClassifyManagementStatus(management.ErrorCode) : ObservationErrors.Classify(error);
+
+    internal static ObservationAvailability ClassifyManagementStatus(ManagementStatus status) => status switch
+    {
+        ManagementStatus.AccessDenied => ObservationAvailability.AccessDenied,
+        ManagementStatus.NotSupported or ManagementStatus.InvalidClass => ObservationAvailability.Unsupported,
+        _ => ObservationAvailability.Unavailable,
+    };
 
     internal static bool IsObservationError(Exception ex) => ex is ManagementException or COMException or
         FormatException or OverflowException or InvalidCastException or InvalidOperationException;
