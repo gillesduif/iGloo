@@ -3,7 +3,7 @@ using Igloo.Core.Abstractions;
 
 namespace Igloo.Preflight;
 
-public sealed class WindowsBcdReader : IWindowsBcdReader
+public sealed partial class WindowsBcdReader : IWindowsBcdReader
 {
     public BcdListingObservation ReadFirmware()
     {

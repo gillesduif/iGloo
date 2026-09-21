@@ -1,6 +1,400 @@
 # Fleet Phase 2: recoverable execution and read-only target identity
 
-Status: **Phase 2A fake recovery, Phase 2B1 read-only identity, and Phase 2B2 local authority/gating are implemented. Real execution remains disabled; production recovery readiness remains unavailable.**
+Status: **Phase 2A fake recovery, Phase 2B1 read-only identity, Phase 2B2 local authority/gating, and Phase 2B3.1 shared snapshot contracts/read-only capture composition are implemented. Real execution remains disabled; production recovery readiness remains unavailable.**
+
+## Phase 2B3.1 — shared canonical RecoverySnapshotV1, 2026-09-21
+
+The [shared architecture and scope](../architecture/recovery-snapshot-v1.md)
+define one Community + Fleet representation in `Igloo.Core/Recovery`, with
+Windows acquisition in `Igloo.Preflight`. Fleet does not own the Windows
+recovery engine. Local source and all existing uncommitted work were inspected;
+the GUI/.NET/package work was preserved. No new live boot/registry probe or
+machine configuration mutation was performed for this milestone.
+
+Implemented contracts cover versioned scope, strong canonical Windows/target
+binding, typed BCD object graph and role validation, raw/parsed firmware state,
+exact ESP/Windows boot association, WinRE configuration/content identity, and
+optional RTC registry before-state. RTC is mandatory for the future direct-install
+boot scope because that flow writes RealTimeIsUniversal. Partition transitions
+and staged file rollback remain separate future contracts.
+
+Required BCD closure follows active/default/recovery/resume/inheritance/device
+options and explicit mutation objects. Unmodified selection-list alternatives
+are explicitly excluded from dependency expansion, while their ordered references
+and raw observations are preserved. Assessment reports Required, RelevantOpaque,
+ObservedUnrelated and UnsupportedRelevant evidence. Opaque relevant values never
+silently disappear. Qualified GPT identity must agree with ordinary device structure
+and correlate to captured canonical storage. Failed fields cannot become zeros,
+absence or apparent changed associations.
+
+The shared pure EFI parser validates EFI_LOAD_OPTION and the GPT HardDrive ->
+FilePath -> End structure; BootOrder and BootNext preserve exact raw bytes and
+native error semantics. Unsupported paths and optional bytes remain lossless.
+Required opaque optional-data dependencies and unsupported attributes prevent Exact.
+WinRE stores enabled/configured state and exact WIM location/content identity;
+a SHA-256 read is not a bootability claim. RTC captures exact native type/raw bytes,
+including value absence, with query-only independent reopen.
+
+Canonical UTF-8 JSON uses stable set/property ordering, GUID formatting, invariant
+numbers and base64 raw bytes. SHA-256 covers scoped semantic state and versions,
+excluding timestamps and informational locators/diagnostics. The full artifact
+retains unrelated evidence and must receive a separate durable manifest hash.
+Structural/hash assessment is mandatory after deserialize; two partial snapshots
+cannot validate each other. Pure comparison distinguishes ExactMatch, Changed,
+Missing, ObservationUnavailable, Unsupported and Ambiguous.
+
+`BootRecoverySupport.Exact` remains strict; typed issues supplement Partial and
+Unsupported. Synthetic deterministic fixtures prove representability, **not a
+real-host exact RecoverySnapshotV1**. Production capture composes canonical
+readers but cannot be Exact: native firmware variable attributes are not exposed,
+typed configured-WinRE capture is unavailable, required nested BCD qualification
+still has unresolved provider failures, and Windows EFI optional-data dependency
+semantics remain unproven. Combined capture/recapture needs later elevated-host
+validation. The current direct-install footprint remains explicitly unresolved
+even if a caller sets its resolution flag.
+
+Future Community integration must capture Exact, persist, independently reopen,
+verify artifact/hash/structure and revalidate identity before journaled mutation.
+Future Fleet consumes the same artifact through protected state, manifest,
+readiness, the existing gate, authorization and journal. Neither chain is wired
+to mutation or restoration by this milestone; the monolithic DirectInstallService
+was not wrapped in a fake recoverable adapter.
+
+**RecoveryReadiness.Production remains ObservationUnavailable / NotImplemented.**
+PreCommitGate and protected execution state are unchanged. No authorization is
+consumed, no destructive execution/restore is added, and no commit or push occurs.
+Igloo.Fleet.Web gains no Domain/Persistence/Server reference.
+
+### Phase 2B3.1 validation
+
+The requested `dotnet restore` succeeded. `dotnet list .\Igloo.sln package
+--vulnerable --include-transitive` reported **zero known vulnerable packages**
+for all 23 projects using NuGet.org. `dotnet build .\Igloo.sln -warnaserror`
+succeeded with **zero warnings and zero errors**. The final
+`dotnet test .\Igloo.sln --no-build --no-restore -m:1` completed normally with
+**570 passed, 0 failed, 0 skipped**; no OutOfMemoryException or fallback occurred.
+
+| Project | Passed |
+| --- | ---: |
+| Core | 134 |
+| Preflight | 168 |
+| Migration | 21 |
+| Iso | 19 |
+| Community.App | 58 |
+| UsbWriter | 23 |
+| Fleet | 147 |
+
+This adds **118 deterministic test cases** over the 452-test baseline: 69 Core
+and 49 Preflight cases. They cover serialization/hash/reopen, canonical identity,
+BCD closure/roles/qualified devices and failed reads, raw/parsed EFI and explicit
+unsupported state, WinRE association, RTC raw state, exact/partial/unsupported
+assessment and comparison. None requires the host's current boot configuration.
+
+`git diff --check` passed. The branch remains `refactor/community-fleet-foundation`.
+Task changes comprise this document, the architecture index/new shared design,
+the Core BCD-reader interface, the partial WindowsBcdReader extension, new Core
+Recovery models/rules/parsers, five new Preflight read-only files, and six new test
+files. PreCommitGate and protected execution state have no diff. Existing modified
+GUI/project files and untracked portal/logo/polish scripts and Web UI remain in the
+dirty worktree. Nothing was staged, committed or pushed.
+
+## Phase 2B3 — elevated read-only feasibility, 2026-09-20
+
+**Feasibility observations succeeded in several areas, but a complete exact
+recovery snapshot was not proven. Production remains
+ObservationUnavailable/NotImplemented. No recovery implementation, gate change,
+destructive adapter, commit or push was introduced.**
+
+### Elevation and repository baseline
+
+The actual Codex tool process returned `True` for:
+
+```powershell
+([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+whoami
+whoami /groups
+```
+
+Effective user was `desktop-living\gilles d'huyvetter`. Integrity SID
+`S-1-16-12288` established high integrity. Built-in Administrators
+(`S-1-5-32-544`) was enabled and a group owner, not deny-only.
+
+Branch: `refactor/community-fleet-foundation`. The worktree was already dirty:
+eight modified project/Web files and existing untracked Web UI/bootstrap/repair
+work. Those changes were preserved. The baseline `dotnet build` passed with zero
+warnings/errors; `dotnet test` passed **452 tests**, zero failures/skips;
+`git diff --check` passed. Git's existing LF-to-CRLF notices are separate from
+compiler warnings and whitespace errors. Web still references Contracts only.
+
+### BCD: available text and typed evidence, incomplete exact snapshot
+
+`bcdedit /enum all /v` and `bcdedit /enum firmware /v` both exited **0**.
+Independent consecutive re-reads also exited 0 and returned identical text.
+The listings exposed the standard Windows Boot Manager GUID, its
+`\EFI\Microsoft\Boot\bootmgfw.efi` path, the Windows loader GUID, device/osdevice,
+default/display-order links, recoverysequence, resumeobject, and firmware entries.
+An additional installer boot-manager record and historical recovery/resume
+records displayed `unknown` devices. These were observed existing state and
+were not repaired or removed.
+
+The historical English stale-entry parser is not a recovery parser. To avoid
+mistaking lossy text for exact device identity, an additional read-only
+`root\WMI` probe called `BcdStore.OpenStore("")`, `EnumerateObjects(Type=0)`,
+`BcdObject.EnumerateElements()`, and
+`GetElementWithFlags(Type=<observed device element type>, Flags=1)`.
+The store opened and all **21 objects** enumerated their elements successfully.
+Qualified direct-partition reads exposed GPT disk/partition GUIDs for the
+Windows manager, current loader, resume and WinRE SDI device. They also recovered
+GUIDs behind the text's unknown direct-partition devices; the historical and
+installer partition GUIDs were absent from the current canonical inventory.
+An unknown text label alone therefore does not prove unreadability.
+
+Qualified reads of RAM-disk file devices failed, including both device and
+osdevice of the **active WinRE loader**: CIM status/native error code **1**,
+general provider failure. This is an **Unavailable observation**, not Win32
+firmware error 1/Unsupported, not AccessDenied, and not Absent. Ordinary element
+enumeration still exposed those devices' file paths, AdditionalOptions links,
+and parent device data. The current WinRE parent could be correlated through
+native volume mapping; an older RAM-disk parent remained an opaque 72-byte
+unknown-device blob. No undocumented blob layout was guessed.
+
+Microsoft documents the qualified-partition read and its distinction from
+unknown ordinary device data in
+[GetElementWithFlags](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bcd/getelementwithflags-bcdobject)
+and [BcdDeviceQualifiedPartitionData](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/bcd/bcddevicequalifiedpartitiondata).
+This BCD API uses GPT style **1**, unlike MSFT_Disk's GPT style **2**.
+Typed observations are a viable next extension to the canonical BCD reader;
+the mixed successful and failed probes are not a versioned restoration snapshot.
+The dependency scope and handling of nested/opaque devices still need proof.
+
+### WinRE, canonical storage and exact-volume BitLocker
+
+`reagentc /info` exited **0**, reported **Enabled**, version `10.0.26100.9444`,
+and a configured Windows RE directory beneath
+`\\?\GLOBALROOT\device\harddisk0\partition4\Recovery\WindowsRE`.
+Its BCD identifier matched the current Windows loader's recoverysequence.
+The separate recovery/custom-image fields were blank with index 0; these were
+not interpreted as absence of the configured WinRE image. Consecutive command
+re-reads were identical and successful. Other locales and failed-command
+classification were not validated by this successful English-output probe.
+
+The built **canonical WindowsStorageReader.ReadIdentitySnapshot()** returned
+Available. The current Windows disk exposed provider UniqueId/format 8, GPT disk
+GUID and sector geometry; ESP, Windows and configured WinRE partitions exposed
+partition GUIDs and unique GUID-based volume ownership. Other attached media
+included non-GPT/reduced-identity storage; those facts were not promoted to exact
+GPT identity.
+
+In-memory read-only path probes used GetVolumePathName/GetVolumeNameForVolumeMountPoint
+on the Windows system directory, and QueryDosDevice on canonical volume-GUID
+names. OPEN_EXISTING metadata handles followed by
+GetFinalPathNameByHandle(VOLUME_NAME_GUID) resolved the configured WinRE directory,
+Winre.wim and the BCD manager's bootmgfw.efi path to their canonical volume GUIDs.
+The native-device mappings agreed with the canonical partition observations and
+typed BCD evidence. Disk/partition numbers and drive letters were only live
+locators, never stable identity. No mount point or drive letter was assigned.
+These probes follow Microsoft's
+[volume mapping example](https://learn.microsoft.com/en-us/windows/win32/fileio/displaying-volume-paths)
+and [handle path API](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfinalpathnamebyhandlew).
+
+Both files were then opened with FileMode.Open/FileAccess.Read and fully read
+for SHA-256: Winre.wim **811,706,096 bytes** with a WIM signature; bootmgfw.efi
+**3,087,200 bytes** with an MZ signature. Successful reading and recognizable
+headers do not establish image integrity against a trusted reference or prove
+that WinRE will boot. No WinRE configuration command other than `/info` ran.
+
+The built **WindowsBitLockerReader.ReadExactVolume(volume)** matched the
+Windows volume's canonical GUID to Win32_EncryptableVolume.DeviceID. Conversion,
+protection, lock and encryption-method observations were each Available/**0**
+(fully decrypted, protection off, unlocked, no encryption). Drive letter was
+informational. ESP/recovery volumes without matching encryption-provider rows
+returned Unavailable/BitLockerVolumeNotUnique; non-GPT volumes lacking partition
+GUIDs returned Unavailable/ExactVolumeRequired. No missing observation became
+false/zero, and no key/protector methods or secrets were accessed.
+
+### Firmware and ESP association
+
+Only the canonical WindowsFirmwareReader/FirmwareNative read path ran.
+The existing EnablePrivilege helper enabled SeSystemEnvironmentPrivilege in
+the short-lived probe process token; `whoami /priv` confirmed it enabled.
+No firmware writer was called and no machine privilege policy was changed.
+
+| Fact | Elevated result |
+| --- | --- |
+| BootOrder | Available, native error 0, bytes `00000200`: Boot0000 then Boot0002 |
+| BootNext | Absent, native error **203**, including canonical DecodeBootNext |
+| Boot0000 | Available, **300 raw bytes**, repeated reads identical |
+| Boot0002 | Available, **268 raw bytes**, repeated reads identical |
+
+Raw Boot#### hex was retained in the local tool transcript. No recovery backup
+or authoritative snapshot file was created. BootOrder/BootNext independent
+re-reads agreed. The existing strict BootNext decoder and native error mappings
+were unchanged; no absent value was converted to index zero.
+
+A bounded in-memory structural probe validated Boot0000's load-option header,
+terminated description, exact 116-byte device-path region, GPT HardDrive node
+(42 bytes), file-path node and end-entire node. Its partition GUID uniquely
+matched the canonical ESP; LBA start **1,116,160** and size **202,752**, multiplied
+by the observed 512-byte logical sector size, matched ESP offset/size exactly.
+The executable path was `\EFI\Microsoft\Boot\bootmgfw.efi`, agreeing with the
+qualified BCD manager device and independently resolved executable handle.
+The current loader device/osdevice matched the canonical Windows volume on that
+same observed GPT disk. This establishes a conservative **primary Windows
+boot-path association for these reads**, not overall recovery readiness.
+
+Boot0000's remaining 136 optional bytes were retained. A BCDOBJECT string in
+that OS-specific data was only corroboration. A GUID occurrence anywhere in a
+load option is not structural identity proof. Boot0002 had an MBR HardDrive
+node and multiple complete device paths; the minimal single-path structural
+probe rejected that shape as unsupported rather than inventing an ESP match.
+Its raw read remained Available. UEFI defines load-option/file-path-list and
+device-node structure in the
+[boot-manager specification](https://uefi.org/specs/UEFI/2.11/03_Boot_Manager.html)
+and [device-path specification](https://uefi.org/specs/UEFI/2.10/10_Protocols_Device_Path_Protocol.html).
+
+### ACL boundary and implementation decision
+
+**The production WindowsProtectedDirectoryAcl policy passed the real elevated
+Windows host probe. Cleanup of the entire temporary probe tree is complete.**
+The dedicated root `C:\ProgramData\iGloo-Fleet-Execution-ACL-Probe` did not exist
+beforehand. Following explicit scope clarification, it was created solely for
+this test, with exactly one GUID child:
+
+```text
+C:\ProgramData\iGloo-Fleet-Execution-ACL-Probe\ac1b1edb-aa9b-4309-86af-5976c8c2022e
+```
+
+The built production adapter created the protected directories. Fresh Get-Acl
+reads independently verified owner BUILTIN\Administrators (`S-1-5-32-544`), a
+protected DACL, and exactly two explicit Allow/FullControl ACEs: SYSTEM
+(`S-1-5-18`) and BUILTIN\Administrators. Both ACEs had
+`ContainerInherit | ObjectInherit`, propagation `None`, and FullControl mask
+`2032127`. The directory DACL was `D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)`.
+
+| Real-host check | Result |
+| --- | --- |
+| Explicitly protected child directory | Accepted, with the same owner and exact explicit protected ACL |
+| Ordinary inherited child directory | Correctly rejected as a protected directory: its DACL was unprotected and its ACEs inherited |
+| Child files, including beneath the ordinary inherited directory | Accepted; Administrators owner, exactly inherited SYSTEM/Admin FullControl, no unexpected principal |
+| Reopen from fresh tool processes and new adapter/ACL objects | Directory and file verification succeeded |
+| Extra Users Modify directory ACE and its inherited child-file ACE | Both rejected; restored original ACLs and child inheritance passed again |
+| Unexpected deny ACE on a child file | Rejected; original ACL restored and reverified |
+| Administrators rights reduced to ReadAndExecute | Rejected after independent read-back confirmed the changed rights; original ACL restored and reverified |
+| Unexpected current-user owner | Rejected; original Administrators owner restored and reverified |
+
+One attempted rights edit initially retained FullControl on read-back and was
+correctly accepted. A fresh explicit reduced-rights descriptor established the
+negative case above; setter success alone was not treated as proof of a change.
+
+The only reparse test was an internal directory junction, `inside-junction`,
+targeting the same GUID child's `protected-child` directory. The existing
+`ProtectedExecutionState.NoReparseAncestors` guard accepted the plain target
+and rejected both the junction and a file path beneath it. ACL-only file
+verification accepted that descendant, demonstrating why the separate ancestor
+and reparse guard is necessary. This was a direct probe of the production guard,
+not creation or reopening of real Fleet execution state.
+
+After an earlier automatic approval rejection prevented cleanup, the explicitly
+authorized cleanup continuation independently confirmed LinkType `Junction`,
+the ReparsePoint attribute, and this exact target:
+
+```text
+C:\ProgramData\iGloo-Fleet-Execution-ACL-Probe\ac1b1edb-aa9b-4309-86af-5976c8c2022e\protected-child
+```
+
+`System.IO.Directory.Delete(<exact inside-junction path>, false)` removed only
+the junction object, without recursion or traversal into its target. A fresh
+process verified the junction absent and the target still present, with matching
+ACLs, creation/last-write timestamps, child-file length and SHA-256. Only then
+were the three remaining test files deleted individually and their three parent
+directories removed non-recursively, followed by the empty GUID directory.
+The dedicated root was independently verified empty and removed non-recursively
+because this test had created it. A further fresh-process inspection confirmed
+the junction, GUID directory and probe root all absent. The former target was
+therefore preserved during junction deletion, then removed as ordinary scoped
+test content during GUID-tree cleanup. No test artefact remains.
+
+No access or changes to `C:\ProgramData\iGloo-Fleet-Execution` or real execution
+state were part of this probe or cleanup. No BCD, WinRE, BitLocker, EFI/NVRAM,
+storage or other machine-configuration operations ran in the ACL continuation.
+
+Implementation stopped at feasibility because the complete recovery dependency
+and serialization scope was not proven. The failed qualified RAM-disk reads,
+opaque historical device evidence and unsupported additional firmware path
+shape are limitations of the probed observation paths, not proof that current
+WinRE identity is unavailable or that every historical/USB entry must be in
+scope. Native-path correlation and typed BCD reads demonstrated useful
+alternatives. Required dependencies must be established before excluding such
+evidence or declaring a snapshot exact. This run has not proven every field
+required for an exact snapshot or safe future recovery.
+No RTC read/write was attempted; whether RTC state belongs in a future operation
+scope remains undecided.
+
+RecoveryReadiness.Production remains ObservationUnavailable with typed reason
+NotImplemented. The pure PreCommitGate and all Phase 2B2 checks are unchanged:
+fresh planning validity, explicit binding, ExactMatch target revalidation,
+exact-volume BitLocker, verified/correlated protected state, Ready recovery,
+unconsumed valid authorization and exact operation correlation. The gate does
+not consume authorization. Even a future Ready observation will not authorize,
+reserve or start mutation. No new production parser/evaluator or deterministic
+tests were added on this blocked implementation path; host probes stayed
+separate from the normal tests.
+
+At the end of Phase 2B3, the remaining **Phase 2B3.1 blocker was the shared canonical RecoverySnapshotV1
+design**; no RecoverySnapshotV1 has been proven. Define and prove its complete
+versioned recovery dependency scope, typed nested BCD observation/error handling,
+strict parsing of recovery-relevant EFI paths, WinRE image verification and
+snapshot consistency; then add deterministic state/correlation/evaluator tests.
+Unrelated firmware entries may be preserved raw only with a proven scope
+exclusion; unsupported relevant paths must fail closed.
+The existing explicit target/authorization workflow and real mutation-boundary,
+verification/restoration prerequisites still apply. No configuration repair or
+destructive test is authorized by these findings.
+
+### Validation after the observations
+
+`dotnet restore` succeeded. `dotnet list .\Igloo.sln package --vulnerable
+--include-transitive` reported **no vulnerable packages** for all 23 projects
+using the current NuGet source. `dotnet build .\Igloo.sln -warnaserror` succeeded
+with **zero warnings/errors**. `dotnet test .\Igloo.sln` passed **452 tests**:
+Core 65, Preflight 119, Iso 19, Migration 21, UsbWriter 23, Community.App 58,
+Fleet 147; **zero failures/skips**. No new tests were added.
+`git diff --check` passed. The only task-authored tracked change is this document;
+the pre-existing eight modified files and untracked GUI/bootstrap/repair work
+remain. No commit or push was performed. The later ACL probe and its cleanup
+are complete as recorded above; final continuation validation is recorded below.
+
+### Final ACL continuation validation
+
+After successful cleanup and the documentation update, the requested commands
+completed in sequence:
+
+```powershell
+dotnet restore
+dotnet list .\Igloo.sln package --vulnerable --include-transitive
+dotnet build .\Igloo.sln -warnaserror
+dotnet test .\Igloo.sln --no-build --no-restore -m:1
+git diff --check
+git status --short
+```
+
+Restore succeeded. All **23 projects** reported no known vulnerable packages,
+including transitive dependencies, using the current NuGet source. Build
+completed with **zero warnings and zero errors**. The solution test run with
+`-m:1` completed normally: **452 passed, 0 failed, 0 skipped**, with the project
+counts recorded above. No OutOfMemoryException or sequential-project fallback
+occurred. No tests or production source were added or changed for this ACL work.
+Whitespace validation passed; Git's LF-to-CRLF notices are not whitespace errors.
+
+The branch remains `refactor/community-fleet-foundation`. Final status contains
+this modified document, eight pre-existing modified source/project files, and
+the existing untracked Web UI/portal work (`Build-iGloo-Fleet-Portal.ps1`, Web
+Components, FleetOperatorCli.cs, Properties, appsettings.json and wwwroot).
+Only this document was edited by the ACL continuation. Nothing was staged,
+committed or pushed. RecoveryReadiness.Production still returns
+ObservationUnavailable/NotImplemented; PreCommitGate is unchanged. The shared
+canonical RecoverySnapshotV1 design was then the Phase 2B3.1 blocker; the subsequent
+shared milestone and its remaining production capture gaps are recorded above.
 
 ## Phase 2B2 — protected local state, authorization and read-only gate
 
@@ -59,9 +453,11 @@ unexpected file principals, denied ACL reads and reparse paths fail closed.
 The intended Agent service identity for this policy is LocalSystem. Supporting
 another service principal requires an explicit policy change and verification.
 
-**This Windows ACL policy has not been verified on the elevated real host.**
-Deterministic tests use a fake ACL adapter. No production ACL writer was invoked
-for this milestone, and no success is inferred from setting an ACL alone.
+**At the end of Phase 2B2, this Windows ACL policy had not been verified on an
+elevated real host.** The successful Phase 2B3 probe and cleanup are recorded
+above. Phase 2B2 deterministic tests use a fake ACL adapter. No production ACL
+writer was invoked for that milestone; success is not inferred from setting an
+ACL alone.
 
 The threat model excludes malicious Administrators/SYSTEM, compromised trusted
 providers and whole-volume/VM rollback. Hashes detect changes against the
@@ -125,8 +521,10 @@ capability, reservation or permission to skip fresh checks at consumption.
 RecoveryReadiness models Ready, NotReady, ObservationUnavailable, Unsupported and
 Ambiguous, with typed reasons. **Production always supplies
 ObservationUnavailable/NotImplemented.** Only deterministic tests supply Ready.
-The previously blocked elevated read-only BCD, WinRE, exact-volume BitLocker,
-EFI/NVRAM and ESP/Windows-boot association feasibility checks remain required.
+At the end of Phase 2B2, the previously blocked elevated read-only BCD, WinRE,
+exact-volume BitLocker, EFI/NVRAM and ESP/Windows-boot association feasibility
+checks remained required. The Phase 2B3 findings above record later observations
+and remaining limitations.
 No recovery partition detection or Linux marker substitutes for verified recovery.
 
 ### Validation and remaining Phase 2C prerequisites
@@ -155,12 +553,14 @@ Files for this milestone:
   reusable in `TargetRevalidationTests.cs`.
 - Documentation: this file. Prior Phase 2B1 uncommitted work remains intact.
 
-Before Phase 2C: verify the production Windows ACL model on an elevated host;
+At the end of Phase 2B2, the prerequisites before Phase 2C were: verify the
+production Windows ACL model on an elevated host;
 complete elevated recovery feasibility and real RecoveryReadiness; design a trusted
 explicit target-binding/authorization issuance workflow; integrate the protected
 directory and journal with fresh execution-boundary checks; and prove real shared
 mutation/verification/restoration semantics without changing Community selection
-or sequencing. Production execution remains disabled throughout these steps.
+or sequencing. The later Phase 2B3 findings above record the completed ACL proof
+and remaining recovery limitations. Production execution remains disabled.
 
 ## Phase 2B1 — completed identity milestone (historical scope)
 

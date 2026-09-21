@@ -1,3 +1,6 @@
+using System.Collections.Immutable;
+using Igloo.Core.Recovery;
+
 namespace Igloo.Core.Abstractions;
 
 // A raw listing, not a complete parsed boot snapshot. Exit failure and unparsed output
@@ -12,4 +15,7 @@ public sealed record BcdListingObservation(string? StandardOutput, string? Stand
 public interface IWindowsBcdReader
 {
     BcdListingObservation ReadFirmware();
+    BcdRecoveryGraphV1 ReadRecoveryGraph() => new(1,
+        Observations.Failure<ImmutableArray<BcdObjectSnapshot>>(ObservationAvailability.Unsupported, "TypedBcdNotExposed"),
+        Observations.Failure<Guid>(ObservationAvailability.Unsupported, "TypedBcdNotExposed"));
 }
