@@ -15,6 +15,10 @@ This page describes the existing Community migration pipeline. The
 documents the shared engine and Fleet's separate, read-only assessment host.
 Fleet never uploads the local migration manifest.
 
+The [shared recovery snapshot V1 design](architecture/recovery-snapshot-v1.md)
+defines Core/Preflight boot recovery observations used by both products. It is
+read-only and does not implement restoration or authorize execution.
+
 ## 1. System context
 
 ```mermaid
