@@ -19,6 +19,10 @@ internal static partial class FirmwareNative
     internal static partial bool SetFirmwareEnvironmentVariableW(
         string lpName, string lpGuid, byte[]? pValue, uint nSize);
 
+    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetFirmwareEnvironmentVariableExW(
+        string lpName, string lpGuid, byte[] pValue, uint nSize, uint attributes);
 
     [LibraryImport("advapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

@@ -9,17 +9,17 @@ using System.Runtime.Versioning;
 using System.Security;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
+using Igloo.Core.Recovery;
+using Igloo.Preflight.CommunityPreparation;
+using Igloo.Preflight.CommunityRecovery;
 using Microsoft.Extensions.Logging;
-using Microsoft.Win32;
 
 namespace Igloo.Preflight;
 
 [SupportedOSPlatform("windows")]
 public sealed partial class DirectInstallService : IDirectInstallService
 {
-    private const string EfiGlobGuid = "{8be4df61-93ca-11d2-aa0d-00e098032b8c}";
     private const long MiB = 1024L * 1024;
     // Overhead on top of the measured squashfs + kernel + initrd sizes.
     // Covers: EFI binaries (~3 MB), grub.cfg, kickstart, agent payload, FAT32
@@ -31,11 +31,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
     private const long Fat32MaxFileBytes = 4L * 1024 * 1024 * 1024;
     private const long IsoPartitionOverheadBytes = 256L * MiB;
     private const string IsoPartitionLabel = "IGLOOISO";
-
-    // Firmware boot-menu name of the one-shot BootNext entry. Distro-neutral: the
-    // same pipeline installs every distro. Matched case-insensitively on "igloo"
-    // by the agents' cleanup and by EfiBootEntries.IsIglooDescription.
-    private const string BootEntryDescription = "iGloo distribution installer";
 
     // Boot chain:
     //
@@ -100,6 +95,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
     private string _keymap = "us";
     private int? _diskNumber;
     private uint? _partitionNumber;
+    private Observation<CanonicalVolumeIdentityV1>? _preparedBootTarget;
 
     // The selected distro's boot recipe (kernel/initrd paths, cmdline, volume
     // label, config-delivery). Set at the start of Prepare; read by the boot
@@ -110,6 +106,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
     private readonly IWindowsBcdReader _bcd;
     private readonly IPartitionResizeService _resizer;
     private readonly ILogger<DirectInstallService> _logger;
+    private readonly CommunityRecoveryBoundary _bootRecovery = new(new WindowsRecoverySnapshotCapture(),
+        CommunityRecoveryArtifactStore.ForCurrentUser());
 
     //   Constructor                              ─
 
@@ -145,6 +143,9 @@ public sealed partial class DirectInstallService : IDirectInstallService
         InstallerBootSpec bootSpec, Uri? stage2Url,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
+        DedicatedEspPreparationSupport.RequireSupported();
+
         // Creating lettered volumes makes Windows announce them: AutoPlay fires and
         // Explorer windows open over the wizard, leaving an OEMDRV window sitting there
         // afterwards. Harmless, but on this screen it looks like something went wrong.
@@ -153,6 +154,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         using var shellQuiet = new ShellNoiseSuppressor(_logger);
 
         _diskNumber = diskNumber;
+        _preparedBootTarget = null;
         _bootSpec = bootSpec;
         ReadLocaleFromStaging(stagingDirectory);
 
@@ -295,6 +297,10 @@ public sealed partial class DirectInstallService : IDirectInstallService
         if (_isoPartitionLetter is { } isoLetter && isoLetter != driveLetter)
             shellQuiet.CloseExplorerWindowsFor(isoLetter);
 
+        // Pin the prepared identity before the later registration stage. This is read-only;
+        // failed identity acquisition blocks registration without changing storage preparation.
+        _preparedBootTarget = WindowsBootRegistrationPlanning.ObservePreparedTarget(_storage,
+            checked((uint)diskNumber), _partitionNumber!.Value);
         Report(prog, DirectInstallPhase.Complete, message: "Installer partition ready.");
         _logger.LogInformation("Direct install partition prepared on {Letter}:", driveLetter);
     }
@@ -1260,376 +1266,32 @@ public sealed partial class DirectInstallService : IDirectInstallService
             throw new InvalidOperationException(
                 "PrepareAsync must complete successfully before RegisterBootEntryAsync.");
 
-        Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Registering UEFI boot entry…");
-
-        EnableFirmwarePrivilege();
+        var partitionNumber = _partitionNumber.Value;
+        if (_preparedBootTarget is not { Availability: ObservationAvailability.Available })
+            throw new CommunityRecoveryBoundaryException(CommunityRecoveryFailure.ScopeUnresolved);
         ct.ThrowIfCancellationRequested();
-
-        // Get partition geometry for the EFI_LOAD_OPTION HARDDRIVE device path.
-        var (lbaStart, lbaSize, partGuid) = GetPartitionGeometry(
-            _diskNumber.Value, _partitionNumber.Value);
-
-        ct.ThrowIfCancellationRequested();
-
-        // Pick an unused Boot#### index.
-        ushort idx = FindFreeBootIndex();
-
-        // Build and write Boot####.
-        // efiPath points at the STANDARD fallback loader \EFI\BOOT\BOOTX64.EFI
-        // (staged by ConfigureBootFiles), NOT the private \igloo-boot\shimx64.efi.
-        // Field finding on a Gigabyte/AMI board: firmware validates boot options at
-        // POST and PRUNES any Boot#### entry whose target it deems non-standard -
-        // our \igloo-boot\ entry vanished, while the firmware happily kept (and
-        // auto-created "UEFI OS" for) the \EFI\BOOT\BOOTX64.EFI target. Pointing our
-        // own entry at that same trusted path lets it survive, so BootNext to it is
-        // honoured. The shim there loads \EFI\BOOT\grubx64.efi (also staged); grub
-        // finds grub.cfg via its compiled prefix and boots ($root)/igloo-boot/linux.
-        // No regression on firmware that already worked: \EFI\BOOT\BOOTX64.EFI is the
-        // exact same shim binary, just at a second path.
-        // The description must keep "iGloo" in it: the first-boot agents and
-        // LinuxRemovalService find and delete this one-shot entry by a
-        // case-insensitive "igloo" substring match on the description.
-        var loadOption = BuildEfiLoadOption(
-            _partitionNumber.Value,
-            lbaStart, lbaSize, partGuid,
-            $@"\{FallbackBootDir}\{FallbackBootFile}",
-            BootEntryDescription);
-
-        var bootVar = $"Boot{idx:X4}";
-        _logger.LogInformation("Writing UEFI {Var} ({Bytes} bytes)", bootVar, loadOption.Length);
-
-        if (!FirmwareNative.SetFirmwareEnvironmentVariableW(bootVar, EfiGlobGuid, loadOption, (uint)loadOption.Length))
-            throw new InvalidOperationException(
-                $"SetFirmwareEnvironmentVariable({bootVar}) failed: Win32 error {Marshal.GetLastWin32Error()}. " +
-                "Run Igloo as Administrator to allow UEFI NVRAM writes.");
-
-        // Choose which entry BootNext should name.
-        //
-        // Preferring our OWN entry is the obvious choice and the wrong one on firmware
-        // that prunes it. Observed on a Gigabyte/AMI board: our Boot#### is deleted at
-        // POST, while an entry the FIRMWARE created for the same
-        // \EFI\BOOT\BOOTX64.EFI target (described "UEFI OS") persists across reboots.
-        // BootNext then names an index that no longer exists, the firmware falls
-        // through BootOrder, and the machine boots Windows - with staging, grub.cfg and
-        // the kernel all perfectly in place.
-        //
-        // So when the firmware already has its own entry for this partition, that one
-        // is named instead: it is the entry proven to survive this firmware's own
-        // validation pass. Ours stays written and stays in BootOrder, so boards that
-        // keep it are unaffected.
-        var bootNextIdx = idx;
-        var firmwareOwn = EfiBootEntries.FindEntriesTargetingPartition(partGuid, _logger)
-            .Where(i => i != idx)
-            .ToList();
-        if (firmwareOwn.Count > 0)
+        var target = _preparedBootTarget.Value;
+        BootRegistrationEvidence Read() => WindowsBootRegistrationPlanning.Read(_storage, _bcd, target, partitionNumber);
+        var planned = CommunityBootRegistrationPlan.Create(Read(), Guid.NewGuid());
+        if (planned.Availability != ObservationAvailability.Available)
         {
-            bootNextIdx = firmwareOwn[0];
-            _logger.LogInformation(
-                "Firmware already lists Boot{Own:X4} for the installer partition - pointing BootNext at " +
-                "that instead of our own Boot{Ours:X4}, which this firmware prunes at POST",
-                bootNextIdx, idx);
+            _logger.LogWarning("Boot-registration planning blocked: {State}/{Reason}", planned.Availability, planned.Code);
+            throw new CommunityRecoveryBoundaryException(CommunityRecoveryFailure.ScopeUnresolved);
         }
-
-        // Write BootNext so the firmware uses that entry exactly once.
-        var bootNext = BitConverter.GetBytes(bootNextIdx);
-        if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootNext", EfiGlobGuid, bootNext, 2))
-            throw new InvalidOperationException(
-                $"SetFirmwareEnvironmentVariable(BootNext) failed: Win32 error {Marshal.GetLastWin32Error()}.");
-
-        _logger.LogInformation("BootNext set to {Idx:X4}", bootNextIdx);
-
-        // Register the same one-shot through Windows' BCD as well.
-        //
-        // On firmware that prunes our raw NVRAM entry at POST, everything above is
-        // discarded before it is ever honoured. A BCD-managed firmware application is
-        // a different mechanism, not just a second attempt: bcdedit synchronises the
-        // firmware namespace with the BCD store, re-adding entries that are present in
-        // BCD but missing from NVRAM - and it produces the entry the same way Windows
-        // produces its own Boot Manager entry, which this firmware demonstrably keeps.
-        // Purely additive; any failure leaves the NVRAM path above untouched.
-        RegisterBootEntryViaBcdedit();
-
-        // Belt-and-suspenders: some firmware ignores BootNext but does respect
-        // BootOrder.  Prepend our entry to BootOrder so the installer is first
-        // in the list.  After the install completes (or if the user aborts), the
-        // entry is removed from BootOrder by the %post cleanup or on next Windows
-        // boot when the Boot#### variable no longer exists.
-        PrependBootOrder(idx);
-
-        // ...and prioritise every OTHER entry that targets the same partition.
-        //
-        // Observed on a Gigabyte/AMI board: the firmware DELETES our Boot#### at
-        // POST and substitutes its own auto-generated entry ("UEFI OS") for the same
-        // \EFI\BOOT\BOOTX64.EFI target. Both BootNext and the BootOrder prepend above
-        // then reference an index that no longer exists, so the firmware falls
-        // through BootOrder - and if a Linux distribution is already installed, its
-        // entry is usually first, so the machine boots THAT instead of the installer.
-        // (Symptom: choosing Mint, rebooting, and landing in the previously installed
-        // Debian.) The firmware's substitute points at the correct loader, so raising
-        // it too keeps the handoff working even when our own entry is culled.
-        PrioritiseEntriesTargetingInstallerPartition(partGuid, idx);
-
-        // Dual-boot clock fix: Linux keeps the hardware clock in UTC (the
-        // technically correct default); Windows assumes local time. Left alone,
-        // every switch between the two skews the Windows clock by the timezone
-        // offset. RealTimeIsUniversal makes Windows read the RTC as UTC too, so
-        // both systems agree. Non-fatal: a clock quirk must never abort an
-        // install this close to the finish line.
-        SetRtcUniversalTime();
-
-        _logger.LogInformation("BootNext + BootOrder updated - reboot to install");
+        var plan = planned.Value;
+        _logger.LogWarning("Boot-registration footprint remains unresolved: {Reasons}", string.Join(", ", plan.Blockers.Select(b => b.Code)));
+        Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Verifying the boot-registration recovery boundary…");
+        new CommunityBootRegistrationExecutor(_bootRecovery, Read).Execute(plan, ct);
         Report(prog, DirectInstallPhase.Complete, message: "UEFI boot entry registered. Ready to reboot.");
     }
 
-    private void SetRtcUniversalTime()
-    {
-        try
-        {
-            using var key = Registry.LocalMachine.CreateSubKey(
-                @"SYSTEM\CurrentControlSet\Control\TimeZoneInformation");
-            key.SetValue("RealTimeIsUniversal", 1L, RegistryValueKind.QWord);
-            _logger.LogInformation("RealTimeIsUniversal=1 - Windows now reads the RTC as UTC");
-        }
-        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
-        {
-            _logger.LogWarning(ex,
-                "Could not set RealTimeIsUniversal (non-fatal) - the Windows clock " +
-                "will drift by the timezone offset after switching from Linux");
-        }
-    }
+    // Only the boot-registration stage is gated. Preparation and its storage behavior are unchanged.
+    internal void RegisterPreparedBootEntry(Action mutation, CancellationToken ct = default) =>
+        _bootRecovery.Execute(CommunityRecoveryBoundary.DirectInstallDeclaration, mutation, ct);
 
-    /// <summary>
-    /// Registers the installer as a Windows-managed firmware application and makes it
-    /// the next boot, via bcdedit.
-    /// </summary>
-    /// <remarks>
-    /// The entry is created by copying {bootmgr} - the one entry this machine's firmware
-    /// provably accepts and keeps - then repointing it at our loader. Windows owns the
-    /// result, so it is re-synchronised into NVRAM rather than being a bare variable
-    /// write the firmware can quietly discard.
-    ///
-    /// bootsequence is BCD's one-shot: consumed by the next boot and then forgotten, the
-    /// same contract as BootNext, so nothing has to be undone if the user aborts.
-    ///
-    /// Entirely best-effort. The NVRAM path has already run by this point; a machine
-    /// where bcdedit is unavailable or refuses is no worse off than before.
-    /// </remarks>
-    private void RegisterBootEntryViaBcdedit()
-    {
-        try
-        {
-            var letter = _oemDrvLetter;
-            if (letter is null)
-                return;
-
-            // Every run copies {bootmgr}; bootsequence consumes the copy but never
-            // deletes it, so without this they pile up in the firmware store.
-            RemoveStaleBcdEntries();
-
-            var created = RunBcdedit($"/copy {{bootmgr}} /d \"{BootEntryDescription}\"");
-            // Output: 'The entry was successfully copied to {xxxxxxxx-....}.'
-            var guid = Regex.Match(created ?? string.Empty, @"\{[0-9a-fA-F-]{36}\}").Value;
-            if (guid.Length == 0)
-            {
-                _logger.LogWarning("bcdedit /copy did not return a GUID - skipping the BCD boot entry");
-                return;
-            }
-
-            RunBcdedit($"/set {guid} device partition={letter}:");
-            RunBcdedit($"/set {guid} path \\{FallbackBootDir}\\{FallbackBootFile}");
-            // Remove inherited Windows-loader settings that make no sense for a
-            // third-party EFI application.
-            RunBcdedit($"/deletevalue {guid} locale");
-            RunBcdedit($"/deletevalue {guid} inherit");
-            RunBcdedit($"/set {{fwbootmgr}} bootsequence {guid}");
-
-            _logger.LogInformation(
-                "BCD firmware entry {Guid} registered for {Letter}: and set as the next boot",
-                guid, letter);
-        }
-        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException
-                                      or IOException or UnauthorizedAccessException)
-        {
-            _logger.LogWarning(ex, "Could not register the BCD boot entry (non-fatal) - "
-                                   + "the NVRAM BootNext above still applies");
-        }
-    }
-
-    /// <summary>Deletes firmware BCD entries this service created on earlier runs.</summary>
-    /// <remarks>
-    /// Matched on the description rather than a stored GUID: a run that ended in a crash
-    /// or a reinstall leaves entries behind that no state file knows about. Windows Boot
-    /// Manager carries its own description, so it can never match.
-    /// </remarks>
-    private void RemoveStaleBcdEntries()
-    {
-        var observation = _bcd.ReadFirmware();
-        if (observation.ExitCode is not null and not 0)
-            _logger.LogWarning("bcdedit {Args} exited {Code}: {Err}", "/enum firmware",
-                observation.ExitCode, (observation.StandardError + observation.StandardOutput).Trim());
-        var listing = observation.StandardOutput;
-        if (string.IsNullOrEmpty(listing))
-            return;
-
-        foreach (var id in ParseStaleBcdIds(listing, BootEntryDescription))
-        {
-            RunBcdedit($"/delete {id} /f");
-            _logger.LogInformation("Removed a leftover BCD boot entry {Guid}", id);
-        }
-    }
-
-    /// <summary>Identifiers of every <c>bcdedit /enum</c> block carrying <paramref name="description"/>.</summary>
-    /// <remarks>
-    /// Split on a blank line that tolerates CRLF: bcdedit writes Windows line endings, so
-    /// splitting on "\n\n" matches nothing, leaves the listing as one block and yields a
-    /// single identifier - which deleted one entry per run instead of all of them.
-    /// </remarks>
+    // Compatibility parser retained for its existing callers/tests; registration never uses text.
     internal static IReadOnlyList<string> ParseStaleBcdIds(string? listing, string description) =>
         BcdListingParser.ParseStaleBcdIds(listing, description);
-
-    private string? RunBcdedit(string arguments)
-    {
-        using var proc = Process.Start(new ProcessStartInfo(FindNativeExe("bcdedit.exe"), arguments)
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        });
-        if (proc is null)
-            return null;
-
-        var stdout = proc.StandardOutput.ReadToEnd();
-        var stderr = proc.StandardError.ReadToEnd();
-        proc.WaitForExit(30_000);
-
-        if (proc.ExitCode != 0)
-            _logger.LogWarning("bcdedit {Args} exited {Code}: {Err}",
-                arguments, proc.ExitCode, (stderr + stdout).Trim());
-        return stdout;
-    }
-
-    /// <summary>
-    /// Resolves a System32 executable, defeating the WOW64 redirect for a 32-bit process.
-    /// </summary>
-    private static string FindNativeExe(string exeName) => WindowsBcdReader.FindNativeExecutable(exeName);
-
-    private void PrependBootOrder(ushort idx)
-    {
-        try
-        {
-            // Read current BootOrder (array of uint16).
-            var buf = WindowsFirmwareReader.Shared.ReadBootOrder(256).Data?.ToArray() ?? [];
-            var size = buf.Length;
-            var existing = new List<ushort>();
-            for (var i = 0; i + 1 < size; i += 2)
-                existing.Add(BitConverter.ToUInt16(buf, i));
-
-            // Remove our index if already present, then prepend it.
-            existing.RemoveAll(e => e == idx);
-            existing.Insert(0, idx);
-
-            var newOrder = new byte[existing.Count * 2];
-            for (var i = 0; i < existing.Count; i++)
-                BitConverter.GetBytes(existing[i]).CopyTo(newOrder, i * 2);
-
-            if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, newOrder, (uint)newOrder.Length))
-                _logger.LogWarning("SetFirmwareEnvironmentVariable(BootOrder) failed: {Err} (non-fatal)",
-                    Marshal.GetLastWin32Error());
-            else
-                _logger.LogInformation("BootOrder prepended with {Idx:X4}", idx);
-        }
-        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
-        {
-            _logger.LogWarning(ex, "PrependBootOrder failed (non-fatal)");
-        }
-    }
-
-    /// <summary>
-    /// Raises every boot entry that targets the installer partition to the front of
-    /// BootOrder, just behind <paramref name="ownIndex"/>.
-    /// </summary>
-    /// <remarks>
-    /// This is the survival path for firmware that culls our own Boot#### entry: its
-    /// self-created replacement points at the same loader, so promoting it keeps the
-    /// installer ahead of any already-installed Linux. Entirely non-fatal - a boot
-    /// order we could not improve is no worse than the one we found.
-    /// </remarks>
-    private void PrioritiseEntriesTargetingInstallerPartition(Guid partGuid, ushort ownIndex)
-    {
-        try
-        {
-            var siblings = EfiBootEntries.FindEntriesTargetingPartition(partGuid, _logger)
-                .Where(i => i != ownIndex)
-                .ToList();
-            if (siblings.Count == 0)
-                return;
-
-            _logger.LogInformation(
-                "Firmware also lists {Count} entry(s) for the installer partition ({Indices}) - " +
-                "promoting them so the handoff survives if our own entry is pruned",
-                siblings.Count, string.Join(", ", siblings.Select(i => i.ToString("X4", CultureInfo.InvariantCulture))));
-
-            var buf = WindowsFirmwareReader.Shared.ReadBootOrder(256).Data?.ToArray() ?? [];
-            var size = buf.Length;
-            var order = new List<ushort>();
-            for (var i = 0; i + 1 < size; i += 2)
-                order.Add(BitConverter.ToUInt16(buf, i));
-
-            order.RemoveAll(siblings.Contains);
-            // Immediately after our own entry, so ours still wins when it survives.
-            var insertAt = order.IndexOf(ownIndex) + 1;
-            order.InsertRange(Math.Clamp(insertAt, 0, order.Count), siblings);
-
-            var newOrder = new byte[order.Count * 2];
-            for (var i = 0; i < order.Count; i++)
-                BitConverter.GetBytes(order[i]).CopyTo(newOrder, i * 2);
-
-            if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, newOrder, (uint)newOrder.Length))
-                _logger.LogWarning("Could not reorder BootOrder for the firmware's own entries: {Err} (non-fatal)",
-                    Marshal.GetLastWin32Error());
-            else
-                _logger.LogInformation("BootOrder is now {Order}",
-                    string.Join(",", order.Select(i => i.ToString("X4", CultureInfo.InvariantCulture))));
-        }
-        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
-        {
-            _logger.LogWarning(ex, "Could not prioritise the firmware's installer entries (non-fatal)");
-        }
-    }
-
-    private void EnableFirmwarePrivilege() => FirmwareNative.EnablePrivilege(_logger, reportAssignmentFailures: true);
-
-    private (ulong lbaStart, ulong lbaSize, Guid partGuid)
-        GetPartitionGeometry(int diskNumber, uint partitionNumber)
-    {
-        try
-        {
-            var mo = _storage.ReadPartitions(diskNumber, (int)partitionNumber).RowsOrThrow().First();
-
-            var offset = Convert.ToUInt64(mo["Offset"], CultureInfo.InvariantCulture);
-            var size = Convert.ToUInt64(mo["Size"], CultureInfo.InvariantCulture);
-            var guid = Guid.Parse((string)mo["Guid"]!);
-            return (offset / 512, size / 512, guid);
-        }
-        catch (Exception ex) when (ex is ManagementException or COMException or FormatException
-                                   or OverflowException or InvalidCastException or InvalidOperationException or ArgumentException)
-        {
-            _logger.LogWarning(ex, "GetPartitionGeometry failed - using zeros (boot may not work)");
-            return (0, 0, Guid.Empty);
-        }
-    }
-
-    private static ushort FindFreeBootIndex()
-    {
-        for (ushort i = 0x0080; i < 0x00FF; i++)
-        {
-            var observed = WindowsFirmwareReader.Shared.ReadBootEntry(i);
-            if (observed.Data is null)
-                return i; // variable doesn't exist → free slot
-        }
-        return 0x0090; // fallback - overwrite 0x0090
-    }
 
     internal static byte[] BuildEfiLoadOption(
         uint partitionNumber, ulong lbaStart, ulong lbaSize,

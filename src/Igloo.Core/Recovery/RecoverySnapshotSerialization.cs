@@ -91,7 +91,9 @@ public static class RecoverySnapshotSerialization
             DiagnosticCodes = s.Metadata.DiagnosticCodes.Order(StringComparer.Ordinal).ToImmutableArray() },
     };
 
-    internal static bool ValueEqual<T>(T first, T second) => CanonicalBytes(first).AsSpan().SequenceEqual(CanonicalBytes(second));
+    // Structural equality for shared observation consumers. Includes failed observation states
+    // and diagnostics; this does not assess Exact or substitute for snapshot comparison.
+    public static bool ValueEqual<T>(T first, T second) => CanonicalBytes(first).AsSpan().SequenceEqual(CanonicalBytes(second));
 
     private static byte[] CanonicalBytes<T>(T value, bool semantic = false)
     {
