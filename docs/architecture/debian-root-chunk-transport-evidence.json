@@ -1,0 +1,422 @@
+{
+  "/chunk-corruption-result.json": {
+    "CanonicalSession": false,
+    "CorruptedChunk": 4,
+    "Error": "Traceback (most recent call last):\n  File \"/chunk-tools-final/configured_root_transport_qualification.py\", line 76, in <module>\n    if __name__ == '__main__': run(sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3]), Path(sys.argv[4]))\n                               ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/chunk-tools-final/configured_root_transport_qualification.py\", line 58, in run\n    stream = transport.open_chunks(parent, '.', data, root.digest(data), binding, root.mount_id(parent))\n  File \"/chunk-tools-final/root_transport.py\", line 165, in open_chunks\n    stream.verify(plan[\"ContentSha256\"], value[\"Chunks\"])\n    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/chunk-tools-final/root_transport.py\", line 139, in verify\n    require(sha.hexdigest().upper() == chunks[index][\"Sha256\"], \"TransportChunkHashMismatch\")\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/chunk-tools-final/root_transport.py\", line 25, in require\n    raise ValueError(code)\nValueError: TransportChunkHashMismatch\n",
+    "ExitCode": 1,
+    "FullSourceBytes": 4641457180,
+    "ImportInvoked": false,
+    "Offset": 12345,
+    "OriginalSourceChanged": false
+  },
+  "/chunk-final-verified-fat32.result.json": {
+    "Action": "--verify",
+    "ExternalPinSha256": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+    "FullSemanticSourceVerified": true,
+    "OriginalDescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+    "Output": "/chunk-final-verified-fat32",
+    "ProductionAuthentication": "Unsupported",
+    "Source": "/chunk-payload/configured-root/99695826-82bc-4077-b4cf-a22cebc706da/6072529e-1484-4fc7-a68c-d05c970bb393",
+    "Tools": {
+      "configured_root": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "root_transport": "72CDAD316DBFF0DABE4E97FA15183588D179F6095163B209CCB961989813C3FD"
+    },
+    "Transport": {
+      "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "ChunkSize": 1073741824,
+      "Chunks": [
+        {
+          "Index": 0,
+          "Length": 1073741824,
+          "Name": "root.content.0000",
+          "Sha256": "4A12222BB8993E2A687CCC8721837CD80D307B9DCB022FCEBE443A5560AC5C41"
+        },
+        {
+          "Index": 1,
+          "Length": 1073741824,
+          "Name": "root.content.0001",
+          "Sha256": "B2851BBB5A55E3179A1647FEFD9D26F6F0F12518D3B29D0ED8148C0C4F9A04F0"
+        },
+        {
+          "Index": 2,
+          "Length": 1073741824,
+          "Name": "root.content.0002",
+          "Sha256": "D7C53DBFCE5788C2930BA2E07D3B4AE8465DE09E13920909A3FC0847C1CC713B"
+        },
+        {
+          "Index": 3,
+          "Length": 1073741824,
+          "Name": "root.content.0003",
+          "Sha256": "B046F45ED9DD2BF7D7B09A8433C22115F265BFC57C7EB3E1EDB29D7EB458329E"
+        },
+        {
+          "Index": 4,
+          "Length": 346489884,
+          "Name": "root.content.0004",
+          "Sha256": "B8DA049C3E6ABE4DA9361B64CDF55818DD76B682672D90E931DE805FBE917D03"
+        }
+      ],
+      "ContentLength": 4641457180,
+      "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+      "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "Type": "Chunked",
+      "Version": 1
+    },
+    "TransportManifestSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757",
+    "VerifiedAtUtc": "2026-09-28T14:10:12.120149+00:00"
+  },
+  "/chunk-lab-evidence/partition-intent.json": {
+    "JournalTable": "GPT one Linux filesystem partition",
+    "TargetTable": "label: gpt\nunit: sectors\n\nstart=2048,size=524288,type=U\nsize=2097152,type=U\nsize=16777216,type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7\nsize=41943040,type=L\n"
+  },
+  "/chunk-lab-evidence/partition-readback.json": {
+    "Journal": {
+      "partitiontable": {
+        "device": "/dev/vdc",
+        "firstlba": 2048,
+        "id": "0BD31EDF-98C9-41F1-AEA0-2BEE77A0BE32",
+        "label": "gpt",
+        "lastlba": 16777182,
+        "partitions": [
+          {
+            "node": "/dev/vdc1",
+            "size": 16773120,
+            "start": 2048,
+            "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4",
+            "uuid": "2B7C5CD5-91F5-4A54-96F9-0A050C204720"
+          }
+        ],
+        "sectorsize": 512,
+        "unit": "sectors"
+      }
+    },
+    "Target": {
+      "partitiontable": {
+        "device": "/dev/vdb",
+        "firstlba": 2048,
+        "id": "1C649DF7-4B90-466D-BBE6-F6A3326E2A1B",
+        "label": "gpt",
+        "lastlba": 83886046,
+        "partitions": [
+          {
+            "node": "/dev/vdb1",
+            "size": 524288,
+            "start": 2048,
+            "type": "C12A7328-F81F-11D2-BA4B-00A0C93EC93B",
+            "uuid": "B26F4C34-3B93-4C94-BA05-23205387019E"
+          },
+          {
+            "node": "/dev/vdb2",
+            "size": 2097152,
+            "start": 526336,
+            "type": "C12A7328-F81F-11D2-BA4B-00A0C93EC93B",
+            "uuid": "18865730-4E39-4BA8-A847-C255AE8D770E"
+          },
+          {
+            "node": "/dev/vdb3",
+            "size": 16777216,
+            "start": 2623488,
+            "type": "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7",
+            "uuid": "10987066-AC9C-4D01-B3DA-0A240C9CE5C0"
+          },
+          {
+            "node": "/dev/vdb4",
+            "size": 41943040,
+            "start": 19400704,
+            "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4",
+            "uuid": "7096DC44-98AF-457E-8597-9A46D73DCA39"
+          }
+        ],
+        "sectorsize": 512,
+        "unit": "sectors"
+      }
+    }
+  },
+  "/chunk-lab-evidence/payload-capacity-before.json": {
+    "AllocationUnit": 4096,
+    "BytesAvailable": 8573145088,
+    "Names": [
+      "descriptor.json",
+      "root.manifest.json",
+      "transport.json",
+      "root.content.0000",
+      "root.content.0001",
+      "root.content.0002",
+      "root.content.0003",
+      "root.content.0004"
+    ],
+    "RequiredWithReserve": 4740030464
+  },
+  "/chunk-lab-evidence/payload-copied.json": {
+    "MountInfo": "{\n   \"filesystems\": [\n      {\n         \"target\": \"/chunk-payload\",\n         \"source\": \"/dev/vdb3\",\n         \"fstype\": \"vfat\",\n         \"options\": \"rw,nosuid,nodev,noexec,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro\"\n      }\n   ]\n}\n",
+    "TransportSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757"
+  },
+  "/chunk-lab-evidence/payload-readonly-mount.json": {
+    "MountInfo": "{\n   \"filesystems\": [\n      {\n         \"target\": \"/chunk-payload\",\n         \"source\": \"/dev/vdb3\",\n         \"fstype\": \"vfat\",\n         \"options\": \"ro,nosuid,nodev,noexec,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro\"\n      }\n   ]\n}\n"
+  },
+  "/chunk-lab-evidence/vdb-before.json": {
+    "Bytes": 42949672960,
+    "Provenance": "New file-backed lab virtual disk, not native Windows preparation",
+    "Serial": "IGLOO-LAB-TARGET",
+    "Signatures": {
+      "signatures": []
+    }
+  },
+  "/chunk-lab-evidence/vdb1-format-intent.json": {
+    "Before": "{\n   \"signatures\": [\n\n   ]\n}\n",
+    "Device": "/dev/vdb1",
+    "Kind": "fat"
+  },
+  "/chunk-lab-evidence/vdb1-format-readback.json": {
+    "Blkid": "DEVNAME=/dev/vdb1\nUUID=4A55-2647\nVERSION=FAT32\nFSBLOCKSIZE=512\nBLOCK_SIZE=512\nFSSIZE=268434432\nTYPE=vfat\nUSAGE=filesystem\nPART_ENTRY_SCHEME=gpt\nPART_ENTRY_UUID=b26f4c34-3b93-4c94-ba05-23205387019e\nPART_ENTRY_TYPE=c12a7328-f81f-11d2-ba4b-00a0c93ec93b\nPART_ENTRY_NUMBER=1\nPART_ENTRY_OFFSET=2048\nPART_ENTRY_SIZE=524288\nPART_ENTRY_DISK=254:16\n"
+  },
+  "/chunk-lab-evidence/vdb2-format-intent.json": {
+    "Before": "{\n   \"signatures\": [\n\n   ]\n}\n",
+    "Device": "/dev/vdb2",
+    "Kind": "fat"
+  },
+  "/chunk-lab-evidence/vdb2-format-readback.json": {
+    "Blkid": "DEVNAME=/dev/vdb2\nUUID=4A57-ADE7\nVERSION=FAT32\nFSBLOCKSIZE=4096\nBLOCK_SIZE=512\nFSSIZE=1073737728\nTYPE=vfat\nUSAGE=filesystem\nPART_ENTRY_SCHEME=gpt\nPART_ENTRY_UUID=18865730-4e39-4ba8-a847-c255ae8d770e\nPART_ENTRY_TYPE=c12a7328-f81f-11d2-ba4b-00a0c93ec93b\nPART_ENTRY_NUMBER=2\nPART_ENTRY_OFFSET=526336\nPART_ENTRY_SIZE=2097152\nPART_ENTRY_DISK=254:16\n"
+  },
+  "/chunk-lab-evidence/vdb3-format-intent.json": {
+    "Before": "{\n   \"signatures\": [\n\n   ]\n}\n",
+    "Device": "/dev/vdb3",
+    "Kind": "fat"
+  },
+  "/chunk-lab-evidence/vdb3-format-readback.json": {
+    "Blkid": "DEVNAME=/dev/vdb3\nUUID=4A59-1C39\nVERSION=FAT32\nFSBLOCKSIZE=4096\nBLOCK_SIZE=512\nFSSIZE=8589934080\nTYPE=vfat\nUSAGE=filesystem\nPART_ENTRY_SCHEME=gpt\nPART_ENTRY_UUID=10987066-ac9c-4d01-b3da-0a240c9ce5c0\nPART_ENTRY_TYPE=ebd0a0a2-b9e5-4433-87c0-68b6b72699c7\nPART_ENTRY_NUMBER=3\nPART_ENTRY_OFFSET=2623488\nPART_ENTRY_SIZE=16777216\nPART_ENTRY_DISK=254:16\n"
+  },
+  "/chunk-lab-evidence/vdb4-format-intent.json": {
+    "Before": "{\n   \"signatures\": [\n\n   ]\n}\n",
+    "Device": "/dev/vdb4",
+    "Kind": "ext4"
+  },
+  "/chunk-lab-evidence/vdb4-format-readback.json": {
+    "Blkid": "DEVNAME=/dev/vdb4\nUUID=1a38c2b7-d02a-4cb2-980b-cc7379ccc22e\nVERSION=1.0\nFSBLOCKSIZE=4096\nBLOCK_SIZE=4096\nFSLASTBLOCK=5242880\nFSSIZE=21474836480\nTYPE=ext4\nUSAGE=filesystem\nPART_ENTRY_SCHEME=gpt\nPART_ENTRY_UUID=7096dc44-98af-457e-8597-9a46d73dca39\nPART_ENTRY_TYPE=0fc63daf-8483-4772-8e79-3d69d8477de4\nPART_ENTRY_NUMBER=4\nPART_ENTRY_OFFSET=19400704\nPART_ENTRY_SIZE=41943040\nPART_ENTRY_DISK=254:16\n"
+  },
+  "/chunk-lab-evidence/vdc-before.json": {
+    "Bytes": 8589934592,
+    "Provenance": "New file-backed lab virtual disk, not native Windows preparation",
+    "Serial": "IGLOO-LAB-JOURNAL",
+    "Signatures": {
+      "signatures": []
+    }
+  },
+  "/chunk-lab-evidence/vdc1-format-intent.json": {
+    "Before": "{\n   \"signatures\": [\n\n   ]\n}\n",
+    "Device": "/dev/vdc1",
+    "Kind": "ext4"
+  },
+  "/chunk-lab-evidence/vdc1-format-readback.json": {
+    "Blkid": "DEVNAME=/dev/vdc1\nUUID=215082e0-05a0-49a2-ba8a-75e09b3719e1\nVERSION=1.0\nFSBLOCKSIZE=4096\nBLOCK_SIZE=4096\nFSLASTBLOCK=2096640\nFSSIZE=8587837440\nTYPE=ext4\nUSAGE=filesystem\nPART_ENTRY_SCHEME=gpt\nPART_ENTRY_UUID=2b7c5cd5-91f5-4a54-96f9-0a050c204720\nPART_ENTRY_TYPE=0fc63daf-8483-4772-8e79-3d69d8477de4\nPART_ENTRY_NUMBER=1\nPART_ENTRY_OFFSET=2048\nPART_ENTRY_SIZE=16773120\nPART_ENTRY_DISK=254:32\n"
+  },
+  "/chunk-verified-directory.result.json": {
+    "Action": "--verify",
+    "ExternalPinSha256": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+    "FullSemanticSourceVerified": true,
+    "OriginalDescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+    "Output": "/chunk-verified-directory",
+    "ProductionAuthentication": "Unsupported",
+    "Source": "/chunks-original",
+    "Tools": {
+      "configured_root": "9193E12D76C4A6594D77C5AA95AC3D9BE0E1D02186CF8C3269DC75ACE77F7E0C",
+      "root_transport": "C317BF3B6E5F4439C2A030268F917E5DCD174999CE093C4109014462136AF8CD"
+    },
+    "Transport": {
+      "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "ChunkSize": 1073741824,
+      "Chunks": [
+        {
+          "Index": 0,
+          "Length": 1073741824,
+          "Name": "root.content.0000",
+          "Sha256": "4A12222BB8993E2A687CCC8721837CD80D307B9DCB022FCEBE443A5560AC5C41"
+        },
+        {
+          "Index": 1,
+          "Length": 1073741824,
+          "Name": "root.content.0001",
+          "Sha256": "B2851BBB5A55E3179A1647FEFD9D26F6F0F12518D3B29D0ED8148C0C4F9A04F0"
+        },
+        {
+          "Index": 2,
+          "Length": 1073741824,
+          "Name": "root.content.0002",
+          "Sha256": "D7C53DBFCE5788C2930BA2E07D3B4AE8465DE09E13920909A3FC0847C1CC713B"
+        },
+        {
+          "Index": 3,
+          "Length": 1073741824,
+          "Name": "root.content.0003",
+          "Sha256": "B046F45ED9DD2BF7D7B09A8433C22115F265BFC57C7EB3E1EDB29D7EB458329E"
+        },
+        {
+          "Index": 4,
+          "Length": 346489884,
+          "Name": "root.content.0004",
+          "Sha256": "B8DA049C3E6ABE4DA9361B64CDF55818DD76B682672D90E931DE805FBE917D03"
+        }
+      ],
+      "ContentLength": 4641457180,
+      "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+      "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "Type": "Chunked",
+      "Version": 1
+    },
+    "TransportManifestSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757",
+    "VerifiedAtUtc": "2026-09-28T14:08:36.813380+00:00"
+  },
+  "/chunk-verified-fat32.result.json": {
+    "Action": "--verify",
+    "ExternalPinSha256": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+    "FullSemanticSourceVerified": true,
+    "OriginalDescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+    "Output": "/chunk-verified-fat32",
+    "ProductionAuthentication": "Unsupported",
+    "Source": "/chunk-payload/configured-root/99695826-82bc-4077-b4cf-a22cebc706da/6072529e-1484-4fc7-a68c-d05c970bb393",
+    "Tools": {
+      "configured_root": "9193E12D76C4A6594D77C5AA95AC3D9BE0E1D02186CF8C3269DC75ACE77F7E0C",
+      "root_transport": "C317BF3B6E5F4439C2A030268F917E5DCD174999CE093C4109014462136AF8CD"
+    },
+    "Transport": {
+      "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "ChunkSize": 1073741824,
+      "Chunks": [
+        {
+          "Index": 0,
+          "Length": 1073741824,
+          "Name": "root.content.0000",
+          "Sha256": "4A12222BB8993E2A687CCC8721837CD80D307B9DCB022FCEBE443A5560AC5C41"
+        },
+        {
+          "Index": 1,
+          "Length": 1073741824,
+          "Name": "root.content.0001",
+          "Sha256": "B2851BBB5A55E3179A1647FEFD9D26F6F0F12518D3B29D0ED8148C0C4F9A04F0"
+        },
+        {
+          "Index": 2,
+          "Length": 1073741824,
+          "Name": "root.content.0002",
+          "Sha256": "D7C53DBFCE5788C2930BA2E07D3B4AE8465DE09E13920909A3FC0847C1CC713B"
+        },
+        {
+          "Index": 3,
+          "Length": 1073741824,
+          "Name": "root.content.0003",
+          "Sha256": "B046F45ED9DD2BF7D7B09A8433C22115F265BFC57C7EB3E1EDB29D7EB458329E"
+        },
+        {
+          "Index": 4,
+          "Length": 346489884,
+          "Name": "root.content.0004",
+          "Sha256": "B8DA049C3E6ABE4DA9361B64CDF55818DD76B682672D90E931DE805FBE917D03"
+        }
+      ],
+      "ContentLength": 4641457180,
+      "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+      "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "Type": "Chunked",
+      "Version": 1
+    },
+    "TransportManifestSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757",
+    "VerifiedAtUtc": "2026-09-28T14:08:36.813441+00:00"
+  },
+  "/chunks-original.result.json": {
+    "Action": "--produce",
+    "ExternalPinSha256": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+    "FullSemanticSourceVerified": true,
+    "OriginalDescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+    "Output": "/chunks-original",
+    "ProductionAuthentication": "Unsupported",
+    "Source": "/factory-neutral/6072529e-1484-4fc7-a68c-d05c970bb393/artifact",
+    "Tools": {
+      "configured_root": "9193E12D76C4A6594D77C5AA95AC3D9BE0E1D02186CF8C3269DC75ACE77F7E0C",
+      "root_transport": "C317BF3B6E5F4439C2A030268F917E5DCD174999CE093C4109014462136AF8CD"
+    },
+    "Transport": {
+      "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "ChunkSize": 1073741824,
+      "Chunks": [
+        {
+          "Index": 0,
+          "Length": 1073741824,
+          "Name": "root.content.0000",
+          "Sha256": "4A12222BB8993E2A687CCC8721837CD80D307B9DCB022FCEBE443A5560AC5C41"
+        },
+        {
+          "Index": 1,
+          "Length": 1073741824,
+          "Name": "root.content.0001",
+          "Sha256": "B2851BBB5A55E3179A1647FEFD9D26F6F0F12518D3B29D0ED8148C0C4F9A04F0"
+        },
+        {
+          "Index": 2,
+          "Length": 1073741824,
+          "Name": "root.content.0002",
+          "Sha256": "D7C53DBFCE5788C2930BA2E07D3B4AE8465DE09E13920909A3FC0847C1CC713B"
+        },
+        {
+          "Index": 3,
+          "Length": 1073741824,
+          "Name": "root.content.0003",
+          "Sha256": "B046F45ED9DD2BF7D7B09A8433C22115F265BFC57C7EB3E1EDB29D7EB458329E"
+        },
+        {
+          "Index": 4,
+          "Length": 346489884,
+          "Name": "root.content.0004",
+          "Sha256": "B8DA049C3E6ABE4DA9361B64CDF55818DD76B682672D90E931DE805FBE917D03"
+        }
+      ],
+      "ContentLength": 4641457180,
+      "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+      "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "Type": "Chunked",
+      "Version": 1
+    },
+    "TransportManifestSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757",
+    "VerifiedAtUtc": "2026-09-28T14:03:57.027051+00:00"
+  },
+  "CanonicalImport": {
+    "ImportJournal": null,
+    "ImportResult": null,
+    "Invoked": false,
+    "Reason": "Complete collector Unsupported NonGptDiskVisible; Linux dotnet absent; lab preparation identity provider unqualified",
+    "SessionJournal": null
+  },
+  "CompleteCollector": {
+    "ExitCode": 1,
+    "Observation": {
+      "availability": "Unsupported",
+      "code": "NonGptDiskVisible",
+      "schemaVersion": 1
+    }
+  },
+  "DeliveryTeardown": {
+    "AtUtc": "2026-09-28T14:13:23.661910+00:00",
+    "CanonicalSessionTeardown": null,
+    "FreshMountinfoAbsent": true,
+    "LinuxEspUnchanged": true,
+    "PayloadUnmountExit": 0,
+    "PreservedTestEspUnchanged": true,
+    "Scope": "FAT32 delivery fixture only; no import occurred"
+  },
+  "Runtime": {
+    "DotnetOnPath": "",
+    "Dpkg": "dosfstools 4.2-1.2\ne2fsprogs 1.47.2-3+b12\npython3 3.13.5-1\nutil-linux 2.41.5-0+deb13u1\n",
+    "ObservedAtUtc": "2026-09-28T14:12:36.495585+00:00",
+    "Python": "Python 3.13.5\n",
+    "Uname": "Linux igloo-factory 6.12.107+deb13-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.107-1 (2026-08-29) x86_64 GNU/Linux\n"
+  },
+  "vdb1-readonly-digest": "20DDC2C20997AE87066016C4ED8A477A124E2581E9B04840FAAFC93600D07123",
+  "vdb2-readonly-digest": "EF27816F8261AFFE01457AABF912E14A3E5EE5545162F1DA9D290E99AAEE6B36"
+}

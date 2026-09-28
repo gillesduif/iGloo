@@ -1,0 +1,107 @@
+{
+  "Launch": {
+    "LabId": "cac91c4b60f946a2ae46ef78e7f42ae1",
+    "Directory": "/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1",
+    "Socket": "/tmp/igloo-chunks-cac91c4b60f9.sock",
+    "Arguments": [
+      "/usr/bin/qemu-system-x86_64",
+      "-no-user-config",
+      "-nodefaults",
+      "-machine",
+      "q35,accel=kvm",
+      "-cpu",
+      "host",
+      "-smp",
+      "4",
+      "-m",
+      "8192",
+      "-display",
+      "none",
+      "-nic",
+      "none",
+      "-monitor",
+      "none",
+      "-no-reboot",
+      "-sandbox",
+      "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny",
+      "-runas",
+      "gillesduif",
+      "-serial",
+      "unix:/tmp/igloo-chunks-cac91c4b60f9.sock,server=on,wait=off",
+      "-drive",
+      "file=/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1/runtime.qcow2,if=none,id=runtime,format=qcow2,cache=none",
+      "-device",
+      "virtio-blk-pci,drive=runtime,serial=IGLOO-FACTORY",
+      "-drive",
+      "file=/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1/target.raw,if=none,id=target,format=raw,cache=none",
+      "-device",
+      "virtio-blk-pci,drive=target,serial=IGLOO-LAB-TARGET",
+      "-drive",
+      "file=/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1/journal.raw,if=none,id=journal,format=raw,cache=none",
+      "-device",
+      "virtio-blk-pci,drive=journal,serial=IGLOO-LAB-JOURNAL",
+      "-boot",
+      "c"
+    ],
+    "BackingStat": [
+      33188,
+      74618,
+      2096,
+      1,
+      1000,
+      1000,
+      35847798784,
+      1790590336,
+      1790590336,
+      1790590336
+    ],
+    "Provisioning": "NotStarted"
+  },
+  "HostFdObservation": {
+    "Pid": 43640,
+    "Args": "/usr/bin/qemu-system-x86_64 -no-user-config -nodefaults -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -display none -nic none -monitor none -no-reboot -sandbox on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny -runas gillesduif -serial unix:/tmp/igloo-chunks-cac91c4b60f9.sock,server=on,wait=off -drive file=/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1/runtime.qcow2,if=none,id=runtime,format=qcow2,cache=none -device virtio-blk-pci,drive=runtime,serial=IGLOO-FACTORY -drive file=/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1/target.raw,if=none,id=target,format=raw,cache=none -device virtio-blk-pci,drive=target,serial=IGLOO-LAB-TARGET -drive file=/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1/journal.raw,if=none,id=journal,format=raw,cache=none -device virtio-blk-pci,drive=journal,serial=IGLOO-LAB-JOURNAL -boot c ",
+    "DiskFds": [
+      {
+        "Fd": "3",
+        "Path": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/neutralization-9f5101de-4b25-44d5-8ade-a18c4e371408/derived.qcow2",
+        "Flags": "pos:\t35847798784\nflags:\t02140000\nmnt_id:\t80\nino:\t74618\nlock:\t1: OFDLCK ADVISORY  READ -1 08:30:74618 100 100\nlock:\t2: OFDLCK ADVISORY  READ -1 08:30:74618 201 201\nlock:\t3: OFDLCK ADVISORY  READ -1 08:30:74618 203 203\n"
+      },
+      {
+        "Fd": "8",
+        "Path": "/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1/runtime.qcow2",
+        "Flags": "pos:\t0\nflags:\t02140002\nmnt_id:\t80\nino:\t74639\nlock:\t1: OFDLCK ADVISORY  READ -1 08:30:74639 100 101\nlock:\t2: OFDLCK ADVISORY  READ -1 08:30:74639 103 103\nlock:\t3: OFDLCK ADVISORY  READ -1 08:30:74639 201 201\nlock:\t4: OFDLCK ADVISORY  READ -1 08:30:74639 203 203\n"
+      },
+      {
+        "Fd": "9",
+        "Path": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/factory/factory.raw",
+        "Flags": "pos:\t85899345920\nflags:\t02140000\nmnt_id:\t80\nino:\t73898\nlock:\t1: OFDLCK ADVISORY  READ -1 08:30:73898 100 100\nlock:\t2: OFDLCK ADVISORY  READ -1 08:30:73898 201 201\nlock:\t3: OFDLCK ADVISORY  READ -1 08:30:73898 203 203\n"
+      },
+      {
+        "Fd": "10",
+        "Path": "/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1/journal.raw",
+        "Flags": "pos:\t0\nflags:\t02140002\nmnt_id:\t80\nino:\t74641\nlock:\t1: OFDLCK ADVISORY  READ -1 08:30:74641 100 101\nlock:\t2: OFDLCK ADVISORY  READ -1 08:30:74641 201 201\n"
+      },
+      {
+        "Fd": "23",
+        "Path": "/var/lib/igloo/chunk-labs/cac91c4b60f946a2ae46ef78e7f42ae1/target.raw",
+        "Flags": "pos:\t0\nflags:\t02140002\nmnt_id:\t80\nino:\t74640\nlock:\t1: OFDLCK ADVISORY  READ -1 08:30:74640 100 101\nlock:\t2: OFDLCK ADVISORY  READ -1 08:30:74640 201 201\n"
+      }
+    ],
+    "PhysicalBlockFds": []
+  },
+  "Shutdown": {
+    "ObservedAtUtc": "2026-09-28T14:21:58.981565+00:00",
+    "ProcessAbsent": true,
+    "SocketAbsent": false,
+    "Shutdown": "Normal guest systemctl poweroff; no forced host termination",
+    "RawSource": {
+      "Size": 85899345920,
+      "MtimeNs": 1790580378969481380
+    },
+    "RetainedOverlay": {
+      "Size": 35847798784,
+      "MtimeNs": 1790590336777986615
+    }
+  },
+  "HypervisorVersion": "QEMU emulator version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)"
+}
