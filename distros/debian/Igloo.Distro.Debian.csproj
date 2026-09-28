@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Igloo.Distro.Debian</RootNamespace>
     <AssemblyName>Igloo.Distro.Debian</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,6 +28,10 @@
              Link="agent\igloo_boot.py"
              CopyToOutputDirectory="PreserveNewest" />
     <Content Include="distro.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Candidate tools; qualification is separate from copying their source to output. -->
+    <Content Include="native\*.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="native\command_gate.c" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="native\debian_first_boot.py" LogicalName="Igloo.Debian.FirstBootWorker" />
   </ItemGroup>
 
   <!--

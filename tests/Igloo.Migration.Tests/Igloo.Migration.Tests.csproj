@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Igloo.Migration\Igloo.Migration.csproj" />
     <ProjectReference Include="..\..\distros\fedora-kde\Igloo.Distro.FedoraKde.csproj" />
+    <ProjectReference Include="..\..\distros\debian\Igloo.Distro.Debian.csproj" />
     <Compile Include="..\Shared\InstallationOwnershipFixture.cs" Link="InstallationOwnershipFixture.cs" />
     <Compile Include="..\Shared\TargetRootFixture.cs" Link="TargetRootFixture.cs" />
   </ItemGroup>
