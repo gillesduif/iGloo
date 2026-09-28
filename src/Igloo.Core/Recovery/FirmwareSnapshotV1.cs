@@ -29,7 +29,7 @@ public sealed record EfiLoadOptionV1(
 /// <summary>
 /// BootOrder is ordered state. Entry collection order is not state. Required indices are explicit scope input;
 /// entries referenced by BootOrder/BootNext may additionally be retained as observed evidence.
-/// Native variable attributes are not exposed by the existing reader and are not inferred from load-option attributes.
+/// Native variable attributes are observed separately and are never inferred from load-option attributes.
 /// </summary>
 public sealed record FirmwareSnapshotV1(
     int SectionVersion,

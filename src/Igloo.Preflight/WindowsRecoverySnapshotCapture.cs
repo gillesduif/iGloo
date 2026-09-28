@@ -7,15 +7,24 @@ namespace Igloo.Preflight;
 // Shared read-only acquisition, intentionally not wired into either product's mutation workflow.
 public sealed class WindowsRecoverySnapshotCapture : IRecoverySnapshotCapture
 {
+    private readonly Func<RecoveryScopeV1, Guid, RecoverySnapshotV1> _capture;
+    public WindowsRecoverySnapshotCapture() : this(CaptureOnce) { }
+    internal WindowsRecoverySnapshotCapture(Func<RecoveryScopeV1, Guid, RecoverySnapshotV1> capture) => _capture = capture;
+
     public RecoverySnapshotV1 Capture(RecoveryScopeV1 scope, Guid canonicalTargetVolume)
     {
         ArgumentNullException.ThrowIfNull(scope);
-        var first = CaptureOnce(scope, canonicalTargetVolume);
-        var second = CaptureOnce(scope, canonicalTargetVolume);
-        var complete = RecoverySnapshotRules.Assess(first).Issues.All(i => i.Code is RecoverySnapshotIssueCode.ReadbackUnavailable or RecoverySnapshotIssueCode.ScopeUnresolved) &&
-            RecoverySnapshotRules.Assess(second).Issues.All(i => i.Code is RecoverySnapshotIssueCode.ReadbackUnavailable or RecoverySnapshotIssueCode.ScopeUnresolved);
-        return first with { IndependentReadback = complete ? Observations.Available(first.CanonicalHash == second.CanonicalHash) :
-            Observations.Failure<bool>(ObservationAvailability.Unavailable, "RequiredEvidenceIncomplete") };
+        var first = _capture(scope, canonicalTargetVolume);
+        var second = _capture(scope, canonicalTargetVolume);
+        var states = RecoverySnapshotRules.Assess(first).Issues.Concat(RecoverySnapshotRules.Assess(second).Issues)
+            .Where(i => i.Code is not (RecoverySnapshotIssueCode.ReadbackUnavailable or RecoverySnapshotIssueCode.ScopeUnresolved))
+            .Select(i => i.Availability).ToArray();
+        var state = states.Contains(ObservationAvailability.Ambiguous) ? ObservationAvailability.Ambiguous :
+            states.Contains(ObservationAvailability.AccessDenied) ? ObservationAvailability.AccessDenied :
+            states.Contains(ObservationAvailability.Unavailable) ? ObservationAvailability.Unavailable :
+            states.Contains(ObservationAvailability.Unsupported) ? ObservationAvailability.Unsupported : ObservationAvailability.Absent;
+        return first with { IndependentReadback = states.Length == 0 ? Observations.Available(first.CanonicalHash == second.CanonicalHash) :
+            Observations.Failure<bool>(state, "RequiredEvidenceIncompleteDuringRecapture") };
     }
 
     private static RecoverySnapshotV1 CaptureOnce(RecoveryScopeV1 scope, Guid targetId)
@@ -31,13 +40,7 @@ public sealed class WindowsRecoverySnapshotCapture : IRecoverySnapshotCapture
         var bcd = new WindowsBcdReader().ReadRecoveryGraph();
         var firmware = new WindowsFirmwareSnapshotCapture(new WindowsFirmwareReader()).Capture(scope.FirmwareMutationEntries.Append(scope.WindowsBootEntry));
         var esp = CaptureEsp(storage, windows, scope.WindowsBootEntry, firmware);
-        // B3 proved location/handle correlation, but not a locale-independent typed WinRE configuration reader.
-        // No BCD recovery-enabled flag or mere recovery partition substitutes for configured WinRE state.
-        const string winreCode = "TypedWinReConfigurationNotImplemented";
-        var winre = new WinReConfigurationV1(1, Observations.Failure<bool>(ObservationAvailability.Unavailable, winreCode),
-            Observations.Failure<Guid>(ObservationAvailability.Unavailable, winreCode),
-            Observations.Failure<CanonicalVolumeIdentityV1>(ObservationAvailability.Unavailable, winreCode),
-            Observations.Failure<CanonicalFileIdentityV1>(ObservationAvailability.Unavailable, winreCode));
+        var winre = new WindowsWinReReader().Capture(storage);
         var snapshot = new RecoverySnapshotV1(1, DateTimeOffset.UtcNow, scope, binding, bcd, firmware, esp, winre,
             scope.IncludeRtc ? new WindowsRtcRecoveryReader().Capture() : null,
             Observations.Failure<bool>(ObservationAvailability.Unavailable, "IndependentRecapturePending"), new([], []));

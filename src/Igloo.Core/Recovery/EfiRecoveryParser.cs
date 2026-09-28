@@ -14,13 +14,20 @@ public static class EfiRecoveryParser
 {
     private static readonly UnicodeEncoding StrictUnicode = new(false, false, true);
 
+    // UEFI defines optional data as application-specific. Empty data adds no dependencies;
+    // no supported Windows nonempty dependency contract has been established. Do not guess one.
+    public static Observation<bool> OptionalDataDependenciesKnown(ImmutableArray<byte> bytes) => bytes.IsDefault
+        ? Observations.Failure<bool>(ObservationAvailability.Ambiguous, "OptionalDataNotCaptured")
+        : bytes.IsEmpty ? Observations.Available(true)
+        : Observations.Failure<bool>(ObservationAvailability.Unsupported, "OpaqueOptionalData");
+
     public static FirmwareVariableV1 Observe(FirmwareVariableObservation raw)
     {
         ArgumentNullException.ThrowIfNull(raw);
         return new(raw.Availability == ObservationAvailability.Available
             ? Observations.Available(raw.Data!.Value)
             : Observations.Failure<ImmutableArray<byte>>(raw.Availability, "FirmwareRead"), raw.NativeError,
-            Observations.Failure<uint>(ObservationAvailability.Unsupported, "PropertyNotExposed"));
+            raw.VariableAttributes);
     }
 
     public static Observation<ImmutableArray<ushort>> ParseBootOrder(FirmwareVariableV1 raw)

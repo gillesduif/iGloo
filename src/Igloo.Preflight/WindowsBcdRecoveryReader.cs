@@ -108,19 +108,37 @@ public sealed partial class WindowsBcdReader
     };
 
     private static BcdDeviceValue ProjectDevice(ManagementBaseObject device, int depth)
+        => ProjectDeviceEvidence(CopyDevice(device, depth), depth);
+
+    // Use the existing raw Windows observation row to test the native projection without WMI.
+    private static WindowsStorageRow CopyDevice(ManagementBaseObject device, int depth)
     {
         if (depth > 32) throw new InvalidOperationException("BCD device nesting exceeds capture limit.");
-        var kind = Convert.ToUInt32(Required(device, "DeviceType"), System.Globalization.CultureInfo.InvariantCulture);
-        var optionsText = (string)Required(device, "AdditionalOptions");
+        var values = device.Properties.Cast<PropertyData>().ToImmutableDictionary(p => p.Name,
+            p => p.Value is ManagementBaseObject nested ? (object?)CopyDevice(nested, depth + 1) : p.Value,
+            StringComparer.OrdinalIgnoreCase);
+        return new(values.SetItem("__CLASS", device.ClassPath.ClassName).SetItem("__MOF", device.GetText(TextFormat.Mof)));
+    }
+
+    internal static BcdDeviceValue ProjectDeviceEvidence(WindowsStorageRow device, int depth = 0)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        if (depth > 32) throw new InvalidOperationException("BCD device nesting exceeds capture limit.");
+        object Field(string key) => RequireValue(device.Properties.TryGetValue(key, out var value) ? value : null);
+        var kind = Convert.ToUInt32(Field("DeviceType"), System.Globalization.CultureInfo.InvariantCulture);
+        var optionsText = (string)Field("AdditionalOptions");
         Guid? options = string.IsNullOrEmpty(optionsText) ? null : ParseGuid(optionsText);
-        return device.ClassPath.ClassName switch
+        var providerClass = (string)Field("__CLASS");
+        return providerClass switch
         {
-            "BcdDeviceQualifiedPartitionData" when Convert.ToUInt32(Required(device, "PartitionStyle"), System.Globalization.CultureInfo.InvariantCulture) == 1 =>
-                new BcdQualifiedGptPartitionDevice(ParseGuid((string)Required(device, "DiskSignature")), ParseGuid((string)Required(device, "PartitionIdentifier")), options),
-            "BcdDevicePartitionData" => new BcdPartitionDevice((string)Required(device, "Path"), options),
-            "BcdDeviceFileData" => new BcdFileDevice(kind, (string)Required(device, "Path"), ProjectDevice((ManagementBaseObject)Required(device, "Parent"), depth + 1), options),
-            _ when kind == 1 => new BcdBootDevice(options),
-            _ => new BcdOpaqueDevice(kind, RawData(device), device.ClassPath.ClassName, options, device.GetText(TextFormat.Mof)),
+            "BcdDeviceQualifiedPartitionData" when kind == 6 && Convert.ToUInt32(Field("PartitionStyle"), System.Globalization.CultureInfo.InvariantCulture) == 1 =>
+                new BcdQualifiedGptPartitionDevice(ParseGuid((string)Field("DiskSignature")), ParseGuid((string)Field("PartitionIdentifier")), options),
+            "BcdDevicePartitionData" when kind == 2 => new BcdPartitionDevice((string)Field("Path"), options),
+            "BcdDeviceFileData" when kind is 3 or 4 => new BcdFileDevice(kind, (string)Field("Path"), ProjectDeviceEvidence((WindowsStorageRow)Field("Parent"), depth + 1), options),
+            "BcdDeviceData" when kind == 1 => new BcdBootDevice(options),
+            _ => new BcdOpaqueDevice(kind, device.Properties.TryGetValue("Data", out var raw) && raw is byte[] bytes
+                ? Observations.Available(bytes.ToImmutableArray()) : Observations.Failure<ImmutableArray<byte>>(ObservationAvailability.Unsupported, "BcdRawDataNotExposed"),
+                providerClass, options, device.Properties.TryGetValue("__MOF", out var mof) ? mof as string : null),
         };
     }
 

@@ -5,13 +5,21 @@ namespace Igloo.Core.Abstractions;
 // Native error is preserved; null data must not be interpreted as proof of absence.
 public sealed record FirmwareVariableObservation(ImmutableArray<byte>? Data, int NativeError)
 {
-    public ObservationAvailability Availability => Data.HasValue && !Data.Value.IsDefault ? ObservationAvailability.Available : NativeError switch
+    // Legacy/fake providers that only expose bytes must not acquire assumed attributes.
+    public Observation<uint> VariableAttributes { get; init; } =
+        Observations.Failure<uint>(ObservationAvailability.Unsupported, "PropertyNotExposed");
+
+    // Pre-acquisition failure (for example token access) is not variable absence, even if
+    // that different native API reports error 203. Only the getter may establish absence.
+    public ObservationAvailability? FailureAvailability { get; init; }
+
+    public ObservationAvailability Availability => FailureAvailability ?? (Data.HasValue && !Data.Value.IsDefault ? ObservationAvailability.Available : NativeError switch
     {
         203 => ObservationAvailability.Absent,
         5 or 1314 or 1300 => ObservationAvailability.AccessDenied,
         1 or 50 => ObservationAvailability.Unsupported,
         _ => ObservationAvailability.Unavailable,
-    };
+    });
 
     public Observation<ushort> DecodeBootNext()
     {

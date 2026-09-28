@@ -142,9 +142,10 @@ public static class RecoverySnapshotRules
             {
                 // Pass-through bytes are lossless, but unknown options can introduce further boot dependencies.
                 // Do not infer the undocumented Windows optional-data format from a BCDOBJECT substring.
-                if (!entry.LoadOption.Value.OptionalData.IsEmpty)
+                var optional = EfiRecoveryParser.OptionalDataDependenciesKnown(entry.LoadOption.Value.OptionalData);
+                if (optional.Availability != ObservationAvailability.Available)
                 {
-                    issues.Add(new(RecoverySnapshotIssueCode.FirmwareIdentityMismatch, ObservationAvailability.Unsupported, $"OpaqueOptionalData:Boot{index:X4}"));
+                    issues.Add(new(RecoverySnapshotIssueCode.FirmwareIdentityMismatch, optional.Availability, $"{optional.Code}:Boot{index:X4}"));
                     relevance = RecoveryRelevance.RelevantOpaque;
                 }
                 if ((entry.LoadOption.Value.Attributes & ~0xbu) != 0)

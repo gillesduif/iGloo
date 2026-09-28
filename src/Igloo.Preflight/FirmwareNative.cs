@@ -7,6 +7,10 @@ namespace Igloo.Preflight;
 internal static partial class FirmwareNative
 {
     [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial uint GetFirmwareEnvironmentVariableExW(
+        string lpName, string lpGuid, [Out] byte[] pBuffer, uint nSize, out uint attributes);
+
+    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     internal static partial uint GetFirmwareEnvironmentVariableW(
         string lpName, string lpGuid, byte[] pBuffer, uint nSize);
 
@@ -14,6 +18,7 @@ internal static partial class FirmwareNative
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool SetFirmwareEnvironmentVariableW(
         string lpName, string lpGuid, byte[]? pValue, uint nSize);
+
 
     [LibraryImport("advapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -49,6 +54,28 @@ internal static partial class FirmwareNative
         public long Luid;            // LUID = LowPart (4 b) + HighPart (4 b) at offset 4
         public uint Attributes;      // SE_PRIVILEGE_ENABLED = 2, at offset 12
     }
+
+    // Read access uses the same Windows privilege as firmware writes. This only enables an
+    // existing process-token privilege; it never assigns a right or invokes a firmware setter.
+    internal static int EnableReadPrivilege()
+    {
+        if (!OperatingSystem.IsWindows()) return 50;
+        using var process = Process.GetCurrentProcess();
+        if (!OpenProcessToken(process.Handle, 0x0028, out var token)) return FailureError(Marshal.GetLastWin32Error());
+        try
+        {
+            if (!LookupPrivilegeValueW(null, "SeSystemEnvironmentPrivilege", out var luid))
+                return FailureError(Marshal.GetLastWin32Error());
+            var state = new TokenPrivileges { PrivilegeCount = 1, Luid = luid, Attributes = 2 };
+            var adjusted = AdjustTokenPrivileges(token, false, ref state, 0, IntPtr.Zero, IntPtr.Zero);
+            return CheckPrivilegeAdjustment(adjusted, Marshal.GetLastWin32Error());
+        }
+        finally { CloseHandle(token); }
+    }
+
+    internal static int CheckPrivilegeAdjustment(bool adjusted, int error) => adjusted ? error : FailureError(error);
+    // Never turn BOOL failure with an unspecified native error into success.
+    private static int FailureError(int error) => error == 0 ? 31 : error;
 
     internal static void EnablePrivilege(ILogger logger, bool reportAssignmentFailures)
     {

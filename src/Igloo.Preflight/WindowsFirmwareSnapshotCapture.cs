@@ -1,12 +1,11 @@
 using System.Collections.Immutable;
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Recovery;
 
 namespace Igloo.Preflight;
 
-/// <summary>Read-only composition over the existing canonical reader. Never enables privileges or writes firmware.</summary>
+/// <summary>Read-only composition. The canonical reader establishes its process privilege; no firmware writes.</summary>
 public sealed class WindowsFirmwareSnapshotCapture(IWindowsFirmwareReader reader)
 {
     private readonly IWindowsFirmwareReader _reader = reader ?? throw new ArgumentNullException(nameof(reader));
@@ -27,22 +26,22 @@ public sealed class WindowsFirmwareSnapshotCapture(IWindowsFirmwareReader reader
         return new(1, orderRaw, order, nextRaw, next, required, entries);
     }
 
-    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification =
-        "Read-only provider boundary preserves managed observation failure; it never fabricates absence or native error codes.")]
     private static FirmwareVariableV1 Read(Func<FirmwareVariableObservation> read)
     {
         try { return EfiRecoveryParser.Observe(read()); }
-        catch (Exception error)
+        catch (Exception error) when (error is Win32Exception or IOException or UnauthorizedAccessException or
+            System.Security.SecurityException or NotSupportedException or InvalidOperationException or ArgumentException or
+            EntryPointNotFoundException or DllNotFoundException)
         {
             int? nativeError = error is Win32Exception native ? native.NativeErrorCode : null;
             var availability = nativeError switch
             {
                 5 or 1300 or 1314 => ObservationAvailability.AccessDenied,
                 1 or 50 => ObservationAvailability.Unsupported,
-                _ => ObservationErrors.Classify(error),
+                _ => error is EntryPointNotFoundException or DllNotFoundException ? ObservationAvailability.Unsupported : ObservationErrors.Classify(error),
             };
             return new(Observations.Failure<ImmutableArray<byte>>(availability, "FirmwareReaderException"), nativeError,
-                Observations.Failure<uint>(ObservationAvailability.Unsupported, "PropertyNotExposed"));
+                Observations.Failure<uint>(availability, "FirmwareAttributesReaderException"));
         }
     }
 }

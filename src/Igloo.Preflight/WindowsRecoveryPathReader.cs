@@ -20,10 +20,13 @@ public static class WindowsRecoveryPathReader
             Observations.Failure<Guid>(ObservationAvailability.Ambiguous, "InvalidWindowsVolumeGuid");
     }
 
-    public static Observation<CanonicalFileIdentityV1> ReadBootManagerFile(Guid volumeId)
+    public static Observation<CanonicalFileIdentityV1> ReadBootManagerFile(Guid volumeId) => ReadFileIdentity(volumeId, @"\EFI\Microsoft\Boot\bootmgfw.efi");
+
+    public static Observation<CanonicalFileIdentityV1> ReadFileIdentity(Guid volumeId, string relative)
     {
+        if (!OperatingSystem.IsWindows()) return Observations.Failure<CanonicalFileIdentityV1>(ObservationAvailability.Unsupported, "WindowsRequired");
         if (volumeId == Guid.Empty) return Observations.Failure<CanonicalFileIdentityV1>(ObservationAvailability.Unavailable, "VolumeRequired");
-        const string relative = @"\EFI\Microsoft\Boot\bootmgfw.efi";
+        if (!WinReConfigurationParser.IsRelativePath(relative)) return Observations.Failure<CanonicalFileIdentityV1>(ObservationAvailability.Ambiguous, "InvalidRelativeFilePath");
         var prefix = @"\\?\Volume{" + volumeId.ToString("D") + "}";
         try
         {
