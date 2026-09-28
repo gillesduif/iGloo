@@ -14,6 +14,7 @@
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="..\..\docs\architecture\debian-root-chunk-transport-manifest.json" LogicalName="DebianRootTransportQualification.json" />
     <ProjectReference Include="..\..\src\Igloo.Migration\Igloo.Migration.csproj" />
     <ProjectReference Include="..\..\distros\fedora-kde\Igloo.Distro.FedoraKde.csproj" />
     <ProjectReference Include="..\..\distros\debian\Igloo.Distro.Debian.csproj" />
