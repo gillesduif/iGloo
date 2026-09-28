@@ -1,0 +1,129 @@
+{
+  "inReleaseSha256": "0584FBA32E13E0AB8285FB16C27ADEA1EC03A73669C18702821094FD6CA86675",
+  "releaseSha256": "ED56AAC47E7911E65EE63AAE8D67E29F20E023F840E49F8ED037043A33DE138A",
+  "signer": "41587F7DB8C774BCCF131416762F67A0B2C39DE4",
+  "keyringSha256": "59E6105598E3D9924929553293AC7F283D342EF60C5FAA009FC0A3C6542A128A",
+  "packagesIndexSha256": "7778D3E3F303B7DDB8CE0FE7C8D57473A076C6BF2E8F241F75421D2396352498",
+  "packages": [
+    {
+      "Package": "mmdebstrap",
+      "Version": "1.5.7-1+deb13u1",
+      "Architecture": "all",
+      "Filename": "pool/main/m/mmdebstrap/mmdebstrap_1.5.7-1+deb13u1_all.deb",
+      "Size": "134004",
+      "SHA256": "df731ee92b0ad40f9618b8b1c98c2e90635224f6b21c0905dab65ca099c8fe14",
+      "Depends": "apt (>= 2.3.14), python3 (>= 3.10), perl:any"
+    },
+    {
+      "Package": "cdebootstrap",
+      "Version": "0.7.9+b13",
+      "Architecture": "amd64",
+      "Filename": "pool/main/c/cdebootstrap/cdebootstrap_0.7.9+b13_amd64.deb",
+      "Size": "30752",
+      "SHA256": "86721e5484298e7dd74112234f76f76e9651d981e761e389cd086e1bb23dd1fc",
+      "Depends": "libbz2-1.0, libc6 (>= 2.38), libcurl3t64-gnutls (>= 7.16.2), libdebian-installer-extra4 (>= 0.125), libdebian-installer4 (>= 0.125), liblzma5 (>= 5.1.1alpha+20120614), zlib1g (>= 1:1.1.4), gpgv, debian-archive-keyring"
+    },
+    {
+      "Package": "debootstrap",
+      "Version": "1.0.141",
+      "Architecture": "all",
+      "Filename": "pool/main/d/debootstrap/debootstrap_1.0.141_all.deb",
+      "Size": "50094",
+      "SHA256": "8c02cb8ad712eb67afb0d23fab175c562804cc97eda70b70cb0f3bc2a21732d7",
+      "Depends": "wget, distro-info"
+    },
+    {
+      "Package": "live-build",
+      "Version": "1:20250505+deb13u1",
+      "Architecture": "all",
+      "Filename": "pool/main/l/live-build/live-build_20250505+deb13u1_all.deb",
+      "Size": "204276",
+      "SHA256": "58e09779881cbcc631c49ceb703413e0247a87db01823e597b2a1c40a2afd8f4",
+      "Depends": "cpio, debootstrap"
+    },
+    {
+      "Package": "debuerreotype",
+      "Version": "0.15-1.1",
+      "Architecture": "all",
+      "Filename": "pool/main/d/debuerreotype/debuerreotype_0.15-1.1_all.deb",
+      "Size": "21788",
+      "SHA256": "bfa9d9635d22c31aa27a6852a9587e295471b003382934ed67ffc786c7b7ec55",
+      "Depends": null
+    }
+  ],
+  "schemaVersion": 1,
+  "observedAtUtc": "2026-09-28T04:49:43.712307+00:00",
+  "decision": "NoQualifiedBootstrapPrimitive",
+  "productionEnabled": false,
+  "installedPackages": false,
+  "sourceWitnesses": [
+    {
+      "package": "mmdebstrap",
+      "path": "usr/bin/mmdebstrap",
+      "sha256": "C8A55D9731E81C00A78DB8824854A099ADBDB516F83F88B6D546D4D17B03EA1A",
+      "lineCount": 9141,
+      "provenance": "Signed InRelease -> Packages.xz -> deb -> extracted file"
+    },
+    {
+      "package": "debootstrap",
+      "path": "usr/sbin/debootstrap",
+      "sha256": "3C39F9298F2D259687A4FE4EAA5C5AD3366E6E7139106F5E79A32B17F8D587FE",
+      "lineCount": 892,
+      "provenance": "Signed InRelease -> Packages.xz -> deb -> extracted file"
+    },
+    {
+      "package": "debootstrap",
+      "path": "usr/share/debootstrap/functions",
+      "sha256": "E142A1E7ABCF60D994A3F6DFCA2BEE5403691E8669056BE82B9ACCAC9476052F",
+      "lineCount": 2181,
+      "provenance": "Signed InRelease -> Packages.xz -> deb -> extracted file"
+    },
+    {
+      "package": "debootstrap",
+      "path": "usr/share/debootstrap/scripts/debian-common",
+      "sha256": "ECEC534A61CBC18EDFD4FB25C815822F4506A1AC0F0CBED23BFDF6CAD62A7DD5",
+      "lineCount": 286,
+      "provenance": "Signed InRelease -> Packages.xz -> deb -> extracted file"
+    },
+    {
+      "package": "debuerreotype",
+      "path": "usr/share/debuerreotype/scripts/debuerreotype-init",
+      "sha256": "BFF95FDDBA02E5B262AD635BB44496DD8F289FE5EFF5991EAB6E3BFC09D9EF3D",
+      "lineCount": 217,
+      "provenance": "Signed InRelease -> Packages.xz -> deb -> extracted file"
+    },
+    {
+      "package": "debuerreotype",
+      "path": "usr/share/debuerreotype/scripts/debuerreotype-chroot",
+      "sha256": "7AF6987740AD0DDC4F7FA99700C84038F6229BE47C04A525AC6371EC020D1323",
+      "lineCount": 38,
+      "provenance": "Signed InRelease -> Packages.xz -> deb -> extracted file"
+    },
+    {
+      "package": "live-build",
+      "path": "usr/lib/live/build/bootstrap_debootstrap",
+      "sha256": "0397F1E77A01F82D83CBF479CF63954C1EB138C8CBBA721247F93B03341DB8A3",
+      "lineCount": 151,
+      "provenance": "Signed InRelease -> Packages.xz -> deb -> extracted file"
+    }
+  ],
+  "additionalSourceWitnesses": [
+    {
+      "url": "https://sources.debian.org/data/main/c/cdebootstrap/0.7.9/src/execute.c",
+      "sha256": "0B4492691773D44DA4E4223C78CF7E4F42BC6DD6C7900F8423CDBD66C61CB887",
+      "provenance": "Debian Sources HTTPS; not separately archive-signature verified"
+    },
+    {
+      "url": "https://sources.debian.org/data/main/c/cdebootstrap/0.7.9/src/install.c",
+      "sha256": "C7BCB9187F0D4A0EB6CAAD6B6F86BD0D9B67A5A349323A7D2383056E8436D35A",
+      "provenance": "Debian Sources HTTPS; not separately archive-signature verified"
+    }
+  ],
+  "cloudCatalog": {
+    "url": "https://cloud.debian.org/images/cloud/trixie/latest/",
+    "sha256": "388F75092E5FFEE0363E0338205C9ADC504E6A71B3EED1EEB9B34C7690E61B5B",
+    "imageDownloadedOrAuthenticated": false,
+    "listedDetachedChecksumSignature": false,
+    "scope": "Directory observation only; not a claim about all Debian image distributions"
+  }
+}

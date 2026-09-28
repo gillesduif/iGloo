@@ -1,0 +1,135 @@
+{
+  "auditDate": "2026-09-27",
+  "purpose": "Debian-only read-only artifact research, no package installed or maintainer script executed. Downloaded package SHA256 matched the HTTPS-fetched Packages index; its InRelease signature was not independently verified in this audit. This is not production source authentication or a complete package closure.",
+  "index": "https://deb.debian.org/debian/dists/trixie/main/binary-amd64/Packages.xz",
+  "indexSha256": "7778d3e3f303b7ddb8ce0fe7c8d57473a076c6bf2e8f241f75421d2396352498",
+  "packages": [
+    {
+      "Package": "efibootmgr",
+      "Version": "18-2",
+      "Architecture": "amd64",
+      "Filename": "pool/main/e/efibootmgr/efibootmgr_18-2_amd64.deb",
+      "SHA256": "617327cab7f7d4457bbcbb5aef603f89d5bc408e487cb85b006939b8c70b0b09",
+      "Depends": "libc6 (>= 2.38), libefiboot1t64 (>= 38), libefivar1t64 (>= 38), libpopt0 (>= 1.14)",
+      "Recommends": null
+    },
+    {
+      "Package": "initramfs-tools",
+      "Version": "0.148.4",
+      "Architecture": "all",
+      "Filename": "pool/main/i/initramfs-tools/initramfs-tools_0.148.4_all.deb",
+      "SHA256": "4c65a6c385a3815aa65706066ae3a35395bf4ae7e13c9d4df4c655bd1d1ef956",
+      "Depends": "initramfs-tools-core (= 0.148.4), linux-base",
+      "Recommends": null
+    },
+    {
+      "Package": "linux-image-amd64",
+      "Version": "6.12.107-1",
+      "Architecture": "amd64",
+      "Filename": "pool/main/l/linux-signed-amd64/linux-image-amd64_6.12.107-1_amd64.deb",
+      "SHA256": "85d3ddb7095c6b339530ca2c8cfd8fc6c64dce67c6d1dc4bafbaa1ce7d748104",
+      "Depends": "linux-image-6.12.107+deb13-amd64 (= 6.12.107-1)",
+      "Recommends": null
+    },
+    {
+      "Package": "mokutil",
+      "Version": "0.7.2-1",
+      "Architecture": "amd64",
+      "Filename": "pool/main/m/mokutil/mokutil_0.7.2-1_amd64.deb",
+      "SHA256": "1918fd2775b06e35429a06c59586d548bcccd6c544684799a22ae532a8bb83e4",
+      "Depends": "libc6 (>= 2.34), libcrypt1 (>= 1:4.1.0), libefivar1t64 (>= 38), libkeyutils1 (>= 1.5.9), libssl3t64 (>= 3.0.0)",
+      "Recommends": null
+    },
+    {
+      "Package": "network-manager",
+      "Version": "1.52.1-1",
+      "Architecture": "amd64",
+      "Filename": "pool/main/n/network-manager/network-manager_1.52.1-1_amd64.deb",
+      "SHA256": "1e1f7aab8916b1346d39c844688409184a589a9e7f8377f9932ad95ebb7aafea",
+      "Depends": "libaudit1 (>= 1:2.2.1), libbluetooth3 (>= 5), libc6 (>= 2.38), libcurl3t64-gnutls (>= 7.24.0), libglib2.0-0t64 (>= 2.68.0), libgnutls30t64 (>= 3.7.2), libjansson4 (>= 2.14), libmm-glib0 (>= 1.10.0), libndp0 (>= 1.2), libnewt0.52 (>= 0.52.25), libnm0 (= 1.52.1-1), libpsl5t64 (>= 0.13.0), libreadline8t64 (>= 6.0), libselinux1 (>= 3.1~), libsystemd0 (>= 209), libteamdctl0 (>= 1.9), libudev1 (>= 183), default-dbus-system-bus | dbus-system-bus, adduser",
+      "Recommends": "ppp, dnsmasq-base, modemmanager, wireless-regdb, wpasupplicant, libpam-systemd, polkitd, udev, network-manager-l10n"
+    },
+    {
+      "Package": "task-gnome-desktop",
+      "Version": "3.81",
+      "Architecture": "all",
+      "Filename": "pool/main/t/tasksel/task-gnome-desktop_3.81_all.deb",
+      "SHA256": "723ab5b7682f79d6d5e63c94926c66f304c5d9bd9aa62677729b143d64adbab2",
+      "Depends": "tasksel (= 3.81), task-desktop, gnome-core",
+      "Recommends": "gnome"
+    },
+    {
+      "Package": "tasksel",
+      "Version": "3.81",
+      "Architecture": "all",
+      "Filename": "pool/main/t/tasksel/tasksel_3.81_all.deb",
+      "SHA256": "503947ab9559ce025d654405b2df975fbde811548e75060e450f704c05cd0d10",
+      "Depends": "debconf (>= 0.5) | debconf-2.0, liblocale-gettext-perl, apt, tasksel-data",
+      "Recommends": null
+    }
+  ],
+  "controlArchiveFiles": {
+    "efibootmgr_18-2_amd64": [
+      "control",
+      "md5sums"
+    ],
+    "mokutil_0.7.2-1_amd64": [
+      "control",
+      "md5sums"
+    ],
+    "tasksel_3.81_all": [
+      "control",
+      "md5sums",
+      "postinst",
+      "postrm",
+      "templates"
+    ]
+  },
+  "files": [
+    {
+      "extractedPath": "efibootmgr_18-2_amd64.deb",
+      "sizeBytes": 30156,
+      "sha256": "617327cab7f7d4457bbcbb5aef603f89d5bc408e487cb85b006939b8c70b0b09"
+    },
+    {
+      "extractedPath": "mokutil_0.7.2-1_amd64.deb",
+      "sizeBytes": 26744,
+      "sha256": "1918fd2775b06e35429a06c59586d548bcccd6c544684799a22ae532a8bb83e4"
+    },
+    {
+      "extractedPath": "tasksel_3.81_all.deb",
+      "sizeBytes": 51948,
+      "sha256": "503947ab9559ce025d654405b2df975fbde811548e75060e450f704c05cd0d10"
+    },
+    {
+      "extractedPath": "trixie-controls/grub-efi-amd64/postinst",
+      "sizeBytes": 29026,
+      "sha256": "303d615b47c17c570f07b0733b7f0491ff410775cf0fc5da2762186b1c03b832"
+    },
+    {
+      "extractedPath": "trixie-controls/shim-signed/postinst",
+      "sizeBytes": 2743,
+      "sha256": "3d012f094f2acb224a6603daa71b72a68676dee63368c3fb853cc1ff8827f8b3"
+    },
+    {
+      "extractedPath": "trixie-controls/shim-signed-common/postinst",
+      "sizeBytes": 222,
+      "sha256": "d6055e27bd5ff7cab98b42a0ceeff348e6e86225d237071625ab8cc877cfc5b4"
+    },
+    {
+      "extractedPath": "trixie-controls/shim-signed/triggers",
+      "sizeBytes": 40,
+      "sha256": "66593a5c15b87713c9cb55b626d12925b0ec1fc5b0f81b9382603987637b3004"
+    },
+    {
+      "extractedPath": "trixie-packages/shim-signed-common/usr/sbin/update-secureboot-policy",
+      "sizeBytes": 7306,
+      "sha256": "cc65cd9815056f337c66d5271cc3a989a894a53cbef8f00afb7ff5d6ba7d2ee0"
+    },
+    {
+      "extractedPath": "trixie-packages/grub-common/etc/grub.d/30_os-prober",
+      "sizeBytes": 12661,
+      "sha256": "735a1995a02d08caa73735556014c69b90ffba28bb41ceae19d77555438023cd"
+    }
+  ]
+}
