@@ -1,0 +1,38 @@
+@page "/"
+
+<PageTitle>iGloo Fleet</PageTitle>
+
+<AppContent Title="Dashboard">
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6"><SmallBox Theme="primary" Title="-" Text="Managed devices" Icon="bi-pc-display" Url="/devices" /></div>
+        <div class="col-xl-3 col-md-6"><SmallBox Theme="success" Title="-" Text="Healthy devices" Icon="bi-heart-pulse" Url="/monitoring/health" /></div>
+        <div class="col-xl-3 col-md-6"><SmallBox Theme="warning" Title="-" Text="Available Updates" Icon="bi-arrow-repeat" Url="/updates/available" /></div>
+        <div class="col-xl-3 col-md-6"><SmallBox Theme="info" Title="-" Text="Migration work" Icon="bi-arrow-left-right" Url="/migration/assessments" /></div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-xl-8">
+            <Card Title="Fleet overview" Theme="primary" Variant="outline">
+                <div class="igloo-dashboard-grid">
+                    <a class="igloo-module-tile" href="/devices"><i class="bi bi-pc-display-horizontal"></i><span><strong>Devices</strong><small>Inventory, groups and device details</small></span></a>
+                    <a class="igloo-module-tile" href="/software/applications"><i class="bi bi-box-seam"></i><span><strong>Software</strong><small>Applications, packages and deployments</small></span></a>
+                    <a class="igloo-module-tile" href="/security/posture"><i class="bi bi-shield-lock"></i><span><strong>Security</strong><small>Posture, encryption, firewall and compliance</small></span></a>
+                    <a class="igloo-module-tile" href="/monitoring/health"><i class="bi bi-graph-up"></i><span><strong>Monitoring</strong><small>Health, resources, services and logs</small></span></a>
+                    <a class="igloo-module-tile" href="/automation/jobs"><i class="bi bi-lightning-charge"></i><span><strong>Automation</strong><small>Scripts, jobs, schedules and templates</small></span></a>
+                    <a class="igloo-module-tile" href="/migration/assessments"><i class="bi bi-arrow-left-right"></i><span><strong>Migration</strong><small>Assessment, planning, execution and recovery</small></span></a>
+                </div>
+            </Card>
+        </div>
+        <div class="col-xl-4">
+            <Card Title="Platform status" Variant="outline">
+                <dl class="row mb-0">
+                    <dt class="col-7">Fleet API</dt><dd class="col-5 text-end"><span class="badge text-bg-secondary">Not connected</span></dd>
+                    <dt class="col-7">Managed devices</dt><dd class="col-5 text-end">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</dd>
+                    <dt class="col-7">Open alerts</dt><dd class="col-5 text-end">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</dd>
+                    <dt class="col-7">Pending work</dt><dd class="col-5 text-end">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</dd>
+                </dl>
+                <p class="text-body-secondary small mt-3 mb-0">Live values will come from the Fleet operator API. The shell deliberately does not invent telemetry.</p>
+            </Card>
+        </div>
+    </div>
+</AppContent>

@@ -1,0 +1,113 @@
+@page "/administration/preferences"
+@page "/profile"
+@page "/home/activity"
+@page "/home/alerts"
+@page "/devices/network"
+@page "/software/applications"
+@page "/software/packages"
+@page "/software/repositories"
+@page "/software/deployment"
+@page "/software/installed"
+@page "/updates/available"
+@page "/updates/security"
+@page "/updates/rings"
+@page "/updates/deployment"
+@page "/updates/history"
+@page "/configuration/policies"
+@page "/configuration/profiles"
+@page "/configuration/scripts"
+@page "/configuration/environment"
+@page "/configuration/services"
+@page "/configuration/scheduled-jobs"
+@page "/configuration/ssh"
+@page "/security/posture"
+@page "/security/disk-encryption"
+@page "/security/secure-boot"
+@page "/security/firewall"
+@page "/security/ssh"
+@page "/security/accounts"
+@page "/security/sudo"
+@page "/security/certificates"
+@page "/security/compliance"
+@page "/storage/disks"
+@page "/storage/partitions"
+@page "/storage/filesystems"
+@page "/storage/mounts"
+@page "/storage/lvm"
+@page "/storage/raid"
+@page "/storage/encryption"
+@page "/networking/interfaces"
+@page "/networking/addresses"
+@page "/networking/routes"
+@page "/networking/dns"
+@page "/networking/firewall"
+@page "/networking/connectivity"
+@page "/monitoring/health"
+@page "/monitoring/cpu-memory"
+@page "/monitoring/storage"
+@page "/monitoring/network"
+@page "/monitoring/services"
+@page "/monitoring/events"
+@page "/monitoring/logs"
+@page "/automation/scripts"
+@page "/automation/jobs"
+@page "/automation/schedules"
+@page "/automation/history"
+@page "/automation/templates"
+@page "/migration/assessments"
+@page "/migration/profiles"
+@page "/migration/evidence"
+@page "/migration/approvals"
+@page "/migration/plans"
+@page "/migration/readiness"
+@page "/migration/executions"
+@page "/migration/recovery"
+@page "/fleet/enrollment"
+@page "/fleet/device-trust"
+@page "/fleet/work-queue"
+@page "/fleet/agent-versions"
+@page "/fleet/deployment-rings"
+@page "/fleet/maintenance-windows"
+@page "/reports/inventory"
+@page "/reports/compliance"
+@page "/reports/updates"
+@page "/reports/security"
+@page "/reports/migrations"
+@page "/reports/custom"
+@page "/administration/operators"
+@page "/administration/roles"
+@page "/administration/integrations"
+@page "/administration/certificates"
+@page "/administration/server-settings"
+@page "/administration/audit"
+@page "/administration/about"
+@inject NavigationManager Navigation
+
+<PageTitle>@Title ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· iGloo Fleet</PageTitle>
+
+<AppContent Title="@Title">
+    <Card Title="@Title" Variant="outline">
+        <div class="igloo-module-intro">
+            <div class="igloo-module-icon"><i class="bi bi-grid-1x2"></i></div>
+            <div>
+                <h5>@Title</h5>
+                <p class="mb-2">This iGloo Fleet capability now has a permanent navigation entry and route. Backend contracts and live management actions will be connected as the subsystem is implemented.</p>
+                <code>@RelativePath</code>
+            </div>
+        </div>
+    </Card>
+</AppContent>
+
+@code {
+    private string RelativePath => "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].Split('#')[0].Trim('/');
+    private string[] Segments => RelativePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+    private string Section => Segments.Length > 0 ? Pretty(Segments[0]) : "iGloo Fleet";
+    private string Title => Segments.Length > 1 ? Pretty(Segments[^1]) : Section;
+
+    private static string Pretty(string value)
+    {
+        var text = value.Replace("-", " ", StringComparison.Ordinal);
+        return string.Join(" ", text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => word.Length <= 1 ? word.ToUpperInvariant() : char.ToUpperInvariant(word[0]) + word[1..]));
+    }
+}

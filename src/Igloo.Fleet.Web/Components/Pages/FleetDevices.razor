@@ -1,0 +1,356 @@
+@page "/devices"
+@using Igloo.Fleet.Contracts
+@inject Igloo.Fleet.Web.IFleetDeviceDataSource DeviceData
+@inject NavigationManager Navigation
+
+<PageTitle>All devices | iGloo Fleet</PageTitle>
+
+<AppContent Title="All devices">
+    <div class="row g-3 mb-3">
+        <div class="col-xl-3 col-md-6">
+            <InfoBox Text="Devices"
+                     Title="@_devices.Length.ToString()"
+                     Icon="bi-pc-display-horizontal"
+                     Theme="primary" />
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <InfoBox Text="Active"
+                     Title="@CountByStatus(AgentTrustStatus.Active).ToString()"
+                     Icon="bi-shield-check"
+                     Theme="success" />
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <InfoBox Text="Disabled"
+                     Title="@CountByStatus(AgentTrustStatus.Disabled).ToString()"
+                     Icon="bi-pause-circle"
+                     Theme="warning" />
+        </div>
+
+        <div class="col-xl-3 col-md-6">
+            <InfoBox Text="Revoked"
+                     Title="@CountByStatus(AgentTrustStatus.Revoked).ToString()"
+                     Icon="bi-shield-x"
+                     Theme="danger" />
+        </div>
+    </div>
+
+    <Card Title="Device inventory"
+          Icon="bi-pc-display"
+          BodyClass="p-0">
+
+        <Tools>
+            @if (DeviceData.IsSampleData)
+            {
+                <span class="badge text-bg-warning">Demo data</span>
+            }
+        </Tools>
+
+        <ChildContent>
+            <div class="d-flex flex-wrap gap-2 align-items-center p-3 border-bottom">
+                <div class="input-group input-group-sm me-auto" style="max-width: 18rem;">
+                    <span class="input-group-text">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                    </span>
+                    <input type="search"
+                           class="form-control"
+                           placeholder="Search devices"
+                           aria-label="Search devices"
+                           @bind="_search"
+                           @bind:event="oninput" />
+                </div>
+
+                <a class="btn btn-outline-secondary btn-sm" href="/devices/groups">
+                    <i class="bi bi-collection me-1" aria-hidden="true"></i>
+                    Groups
+                </a>
+
+                <button class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                        disabled="@_loading"
+                        @onclick="LoadAsync">
+                    <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>
+                    Refresh
+                </button>
+            </div>
+
+            @if (_loading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading devices</span>
+                    </div>
+                </div>
+            }
+            else if (_loadFailed)
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-exclamation-circle fs-2 text-body-secondary" aria-hidden="true"></i>
+                    <h2 class="h6 mt-3 mb-3">Devices are unavailable</h2>
+                    <button class="btn btn-outline-secondary btn-sm"
+                            type="button"
+                            @onclick="LoadAsync">
+                        Try again
+                    </button>
+                </div>
+            }
+            else if (FilteredRows.Count == 0)
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-pc-display fs-2 text-body-secondary" aria-hidden="true"></i>
+                    <h2 class="h6 mt-3 mb-0">
+                        @(_devices.Length == 0 ? "No devices" : "No matching devices")
+                    </h2>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Device name</th>
+                                <th scope="col" class="text-center">Status</th>
+                                <th scope="col">OS</th>
+                                <th scope="col">OS version</th>
+                                <th scope="col">Model</th>
+                                <th scope="col">Last contact</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in FilteredRows)
+                            {
+                                <tr role="link"
+                                    tabindex="0"
+                                    style="cursor: pointer;"
+                                    @onclick="() => OpenDevice(row.DeviceId)"
+                                    @onkeydown="args => OnRowKeyDown(args, row.DeviceId)">
+                                    <td>
+                                        <a href="@DeviceUrl(row.DeviceId)"
+                                           class="fw-semibold text-decoration-none">
+                                            @row.DeviceName
+                                        </a>
+                                    </td>
+
+                                    <td class="text-center">
+                                        <span class="@StatusColorClass(row.Status)"
+                                              title="@row.Status"
+                                              aria-label="@row.Status">
+                                            <i class="bi @StatusIcon(row.Status) fs-5"
+                                               aria-hidden="true"></i>
+                                            <span class="visually-hidden">@row.Status</span>
+                                        </span>
+                                    </td>
+
+                                    <td>@row.OperatingSystem</td>
+                                    <td>@row.OperatingSystemVersion</td>
+                                    <td>@row.Model</td>
+
+                                    <td>
+                                        @if (row.LastContactUtc is null)
+                                        {
+                                            <span class="text-secondary">Never</span>
+                                        }
+                                        else
+                                        {
+                                            @FormatDateTime(row.LastContactUtc.Value)
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </ChildContent>
+
+        <FooterContent>
+            <div class="d-flex justify-content-between align-items-center">
+                <small class="text-secondary">
+                    @if (!_loading && !_loadFailed)
+                    {
+                        <span>Showing @FilteredRows.Count of @_devices.Length</span>
+                    }
+                </small>
+
+                @if (DeviceData.IsSampleData)
+                {
+                    <span class="badge text-bg-warning">Demo data</span>
+                }
+            </div>
+        </FooterContent>
+    </Card>
+</AppContent>
+
+@code {
+    private TrustedDeviceView[] _devices = [];
+    private string _search = string.Empty;
+    private bool _loading = true;
+    private bool _loadFailed;
+
+    private List<InventoryRow> FilteredRows =>
+        _devices
+            .Select(ToInventoryRow)
+            .Where(MatchesSearch)
+            .OrderByDescending(row => row.LastContactUtc)
+            .ThenBy(row => row.DeviceName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _loadFailed = false;
+
+        try
+        {
+            _devices = await DeviceData.GetTrustedDevicesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _devices = [];
+            _loadFailed = true;
+        }
+        catch (TaskCanceledException)
+        {
+            _devices = [];
+            _loadFailed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private int CountByStatus(AgentTrustStatus status) =>
+        _devices.Count(device => device.Status == status);
+
+    private bool MatchesSearch(InventoryRow row)
+    {
+        if (string.IsNullOrWhiteSpace(_search))
+        {
+            return true;
+        }
+
+        var value = _search.Trim();
+
+        return row.DeviceName.Contains(
+                   value,
+                   StringComparison.OrdinalIgnoreCase)
+               || row.Status.ToString().Contains(
+                   value,
+                   StringComparison.OrdinalIgnoreCase)
+               || row.OperatingSystem.Contains(
+                   value,
+                   StringComparison.OrdinalIgnoreCase)
+               || row.OperatingSystemVersion.Contains(
+                   value,
+                   StringComparison.OrdinalIgnoreCase)
+               || row.Model.Contains(
+                   value,
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    private InventoryRow ToInventoryRow(TrustedDeviceView device)
+    {
+        var presentation = DeviceData.IsSampleData
+            ? DemoPresentation(device.Identity.DeviceId)
+            : null;
+
+        return new InventoryRow(
+            device.Identity.DeviceId,
+            presentation?.DeviceName ?? ShortId(device.Identity.DeviceId),
+            device.Status,
+            presentation?.OperatingSystem ?? "Not available",
+            presentation?.OperatingSystemVersion ?? "Not available",
+            presentation?.Model ?? "Not available",
+            device.LastHeartbeatUtc);
+    }
+
+    private static DevicePresentation? DemoPresentation(Guid deviceId) =>
+        deviceId.ToString("D") switch
+        {
+            "10000000-0000-0000-0000-000000000001" =>
+                new("demo-workstation-01", "Fedora Linux", "42", "Dell OptiPlex 7090"),
+
+            "10000000-0000-0000-0000-000000000002" =>
+                new("demo-laptop-02", "Linux Mint", "22.1", "Lenovo ThinkPad T14 Gen 4"),
+
+            "10000000-0000-0000-0000-000000000003" =>
+                new("demo-workstation-03", "Debian GNU/Linux", "13", "HP EliteDesk 800 G6"),
+
+            "10000000-0000-0000-0000-000000000004" =>
+                new("demo-lab-01", "Fedora Linux", "42", "Dell Precision 3660"),
+
+            "10000000-0000-0000-0000-000000000005" =>
+                new("demo-kiosk-01", "Debian GNU/Linux", "13", "Lenovo ThinkCentre M80q"),
+
+            "10000000-0000-0000-0000-000000000006" =>
+                new("demo-workstation-04", "Linux Mint", "22.1", "HP Elite Mini 800 G9"),
+
+            "10000000-0000-0000-0000-000000000007" =>
+                new("demo-laptop-05", "Fedora Linux", "42", "Dell Latitude 5440"),
+
+            "10000000-0000-0000-0000-000000000008" =>
+                new("demo-testbench-01", "Debian GNU/Linux", "13", "Lenovo ThinkStation P360"),
+
+            _ => null
+        };
+
+    private void OpenDevice(Guid deviceId) =>
+        Navigation.NavigateTo(DeviceUrl(deviceId));
+
+    private void OnRowKeyDown(
+        Microsoft.AspNetCore.Components.Web.KeyboardEventArgs args,
+        Guid deviceId)
+    {
+        if (string.Equals(args.Key, "Enter", StringComparison.Ordinal))
+        {
+            OpenDevice(deviceId);
+        }
+    }
+
+    private static string DeviceUrl(Guid deviceId) =>
+        $"/devices/{deviceId:D}";
+
+    private static string ShortId(Guid id) =>
+        id.ToString("D")[..8];
+
+    private static string StatusIcon(AgentTrustStatus status) =>
+        status switch
+        {
+            AgentTrustStatus.Active => "bi-shield-check",
+            AgentTrustStatus.Disabled => "bi-pause-circle",
+            AgentTrustStatus.Revoked => "bi-shield-x",
+            _ => "bi-question-circle"
+        };
+
+    private static string StatusColorClass(AgentTrustStatus status) =>
+        status switch
+        {
+            AgentTrustStatus.Active => "text-success",
+            AgentTrustStatus.Disabled => "text-warning",
+            AgentTrustStatus.Revoked => "text-danger",
+            _ => "text-secondary"
+        };
+
+    private static string FormatDateTime(DateTimeOffset value) =>
+        value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+
+    private sealed record DevicePresentation(
+        string DeviceName,
+        string OperatingSystem,
+        string OperatingSystemVersion,
+        string Model);
+
+    private sealed record InventoryRow(
+        Guid DeviceId,
+        string DeviceName,
+        AgentTrustStatus Status,
+        string OperatingSystem,
+        string OperatingSystemVersion,
+        string Model,
+        DateTimeOffset? LastContactUtc);
+}

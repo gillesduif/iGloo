@@ -1,0 +1,309 @@
+@page "/devices/{DeviceId:guid}"
+@using Igloo.Fleet.Contracts
+@inject Igloo.Fleet.Web.IFleetDeviceDataSource DeviceData
+
+<PageTitle>Device overview | iGloo Fleet</PageTitle>
+
+<AppContent Title="Device overview">
+    @if (_loading)
+    {
+        <Card>
+            <div class="text-center py-5">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading device</span>
+                </div>
+            </div>
+        </Card>
+    }
+    else if (_loadFailed)
+    {
+        <Card>
+            <div class="text-center py-5">
+                <i class="bi bi-exclamation-circle fs-2 text-body-secondary" aria-hidden="true"></i>
+                <h2 class="h6 mt-3 mb-3">Device is unavailable</h2>
+                <button class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                        @onclick="LoadAsync">
+                    Try again
+                </button>
+            </div>
+        </Card>
+    }
+    else if (_device is null)
+    {
+        <Card>
+            <div class="text-center py-5">
+                <i class="bi bi-pc-display fs-2 text-body-secondary" aria-hidden="true"></i>
+                <h2 class="h6 mt-3 mb-3">Device not found</h2>
+                <a class="btn btn-outline-secondary btn-sm" href="/devices">
+                    Back to devices
+                </a>
+            </div>
+        </Card>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+            <div>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <h2 class="h4 mb-0">@ShortId(_device.Identity.DeviceId)</h2>
+
+                    <span class="badge @TrustBadgeClass(_device.Status)">
+                        @_device.Status
+                    </span>
+
+                    @if (DeviceData.IsSampleData)
+                    {
+                        <span class="badge text-bg-warning">Demo data</span>
+                    }
+                </div>
+
+                <div class="small text-secondary mt-1">
+                    @_device.Identity.DeviceId
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                        disabled="@_loading"
+                        @onclick="LoadAsync">
+                    <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>
+                    Refresh
+                </button>
+
+                <a class="btn btn-outline-secondary btn-sm" href="/devices">
+                    <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>
+                    All devices
+                </a>
+            </div>
+        </div>
+
+        <Card>
+            <Tabs @bind-ActiveId="_activeTab">
+                <Tab Id="overview" Title="Overview" Icon="bi-speedometer2">
+                    <div class="row g-3">
+                        <div class="col-xl-4 col-md-6">
+                            <Card Title="Identity" Icon="bi-pc-display">
+                                <dl class="row mb-0">
+                                    <dt class="col-5 fw-normal text-secondary">Device ID</dt>
+                                    <dd class="col-7 text-break">
+                                        <code>@_device.Identity.DeviceId</code>
+                                    </dd>
+
+                                    <dt class="col-5 fw-normal text-secondary">Agent ID</dt>
+                                    <dd class="col-7 text-break">
+                                        <code>@_device.Identity.AgentId</code>
+                                    </dd>
+
+                                    <dt class="col-5 fw-normal text-secondary">Enrollment ID</dt>
+                                    <dd class="col-7 text-break mb-0">
+                                        <code>@_device.EnrollmentId</code>
+                                    </dd>
+                                </dl>
+                            </Card>
+                        </div>
+
+                        <div class="col-xl-4 col-md-6">
+                            <Card Title="Agent" Icon="bi-activity">
+                                <dl class="row mb-0">
+                                    <dt class="col-5 fw-normal text-secondary">Last contact</dt>
+                                    <dd class="col-7">@LastContact</dd>
+
+                                    <dt class="col-5 fw-normal text-secondary">Agent version</dt>
+                                    <dd class="col-7">@AgentVersion</dd>
+
+                                    <dt class="col-5 fw-normal text-secondary">iGloo version</dt>
+                                    <dd class="col-7">@IglooVersion</dd>
+
+                                    <dt class="col-5 fw-normal text-secondary">Protocol</dt>
+                                    <dd class="col-7 mb-0">@ProtocolVersion</dd>
+                                </dl>
+                            </Card>
+                        </div>
+
+                        <div class="col-xl-4 col-md-6">
+                            <Card Title="Trust" Icon="bi-shield-check">
+                                <dl class="row mb-0">
+                                    <dt class="col-5 fw-normal text-secondary">Status</dt>
+                                    <dd class="col-7">
+                                        <span class="badge @TrustBadgeClass(_device.Status)">
+                                            @_device.Status
+                                        </span>
+                                    </dd>
+
+                                    <dt class="col-5 fw-normal text-secondary">Certificate</dt>
+                                    <dd class="col-7">@CertificateState</dd>
+
+                                    <dt class="col-5 fw-normal text-secondary">Expires</dt>
+                                    <dd class="col-7 mb-0">
+                                        @FormatDateTime(_device.CertificateExpiresAtUtc)
+                                    </dd>
+                                </dl>
+                            </Card>
+                        </div>
+
+                        <div class="col-lg-8">
+                            <Card Title="Certificate" Icon="bi-fingerprint">
+                                <div class="small text-secondary mb-1">SHA-256</div>
+                                <code class="d-block text-break">@_device.CertificateHash</code>
+                            </Card>
+                        </div>
+
+                        <div class="col-lg-4">
+                            <Card Title="Capabilities" Icon="bi-boxes">
+                                @if (_device.Heartbeat is not null &&
+                                     !_device.Heartbeat.Capabilities.IsDefaultOrEmpty)
+                                {
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @foreach (var capability in _device.Heartbeat.Capabilities)
+                                        {
+                                            <span class="badge text-bg-secondary">
+                                                @capability
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">None reported</span>
+                                }
+                            </Card>
+                        </div>
+                    </div>
+                </Tab>
+
+                <Tab Id="hardware" Title="Hardware" Icon="bi-cpu">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="storage" Title="Storage" Icon="bi-device-hdd">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="networking" Title="Networking" Icon="bi-diagram-3">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="software" Title="Software" Icon="bi-box-seam">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="services" Title="Services" Icon="bi-gear">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="updates" Title="Updates" Icon="bi-arrow-repeat">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="security" Title="Security" Icon="bi-shield-lock">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="logs" Title="Logs" Icon="bi-journal-text">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="policies" Title="Policies" Icon="bi-sliders">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="migration" Title="Migration" Icon="bi-arrow-right-circle">
+                    @Planned()
+                </Tab>
+
+                <Tab Id="audit" Title="Audit" Icon="bi-clock-history">
+                    @Planned()
+                </Tab>
+            </Tabs>
+        </Card>
+    }
+</AppContent>
+
+@code {
+    [Parameter]
+    public Guid DeviceId { get; set; }
+
+    private TrustedDeviceView? _device;
+    private bool _loading = true;
+    private bool _loadFailed;
+    private string _activeTab = "overview";
+
+    private string LastContact =>
+        _device?.LastHeartbeatUtc is null
+            ? "Never"
+            : FormatDateTime(_device.LastHeartbeatUtc.Value);
+
+    private string AgentVersion =>
+        _device?.Heartbeat?.AgentVersion ?? "Not reported";
+
+    private string IglooVersion =>
+        _device?.Heartbeat?.IglooVersion ?? "Not reported";
+
+    private string ProtocolVersion =>
+        _device?.Heartbeat is null
+            ? "Not reported"
+            : $"{_device.Heartbeat.Protocol.Major}.{_device.Heartbeat.Protocol.Minor}";
+
+    private string CertificateState =>
+        _device is null
+            ? "Not available"
+            : _device.CertificateExpiresAtUtc <= DateTimeOffset.UtcNow
+                ? "Expired"
+                : "Valid";
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _loadFailed = false;
+        _device = null;
+
+        try
+        {
+            var devices = await DeviceData.GetTrustedDevicesAsync();
+            _device = devices.SingleOrDefault(
+                device => device.Identity.DeviceId == DeviceId);
+        }
+        catch (HttpRequestException)
+        {
+            _loadFailed = true;
+        }
+        catch (TaskCanceledException)
+        {
+            _loadFailed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static RenderFragment Planned() => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "py-4 text-center text-secondary");
+        builder.OpenElement(2, "span");
+        builder.AddAttribute(3, "class", "badge text-bg-secondary");
+        builder.AddContent(4, "Planned");
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private static string ShortId(Guid id) =>
+        id.ToString("D")[..8];
+
+    private static string TrustBadgeClass(AgentTrustStatus status) =>
+        status switch
+        {
+            AgentTrustStatus.Active => "text-bg-success",
+            AgentTrustStatus.Disabled => "text-bg-warning",
+            AgentTrustStatus.Revoked => "text-bg-danger",
+            _ => "text-bg-secondary"
+        };
+
+    private static string FormatDateTime(DateTimeOffset value) =>
+        value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+}
