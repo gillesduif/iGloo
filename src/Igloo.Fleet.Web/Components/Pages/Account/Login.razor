@@ -1,0 +1,105 @@
+@page "/login"
+@layout EmptyLayout
+@inject FleetOperatorStore OperatorStore
+@inject NavigationManager Navigation
+
+<PageTitle>Sign in | iGloo Fleet</PageTitle>
+
+<div class="login-page bg-body-secondary">
+    <AuthLayout AuthType="login" Variant="v2" LogoHref="/">
+        <Logo>
+            <span class="d-inline-flex align-items-center justify-content-center gap-2 text-body-emphasis fw-normal">
+                <img src="/img/igloo-logo.svg"
+                     alt=""
+                     width="48"
+                     height="48" />
+                <span>iGloo Fleet</span>
+            </span>
+        </Logo>
+
+        <ChildContent>
+            <p class="login-box-msg">
+                Sign in to the Fleet administration console
+            </p>
+
+            @if (Error == "invalid")
+            {
+                <div class="alert alert-danger py-2" role="alert">
+                    The username or password is incorrect.
+                </div>
+            }
+
+            <form method="post" action="/auth/login" data-enhance="false">
+                <AntiforgeryToken />
+                <input type="hidden" name="returnUrl" value="@SafeReturnUrl" />
+
+                <div class="mb-3">
+                    <label class="form-label" for="username">Username</label>
+                    <input class="form-control"
+                           id="username"
+                           name="username"
+                           autocomplete="username"
+                           maxlength="64"
+                           required
+                           autofocus />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="password">Password</label>
+                    <input class="form-control"
+                           id="password"
+                           name="password"
+                           type="password"
+                           autocomplete="current-password"
+                           maxlength="128"
+                           required />
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input"
+                           id="rememberMe"
+                           name="rememberMe"
+                           type="checkbox" />
+                    <label class="form-check-label" for="rememberMe">
+                        Remember me
+                    </label>
+                </div>
+
+                <button class="btn btn-primary w-100" type="submit">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>
+                    Sign in
+                </button>
+            </form>
+
+            <p class="text-body-secondary small text-center mt-3 mb-0">
+                Authorized Fleet operators only.
+            </p>
+        </ChildContent>
+    </AuthLayout>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private string SafeReturnUrl =>
+        !string.IsNullOrWhiteSpace(ReturnUrl) &&
+        ReturnUrl[0] == '/' &&
+        !ReturnUrl.StartsWith("//", StringComparison.Ordinal) &&
+        !ReturnUrl.Contains("://", StringComparison.Ordinal)
+            ? ReturnUrl
+            : "/";
+
+    protected override void OnInitialized()
+    {
+        if (!OperatorStore.HasOperators())
+        {
+            Navigation.NavigateTo("/setup", forceLoad: true);
+        }
+    }
+}

@@ -3,8 +3,8 @@ using Igloo.Fleet.Contracts;
 
 namespace Igloo.Fleet.Web;
 
-/// <summary>Read-only API client for a future engineering status host; no UI framework is selected.</summary>
-public sealed class FleetStatusClient(HttpClient client)
+/// <summary>Read-only API client shared by the engineering operator host and its tests.</summary>
+internal sealed class FleetStatusClient(HttpClient client)
 {
     public Task<TrustedDeviceView[]?> GetTrustedDevicesAsync(CancellationToken ct = default) =>
         client.GetFromJsonAsync<TrustedDeviceView[]>("v2/operator/devices", ct);

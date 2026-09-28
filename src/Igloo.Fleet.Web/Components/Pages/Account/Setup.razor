@@ -1,0 +1,111 @@
+@page "/setup"
+@layout EmptyLayout
+@inject FleetOperatorStore OperatorStore
+@inject NavigationManager Navigation
+
+<PageTitle>First-run setup | iGloo Fleet</PageTitle>
+
+<div class="register-page bg-body-secondary">
+    <AuthLayout AuthType="register" Variant="v2" LogoHref="/">
+        <Logo>
+            <span class="d-inline-flex align-items-center justify-content-center gap-2 text-body-emphasis fw-normal">
+                <img src="/img/igloo-logo.svg"
+                     alt=""
+                     width="34"
+                     height="34" />
+                <span>iGloo Fleet</span>
+            </span>
+        </Logo>
+
+        <ChildContent>
+            <p class="register-box-msg">
+                Set up your administrator account.
+            </p>
+
+            @if (Error == "password-mismatch")
+            {
+                <div class="alert alert-danger py-2" role="alert">
+                    Passwords don't match.
+                </div>
+            }
+            else if (Error == "validation")
+            {
+                <div class="alert alert-danger py-2" role="alert">
+                    Enter a valid username, display name, and password.
+                </div>
+            }
+<form method="post" action="/auth/setup" data-enhance="false">
+                <AntiforgeryToken />
+
+                <div class="mb-3">
+                    <label class="form-label" for="displayName">Display name</label>
+                    <input class="form-control"
+                           id="displayName"
+                           name="displayName"
+                           autocomplete="name"
+                           maxlength="100"
+                           required
+                           autofocus />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="username">Username</label>
+                    <input class="form-control"
+                           id="username"
+                           name="username"
+                           autocomplete="username"
+                           minlength="3"
+                           maxlength="64"
+                           pattern="[A-Za-z0-9._-]+"
+                           required />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="password">Password</label>
+                    <input class="form-control"
+                           id="password"
+                           name="password"
+                           type="password"
+                           autocomplete="new-password"
+                           minlength="12"
+                           maxlength="128"
+                           required />
+                    <div class="form-text">
+                        Enter at least 12 characters.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="confirmPassword">Confirm password</label>
+                    <input class="form-control"
+                           id="confirmPassword"
+                           name="confirmPassword"
+                           type="password"
+                           autocomplete="new-password"
+                           minlength="12"
+                           maxlength="128"
+                           required />
+                </div>
+
+                <button class="btn btn-primary w-100" type="submit">
+                    <i class="bi bi-person-check me-2"></i>
+                    Create administrator
+                </button>
+            </form>
+        </ChildContent>
+    </AuthLayout>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (OperatorStore.HasOperators())
+        {
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+    }
+}

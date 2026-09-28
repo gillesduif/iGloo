@@ -1,0 +1,82 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="dropdown igloo-operator-menu">
+    <button class="btn btn-link nav-link dropdown-toggle d-flex align-items-center gap-2 text-start"
+            type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <span class="igloo-operator-avatar">@Initials</span>
+        <span class="d-none d-md-flex flex-column lh-sm igloo-operator-copy">
+            <span class="fw-semibold">@DisplayName</span>
+            <small class="text-body-secondary">@Role</small>
+        </span>
+    </button>
+
+    <ul class="dropdown-menu dropdown-menu-end shadow">
+        <li class="px-3 py-2">
+            <div class="fw-semibold">@DisplayName</div>
+            <div class="small text-body-secondary">@Username</div>
+        </li>
+        <li><hr class="dropdown-divider" /></li>
+        <li><a class="dropdown-item" href="/profile"><i class="bi bi-person me-2"></i>My profile</a></li>
+        <li><a class="dropdown-item" href="/administration/operators"><i class="bi bi-people me-2"></i>Operators</a></li>
+        <li><a class="dropdown-item" href="/administration/roles"><i class="bi bi-shield-lock me-2"></i>Roles &amp; permissions</a></li>
+        <li><a class="dropdown-item" href="/administration/audit"><i class="bi bi-journal-text me-2"></i>Audit log</a></li>
+        <li><a class="dropdown-item" href="/administration/preferences"><i class="bi bi-sliders me-2"></i>Preferences</a></li>
+        <li><hr class="dropdown-divider" /></li>
+        <li>
+            <form method="post" action="/auth/logout" data-enhance="false" class="m-0">
+                <AntiforgeryToken />
+                <button class="dropdown-item" type="submit">
+                    <i class="bi bi-box-arrow-right me-2"></i>Sign out
+                </button>
+            </form>
+        </li>
+    </ul>
+</div>
+
+@code {
+    private string DisplayName { get; set; } = "Fleet operator";
+    private string Username { get; set; } = string.Empty;
+    private string Role { get; set; } = "Operator";
+    private string Initials { get; set; } = "FO";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        DisplayName = user.Identity.Name ?? "Fleet operator";
+        Username = user.FindFirst("igloo:operator_username")?.Value ?? DisplayName;
+        Role = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Operator";
+        Initials = CreateInitials(DisplayName);
+    }
+
+    private static string CreateInitials(string displayName)
+    {
+        var parts = displayName.Split(
+            [' ', '\\', '@', '.'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts.Length == 0)
+        {
+            return "FO";
+        }
+
+        if (parts.Length == 1)
+        {
+            return parts[0].Length >= 2
+                ? parts[0][..2].ToUpperInvariant()
+                : parts[0].ToUpperInvariant();
+        }
+
+        return string.Concat(
+            char.ToUpperInvariant(parts[0][0]),
+            char.ToUpperInvariant(parts[^1][0]));
+    }
+}

@@ -1,0 +1,59 @@
+<Router AppAssembly="@typeof(Program).Assembly">
+    <Found Context="routeData">
+        <AuthorizeView>
+            <Authorized>
+                <AuthorizeRouteView RouteData="@routeData"
+                                    Resource="@routeData"
+                                    DefaultLayout="@typeof(Layout.MainLayout)">
+                    <NotAuthorized Context="routeAuthorizationContext">
+                        <LayoutView Layout="@typeof(Layout.MainLayout)">
+                            <AppContent Title="Access denied">
+                                <Callout Theme="warning" Title="Access denied">
+                                    Your operator account is not allowed to open this page.
+                                </Callout>
+                            </AppContent>
+                        </LayoutView>
+                    </NotAuthorized>
+                </AuthorizeRouteView>
+            </Authorized>
+            <NotAuthorized>
+                @if (AllowsAnonymous(routeData.PageType))
+                {
+                    <RouteView RouteData="@routeData"
+                               DefaultLayout="@typeof(Layout.MainLayout)" />
+                }
+                else
+                {
+                    <RedirectToLogin />
+                }
+            </NotAuthorized>
+        </AuthorizeView>
+
+        <FocusOnNavigate RouteData="@routeData" Selector="h1, h3" />
+    </Found>
+
+    <NotFound>
+        <AuthorizeView>
+            <Authorized>
+                <LayoutView Layout="@typeof(Layout.MainLayout)">
+                    <AppContent Title="Page not found">
+                        <Callout Theme="warning" Title="404">
+                            The page you requested does not exist.
+                        </Callout>
+                    </AppContent>
+                </LayoutView>
+            </Authorized>
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+        </AuthorizeView>
+    </NotFound>
+</Router>
+
+@code {
+    private static bool AllowsAnonymous(Type pageType)
+        => Attribute.IsDefined(
+            pageType,
+            typeof(AllowAnonymousAttribute),
+            inherit: true);
+}

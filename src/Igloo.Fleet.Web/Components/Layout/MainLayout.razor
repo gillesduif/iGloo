@@ -1,0 +1,25 @@
+@inherits LayoutComponentBase
+
+<DashboardLayout>
+    <TopbarEnd>
+        <OperatorMenu />
+    </TopbarEnd>
+
+    <ChildContent>
+        @Body
+    </ChildContent>
+
+    <FooterContent>
+        <footer class="app-footer">
+            <div class="float-end d-none d-sm-inline">
+                iGloo Fleet
+            </div>
+
+            <strong>
+                &copy; @DateTime.UtcNow.Year iGloo
+            </strong>
+
+            <span> All rights reserved.</span>
+        </footer>
+    </FooterContent>
+</DashboardLayout>

@@ -1,43 +1,75 @@
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
+using Igloo.Fleet.Web.Authentication;
+using ColorlibHQ.AdminLTE.AspNetCore;
+using Igloo.Fleet.Web;
+using Igloo.Fleet.Web.Components;
 
-if (args.Length is < 2 or > 3 || args[0] is not ("GET" or "POST") ||
-    !args[1].StartsWith("/v2/operator/", StringComparison.Ordinal) ||
-    args[1].Contains("..", StringComparison.Ordinal) || args[1].Contains('\\', StringComparison.Ordinal))
-    throw new ArgumentException("Usage: Fleet.Web GET|POST /v2/operator/<resource> [body.json]");
-var origin = new Uri(Environment.GetEnvironmentVariable("IGLOO_FLEET_SERVER_URI") ?? "https://localhost:5188/");
-if (origin.Scheme != Uri.UriSchemeHttps || origin.AbsolutePath != "/" || origin.UserInfo.Length != 0)
-    throw new InvalidOperationException("Operator access requires an HTTPS origin.");
-using var root = X509Certificate2.CreateFromPem(await File.ReadAllTextAsync(Environment.GetEnvironmentVariable("IGLOO_FLEET_CA_CERT")
-    ?? throw new InvalidOperationException("Provision IGLOO_FLEET_CA_CERT first.")).ConfigureAwait(false));
-using var handler = new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false, CheckCertificateRevocationList = true };
-handler.ServerCertificateCustomValidationCallback = (_, certificate, _, errors) =>
+// IGLOO_FLEET_WEB_UI_BOOTSTRAP
+if (args.Length > 0 && args[0] is "GET" or "POST")
 {
-    if (certificate is null || (errors & (System.Net.Security.SslPolicyErrors.RemoteCertificateNameMismatch |
-        System.Net.Security.SslPolicyErrors.RemoteCertificateNotAvailable)) != 0) return false;
-    using var chain = new X509Chain();
-    chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-    chain.ChainPolicy.CustomTrustStore.Add(root);
-    chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-    chain.ChainPolicy.DisableCertificateDownloads = true;
-    chain.ChainPolicy.ApplicationPolicy.Add(new Oid("1.3.6.1.5.5.7.3.1"));
-    return chain.Build(certificate);
-};
-using var client = new HttpClient(handler) { BaseAddress = origin };
-client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
-    Environment.GetEnvironmentVariable("IGLOO_FLEET_OPERATOR_SECRET") ??
-    throw new InvalidOperationException("Set the separate operator credential."));
-using var request = new HttpRequestMessage(new HttpMethod(args[0]), new Uri(args[1], UriKind.Relative));
-if (args.Length == 3)
-    request.Content = new StringContent(await File.ReadAllTextAsync(args[2]).ConfigureAwait(false),
-        System.Text.Encoding.UTF8, "application/json");
-using var response = await client.SendAsync(request).ConfigureAwait(false);
-var output = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-if (response.IsSuccessStatusCode)
-    Console.WriteLine(output); // Enrollment plaintext is emitted only by token creation.
+    Environment.ExitCode = await FleetOperatorCli.RunAsync(args).ConfigureAwait(false);
+    return;
+}
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddAdminLte(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddRazorComponents();
+builder.Services.AddAuthorization();
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "__Host-iGloo.Fleet.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.LoginPath = "/login";
+        options.AccessDeniedPath = "/access-denied";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+    });
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddAntiforgery();
+builder.Services.AddSingleton(new FleetOperatorStore(builder.Configuration));
+builder.Services.AddHttpClient<FleetStatusClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        Environment.GetEnvironmentVariable("IGLOO_FLEET_SERVER_URI")
+        ?? "https://localhost:5188/");
+});
+var requestedSampleFleetData = builder.Configuration.GetValue<bool?>("Fleet:UseSampleData")
+    ?? builder.Environment.IsDevelopment();
+
+if (requestedSampleFleetData && !builder.Environment.IsDevelopment())
+{
+    throw new InvalidOperationException(
+        "Fleet sample data can only be enabled in the Development environment.");
+}
+
+if (requestedSampleFleetData)
+{
+    builder.Services.AddScoped<IFleetDeviceDataSource>(
+        _ => new SampleFleetDeviceDataSource());
+}
 else
 {
-    await Console.Error.WriteLineAsync(output).ConfigureAwait(false);
-    Environment.ExitCode = 1;
+    builder.Services.AddScoped<IFleetDeviceDataSource>(
+        services => new LiveFleetDeviceDataSource(
+            services.GetRequiredService<FleetStatusClient>()));
 }
+var app = builder.Build();
+
+// Fleet.Web stays an operator UI boundary; no direct Domain/Persistence access.
+app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseAntiforgery();
+app.MapStaticAssets();
+
+app.MapFleetAuthenticationEndpoints();
+
+app.MapRazorComponents<App>();
+
+await app.RunAsync().ConfigureAwait(false);

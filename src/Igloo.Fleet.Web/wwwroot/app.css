@@ -1,0 +1,139 @@
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light dark;--bg:#f5f7fa;--surface:#fff;--border:#dfe5ec;--text:#18202a;--muted:#66717e;--accent:#2b6cb0;--sidebar:#111820;--sidebar-text:#dce5ef;--sidebar-muted:#8997a6}
+@media(prefers-color-scheme:dark){:root{--bg:#0f141a;--surface:#151c24;--border:#2a3643;--text:#edf3f8;--muted:#9ca9b7;--accent:#75b7ff;--sidebar:#0a0f14;--sidebar-text:#e3ebf3;--sidebar-muted:#81909e}}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}.app-shell{min-height:100vh;display:grid;grid-template-columns:232px 1fr}.sidebar{padding:24px 18px;background:var(--sidebar);color:var(--sidebar-text);display:flex;flex-direction:column}.brand{display:flex;gap:12px;align-items:center;text-decoration:none;margin-bottom:28px}.brand-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#f4f7fb;color:#17202a;font-weight:800}.brand small{display:block;color:var(--sidebar-muted)}.nav-list{display:grid;gap:4px}.nav-list a{padding:10px 12px;border-radius:9px;color:var(--sidebar-muted);text-decoration:none}.nav-list a.active,.nav-list a:hover{background:rgba(255,255,255,.08);color:var(--sidebar-text)}.sidebar-footer{margin-top:auto;color:var(--sidebar-muted)}.topbar{min-height:66px;padding:0 34px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--surface);color:var(--muted)}.content{padding:38px 40px}.page-header{margin-bottom:28px}.eyebrow{color:var(--accent);font-size:.75rem;font-weight:700;text-transform:uppercase}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.metric-card,.panel{padding:20px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.metric-card strong{display:block;margin-top:12px;font-size:2rem}
+/* iGloo Fleet portal scaffold */
+.igloo-dashboard-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1rem; }
+.igloo-module-tile { display:flex; align-items:center; gap:1rem; padding:1rem; min-height:92px; border:1px solid var(--bs-border-color); border-radius:var(--bs-border-radius-lg); color:var(--bs-body-color); text-decoration:none; background:var(--bs-body-bg); }
+.igloo-module-tile:hover { background:var(--bs-tertiary-bg); border-color:var(--bs-secondary-border-subtle); }
+.igloo-module-tile>i { font-size:1.55rem; width:2rem; text-align:center; }
+.igloo-module-tile span { display:flex; flex-direction:column; min-width:0; }
+.igloo-module-tile small { color:var(--bs-secondary-color); margin-top:.2rem; }
+.igloo-empty-state { text-align:center; padding:2.5rem 1rem; color:var(--bs-secondary-color); }
+.igloo-empty-state>i { display:block; font-size:2rem; margin-bottom:.75rem; }
+.igloo-empty-state h5 { color:var(--bs-body-color); }
+.igloo-search-box { max-width:420px; }
+.igloo-module-intro { display:flex; gap:1rem; align-items:flex-start; padding:.5rem 0; }
+.igloo-module-icon { display:grid; place-items:center; width:3rem; height:3rem; flex:0 0 3rem; border-radius:var(--bs-border-radius-lg); background:var(--bs-tertiary-bg); font-size:1.35rem; }
+.app-sidebar .nav-link { white-space:normal; }
+/* iGloo sidebar branding */
+.app-sidebar .sidebar-brand {
+    justify-content: flex-start !important;
+}
+
+    .app-sidebar .sidebar-brand .brand-link {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        width: 100%;
+        gap: 0.3rem;
+    }
+
+    .app-sidebar .sidebar-brand .brand-image {
+        margin: 0;
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+    }
+/* iGloo Fleet GUI v2 */
+.small-box[class*="text-bg-"] {
+    background: var(--bs-body-bg) !important;
+    color: var(--bs-body-color) !important;
+    border: 1px solid var(--bs-border-color);
+    box-shadow: var(--bs-box-shadow-sm);
+}
+.small-box[class*="text-bg-"] .small-box-icon {
+    color: var(--bs-secondary-color) !important;
+    opacity: .35;
+}
+.small-box[class*="text-bg-"] .small-box-footer {
+    background: transparent !important;
+    color: var(--bs-link-color) !important;
+    border-top: 1px solid var(--bs-border-color);
+}
+.igloo-operator-menu>.nav-link { min-height:40px; color:var(--bs-body-color); }
+.igloo-operator-summary { max-width:210px; line-height:1.05; }
+.igloo-operator-name { max-width:210px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.875rem; font-weight:600; }
+.igloo-operator-role { max-width:210px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:.2rem; color:var(--bs-secondary-color); font-size:.72rem; }
+.igloo-operator-avatar { display:inline-grid; place-items:center; width:32px; height:32px; flex:0 0 32px; border:1px solid var(--bs-border-color); border-radius:50%; background:var(--bs-tertiary-bg); color:var(--bs-body-color); font-size:.72rem; font-weight:700; }
+.igloo-operator-avatar-lg { width:46px; height:46px; flex-basis:46px; font-size:.9rem; }
+.igloo-operator-dropdown { min-width:270px; }
+.igloo-operator-dropdown-header { display:flex; align-items:center; gap:.8rem; padding:.65rem 1rem; }
+.igloo-operator-dropdown .dropdown-item>i { width:1.15rem; text-align:center; }
+/* /iGloo Fleet GUI v2 */
+
+/* iGloo brand logo start */
+.igloo-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.igloo-brand-logo {
+    width: 28px;
+    height: 28px;
+    display: inline-block;
+    flex: 0 0 auto;
+}
+
+.igloo-brand-text {
+    display: inline-block;
+    line-height: 1;
+}
+/* iGloo brand logo end */
+
+
+/* iGloo Fleet authentication foundation */
+.igloo-auth-brand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .65rem;
+    font-size: 1.45rem;
+    font-weight: 400;
+}
+
+.igloo-auth-brand img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+}
+
+.igloo-auth-standalone {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+}
+
+.igloo-auth-standalone > .card {
+    width: min(100%, 26rem);
+}
+
+.igloo-operator-menu .dropdown-toggle::after {
+    margin-left: .35rem;
+}
+
+.igloo-operator-avatar {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-secondary-bg);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+}
+
+.igloo-operator-copy {
+    min-width: 0;
+}
+
+.igloo-operator-copy > * {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 13rem;
+}
