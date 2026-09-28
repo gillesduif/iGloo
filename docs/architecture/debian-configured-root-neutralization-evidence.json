@@ -1,0 +1,1577 @@
+{
+  "Attestation": {
+    "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+    "BuilderProfileSha256": "CF11D2247881BE15B61CF55D418960F83E0F2F59BCBCF16144D7C7C180811885",
+    "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+    "DependencyReadbackSha256": "884D3B52AC1A1C0C47BE9B4C5EFE36EA204C10518997360C412E273721EA7137",
+    "DpkgReadbackSha256": "39DD5DE0E87B34FEB40352E2ED6CE7EEA9C58D3B6889C499CDC9EF2FD3720918",
+    "IndependentVerifierSha256": "3CB7999F7E1B0EEBDD61653B9894BCC6AADA6CE63016E0CBBF21C57BE5EE2BF3",
+    "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+    "NeutralStateReadbackSha256": "C62E1CC836F45F80D63288F226D18892B11E969CF8E9CE01673A81EF206A29FE",
+    "Neutralization": {
+      "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+      "ExactDeltaVerified": true,
+      "PackageStateVerified": true,
+      "PlanSha256": "FEADA00CF8AAC4995B70EC9E86C42FCBDB411CEC78C8CDF3B738A0FAECA42653",
+      "PlanVersion": "debian-trixie-neutralization-2026-09-28-v2",
+      "PostObservationSha256": "39DD5DE0E87B34FEB40352E2ED6CE7EEA9C58D3B6889C499CDC9EF2FD3720918",
+      "RegenerationContractSha256": "5A6B31AC20F9AEA401D4628A5389D0DF451BF025587E65AC39C3BAFA20579DF6",
+      "ResultSha256": "5A863DE176133D24222C3BA661C741EEABEE0A0F071B41A608575815DA24579E",
+      "SourceBuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "SourceDiskSha256": "70DED1CA5E7211C99D4C4706D809B600CD7F97D3B07028BF463363862152C861",
+      "SourceObservationSha256": "A76733DB00ECD9FB0703B4F8D31B4ECE1D3274ADA07B7F89791039AFF2C6A579",
+      "SourcePackageSetFileSha256": "BE86797B73250B19569BC6A229EB1C13D22A651DEAEF315CE8C10406A5AD1272",
+      "SourcePreserved": true,
+      "WholeTreeAuditSha256": "C62E1CC836F45F80D63288F226D18892B11E969CF8E9CE01673A81EF206A29FE"
+    },
+    "PackageSetSha256": "49333F09AD84DE8540BA868E34B5E317797A8F812478A630BBA56AA1C34517F6",
+    "PolicySha256": "05673573AE0699970EECAB9A67F1393EF4048DB02FDF2C18996226E1BF7B8CD9",
+    "VerifiedAtUtc": "2026-09-28T09:33:40.52507+00:00"
+  },
+  "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+  "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+  "Evidence": {
+    "artifact-independent-verification.json": {
+      "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "DpkgAuditClean": true,
+      "FilesystemSha256": "1F842DC9D53C5C57B2CD9D77FE5731C29E777C4599C445CC8A3892222687BF13",
+      "ImportedRoot": false,
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "NeutralAudit": {
+        "AccountCount": 37,
+        "ApprovedSystemAccountsOnly": true,
+        "CompressedFilesScanned": 14133,
+        "CredentialBackupCounts": {
+          "gshadow": 66,
+          "gshadow-": 65,
+          "passwd-": 37,
+          "shadow-": 36
+        },
+        "DerPrivateKeyProbes": 149,
+        "Findings": [],
+        "PasswdSha256": "4516C19CDFE3834EE7BC4C22C199B944EA23245369709B51371BB0037132F732",
+        "PublicPackageTestConstants": [
+          {
+            "Kind": "AuthenticatedPublicPackageTestConstant",
+            "Path": "/usr/lib/x86_64-linux-gnu/libgnutls.so.30.40.3",
+            "Sha256": "4B14EDDE42E7CBEEFD8A6D88D035E096F2E6412A535388BB1D073A1C196E2822"
+          },
+          {
+            "Kind": "AuthenticatedPublicPackageTestConstant",
+            "Path": "/usr/share/doc/libio-socket-ssl-perl/examples/simulate_proxy.pl",
+            "Sha256": "BF6FCCA47A4B4245420813689304921EBD89E630A8B2A701E6C42F5E04A73E27"
+          }
+        ],
+        "Qualified": true,
+        "RegularFilesScanned": 116558,
+        "SchemaVersion": 1,
+        "ShadowSha256": "07FC68122538AEC229006AA486949A1F13E47065DDF726D45744C202C5D64208"
+      },
+      "PackageCount": 1594,
+      "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+      "PendingTriggers": [],
+      "ProductionAuthentication": "Unsupported",
+      "Result": "ArtifactValid",
+      "RootDevice": 65025,
+      "RootInode": 3033411,
+      "Use": "DevelopmentImportOnly",
+      "VerifiedAtUtc": "2026-09-28T09:36:03.468288+00:00",
+      "VerifierSha256": "3CB7999F7E1B0EEBDD61653B9894BCC6AADA6CE63016E0CBBF21C57BE5EE2BF3"
+    },
+    "artifact/pack-result.json": {
+      "Content": {
+        "Length": 4641457180,
+        "Qualification": "MechanicsFixtureOnly",
+        "Sha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5"
+      },
+      "Entries": 144911,
+      "ManifestLength": 30779391,
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "Outcome": "AppliedAndVerified",
+      "ProductionAuthentication": "Unsupported",
+      "RegularFiles": 116558
+    },
+    "certificate-identity-audit.json": {
+      "FactoryCertificateAbsent": true,
+      "FactoryCertificateDerSha256": "75E34C84FA0F8310B3D55FC0FE87FA43C662B253E1630CE9FB70FE04BF7A68AF",
+      "FactoryIdentityFindings": [],
+      "ImportedEqualityRequired": true,
+      "Outcome": "AppliedAndVerified",
+      "RawSourceUnchanged": true,
+      "StructuredPemCertificates": 305
+    },
+    "derivation-intent.json": {
+      "Destination": "/factory-neutral/6072529e-1484-4fc7-a68c-d05c970bb393/root",
+      "Operation": [
+        "cp",
+        "--archive",
+        "--reflink=auto",
+        "/factory/root-99695826-82bc-4077-b4cf-a22cebc706da",
+        "/factory-neutral/6072529e-1484-4fc7-a68c-d05c970bb393/root"
+      ],
+      "PackageSetSha256": "BE86797B73250B19569BC6A229EB1C13D22A651DEAEF315CE8C10406A5AD1272",
+      "Source": "/factory/root-99695826-82bc-4077-b4cf-a22cebc706da",
+      "SourceAuditSha256": "A76733DB00ECD9FB0703B4F8D31B4ECE1D3274ADA07B7F89791039AFF2C6A579",
+      "SourceBuildId": "99695826-82bc-4077-b4cf-a22cebc706da"
+    },
+    "derivation-result.json": {
+      "DerivedSemanticEquality": true,
+      "Entries": 144936,
+      "Outcome": "AppliedAndVerified",
+      "SourceUnchanged": true
+    },
+    "ext4-create-intent.json": {
+      "Ancestry": "New regular file inside isolated factory virtual disk",
+      "Bytes": 12884901888,
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "FilesystemUuid": "bd992bee-11dd-475a-a08d-70b10578a2d8",
+      "Image": "/factory-neutral/6072529e-1484-4fc7-a68c-d05c970bb393/import.ext4",
+      "Outcome": "IntentDurable"
+    },
+    "ext4-import-result.json": {
+      "ExactFilesystemEquality": true,
+      "ExactPackageEquality": true,
+      "FilesystemUuid": "bd992bee-11dd-475a-a08d-70b10578a2d8",
+      "GenerationId": "fe0e0666-8d14-4816-b4b8-b72ba8628010",
+      "NativeSupported": false,
+      "Outcome": "AppliedAndVerified",
+      "PackageCount": 1594,
+      "PlanSha256": "648D25478EA1E26467115045C76EF962E5FBCF0C50F02D4D0F26C0DCF0C1899A",
+      "PrimitiveResult": {
+        "Outcome": "AppliedAndVerified",
+        "Qualification": "MechanicsFixtureOnly"
+      },
+      "Qualification": "ImportMechanicsQualified"
+    },
+    "ext4-mount-result.json": {
+      "Mount": {
+        "fsroot": "/",
+        "fstype": "ext4",
+        "id": 233,
+        "maj:min": "7:0",
+        "options": "rw,nosuid,nodev,noexec,relatime",
+        "propagation": "private",
+        "source": "/dev/loop0",
+        "target": "/factory-neutral/6072529e-1484-4fc7-a68c-d05c970bb393/import-target",
+        "uuid": "bd992bee-11dd-475a-a08d-70b10578a2d8"
+      },
+      "Outcome": "AppliedAndVerified"
+    },
+    "ext4-teardown-result.json": {
+      "ExactLoopDetached": true,
+      "ImageRetained": true,
+      "LazyOrForceUnmount": false,
+      "MountAbsent": true,
+      "MountId": 233,
+      "Outcome": "AppliedAndVerified"
+    },
+    "external-development-pin.json": {
+      "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "NotAfterUtc": "2026-10-05T09:32:27.464+00:00",
+      "NotBeforeUtc": "2026-09-28T09:32:27.464+00:00",
+      "PolicySha256": "05673573AE0699970EECAB9A67F1393EF4048DB02FDF2C18996226E1BF7B8CD9",
+      "ProductionAuthentication": "Unsupported",
+      "Use": "DevelopmentImportOnly"
+    },
+    "full-source-failure-tests.json": {
+      "CompleteSourceBytes": 4641457180,
+      "Failed": 0,
+      "FailedCopiesRetained": true,
+      "OriginalSourceUnchanged": true,
+      "Passed": 3,
+      "Results": [
+        {
+          "Case": "complete-stream-byte-corruption",
+          "Generation": "3f6e521f-b50a-41e0-b1e5-b642846b3a13",
+          "Outcome": "NotStarted",
+          "Reason": "FileContentHashMismatch",
+          "RejectedBeforeIntent": true,
+          "TargetUnchanged": true
+        },
+        {
+          "Case": "complete-stream-truncation",
+          "Generation": "6f8c0ff9-e2c9-402f-8138-d6ff79598264",
+          "Outcome": "NotStarted",
+          "Reason": "StreamSizeOrType",
+          "RejectedBeforeIntent": true,
+          "TargetUnchanged": true
+        },
+        {
+          "Case": "complete-manifest-corruption",
+          "Generation": "1efc3994-7087-458d-94a7-915767da31d6",
+          "Outcome": "NotStarted",
+          "Reason": "ManifestHashMismatch",
+          "RejectedBeforeIntent": true,
+          "TargetUnchanged": true
+        }
+      ],
+      "Skipped": 0
+    },
+    "identity-regeneration-rehearsal.json": {
+      "DifferentKeys": true,
+      "IndependentInstances": [
+        {
+          "CertificateOwnerGroupMode": [
+            0,
+            0,
+            420
+          ],
+          "CertificateSha256": "0E9756ADD758E6254310CE1320EC18FC834777AD5664EEFAF53933023E419372",
+          "EximPrimaryHostname": "primary_hostname = igloo-instance-3-a",
+          "Hostname": "igloo-instance-3-a",
+          "KeyOwnerGroupMode": [
+            0,
+            105,
+            416
+          ],
+          "KeySha256": "0FFAA757636579B2F479EC828F00EDAA5AC8BE3152FEAC9E7D7879F42BD7B6B5",
+          "Outcome": "AppliedAndVerified",
+          "ProductionTargetHostQualified": false,
+          "PublicKeyMatches": true
+        },
+        {
+          "CertificateOwnerGroupMode": [
+            0,
+            0,
+            420
+          ],
+          "CertificateSha256": "5FA0A443056F7A0CA01C2FF864D90C25A6C45794B9F998A0C96098D06927B29A",
+          "EximPrimaryHostname": "primary_hostname = igloo-instance-3-b",
+          "Hostname": "igloo-instance-3-b",
+          "KeyOwnerGroupMode": [
+            0,
+            105,
+            416
+          ],
+          "KeySha256": "20080982D6E6F5DEF50C34BA59F657789F28D2DA6EF1811A1E9632000F999A07",
+          "Outcome": "AppliedAndVerified",
+          "ProductionTargetHostQualified": false,
+          "PublicKeyMatches": true
+        }
+      ],
+      "NeutralSourceUnchanged": true,
+      "TargetBrokerQualification": "Outstanding"
+    },
+    "import-independent-verification.json": {
+      "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "DpkgAuditClean": true,
+      "FilesystemSha256": "1F842DC9D53C5C57B2CD9D77FE5731C29E777C4599C445CC8A3892222687BF13",
+      "ImportedRoot": true,
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "NeutralAudit": {
+        "AccountCount": 37,
+        "ApprovedSystemAccountsOnly": true,
+        "CompressedFilesScanned": 14133,
+        "CredentialBackupCounts": {
+          "gshadow": 66,
+          "gshadow-": 65,
+          "passwd-": 37,
+          "shadow-": 36
+        },
+        "DerPrivateKeyProbes": 149,
+        "Findings": [],
+        "PasswdSha256": "4516C19CDFE3834EE7BC4C22C199B944EA23245369709B51371BB0037132F732",
+        "PublicPackageTestConstants": [
+          {
+            "Kind": "AuthenticatedPublicPackageTestConstant",
+            "Path": "/usr/lib/x86_64-linux-gnu/libgnutls.so.30.40.3",
+            "Sha256": "4B14EDDE42E7CBEEFD8A6D88D035E096F2E6412A535388BB1D073A1C196E2822"
+          },
+          {
+            "Kind": "AuthenticatedPublicPackageTestConstant",
+            "Path": "/usr/share/doc/libio-socket-ssl-perl/examples/simulate_proxy.pl",
+            "Sha256": "BF6FCCA47A4B4245420813689304921EBD89E630A8B2A701E6C42F5E04A73E27"
+          }
+        ],
+        "Qualified": true,
+        "RegularFilesScanned": 116558,
+        "SchemaVersion": 1,
+        "ShadowSha256": "07FC68122538AEC229006AA486949A1F13E47065DDF726D45744C202C5D64208"
+      },
+      "PackageCount": 1594,
+      "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+      "PendingTriggers": [],
+      "ProductionAuthentication": "Unsupported",
+      "Result": "ArtifactValid",
+      "RootDevice": 1792,
+      "RootInode": 2,
+      "Use": "DevelopmentImportOnly",
+      "VerifiedAtUtc": "2026-09-28T10:05:15.159876+00:00",
+      "VerifierSha256": "3CB7999F7E1B0EEBDD61653B9894BCC6AADA6CE63016E0CBBF21C57BE5EE2BF3"
+    },
+    "neutralization-plan.json": {
+      "Architecture": "amd64",
+      "Changes": [
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 112,
+            "Mode": 420,
+            "Path": "/etc/apt/apt.conf.d/99mmdebstrap",
+            "Sha256": "70A51E350ADA90D8B3820975D70127C7CB6024FB9A689646511F2B6B33F1372D",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/etc/apt/apt.conf.d/99mmdebstrap",
+          "Responsibility": "AptSources"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 511,
+            "Path": "/etc/ssl/certs/66d6b83e.0",
+            "Sha256": null,
+            "Target": "ssl-cert-snakeoil.pem",
+            "Type": "SymbolicLink",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/etc/ssl/certs/66d6b83e.0",
+          "Responsibility": "TlsIdentity"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 1107,
+            "Mode": 420,
+            "Path": "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+            "Sha256": "1988BB92D1D43D540D6FF886F8C13B373A8A6D0252A8EDD7925439045CFFFDB0",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+          "Responsibility": "TlsIdentity"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 105,
+            "Length": 1704,
+            "Mode": 416,
+            "Path": "/etc/ssl/private/ssl-cert-snakeoil.key",
+            "Sha256": "0A50DE82173C3313EE38DDCFF27D51408E51127AAC0AEB9A8379683225192417",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/etc/ssl/private/ssl-cert-snakeoil.key",
+          "Responsibility": "TlsIdentity"
+        },
+        {
+          "After": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 511,
+            "Path": "/var/lib/dbus/machine-id",
+            "Sha256": null,
+            "Target": "/etc/machine-id",
+            "Type": "SymbolicLink",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "Before": {
+            "Type": "Absent"
+          },
+          "ContentBase64": null,
+          "Operation": "Link",
+          "Path": "/var/lib/dbus/machine-id",
+          "Responsibility": "MachineIdentity"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 104,
+            "Length": 25442,
+            "Mode": 420,
+            "Path": "/var/lib/exim4/config.autogenerated",
+            "Sha256": "FE5CABB37CB81FBE7A5A5B64E5FAB96840932299C2091BB184C51E1BFF94B5EA",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/var/lib/exim4/config.autogenerated",
+          "Responsibility": "MailIdentity"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 312,
+            "Mode": 420,
+            "Path": "/etc/apt/sources.list",
+            "Sha256": "00E6AE1EE4202706945D24248BFB9FCE8A10CBA8ADC5943D6B4F07EFB8158FE6",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/etc/apt/sources.list",
+          "Responsibility": "AptSources"
+        },
+        {
+          "After": {
+            "Gid": 0,
+            "Length": 1023,
+            "Mode": 420,
+            "Path": "/etc/exim4/update-exim4.conf.conf",
+            "Sha256": "1C75176155DFB7D67B2CCE715A0AD6A8ABDD4FAE04F7863F09783E6C092D54A4",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 1035,
+            "Mode": 420,
+            "Path": "/etc/exim4/update-exim4.conf.conf",
+            "Sha256": "C19AC33AE7DBC8934E84BCE92E228C1E3948A7335B171371186CECC96EFB764D",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": "IyAvZXRjL2V4aW00L3VwZGF0ZS1leGltNC5jb25mLmNvbmYKIwojIEVkaXQgdGhpcyBmaWxlIGFuZCAvZXRjL21haWxuYW1lIGJ5IGhhbmQgYW5kIGV4ZWN1dGUgdXBkYXRlLWV4aW00LmNvbmYKIyB5b3Vyc2VsZiBvciB1c2UgJ2Rwa2ctcmVjb25maWd1cmUgZXhpbTQtY29uZmlnJwojCiMgUGxlYXNlIG5vdGUgdGhhdCB0aGlzIGlzIF9ub3RfIGEgZHBrZy1jb25mZmlsZSBhbmQgdGhhdCBhdXRvbWF0aWMgY2hhbmdlcwojIHRvIHRoaXMgZmlsZSBtaWdodCBoYXBwZW4uIFRoZSBjb2RlIGhhbmRsaW5nIHRoaXMgd2lsbCBob25vciB5b3VyIGxvY2FsCiMgY2hhbmdlcywgc28gdGhpcyBpcyB1c3VhbGx5IGZpbmUsIGJ1dCB3aWxsIGJyZWFrIGxvY2FsIHNjaGVtZXMgdGhhdCBtZXNzCiMgYXJvdW5kIHdpdGggbXVsdGlwbGUgdmVyc2lvbnMgb2YgdGhlIGZpbGUuCiMKIyB1cGRhdGUtZXhpbTQuY29uZiB1c2VzIHRoaXMgZmlsZSB0byBkZXRlcm1pbmUgdmFyaWFibGUgdmFsdWVzIHRvIGdlbmVyYXRlCiMgZXhpbSBjb25maWd1cmF0aW9uIG1hY3JvcyBmb3IgdGhlIGNvbmZpZ3VyYXRpb24gZmlsZS4KIwojIE1vc3Qgc2V0dGluZ3MgZm91bmQgaW4gaGVyZSBkbyBoYXZlIGNvcnJlc3BvbmRpbmcgcXVlc3Rpb25zIGluIHRoZQojIERlYmNvbmYgY29uZmlndXJhdGlvbiwgYnV0IG5vdCBhbGwgb2YgdGhlbS4KIwojIFRoaXMgaXMgYSBEZWJpYW4gc3BlY2lmaWMgZmlsZQoKZGNfZXhpbWNvbmZpZ19jb25maWd0eXBlPSdsb2NhbCcKZGNfb3RoZXJfaG9zdG5hbWVzPScnCmRjX2xvY2FsX2ludGVyZmFjZXM9JzEyNy4wLjAuMSA7IDo6MScKZGNfcmVhZGhvc3Q9JycKZGNfcmVsYXlfZG9tYWlucz0nJwpkY19taW5pbWFsZG5zPSdmYWxzZScKZGNfcmVsYXlfbmV0cz0nJwpkY19zbWFydGhvc3Q9JycKQ0ZJTEVNT0RFPSc2NDQnCmRjX3VzZV9zcGxpdF9jb25maWc9J2ZhbHNlJwpkY19oaWRlX21haWxuYW1lPScnCmRjX21haWxuYW1lX2luX29oPSdmYWxzZScKZGNfbG9jYWxkZWxpdmVyeT0nbWFpbF9zcG9vbCcK",
+          "Operation": "Write",
+          "Path": "/etc/exim4/update-exim4.conf.conf",
+          "Responsibility": "MailIdentity"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 493,
+            "Path": "/run/lock/subsys",
+            "Sha256": null,
+            "Target": null,
+            "Type": "Directory",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/run/lock/subsys",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 420,
+            "Path": "/var/log/fontconfig.log",
+            "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 5226,
+            "Mode": 420,
+            "Path": "/var/log/fontconfig.log",
+            "Sha256": "1BF8C5B5E6AC1B3AE592A080C2306B0EB073536AC757380C807A7C14815E46F4",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": "",
+          "Operation": "Write",
+          "Path": "/var/log/fontconfig.log",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 133708032,
+            "Mode": 420,
+            "Path": "/boot/initrd.img-6.12.107+deb13-amd64",
+            "Sha256": "B2BB82D339DCC4E143E687EB3038BCF34FFC97907375F4451DD775752E586642",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/boot/initrd.img-6.12.107+deb13-amd64",
+          "Responsibility": "Initramfs"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 438,
+            "Path": "/dev/console",
+            "Sha256": null,
+            "Target": null,
+            "Type": "CharacterDevice",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/console",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 511,
+            "Path": "/dev/fd",
+            "Sha256": null,
+            "Target": "/proc/self/fd",
+            "Type": "SymbolicLink",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/fd",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 438,
+            "Path": "/dev/full",
+            "Sha256": null,
+            "Target": null,
+            "Type": "CharacterDevice",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/full",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 438,
+            "Path": "/dev/null",
+            "Sha256": null,
+            "Target": null,
+            "Type": "CharacterDevice",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/null",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 438,
+            "Path": "/dev/ptmx",
+            "Sha256": null,
+            "Target": null,
+            "Type": "CharacterDevice",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/ptmx",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 493,
+            "Path": "/dev/pts",
+            "Sha256": null,
+            "Target": null,
+            "Type": "Directory",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/pts",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 438,
+            "Path": "/dev/random",
+            "Sha256": null,
+            "Target": null,
+            "Type": "CharacterDevice",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/random",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 493,
+            "Path": "/dev/shm",
+            "Sha256": null,
+            "Target": null,
+            "Type": "Directory",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/shm",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 511,
+            "Path": "/dev/stderr",
+            "Sha256": null,
+            "Target": "/proc/self/fd/2",
+            "Type": "SymbolicLink",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/stderr",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 511,
+            "Path": "/dev/stdin",
+            "Sha256": null,
+            "Target": "/proc/self/fd/0",
+            "Type": "SymbolicLink",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/stdin",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 511,
+            "Path": "/dev/stdout",
+            "Sha256": null,
+            "Target": "/proc/self/fd/1",
+            "Type": "SymbolicLink",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/stdout",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 438,
+            "Path": "/dev/tty",
+            "Sha256": null,
+            "Target": null,
+            "Type": "CharacterDevice",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/tty",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 438,
+            "Path": "/dev/urandom",
+            "Sha256": null,
+            "Target": null,
+            "Type": "CharacterDevice",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/urandom",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 438,
+            "Path": "/dev/zero",
+            "Sha256": null,
+            "Target": null,
+            "Type": "CharacterDevice",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/dev/zero",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 420,
+            "Path": "/etc/fstab",
+            "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 37,
+            "Mode": 420,
+            "Path": "/etc/fstab",
+            "Sha256": "A6B093C9916C6C54E5D634D3689F1A0132E14CCE0B8E50FF445DA8E85ACFBD17",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": "",
+          "Operation": "Write",
+          "Path": "/etc/fstab",
+          "Responsibility": "Fstab"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 14,
+            "Mode": 420,
+            "Path": "/etc/hostname",
+            "Sha256": "A6E83D832682D24B253AF3D706CD0AE4BB84E68ACAF35D2FD5858FFC05ECA68D",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/etc/hostname",
+          "Responsibility": "Hostname"
+        },
+        {
+          "After": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 420,
+            "Path": "/etc/machine-id",
+            "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 420,
+            "Path": "/etc/machine-id",
+            "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": "",
+          "Operation": "Write",
+          "Path": "/etc/machine-id",
+          "Responsibility": "MachineIdentity"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 14,
+            "Mode": 420,
+            "Path": "/etc/mailname",
+            "Sha256": "A6E83D832682D24B253AF3D706CD0AE4BB84E68ACAF35D2FD5858FFC05ECA68D",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/etc/mailname",
+          "Responsibility": "MailIdentity"
+        },
+        {
+          "After": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 511,
+            "Path": "/etc/resolv.conf",
+            "Sha256": null,
+            "Target": "/run/NetworkManager/resolv.conf",
+            "Type": "SymbolicLink",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "Before": {
+            "Type": "Absent"
+          },
+          "ContentBase64": null,
+          "Operation": "Link",
+          "Path": "/etc/resolv.conf",
+          "Responsibility": "Network"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 1023,
+            "Path": "/run/lock",
+            "Sha256": null,
+            "Target": null,
+            "Type": "Directory",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/run/lock",
+          "Responsibility": "Runtime"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 511,
+            "Path": "/initrd.img",
+            "Sha256": null,
+            "Target": "boot/initrd.img-6.12.107+deb13-amd64",
+            "Type": "SymbolicLink",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/initrd.img",
+          "Responsibility": "Initramfs"
+        },
+        {
+          "After": {
+            "Type": "Absent"
+          },
+          "Before": {
+            "Gid": 0,
+            "Length": 0,
+            "Mode": 511,
+            "Path": "/initrd.img.old",
+            "Sha256": null,
+            "Target": "boot/initrd.img-6.12.107+deb13-amd64",
+            "Type": "SymbolicLink",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          "ContentBase64": null,
+          "Operation": "Remove",
+          "Path": "/initrd.img.old",
+          "Responsibility": "Initramfs"
+        }
+      ],
+      "Debconf": {
+        "After": "Only nominated values/flag changed; old backup absent; every other stanza unchanged",
+        "Before": [
+          {
+            "Gid": 0,
+            "Length": 41486,
+            "Mode": 420,
+            "Path": "/var/cache/debconf/config.dat",
+            "Sha256": "99192BCF7993D12265698AEB0D4282AB55343466DBB8F406CF70AFC748D4A424",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          },
+          {
+            "Gid": 0,
+            "Length": 41486,
+            "Mode": 420,
+            "Path": "/var/cache/debconf/config.dat-old",
+            "Sha256": "99192BCF7993D12265698AEB0D4282AB55343466DBB8F406CF70AFC748D4A424",
+            "Target": null,
+            "Type": "File",
+            "Uid": 0,
+            "Xattrs": {}
+          }
+        ],
+        "SetEmpty": [
+          "exim4/dc_other_hostnames",
+          "exim4/mailname"
+        ],
+        "SetFalseFlag": "exim4/dc_other_hostnames mailname"
+      },
+      "PackageSetSha256": "BE86797B73250B19569BC6A229EB1C13D22A651DEAEF315CE8C10406A5AD1272",
+      "PlanVersion": "debian-trixie-neutralization-2026-09-28-v2",
+      "PolicySha256": "05673573AE0699970EECAB9A67F1393EF4048DB02FDF2C18996226E1BF7B8CD9",
+      "Regeneration": {
+        "Agent": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Hashes, ownership, enablement; InstalledFirstBootPending",
+          "SourceState": "No migration generation or payload",
+          "TargetOperation": "Install exact restricted worker/config/unit"
+        },
+        "AptSources": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Exact source/keyring hashes; no factory or deployment-network fallback",
+          "SourceState": "No factory sources",
+          "TargetOperation": "Write approved final Debian deb822 sources after offline deployment"
+        },
+        "Enrollment": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Generation-bound success/failure evidence, not worker self-assertion",
+          "SourceState": "No enrollment secrets",
+          "TargetOperation": "Explicit product handoff; execution still Unsupported"
+        },
+        "Fstab": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Exact file hash and canonical mount relationship",
+          "SourceState": "Empty",
+          "TargetOperation": "Write exact root/ESP filesystem UUIDs from fresh canonical session"
+        },
+        "Hostname": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Exact file readback and UTS match",
+          "SourceState": "Absent",
+          "TargetOperation": "Write validated hostname/hosts; bind target UTS hostname"
+        },
+        "Initramfs": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Fresh image/modules/kernel correlation; factory image hash is forbidden as final evidence",
+          "SourceState": "Factory image and aliases absent; installed kernel/modules retained",
+          "TargetOperation": "update-initramfs -c -k installed version after target configuration"
+        },
+        "MachineIdentity": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Fresh unique ID and D-Bus equality; first-boot evidence remains pending",
+          "SourceState": "Empty machine-id; D-Bus symlink",
+          "TargetOperation": "systemd generates per-instance ID on installed boot (empty file does not imply ConditionFirstBoot)"
+        },
+        "MailIdentity": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Fresh debconf GET; Exim -bP and generated-config identity",
+          "SourceState": "No mailname/generated config; neutral Exim inputs",
+          "TargetOperation": "Write target mailname/local-delivery inputs; debconf SET; update-exim4.conf"
+        },
+        "Network": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Fresh profile/owner/mode/secret-free receipt and resolver link",
+          "SourceState": "No profiles/secrets; resolver symlink",
+          "TargetOperation": "Install approved target profiles; NetworkManager supplies resolver at boot"
+        },
+        "TlsIdentity": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Fresh openssl public-key/certificate match, subject/SAN, root:ssl-cert 0640 key, root:root 0644 certificate; new identity",
+          "SourceState": "Key, certificate and hash link absent",
+          "TargetOperation": "make-ssl-cert generate-default-snakeoil after target hostname/UTS; before dependent services"
+        },
+        "User": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Fresh passwd/shadow classification/group/sudo check; never receipt credentials",
+          "SourceState": "Only pinned system accounts; locked root",
+          "TargetOperation": "Create intended user using protected credential FD; validate sudo membership"
+        },
+        "UserData": {
+          "Failure": "FailedOrOutcomeUnknown; no automatic retry; blocks target completion",
+          "IndependentReadback": "Independent completion receipt; no scanning/labels/firmware",
+          "SourceState": "No migration user data",
+          "TargetOperation": "Exact generation-bound producer; execution still Unsupported"
+        }
+      },
+      "Release": "trixie",
+      "SchemaVersion": 1,
+      "SourceAuditSha256": "A76733DB00ECD9FB0703B4F8D31B4ECE1D3274ADA07B7F89791039AFF2C6A579",
+      "SourceBuildId": "99695826-82bc-4077-b4cf-a22cebc706da"
+    },
+    "neutralization-result.json": {
+      "ExactDeltaVerified": true,
+      "Outcome": "AppliedAndVerified",
+      "PlanSha256": "FEADA00CF8AAC4995B70EC9E86C42FCBDB411CEC78C8CDF3B738A0FAECA42653",
+      "PostFilesystemObservationSha256": "915067C1C7CBEF46BA9E80C80A1F2C7BB974759EEC2181DEFF1485FADBD6EC82"
+    },
+    "pre-attestation-verification.json": {
+      "CreatedAtUtc": "2026-09-28T09:32:27.464000+00:00",
+      "NeutralStateSha256": "751CDEE71BF90671367B5B95F8FB17C660A5595E69F8AD6658EA600288FDD358",
+      "PackageCount": 1594,
+      "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+      "Result": "ArtifactContentAndPackageValid",
+      "TreeSha256": "1F842DC9D53C5C57B2CD9D77FE5731C29E777C4599C445CC8A3892222687BF13",
+      "VerifiedAtUtc": "2026-09-28T09:33:40.525070+00:00",
+      "VerifierSha256": "CB5920E6EF68CC8987713B1B259E96819562AB63C9EAC59A412A275D9855A0FB"
+    },
+    "real-artifact-failure-tests-v2.json": {
+      "Errors": 0,
+      "Failures": 0,
+      "FullArtifactImportClaim": false,
+      "PartialTargetsRetained": true,
+      "Passed": 18,
+      "RealMetadataDerivative": true,
+      "Skipped": 0,
+      "Tests": 18
+    },
+    "supplemental-package-state-review.json": {
+      "EtcAptSourceEntries": [],
+      "FactoryAptPolicyAbsent": true,
+      "FactoryAptSourceAbsent": true,
+      "GrubPrevious": {
+        "Classification": "Package template retained by supported grub-efi-amd64 postinst, not temporary os-prober configuration",
+        "MatchesInstalledTemplate": true,
+        "Sha256": "1CDCEF6CB1D8C5945A7BC79F8D84304E64904BC83875BC2487FCCB0A2FBE8CC4"
+      },
+      "NeutralizationObjectResults": 33,
+      "PackageReadbacks": 35,
+      "RootPreservedPackageBackups": "Approved locked system account markers only; current and backup credentials independently inspected",
+      "TemporaryOsProberPolicyAbsent": true,
+      "Tools": {
+        "configured_root.py": "D1D30A62A86A448CE1E01077AD005550A2654B1C73AE923B9B8F4872E11BFDBB",
+        "configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+        "configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+        "deployment_journal.py": "0219ACB51B295F00887FD78C213D3B6822A08BC04D942B039EA9F2D6BBE781DD",
+        "factory_artifact_verifier.py": "3CB7999F7E1B0EEBDD61653B9894BCC6AADA6CE63016E0CBBF21C57BE5EE2BF3",
+        "factory_ext4_import_rehearsal.py": "79B32E5D42657ACA74EEA66B465DA41EACAC94B6F78EFD28F8E941C66F2FBEBF",
+        "factory_full_source_failures.py": "1910586579C8EA15B87EA885D28AA77B0A3D6001A40BB7716DA354C4D789BF5C",
+        "factory_identity_rehearsal.py": "CEF51AE8633066D3F95E59BE0B1C24E418FDBE3B2CFFE56E78A07112C8AD2A6E",
+        "factory_neutral_audit.py": "1079F800938B24AD413F4B7502532C2852470FF361BD5D95CD3FCFEEA06F4168",
+        "factory_neutralization_rehearsal.py": "60FDD5B49C8488D1351CABF355BA5E99A10EC737C3F9014A6543F783BD9FF43F",
+        "factory_publication_gate.py": "4F8F157DFBE6F4F7BB7AE28D7179E1E6609FCDF972C42D2C443A45D92A5BF3B4",
+        "factory_real_artifact_failures.py": "039F377A84484EDAB9750D51CBD2342D3E958721871440C7DBCFB5B45E652331",
+        "factory_root_observer.py": "7BC35956EE2F5CE059350166D39267A142CD6851A491375F7A3B4993ED7FD84A",
+        "target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+        "target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A"
+      }
+    },
+    "verification-v2/neutral-publication-gate.json": {
+      "Blockers": [],
+      "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "CandidateManifestSchema": 2,
+      "ObservedResiduePaths": [],
+      "PackageStateQualified": true,
+      "ProductionAuthentication": "Unsupported",
+      "PublicationChecksPassed": true,
+      "SourceTreeMutated": false,
+      "StreamProduced": false
+    },
+    "verification-v2/whole-tree-neutral-audit.json": {
+      "AccountCount": 37,
+      "ApprovedSystemAccountsOnly": true,
+      "CompressedFilesScanned": 14133,
+      "CredentialBackupCounts": {
+        "gshadow": 66,
+        "gshadow-": 65,
+        "passwd-": 37,
+        "shadow-": 36
+      },
+      "DerPrivateKeyProbes": 149,
+      "Findings": [],
+      "PasswdSha256": "4516C19CDFE3834EE7BC4C22C199B944EA23245369709B51371BB0037132F732",
+      "PublicPackageTestConstants": [
+        {
+          "Kind": "AuthenticatedPublicPackageTestConstant",
+          "Path": "/usr/lib/x86_64-linux-gnu/libgnutls.so.30.40.3",
+          "Sha256": "4B14EDDE42E7CBEEFD8A6D88D035E096F2E6412A535388BB1D073A1C196E2822"
+        },
+        {
+          "Kind": "AuthenticatedPublicPackageTestConstant",
+          "Path": "/usr/share/doc/libio-socket-ssl-perl/examples/simulate_proxy.pl",
+          "Sha256": "BF6FCCA47A4B4245420813689304921EBD89E630A8B2A701E6C42F5E04A73E27"
+        }
+      ],
+      "Qualified": true,
+      "RegularFilesScanned": 116571,
+      "SchemaVersion": 1,
+      "ShadowSha256": "07FC68122538AEC229006AA486949A1F13E47065DDF726D45744C202C5D64208"
+    }
+  },
+  "EvidenceSha256": {
+    "artifact-independent-verification.json": "7D604786E44CE2214964380FA2227E2695C74241C253DE31EB001FDAEC09A488",
+    "artifact/pack-result.json": "F0CCD8DF94673FFE409D322D86C0E2DF85CB7D205505781FDBA50610FE157EAD",
+    "certificate-identity-audit.json": "313023E9DB3CE5B81CF1AC49ECB212E82BE890E5DD0B59F7CBAE75DC35D57A77",
+    "derivation-intent.json": "F045285FA7C0737D9489014DC97DE85787174F8FB328A943F073FE26D752E2FF",
+    "derivation-result.json": "F14326A03B587E18F8400F3086903D8FF88145A8D049EB1B83CCA78C6C33AE81",
+    "ext4-create-intent.json": "70A00E9CD1AAD1D2EA765057B75B2C04D474B9FC03F781A3C5E5330843C0260E",
+    "ext4-import-result.json": "67D9886C5FA26DDAAA1E534212B82DEEAC3589AF0A25969C49C3A23E68AB2C53",
+    "ext4-mount-result.json": "4F0F53986A2FFAA3DEE79F770ADE054B0C4A0DAD441649C837B11FB7125D0671",
+    "ext4-teardown-result.json": "09268AC5DA2333EA8E54C9A5F30A05C24D7F568E0817896C70EE594DDA0579D8",
+    "external-development-pin.json": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+    "full-source-failure-tests.json": "32745E2ED51885DA8C6D261565855AB4A7985D02C07DE613879A8934A5FE297F",
+    "identity-regeneration-rehearsal.json": "33F28E4C667E40E423E150D58EE54961F786D0D58949B329428B2F7D7B1EA7E4",
+    "import-independent-verification.json": "DEA19C795B4D6B5F7A7138E2FE19DB9E13EAC357CD7B26A643EC054E173FE12B",
+    "neutralization-plan.json": "FEADA00CF8AAC4995B70EC9E86C42FCBDB411CEC78C8CDF3B738A0FAECA42653",
+    "neutralization-result.json": "5A863DE176133D24222C3BA661C741EEABEE0A0F071B41A608575815DA24579E",
+    "pre-attestation-verification.json": "3678D978596A17B7BFF291CBB96A907FB0EB376A69FE7694634978B76FF7C62B",
+    "real-artifact-failure-tests-v2.json": "9BC64DE4CAD28188F608FE77BD5982F873E720FAF63CA508E30CEE7346362098",
+    "supplemental-package-state-review.json": "108C9421FA6A6DC0425CD99C140DC79ABBE5B08A5DDA6A996165A19150079757",
+    "verification-v2/neutral-publication-gate.json": "AB25A4C42EA246DC9E7EFEF48E1AE11106D41C1943AAB8B10EE0127BE40D4EC2",
+    "verification-v2/whole-tree-neutral-audit.json": "C62E1CC836F45F80D63288F226D18892B11E969CF8E9CE01673A81EF206A29FE"
+  },
+  "FinalStatus": "DEBIAN CONFIGURED-ROOT ARTIFACT QUALIFIED",
+  "HostSafety": {
+    "CommandSha256": "773DDB75267F8674554EFE097292BDA86E1355618E23EC418889FF474BA71C3C",
+    "EvidenceFiles": [
+      {
+        "Access": 1,
+        "Path": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/neutralization-9f5101de-4b25-44d5-8ade-a18c4e371408/qemu-2.log"
+      },
+      {
+        "Access": 1,
+        "Path": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/neutralization-9f5101de-4b25-44d5-8ade-a18c4e371408/qemu-2.log"
+      },
+      {
+        "Access": 0,
+        "Path": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/factory/factory.raw"
+      },
+      {
+        "Access": 2,
+        "Path": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/neutralization-9f5101de-4b25-44d5-8ade-a18c4e371408/derived.qcow2"
+      },
+      {
+        "Access": 0,
+        "Path": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/factory/inputs.iso"
+      }
+    ],
+    "NoPhysicalBlockDeviceFd": true,
+    "OriginalBackingReadOnly": true,
+    "Pid": 35758
+  },
+  "Journal": {
+    "Checkpoints": 1823,
+    "LastPath": "/factory-neutral/6072529e-1484-4fc7-a68c-d05c970bb393/import-journal/fe0e0666-8d14-4816-b4b8-b72ba8628010/00001822-464E8EA0E99B74E5838B9D179C6B1E808BC205B237E0F81465AA8D69C6E6B92A.json",
+    "LastResult": {
+      "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "Evidence": {
+        "FilesystemSha256": "1F842DC9D53C5C57B2CD9D77FE5731C29E777C4599C445CC8A3892222687BF13",
+        "NeutralStateSha256": "751CDEE71BF90671367B5B95F8FB17C660A5595E69F8AD6658EA600288FDD358",
+        "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B"
+      },
+      "GenerationId": "fe0e0666-8d14-4816-b4b8-b72ba8628010",
+      "Operation": "ImportConfiguredRootMechanicsFixture",
+      "Outcome": "AppliedAndVerified",
+      "PlanSha256": "648D25478EA1E26467115045C76EF962E5FBCF0C50F02D4D0F26C0DCF0C1899A",
+      "SchemaVersion": 1
+    },
+    "LastSha256": "464E8EA0E99B74E5838B9D179C6B1E808BC205B237E0F81465AA8D69C6E6B92A"
+  },
+  "Metadata": {
+    "Capabilities": [
+      {
+        "BytesBase64": "AQAAAgAUgAAAAAAAAAAAAAAAAAA=",
+        "Gid": 0,
+        "Mode": 493,
+        "Path": "/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper",
+        "Uid": 0
+      }
+    ],
+    "HardlinkGroups": [
+      [
+        "/usr/bin/perl",
+        "/usr/bin/perl5.40.1"
+      ],
+      [
+        "/usr/bin/perlbug",
+        "/usr/bin/perlthanks"
+      ],
+      [
+        "/usr/bin/unzip",
+        "/usr/bin/zipinfo"
+      ],
+      [
+        "/usr/lib/cups/backend-available/dnssd",
+        "/usr/lib/cups/backend/dnssd",
+        "/usr/lib/cups/backend/mdns"
+      ],
+      [
+        "/usr/lib/cups/backend-available/lpd",
+        "/usr/lib/cups/backend/lpd"
+      ],
+      [
+        "/usr/lib/cups/backend-available/snmp",
+        "/usr/lib/cups/backend/snmp"
+      ],
+      [
+        "/usr/lib/cups/backend-available/socket",
+        "/usr/lib/cups/backend/socket"
+      ],
+      [
+        "/usr/lib/cups/backend-available/usb",
+        "/usr/lib/cups/backend/usb"
+      ],
+      [
+        "/usr/lib/klibc/bin/gunzip",
+        "/usr/lib/klibc/bin/gzip",
+        "/usr/lib/klibc/bin/zcat"
+      ],
+      [
+        "/usr/lib/klibc/bin/halt",
+        "/usr/lib/klibc/bin/poweroff",
+        "/usr/lib/klibc/bin/reboot"
+      ]
+    ],
+    "NonAsciiOrControlPaths": [
+      "/etc/ssl/certs/NetLock_Arany_=Class_Gold=_F\u0151tan\u00fas\u00edtv\u00e1ny.pem",
+      "/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\u0151tan\u00fas\u00edtv\u00e1ny.crt"
+    ],
+    "PrivilegedModes": [
+      {
+        "Gid": 30,
+        "Mode": 1512,
+        "Path": "/etc/chatscripts",
+        "Uid": 0
+      },
+      {
+        "Gid": 30,
+        "Mode": 1512,
+        "Path": "/etc/ppp/peers",
+        "Uid": 0
+      },
+      {
+        "Gid": 106,
+        "Mode": 2045,
+        "Path": "/usr/share/ppd/custom",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/lib/polkit-1/polkit-agent-helper-1",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 3565,
+        "Path": "/usr/lib/xorg/Xorg.wrap",
+        "Uid": 0
+      },
+      {
+        "Gid": 999,
+        "Mode": 2540,
+        "Path": "/usr/lib/dbus-1.0/dbus-daemon-launch-helper",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/lib/openssh/ssh-keysign",
+        "Uid": 0
+      },
+      {
+        "Gid": 43,
+        "Mode": 1517,
+        "Path": "/usr/lib/x86_64-linux-gnu/utempter/utempter",
+        "Uid": 0
+      },
+      {
+        "Gid": 42,
+        "Mode": 1517,
+        "Path": "/usr/bin/chage",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/chfn",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/chsh",
+        "Uid": 0
+      },
+      {
+        "Gid": 995,
+        "Mode": 1517,
+        "Path": "/usr/bin/crontab",
+        "Uid": 0
+      },
+      {
+        "Gid": 8,
+        "Mode": 1517,
+        "Path": "/usr/bin/dotlockfile",
+        "Uid": 0
+      },
+      {
+        "Gid": 42,
+        "Mode": 1517,
+        "Path": "/usr/bin/expiry",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/fusermount3",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/gpasswd",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/mount",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/newgrp",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/ntfs-3g",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/passwd",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/pkexec",
+        "Uid": 0
+      },
+      {
+        "Gid": 108,
+        "Mode": 1517,
+        "Path": "/usr/bin/ssh-agent",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/su",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/sudo",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/umount",
+        "Uid": 0
+      },
+      {
+        "Gid": 8,
+        "Mode": 1517,
+        "Path": "/usr/libexec/camel-lock-helper-1.2",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/sbin/exim4",
+        "Uid": 0
+      },
+      {
+        "Gid": 30,
+        "Mode": 2540,
+        "Path": "/usr/sbin/pppd",
+        "Uid": 0
+      },
+      {
+        "Gid": 42,
+        "Mode": 1517,
+        "Path": "/usr/sbin/unix_chkpwd",
+        "Uid": 0
+      },
+      {
+        "Gid": 8,
+        "Mode": 1533,
+        "Path": "/var/mail",
+        "Uid": 0
+      },
+      {
+        "Gid": 4,
+        "Mode": 1512,
+        "Path": "/var/log/exim4",
+        "Uid": 101
+      },
+      {
+        "Gid": 997,
+        "Mode": 1517,
+        "Path": "/var/log/journal",
+        "Uid": 0
+      }
+    ],
+    "SparseFiles": [],
+    "SpecialFiles": [],
+    "Types": {
+      "Directory": 11046,
+      "File": 116571,
+      "SymbolicLink": 17293
+    },
+    "XattrNames": {
+      "security.capability": 1,
+      "system.posix_acl_access": 1,
+      "system.posix_acl_default": 1
+    }
+  },
+  "ObservedAtUtc": "2026-09-28T10:09:35.334459+00:00",
+  "Qualification": {
+    "CanonicalProductionImportSupported": false,
+    "Designed": true,
+    "DevelopmentAuthenticated": true,
+    "FixtureTested": true,
+    "Implemented": true,
+    "ImportMechanicsQualified": true,
+    "IndependentlyVerified": true,
+    "NativeSupportedStages": 0,
+    "ProductionAuthenticated": false,
+    "RealFactoryBuilt": true,
+    "VMwareMigrationValidated": false
+  },
+  "RawSourcePreservation": {
+    "Device": 2096,
+    "Inode": 73898,
+    "MtimeNs": 1790580378969481380,
+    "Sha256": "70DED1CA5E7211C99D4C4706D809B600CD7F97D3B07028BF463363862152C861",
+    "Size": 85899345920,
+    "Unchanged": true,
+    "VerifiedAtUtc": "2026-09-28T09:46:01.964480+00:00"
+  },
+  "RetainedHostDirectory": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/neutralization-9f5101de-4b25-44d5-8ade-a18c4e371408",
+  "RetainedOverlay": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/neutralization-9f5101de-4b25-44d5-8ade-a18c4e371408/derived.qcow2",
+  "Workspace": "/factory-neutral/6072529e-1484-4fc7-a68c-d05c970bb393"
+}

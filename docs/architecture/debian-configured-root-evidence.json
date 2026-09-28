@@ -1,0 +1,133 @@
+{
+  "SchemaVersion": 1,
+  "ObservedAtUtc": "2026-09-28T05:34:59.279445+00:00",
+  "Qualification": "AuthenticatedMetadataOnly_CompleteWorkstationClosureRejected",
+  "PolicySha256": "6C31CA82B7F3E88E9E428B8857D6822FC5A888E9D2390EB6F806801004C45AFF",
+  "KeyringSha256": "59E6105598E3D9924929553293AC7F283D342EF60C5FAA009FC0A3C6542A128A",
+  "AllowedSigningFingerprints": [
+    "04B54C3CDCA79751B16BC6B5225629DF75B188BD",
+    "5E04A1E3223A19A20706E20F9904613D4CCE68C6",
+    "41587F7DB8C774BCCF131416762F67A0B2C39DE4",
+    "B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8",
+    "05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0"
+  ],
+  "Repositories": [
+    {
+      "Id": "debian",
+      "Suite": "trixie",
+      "OriginUri": "https://deb.debian.org/debian",
+      "InRelease": {
+        "Path": "dists/trixie/InRelease",
+        "Length": 140421,
+        "Sha256": "0584FBA32E13E0AB8285FB16C27ADEA1EC03A73669C18702821094FD6CA86675"
+      },
+      "ReleaseSha256": "ED56AAC47E7911E65EE63AAE8D67E29F20E023F840E49F8ED037043A33DE138A",
+      "SigningFingerprint": "41587F7DB8C774BCCF131416762F67A0B2C39DE4",
+      "Indexes": [
+        {
+          "Path": "dists/trixie/main/binary-amd64/Packages.xz",
+          "Length": 9678380,
+          "Sha256": "7778D3E3F303B7DDB8CE0FE7C8D57473A076C6BF2E8F241F75421D2396352498"
+        },
+        {
+          "Path": "dists/trixie/contrib/binary-amd64/Packages.xz",
+          "Length": 53856,
+          "Sha256": "926E365110C83A7BC974C2700A82CBD833A4CE1EA6B4134C97B6ABA85E5ECB84"
+        },
+        {
+          "Path": "dists/trixie/non-free/binary-amd64/Packages.xz",
+          "Length": 100252,
+          "Sha256": "873A1152A9641BBBD32AE06D9BEA40C0EB9486CAEEA340A786D4AB84CB6DE6C5"
+        },
+        {
+          "Path": "dists/trixie/non-free-firmware/binary-amd64/Packages.xz",
+          "Length": 6884,
+          "Sha256": "A05BFAF35B64EB8271E374F617B3B75B5BA24DACFA86FD7DDBEC5A60D99A17DA"
+        }
+      ]
+    },
+    {
+      "Id": "debian-security",
+      "Suite": "trixie-security",
+      "OriginUri": "https://security.debian.org/debian-security",
+      "InRelease": {
+        "Path": "dists/trixie-security/InRelease",
+        "Length": 43409,
+        "Sha256": "974BADFA038D7D59E94F553381FD4C661CA7F9417540E27B44494F051E039197"
+      },
+      "ReleaseSha256": "C2C7327D1CC0C24E41E147C9F687D0BFEEF0E5A79FB4CBE7DC5667EFC1CC7104",
+      "SigningFingerprint": "89C87ACEA5DD6B8E6A7068808E9F831205B4BA95",
+      "Indexes": [
+        {
+          "Path": "dists/trixie-security/main/binary-amd64/Packages.xz",
+          "Length": 262924,
+          "Sha256": "2C3BCE513B5998A43C6A8610F4794E8FF2D0EEC1BA04DBE4AEC64DCECAF9B7EA"
+        },
+        {
+          "Path": "dists/trixie-security/contrib/binary-amd64/Packages.xz",
+          "Length": 3148,
+          "Sha256": "A3AE58B52B1EC7C986BE822100F1188430B30B1F21E17FD361E9AE777E2DC6B6"
+        },
+        {
+          "Path": "dists/trixie-security/non-free/binary-amd64/Packages.xz",
+          "Length": 32,
+          "Sha256": "0040F94D11D0039505328A90B2FF48968DB873E9E7967307631BF40EF5679275"
+        },
+        {
+          "Path": "dists/trixie-security/non-free-firmware/binary-amd64/Packages.xz",
+          "Length": 544,
+          "Sha256": "45D9A3E97C631C8B4D8E3EA9CADE107DCD18E0139ACF965A1821EC96BB843FE1"
+        }
+      ]
+    },
+    {
+      "Id": "debian-updates",
+      "Suite": "trixie-updates",
+      "OriginUri": "https://deb.debian.org/debian",
+      "InRelease": {
+        "Path": "dists/trixie-updates/InRelease",
+        "Length": 47340,
+        "Sha256": "3E63E07EC370C22CBAF574992D0F215C5A02AED33918A7969FDF225DAB18AABB"
+      },
+      "ReleaseSha256": "647BB3B0B99D5DF8358544BB1124A007F1AE6B5A2883512F59EC9B6ABA0C7159",
+      "SigningFingerprint": "4CB50190207B4758A3F73A796ED0E7B82643E131",
+      "Indexes": [
+        {
+          "Path": "dists/trixie-updates/main/binary-amd64/Packages.xz",
+          "Length": 4412,
+          "Sha256": "10012CB384DC2613586D7B3D391D92A5637C9FAA36017239739F2A6109A0D45F"
+        },
+        {
+          "Path": "dists/trixie-updates/contrib/binary-amd64/Packages.xz",
+          "Length": 32,
+          "Sha256": "0040F94D11D0039505328A90B2FF48968DB873E9E7967307631BF40EF5679275"
+        },
+        {
+          "Path": "dists/trixie-updates/non-free/binary-amd64/Packages.xz",
+          "Length": 32,
+          "Sha256": "0040F94D11D0039505328A90B2FF48968DB873E9E7967307631BF40EF5679275"
+        },
+        {
+          "Path": "dists/trixie-updates/non-free-firmware/binary-amd64/Packages.xz",
+          "Length": 32,
+          "Sha256": "0040F94D11D0039505328A90B2FF48968DB873E9E7967307631BF40EF5679275"
+        }
+      ]
+    }
+  ],
+  "IndependentReopen": "Fresh process repeated gpgv, index hash verification and APT solve from retained file-only repositories",
+  "Closure": {
+    "selected_count": 1594,
+    "unresolved": [
+      "gvfs-backends:wsdd"
+    ],
+    "Error": "UnresolvedRecommendation:gvfs-backends:wsdd"
+  },
+  "GvfsBackendsVersion": "1.57.2-2+deb13u1",
+  "WsddCandidates": 0,
+  "Recommends": true,
+  "Suggests": false,
+  "ProductionArtifactBuilt": false,
+  "PackageInstallExecuted": false,
+  "NativeSupportedStages": 0
+}

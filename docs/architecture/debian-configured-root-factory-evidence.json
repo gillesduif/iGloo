@@ -1,0 +1,1448 @@
+{
+  "SchemaVersion": 1,
+  "ObservedAtUtc": "2026-09-28T07:20:32.395591+00:00",
+  "FinalStatus": "DEBIAN CONFIGURED-ROOT FACTORY BLOCKED",
+  "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+  "GenerationId": "68b8b94a-44c0-4f74-a073-46f72a07b6c5",
+  "Qualification": {
+    "Designed": true,
+    "Implemented": true,
+    "FixtureTested": true,
+    "RealFactoryBuilt": true,
+    "IndependentlyVerified": "RepositoryInputsAndConfiguredPackageStateOnly",
+    "ImportRehearsed": false,
+    "ProductionAuthenticated": false,
+    "VMValidated": false
+  },
+  "KeyringSha256": "59E6105598E3D9924929553293AC7F283D342EF60C5FAA009FC0A3C6542A128A",
+  "AllowedPrimarySigningFingerprints": [
+    "04B54C3CDCA79751B16BC6B5225629DF75B188BD",
+    "5E04A1E3223A19A20706E20F9904613D4CCE68C6",
+    "41587F7DB8C774BCCF131416762F67A0B2C39DE4",
+    "B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8",
+    "05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0"
+  ],
+  "MaximumMetadataAgeDays": 90,
+  "Repositories": [
+    {
+      "Id": "debian",
+      "Suite": "trixie",
+      "OriginUri": "https://deb.debian.org/debian",
+      "InRelease": {
+        "Path": "dists/trixie/InRelease",
+        "Length": 140421,
+        "Sha256": "0584FBA32E13E0AB8285FB16C27ADEA1EC03A73669C18702821094FD6CA86675"
+      },
+      "ReleaseSha256": "ED56AAC47E7911E65EE63AAE8D67E29F20E023F840E49F8ED037043A33DE138A",
+      "SigningFingerprint": "41587F7DB8C774BCCF131416762F67A0B2C39DE4",
+      "Indexes": [
+        {
+          "Path": "dists/trixie/main/binary-amd64/Packages.xz",
+          "Length": 9678380,
+          "Sha256": "7778D3E3F303B7DDB8CE0FE7C8D57473A076C6BF2E8F241F75421D2396352498"
+        },
+        {
+          "Path": "dists/trixie/contrib/binary-amd64/Packages.xz",
+          "Length": 53856,
+          "Sha256": "926E365110C83A7BC974C2700A82CBD833A4CE1EA6B4134C97B6ABA85E5ECB84"
+        },
+        {
+          "Path": "dists/trixie/non-free/binary-amd64/Packages.xz",
+          "Length": 100252,
+          "Sha256": "873A1152A9641BBBD32AE06D9BEA40C0EB9486CAEEA340A786D4AB84CB6DE6C5"
+        },
+        {
+          "Path": "dists/trixie/non-free-firmware/binary-amd64/Packages.xz",
+          "Length": 6884,
+          "Sha256": "A05BFAF35B64EB8271E374F617B3B75B5BA24DACFA86FD7DDBEC5A60D99A17DA"
+        }
+      ],
+      "SignedFields": {
+        "Origin": "Debian",
+        "Label": "Debian",
+        "Suite": "stable",
+        "Codename": "trixie",
+        "Date": "Sat, 12 Sep 2026 07:55:41 UTC",
+        "Architectures": "all amd64 arm64 armel armhf i386 ppc64el riscv64 s390x"
+      },
+      "ValidSignatures": [
+        {
+          "SigningFingerprint": "4CB50190207B4758A3F73A796ED0E7B82643E131",
+          "PrimaryFingerprint": "B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8"
+        },
+        {
+          "SigningFingerprint": "B8E5F13176D2A7A75220028078DBA3BC47EF2265",
+          "PrimaryFingerprint": "04B54C3CDCA79751B16BC6B5225629DF75B188BD"
+        },
+        {
+          "SigningFingerprint": "41587F7DB8C774BCCF131416762F67A0B2C39DE4",
+          "PrimaryFingerprint": "41587F7DB8C774BCCF131416762F67A0B2C39DE4"
+        }
+      ]
+    },
+    {
+      "Id": "debian-security",
+      "Suite": "trixie-security",
+      "OriginUri": "https://security.debian.org/debian-security",
+      "InRelease": {
+        "Path": "dists/trixie-security/InRelease",
+        "Length": 43409,
+        "Sha256": "974BADFA038D7D59E94F553381FD4C661CA7F9417540E27B44494F051E039197"
+      },
+      "ReleaseSha256": "C2C7327D1CC0C24E41E147C9F687D0BFEEF0E5A79FB4CBE7DC5667EFC1CC7104",
+      "SigningFingerprint": "89C87ACEA5DD6B8E6A7068808E9F831205B4BA95",
+      "Indexes": [
+        {
+          "Path": "dists/trixie-security/main/binary-amd64/Packages.xz",
+          "Length": 262924,
+          "Sha256": "2C3BCE513B5998A43C6A8610F4794E8FF2D0EEC1BA04DBE4AEC64DCECAF9B7EA"
+        },
+        {
+          "Path": "dists/trixie-security/contrib/binary-amd64/Packages.xz",
+          "Length": 3148,
+          "Sha256": "A3AE58B52B1EC7C986BE822100F1188430B30B1F21E17FD361E9AE777E2DC6B6"
+        },
+        {
+          "Path": "dists/trixie-security/non-free/binary-amd64/Packages.xz",
+          "Length": 32,
+          "Sha256": "0040F94D11D0039505328A90B2FF48968DB873E9E7967307631BF40EF5679275"
+        },
+        {
+          "Path": "dists/trixie-security/non-free-firmware/binary-amd64/Packages.xz",
+          "Length": 544,
+          "Sha256": "45D9A3E97C631C8B4D8E3EA9CADE107DCD18E0139ACF965A1821EC96BB843FE1"
+        }
+      ],
+      "SignedFields": {
+        "Origin": "Debian",
+        "Label": "Debian-Security",
+        "Suite": "stable-security",
+        "Codename": "trixie-security",
+        "Date": "Sun, 27 Sep 2026 19:22:40 UTC",
+        "Valid-Until": "Sun, 04 Oct 2026 19:22:40 UTC",
+        "Architectures": "amd64 arm64 armel armhf i386 ppc64el riscv64 s390x"
+      },
+      "ValidSignatures": [
+        {
+          "SigningFingerprint": "B0CAB9266E8C3929798B3EEEBDE6D2B9216EC7A8",
+          "PrimaryFingerprint": "05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0"
+        },
+        {
+          "SigningFingerprint": "89C87ACEA5DD6B8E6A7068808E9F831205B4BA95",
+          "PrimaryFingerprint": "5E04A1E3223A19A20706E20F9904613D4CCE68C6"
+        }
+      ]
+    },
+    {
+      "Id": "debian-updates",
+      "Suite": "trixie-updates",
+      "OriginUri": "https://deb.debian.org/debian",
+      "InRelease": {
+        "Path": "dists/trixie-updates/InRelease",
+        "Length": 47340,
+        "Sha256": "3E63E07EC370C22CBAF574992D0F215C5A02AED33918A7969FDF225DAB18AABB"
+      },
+      "ReleaseSha256": "647BB3B0B99D5DF8358544BB1124A007F1AE6B5A2883512F59EC9B6ABA0C7159",
+      "SigningFingerprint": "4CB50190207B4758A3F73A796ED0E7B82643E131",
+      "Indexes": [
+        {
+          "Path": "dists/trixie-updates/main/binary-amd64/Packages.xz",
+          "Length": 4412,
+          "Sha256": "10012CB384DC2613586D7B3D391D92A5637C9FAA36017239739F2A6109A0D45F"
+        },
+        {
+          "Path": "dists/trixie-updates/contrib/binary-amd64/Packages.xz",
+          "Length": 32,
+          "Sha256": "0040F94D11D0039505328A90B2FF48968DB873E9E7967307631BF40EF5679275"
+        },
+        {
+          "Path": "dists/trixie-updates/non-free/binary-amd64/Packages.xz",
+          "Length": 32,
+          "Sha256": "0040F94D11D0039505328A90B2FF48968DB873E9E7967307631BF40EF5679275"
+        },
+        {
+          "Path": "dists/trixie-updates/non-free-firmware/binary-amd64/Packages.xz",
+          "Length": 32,
+          "Sha256": "0040F94D11D0039505328A90B2FF48968DB873E9E7967307631BF40EF5679275"
+        }
+      ],
+      "SignedFields": {
+        "Origin": "Debian",
+        "Label": "Debian",
+        "Suite": "stable-updates",
+        "Codename": "trixie-updates",
+        "Date": "Mon, 28 Sep 2026 02:09:10 UTC",
+        "Valid-Until": "Mon, 05 Oct 2026 02:09:10 UTC",
+        "Architectures": "all amd64 arm64 armel armhf i386 ppc64el riscv64 s390x"
+      },
+      "ValidSignatures": [
+        {
+          "SigningFingerprint": "4CB50190207B4758A3F73A796ED0E7B82643E131",
+          "PrimaryFingerprint": "B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8"
+        },
+        {
+          "SigningFingerprint": "B8E5F13176D2A7A75220028078DBA3BC47EF2265",
+          "PrimaryFingerprint": "04B54C3CDCA79751B16BC6B5225629DF75B188BD"
+        }
+      ]
+    }
+  ],
+  "PackagePolicy": {
+    "SchemaVersion": 1,
+    "Release": "trixie",
+    "Architecture": "amd64",
+    "InstallRecommends": true,
+    "InstallSuggests": false,
+    "Packages": [
+      "adduser",
+      "ca-certificates",
+      "console-setup",
+      "dbus",
+      "debian-archive-keyring",
+      "efibootmgr",
+      "firmware-linux",
+      "firmware-iwlwifi",
+      "firmware-realtek",
+      "gdm3",
+      "grub-common",
+      "grub2-common",
+      "grub-efi-amd64",
+      "grub-efi-amd64-signed",
+      "initramfs-tools",
+      "keyboard-configuration",
+      "linux-image-amd64",
+      "locales",
+      "mokutil",
+      "network-manager",
+      "ntfs-3g",
+      "python3",
+      "python3-gi",
+      "rsync",
+      "shim-signed",
+      "shim-signed-common",
+      "sudo",
+      "systemd-sysv",
+      "task-gnome-desktop",
+      "tasksel",
+      "tzdata"
+    ],
+    "Tasks": [
+      "standard"
+    ],
+    "FirmwarePackages": [
+      "firmware-linux",
+      "firmware-iwlwifi",
+      "firmware-realtek"
+    ],
+    "FirstBootResponsibilities": [
+      "GenerateSystemMachineIdentity",
+      "NetworkManagerConnectivity",
+      "MigrationAgentCompletion",
+      "OptionalOnlineApplicationsAndCodecs"
+    ],
+    "Revision": "trixie-workstation-2026-09-28.1",
+    "RecommendationExceptions": [
+      {
+        "Id": "trixie-gvfs-wsdd-2026-09-28-v1",
+        "Release": "trixie",
+        "RepositoryId": "debian",
+        "Suite": "trixie",
+        "Package": "gvfs-backends",
+        "Version": "1.57.2-2+deb13u1",
+        "Architecture": "amd64",
+        "Kind": "Recommends",
+        "Relation": "wsdd",
+        "Reason": "The authenticated Trixie repositories contain no wsdd candidate. Debian bug 1110689 and the authenticated GVfs source separate WS-Discovery from SMB client access.",
+        "ProductImpact": "Automatic WS-Discovery browsing of some Windows/Samba shares is unavailable. Direct smb://server/share access, local files, GNOME startup and iGloo offline migration do not require wsdd. Network discovery is not mandatory in this workstation baseline.",
+        "EvidenceUri": "https://bugs.debian.org/1110689",
+        "ReviewedUtc": "2026-09-28T00:00:00+00:00",
+        "ReviewBeforeUtc": "2026-10-28T00:00:00+00:00",
+        "ReviewCondition": "Review before expiry or on any package/version/relation/repository change. A candidate or provider becoming available disables this exception; no wsdd2 substitution."
+      }
+    ]
+  },
+  "DependencyPolicy": {
+    "SchemaVersion": 1,
+    "OriginalUnresolved": [
+      {
+        "RepositoryId": "debian",
+        "Suite": "trixie",
+        "Package": "gvfs-backends",
+        "Version": "1.57.2-2+deb13u1",
+        "Architecture": "amd64",
+        "Kind": "Recommends",
+        "Relation": "wsdd",
+        "CandidateAvailable": false
+      }
+    ],
+    "AppliedExceptions": [
+      {
+        "ExceptionId": "trixie-gvfs-wsdd-2026-09-28-v1",
+        "Relation": {
+          "RepositoryId": "debian",
+          "Suite": "trixie",
+          "Package": "gvfs-backends",
+          "Version": "1.57.2-2+deb13u1",
+          "Architecture": "amd64",
+          "Kind": "Recommends",
+          "Relation": "wsdd",
+          "CandidateAvailable": false
+        }
+      }
+    ],
+    "RemainingUnresolved": []
+  },
+  "PackageSet": {
+    "Path": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/packages/bundle/package-set.json",
+    "Sha256": "BE86797B73250B19569BC6A229EB1C13D22A651DEAEF315CE8C10406A5AD1272",
+    "PolicySha256": "05673573AE0699970EECAB9A67F1393EF4048DB02FDF2C18996226E1BF7B8CD9",
+    "PackageCount": 1594,
+    "StandardPriorityPackages": 104,
+    "MinbaseArchives": 78,
+    "RepositoryAliases": 110,
+    "UniqueArchivePaths": 1704,
+    "SelectedArchiveBytes": 1246648608,
+    "ClosureSha256": "6322C3B4594DCD9318EE0A70E9D70BC82819D628B0199F2D34517B0702735B65",
+    "IndependentArchiveAndSolutionVerification": true,
+    "SolverVersions": [
+      "APT 2.8.3 (input acquisition)",
+      "APT 3.0.3 (independent factory solve)"
+    ]
+  },
+  "Factory": {
+    "Runtime": "QEMU 8.2.2 (Ubuntu 1:8.2.2+ds-0ubuntu1.18), KVM, SeaBIOS",
+    "QemuSha256": "8A35CCBA41582FC6C38B9DF85FC9E35FA1D42F414D2D7D8090EE9B2F5E7C0854",
+    "Os": "Debian 13.7.0 amd64 netinst",
+    "OsIsoSha256": "A7EF94AC2FB9A7FEC454552ABD629B7CC9D5155C886165A45649F5CE6167E355",
+    "CdSigningFingerprint": "DF9B9C49EAA9298432589D76DA87E80D6294BE9B",
+    "CpuCount": 4,
+    "MemoryMiB": 8192,
+    "DiskBytes": 85899345920,
+    "DiskBacking": "New regular sparse raw file; no backing chain",
+    "PhysicalDiskPassthrough": false,
+    "SharedFolders": false,
+    "NetworkInterface": false,
+    "Efi": false,
+    "Esp": false,
+    "RuntimeObservation": {
+      "BlockDevices": {
+        "blockdevices": [
+          {
+            "fstype": "iso9660",
+            "name": "sr0",
+            "pkname": null,
+            "serial": "install",
+            "type": "rom"
+          },
+          {
+            "children": [
+              {
+                "fstype": "ext4",
+                "name": "vda1",
+                "pkname": "vda",
+                "serial": null,
+                "type": "part"
+              },
+              {
+                "fstype": null,
+                "name": "vda2",
+                "pkname": "vda",
+                "serial": null,
+                "type": "part"
+              },
+              {
+                "fstype": "swap",
+                "name": "vda5",
+                "pkname": "vda",
+                "serial": null,
+                "type": "part"
+              }
+            ],
+            "fstype": null,
+            "name": "vda",
+            "pkname": null,
+            "serial": "IGLOO-FACTORY",
+            "type": "disk"
+          }
+        ]
+      },
+      "Efi": false,
+      "Kernel": "Linux igloo-factory 6.12.107+deb13-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.107-1 (2026-08-29) x86_64 GNU/Linux",
+      "Mount": [
+        {
+          "fstype": "iso9660",
+          "options": "ro,nosuid,nodev,relatime,nojoliet,check=s,map=n,blocksize=2048,iocharset=utf8",
+          "source": "/dev/sr0"
+        }
+      ],
+      "Network": [
+        "lo"
+      ]
+    },
+    "ToolIdentities": {
+      "apt-get": {
+        "Sha256": "67072BE139E90C73ED25007AC92F0525909A7C6D6829AECC2CEFF86F9568F98B",
+        "Version": "apt 3.0.3 (amd64)"
+      },
+      "dpkg": {
+        "Sha256": "0A20F6015FBB7C011571F3ED227A138B12CE282E46B7FDFC239558BC5A7BC9E5",
+        "Version": "Debian 'dpkg' package management program version 1.22.22 (amd64)."
+      },
+      "gpgv": {
+        "Sha256": "3F29DDDC10E4089AEAC5B2675313F4E5FE822ABE5AB3BF7898D238C32D758304",
+        "Version": "gpgv (GnuPG) 2.4.7"
+      },
+      "mmdebstrap": {
+        "Sha256": "C8A55D9731E81C00A78DB8824854A099ADBDB516F83F88B6D546D4D17B03EA1A",
+        "Version": "mmdebstrap 1.5.7"
+      },
+      "python3": {
+        "Sha256": "889C603F0D17CB54060951BCF4C4F9B8C9EBD9E52B392C70209BBB9755D797D9",
+        "Version": "Python 3.13.5"
+      }
+    },
+    "HelperTreeSha256": "FB6B55CBEFDB69ED5B137806BD4EDB161ABF2F305C1E32966C40A29E84C6596D",
+    "ProcessObservations": "build-process-observation.json; independent /proc fd/status readback, uid 1000, CapEff/CapPrm/CapAmb=0, NoNewPrivs=1, Seccomp=2, no physical block FDs",
+    "InputPins": {
+      "InputIsoSha256": "EB24F49E4710D9DDA89EDC00C6D16036A801F1AC0E2796E8B2109C255C3ED9ED",
+      "InputIsoLength": 1640415232,
+      "RequestSha256": "482344FB3D0AD82DC1E92BC44A1ED46C9BF9AA5EB0C5CFE5B8BD84033C2538E2",
+      "PackageSetSha256": "BE86797B73250B19569BC6A229EB1C13D22A651DEAEF315CE8C10406A5AD1272",
+      "ToolManifestSha256": "98D8711C178FE868DF97AC7F7B04343412F0C5B41B9298D7CACDE386E4A4436A",
+      "GuestDriverSha256": "31EC5FD11583809E5C883BDAB4FF3A6C899F7BE7B0825737F57F734A3F3BECA7",
+      "ToolInstallerSha256": "9D84DFFD315C643AA27746A5CA84052A2082816BD707E28841F5A8185D07C143"
+    },
+    "BuildIntentSha256": "D0A73EE27722E6BC986AF3718F5177BE33DE94DCC14BA468F61560AF1444BAA7",
+    "InvocationModel": "mmdebstrap --mode=root --variant=custom --format=directory --architectures=amd64, explicit trusted keyring, file-mirror-automount hooks, Recommends=true, Suggests=false, retries=0, translations=none, exact includes, three explicit file:///input/bundle repositories",
+    "Result": {
+      "ExitCode": 0,
+      "LogSha256": "C7EB0F2EF9A0F48ED999491BDCE0F1134D0796EA1073640994DFF20C7D9BA4FF",
+      "RootExists": true,
+      "State": "PendingIndependentReadback",
+      "TimedOut": false
+    },
+    "ShutdownObservation": {
+      "QemuPid": 32094,
+      "QemuActive": false,
+      "ConsoleSocketPresent": false,
+      "HostRebooted": false,
+      "GuestPoweroffRequestedOnce": true,
+      "Initial45SecondWaitCompleted": false,
+      "FinalObservationUtc": "2026-09-28T07:26:46.718474+00:00",
+      "ArtifactsRetained": true
+    },
+    "ToolTreeReadback": {
+      "HelperEntries": [
+        {
+          "Path": "hooks/busybox/extract00.sh",
+          "Sha256": "5F81801D5D299CF5CC14830E97F663433555DA0EF9EBA4DDE9959B308254D75B",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/busybox/setup00.sh",
+          "Sha256": "11D5E19F53FC812E14AEE183E78D5DD224545931FCB1472B07A528A7181F2F97",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/copy-host-apt-sources-and-preferences/customize00.pl",
+          "Sha256": "2623BCE59800B5245D46B8FDE82B8D74DD42B25E194157B05E1308B50A18004D",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/copy-host-apt-sources-and-preferences/setup00.sh",
+          "Sha256": "50DAC0CA395921EA2197D51779E4EF165B5A68446352030FA578576D5C2D9C9D",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/eatmydata/README.txt",
+          "Sha256": "E5FDCD9E98176455E1EBC48E8555CE002A769FD4A56AF5C4F65FC64281661E13",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/eatmydata/customize.sh",
+          "Sha256": "1C5A3089B0EF7C072963760915F8C3CCFFA5B8FDEBB65EE9851935B4D193E7E7",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/eatmydata/extract.sh",
+          "Sha256": "0269E75F3CEF90509D7621F72162606D80EDDF2E1512AE5377D94459772D62E5",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/file-mirror-automount/customize00.sh",
+          "Sha256": "AD206C52692A75FA8B3BD263D9413E24C4BA85652720E3BB6F3B118FCC2AECA8",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/file-mirror-automount/setup00.sh",
+          "Sha256": "8DA686E6BA17DCFB564F61C0AA0359E5C562F6514CDE2D415B04919946267EC6",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/jessie-or-older/extract00.sh",
+          "Sha256": "6767251FC0CC49CFD322A6C03459536DBBACFCC541F5EF176D9D385A4A6AC24F",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/jessie-or-older/extract01.sh",
+          "Sha256": "04614CC8D9246DDE356331C501CE4D284E913DFD86D3CCFA03526175992592EA",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/maybe-jessie-or-older/extract00.sh",
+          "Sha256": "9F8DC3506574EE15739A33008F65708215A412B122BFC534B12DD75A39DA1C3B",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/maybe-jessie-or-older/extract01.sh",
+          "Sha256": "F84F74E0318E0A39C163C3790ADC89CD5787565FC53EA08442DE54D12ACDA858",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/maybe-merged-usr/essential00.sh",
+          "Sha256": "F126AD80666CE1BED3394AC6A31C36658C815E638077DF7419E110083A75EC18",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/maybe-merged-usr/extract00.sh",
+          "Sha256": "D86DAC7A75BB2E6B67170043C0F690B355AD15027837C89A1D5DCA3366B370BC",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/maybe-merged-usr/setup00.sh",
+          "Sha256": "2327451B00C95F5CB928633195724FFCEB5FEC59C7F59C2E409931487664BBF8",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/merged-usr/essential00.sh",
+          "Sha256": "64F392F77F1DACCC019F1A389DC9A247565FCD74AB9D5D7552BDE532DE339591",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/merged-usr/extract00.sh",
+          "Sha256": "5D58E02DB78DE0970ABDA6849C1B5F82E4C9EACA37F4176AEF4374C6E0773CD0",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/merged-usr/setup00.sh",
+          "Sha256": "1557196E668C6043CB4A11C3D14A8E50ACDEECB74FD1262AA73FE41541CE369D",
+          "Type": "File"
+        },
+        {
+          "Path": "hooks/no-merged-usr/essential00.sh",
+          "Target": "../merged-usr/essential00.sh",
+          "Type": "Link"
+        },
+        {
+          "Path": "hooks/no-merged-usr/setup00.sh",
+          "Sha256": "FBD7C844FDE1C828C4F00884B48F5234E831AD2F9C5CF827004BEDE96E78D160",
+          "Type": "File"
+        }
+      ],
+      "HelperTreeSha256": "FB6B55CBEFDB69ED5B137806BD4EDB161ABF2F305C1E32966C40A29E84C6596D",
+      "PackageVersions": [
+        "apt 3.0.3",
+        "dpkg 1.22.22",
+        "gpgv 2.4.7-21+deb13u1+b5",
+        "mmdebstrap 1.5.7-1+deb13u1",
+        "python3 3.13.5-1",
+        "python3-apt 3.0.0"
+      ]
+    },
+    "RetainedDirectory": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/factory",
+    "OriginalExecutionDirectory": "/tmp/igloo-241-factory-vm-wmny98ge"
+  },
+  "PackageReadback": {
+    "PackageCount": 1594,
+    "Qualified": true,
+    "Missing": [],
+    "Unexpected": [],
+    "Unconfigured": [],
+    "PendingTriggers": [],
+    "DpkgAuditExit": 0,
+    "DpkgAuditStdout": "",
+    "DpkgAuditStderr": "",
+    "WorkstationPolicyPackages": [
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "adduser",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "3.152"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "ca-certificates",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "20250419"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "console-setup",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "1.242~deb13u1"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "dbus",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "1.16.2-2"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "debian-archive-keyring",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "2025.1"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "efibootmgr",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "18-2"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "firmware-iwlwifi",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "20250410-2"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "firmware-linux",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "20250410-2"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "firmware-realtek",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "20250410-2"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "gdm3",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "48.0-2"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "grub-common",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "2.12-9+deb13u2"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "grub-efi-amd64",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "2.12-9+deb13u2"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "grub-efi-amd64-signed",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "1+2.12+9+deb13u2"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "grub2-common",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "2.12-9+deb13u2"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "initramfs-tools",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "0.148.4"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "keyboard-configuration",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "1.242~deb13u1"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "linux-image-amd64",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "6.12.107-1"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "locales",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "2.41-12+deb13u4"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "mokutil",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "0.7.2-1"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "network-manager",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "1.52.1-1"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "ntfs-3g",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "1:2022.10.3-5+deb13u2"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "python3",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "3.13.5-1"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "python3-gi",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "3.50.0-4+b1"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "rsync",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "3.4.1+ds1-5+deb13u4"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "shim-signed",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "1.51~1+deb13u1+16.1-2~deb13u1"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "shim-signed-common",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "1.51~1+deb13u1+16.1-2~deb13u1"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "sudo",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "1.9.16p2-3+deb13u2"
+      },
+      {
+        "Architecture": "amd64",
+        "DpkgStatus": "install ok installed",
+        "Name": "systemd-sysv",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "257.13-1~deb13u1"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "task-gnome-desktop",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "3.81"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "tasksel",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "3.81"
+      },
+      {
+        "Architecture": "all",
+        "DpkgStatus": "install ok installed",
+        "Name": "tzdata",
+        "TriggersAwaited": "",
+        "TriggersPending": "",
+        "Version": "2026c-0+deb13u1"
+      }
+    ],
+    "FullIndependentReadback": {
+      "Length": 30855172,
+      "Sha256": "A76733DB00ECD9FB0703B4F8D31B4ECE1D3274ADA07B7F89791039AFF2C6A579",
+      "ExportedGzipPath": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/factory/independent-root-audit.json.gz"
+    }
+  },
+  "Filesystem": {
+    "Capabilities": [
+      {
+        "BytesBase64": "AQAAAgAUgAAAAAAAAAAAAAAAAAA=",
+        "Gid": 0,
+        "Mode": 493,
+        "PackageOwners": [
+          "libgstreamer1.0-0:amd64"
+        ],
+        "Path": "/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper",
+        "Uid": 0
+      }
+    ],
+    "HardlinkGroups": [
+      [
+        "/usr/bin/perl",
+        "/usr/bin/perl5.40.1"
+      ],
+      [
+        "/usr/bin/perlbug",
+        "/usr/bin/perlthanks"
+      ],
+      [
+        "/usr/bin/unzip",
+        "/usr/bin/zipinfo"
+      ],
+      [
+        "/usr/lib/cups/backend-available/dnssd",
+        "/usr/lib/cups/backend/dnssd",
+        "/usr/lib/cups/backend/mdns"
+      ],
+      [
+        "/usr/lib/cups/backend-available/lpd",
+        "/usr/lib/cups/backend/lpd"
+      ],
+      [
+        "/usr/lib/cups/backend-available/snmp",
+        "/usr/lib/cups/backend/snmp"
+      ],
+      [
+        "/usr/lib/cups/backend-available/socket",
+        "/usr/lib/cups/backend/socket"
+      ],
+      [
+        "/usr/lib/cups/backend-available/usb",
+        "/usr/lib/cups/backend/usb"
+      ],
+      [
+        "/usr/lib/klibc/bin/gunzip",
+        "/usr/lib/klibc/bin/gzip",
+        "/usr/lib/klibc/bin/zcat"
+      ],
+      [
+        "/usr/lib/klibc/bin/halt",
+        "/usr/lib/klibc/bin/poweroff",
+        "/usr/lib/klibc/bin/reboot"
+      ]
+    ],
+    "NonAsciiOrControlPaths": [
+      "/etc/ssl/certs/NetLock_Arany_=Class_Gold=_F\u0151tan\u00fas\u00edtv\u00e1ny.pem",
+      "/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\u0151tan\u00fas\u00edtv\u00e1ny.crt"
+    ],
+    "PrivilegedModes": [
+      {
+        "Gid": 30,
+        "Mode": 1512,
+        "Path": "/etc/chatscripts",
+        "Uid": 0
+      },
+      {
+        "Gid": 30,
+        "Mode": 1512,
+        "Path": "/etc/ppp/peers",
+        "Uid": 0
+      },
+      {
+        "Gid": 106,
+        "Mode": 2045,
+        "Path": "/usr/share/ppd/custom",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/lib/polkit-1/polkit-agent-helper-1",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 3565,
+        "Path": "/usr/lib/xorg/Xorg.wrap",
+        "Uid": 0
+      },
+      {
+        "Gid": 999,
+        "Mode": 2540,
+        "Path": "/usr/lib/dbus-1.0/dbus-daemon-launch-helper",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/lib/openssh/ssh-keysign",
+        "Uid": 0
+      },
+      {
+        "Gid": 43,
+        "Mode": 1517,
+        "Path": "/usr/lib/x86_64-linux-gnu/utempter/utempter",
+        "Uid": 0
+      },
+      {
+        "Gid": 42,
+        "Mode": 1517,
+        "Path": "/usr/bin/chage",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/chfn",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/chsh",
+        "Uid": 0
+      },
+      {
+        "Gid": 995,
+        "Mode": 1517,
+        "Path": "/usr/bin/crontab",
+        "Uid": 0
+      },
+      {
+        "Gid": 8,
+        "Mode": 1517,
+        "Path": "/usr/bin/dotlockfile",
+        "Uid": 0
+      },
+      {
+        "Gid": 42,
+        "Mode": 1517,
+        "Path": "/usr/bin/expiry",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/fusermount3",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/gpasswd",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/mount",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/newgrp",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/ntfs-3g",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/passwd",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/pkexec",
+        "Uid": 0
+      },
+      {
+        "Gid": 108,
+        "Mode": 1517,
+        "Path": "/usr/bin/ssh-agent",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/su",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/sudo",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/bin/umount",
+        "Uid": 0
+      },
+      {
+        "Gid": 8,
+        "Mode": 1517,
+        "Path": "/usr/libexec/camel-lock-helper-1.2",
+        "Uid": 0
+      },
+      {
+        "Gid": 0,
+        "Mode": 2541,
+        "Path": "/usr/sbin/exim4",
+        "Uid": 0
+      },
+      {
+        "Gid": 30,
+        "Mode": 2540,
+        "Path": "/usr/sbin/pppd",
+        "Uid": 0
+      },
+      {
+        "Gid": 42,
+        "Mode": 1517,
+        "Path": "/usr/sbin/unix_chkpwd",
+        "Uid": 0
+      },
+      {
+        "Gid": 8,
+        "Mode": 1533,
+        "Path": "/var/mail",
+        "Uid": 0
+      },
+      {
+        "Gid": 4,
+        "Mode": 1512,
+        "Path": "/var/log/exim4",
+        "Uid": 101
+      },
+      {
+        "Gid": 997,
+        "Mode": 1517,
+        "Path": "/var/log/journal",
+        "Uid": 0
+      }
+    ],
+    "SparseFiles": [],
+    "SpecialFiles": [
+      {
+        "Path": "/dev/console",
+        "Rdev": 1281,
+        "Type": "CharacterDevice"
+      },
+      {
+        "Path": "/dev/full",
+        "Rdev": 263,
+        "Type": "CharacterDevice"
+      },
+      {
+        "Path": "/dev/null",
+        "Rdev": 259,
+        "Type": "CharacterDevice"
+      },
+      {
+        "Path": "/dev/ptmx",
+        "Rdev": 1282,
+        "Type": "CharacterDevice"
+      },
+      {
+        "Path": "/dev/random",
+        "Rdev": 264,
+        "Type": "CharacterDevice"
+      },
+      {
+        "Path": "/dev/tty",
+        "Rdev": 1280,
+        "Type": "CharacterDevice"
+      },
+      {
+        "Path": "/dev/urandom",
+        "Rdev": 265,
+        "Type": "CharacterDevice"
+      },
+      {
+        "Path": "/dev/zero",
+        "Rdev": 261,
+        "Type": "CharacterDevice"
+      }
+    ],
+    "Types": {
+      "CharacterDevice": 8,
+      "Directory": 11050,
+      "File": 116580,
+      "SymbolicLink": 17298
+    },
+    "XattrNames": {
+      "security.capability": 1,
+      "system.posix_acl_access": 1,
+      "system.posix_acl_default": 1
+    }
+  },
+  "SpecialMetadataEvidence": [
+    {
+      "Gid": 0,
+      "Length": 0,
+      "Mode": 511,
+      "Path": "/etc/ssl/certs/NetLock_Arany_=Class_Gold=_F\u0151tan\u00fas\u00edtv\u00e1ny.pem",
+      "Sha256": null,
+      "Target": "/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\u0151tan\u00fas\u00edtv\u00e1ny.crt",
+      "Type": "SymbolicLink",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 0,
+      "Length": 468,
+      "Mode": 420,
+      "Path": "/usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice",
+      "Sha256": "68DC6E85631E077F2BC751352459823844911B93B7BA2AFD95D96C893222BB50",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 0,
+      "Length": 463,
+      "Mode": 420,
+      "Path": "/usr/lib/systemd/system/system-systemd\\x2dveritysetup.slice",
+      "Sha256": "1C6D548FC0C321CC8360FA294DAAA15E62307A9C396A7D7DE0CDFBE438591267",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 0,
+      "Length": 534992,
+      "Mode": 493,
+      "Path": "/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-ptp-helper",
+      "Sha256": "46436E050473C9EFD1802F581A63C274BA0C3EFBF69E4DE176802C59280FF7B5",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {
+        "security.capability": "AQAAAgAUgAAAAAAAAAAAAAAAAAA="
+      }
+    },
+    {
+      "Gid": 0,
+      "Length": 1476,
+      "Mode": 420,
+      "Path": "/usr/share/ca-certificates/mozilla/NetLock_Arany_=Class_Gold=_F\u0151tan\u00fas\u00edtv\u00e1ny.crt",
+      "Sha256": "40F60F2E2F83FB6C63DDEFEBA7939A7852B2D468183EA939CC4DCAC8FE4CC87D",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 997,
+      "Length": 0,
+      "Mode": 1517,
+      "Path": "/var/log/journal",
+      "Sha256": null,
+      "Target": null,
+      "Type": "Directory",
+      "Uid": 0,
+      "Xattrs": {
+        "system.posix_acl_access": "AgAAAAEABwD/////BAAFAP////8IAAUABAAAABAABQD/////IAAFAP////8=",
+        "system.posix_acl_default": "AgAAAAEABwD/////BAAFAP////8IAAUABAAAABAABQD/////IAAFAP////8="
+      }
+    }
+  ],
+  "KernelArtifacts": [
+    {
+      "Gid": 0,
+      "Length": 133708032,
+      "Mode": 420,
+      "Path": "/boot/initrd.img-6.12.107+deb13-amd64",
+      "Sha256": "B2BB82D339DCC4E143E687EB3038BCF34FFC97907375F4451DD775752E586642",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 0,
+      "Length": 12142528,
+      "Mode": 420,
+      "Path": "/boot/vmlinuz-6.12.107+deb13-amd64",
+      "Sha256": "2B2358B37674D2505350528875BB17AFAE2A36522A9E8A9417EACA65A7DA0E08",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 0,
+      "Length": 631316,
+      "Mode": 420,
+      "Path": "/usr/lib/modules/6.12.107+deb13-amd64/modules.dep",
+      "Sha256": "96021B276DD211AAFC6F5D82C5842BC4A10822DFE68A82EE69EA42187A48271B",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    }
+  ],
+  "PublicationGate": {
+    "Blockers": [
+      "Manifest:SpecialFileRejected",
+      "Filesystem:ReadbackSpecialFile",
+      "NeutralState:MachineIdentityResidue"
+    ],
+    "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+    "CandidateManifestSchema": 2,
+    "ObservedResiduePaths": [
+      "/etc/apt/sources.list",
+      "/etc/hostname",
+      "/etc/mailname",
+      "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+      "/etc/ssl/private/ssl-cert-snakeoil.key",
+      "/var/log/fontconfig.log"
+    ],
+    "PackageStateQualified": true,
+    "ProductionAuthentication": "Unsupported",
+    "PublicationChecksPassed": false,
+    "SourceTreeMutated": false,
+    "StreamProduced": false
+  },
+  "MachineNeutralization": {
+    "Executed": false,
+    "Reason": "Observed generated TLS private key and Exim/debconf factory identity require a reviewed exact neutralization plan and target regeneration lifecycle, not blind deletion.",
+    "AdditionalFactoryIdentityPaths": [
+      "/etc/exim4/update-exim4.conf.conf",
+      "/var/lib/exim4/config.autogenerated",
+      "/var/cache/debconf/config.dat",
+      "/var/cache/debconf/config.dat-old"
+    ],
+    "EmptyMachineIdObserved": true,
+    "LockedSystemAccountsOnly": true,
+    "RuntimeDeviceNodesExcludedFromArtifactPolicy": true
+  },
+  "Artifact": {
+    "ManifestSchemaCandidate": 2,
+    "ContentFormat": "igloo-semantic-root-stream-v1",
+    "PublishedManifest": false,
+    "ContentStream": false,
+    "CompleteBuildAttestation": false,
+    "IndependentArtifactVerification": false,
+    "RealImportRehearsal": false,
+    "ProductionAuthentication": "Unsupported"
+  },
+  "StageSupport": {
+    "NativeSupported": 0,
+    "PartiallyImplemented": 32,
+    "Unsupported": 2,
+    "FirmwareDeferred": 9
+  },
+  "RetainedPaths": {
+    "SignedInputs": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/signed-inputs",
+    "PackageWorkspace": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/packages",
+    "Factory": "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/factory",
+    "GuestRoot": "/factory/root-99695826-82bc-4077-b4cf-a22cebc706da",
+    "GuestEvidence": "/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da"
+  },
+  "Safety": {
+    "DeveloperPhysicalStorageMutated": false,
+    "DeveloperEspMounted": false,
+    "DeveloperFirmwareMutated": false,
+    "BcdMutated": false,
+    "RtcMutated": false,
+    "HostRebooted": false,
+    "WindowsPreparationEnabled": false,
+    "ProductionSigningKeysGenerated": false
+  },
+  "HardwarePackageObservation": [
+    {
+      "Name": "amd64-microcode",
+      "Version": "3.20250311.1",
+      "Architecture": "amd64"
+    },
+    {
+      "Name": "firmware-amd-graphics",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-ath9k-htc",
+      "Version": "1.4.0-110-ge888634+dfsg1-0.1",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-carl9170",
+      "Version": "1.9.9-450-gad1c721+dfsg-0.1",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-intel-graphics",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-intel-misc",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-iwlwifi",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-linux",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-linux-free",
+      "Version": "20241210-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-linux-nonfree",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-mediatek",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-misc-nonfree",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-nvidia-graphics",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "firmware-realtek",
+      "Version": "20250410-2",
+      "Architecture": "all"
+    },
+    {
+      "Name": "intel-microcode",
+      "Version": "3.20251111.1~deb13u1",
+      "Architecture": "amd64"
+    }
+  ],
+  "Validation": {
+    "Core": {
+      "Passed": 353,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "Preflight": {
+      "Passed": 343,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "CommunityApp": {
+      "Passed": 58,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "Migration": {
+      "Passed": 351,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "DebianSubset": {
+      "Passed": 320,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "ConfiguredRootDotNetSubset": {
+      "Passed": 26,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "SolutionSerialized": {
+      "Passed": 1294,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "LinuxDiscovery": {
+      "Passed": 236,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "NativeBroker": {
+      "Passed": 44,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "NativeMetadata": {
+      "Passed": 2,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    "Build": {
+      "Warnings": 0,
+      "Errors": 0
+    },
+    "DiffCheck": {
+      "ExitCode": 0,
+      "LineEndingNotices": 28,
+      "UntrackedWhitespaceErrors": 0
+    },
+    "UnrelatedBaselineHashesPreserved": true
+  },
+  "RetentionNote": "Original absolute paths in request/provenance records describe the actual run. Only newly created experiment directories were moved after guest shutdown; no build content was changed."
+}
