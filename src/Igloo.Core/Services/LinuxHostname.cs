@@ -19,7 +19,7 @@ public static class LinuxHostname
     /// <c>&lt;username&gt;-pc</c>.
     /// </summary>
     /// <remarks>
-    /// "DESKTOP-Living" becomes "desktop-living": the machine keeps the name its owner
+    /// "IGLOO-LAB" becomes "igloo-lab": the machine keeps the name its owner
     /// gave it, which is the whole point of a migration. The username is only a fallback
     /// for domain names that sanitise away to nothing.
     /// </remarks>

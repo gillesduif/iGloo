@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ground truth for the root= argument in the generated grub.cfg.
 
-desktop-living, 2026-08-23: after the Mint install, Fedora stopped booting and
+igloo-lab, 2026-08-23: after the Mint install, Fedora stopped booting and
 sat forever on "Job dev-nvme1n1p6.device/start running (7min 25s / no limit)".
 
 Every file inside Fedora named its root by UUID, which is why four rounds of
@@ -37,7 +37,7 @@ spec.loader.exec_module(ib)
 FEDORA_UUID = "ae34dd01-54a8-4f0d-b26d-6d0b4a081b7d"
 DEBIAN_UUID = "613d4cd4-5531-4d8b-84b2-b4e0d4f80228"
 
-# Verbatim from //boot/grub/grub.cfg on desktop-living, lines 192-231.
+# Verbatim from //boot/grub/grub.cfg on igloo-lab, lines 192-231.
 GRUB_CFG = f"""menuentry 'Windows 11' {{
 	search --no-floppy --fs-uuid --set=root 0AA6-9588
 	chainloader /EFI/Microsoft/Boot/bootmgfw.efi
@@ -96,7 +96,7 @@ def run_hook(tmp: Path, cfg_text: str, uuids: dict[str, str]) -> tuple[str, int]
 
 
 def test_the_reported_line(tmp: Path) -> None:
-    print("the line that hung desktop-living")
+    print("the line that hung igloo-lab")
     out, rc = run_hook(tmp, GRUB_CFG, {"/dev/nvme1n1p6": FEDORA_UUID})
     check("the hook exits clean", rc == 0, f"rc={rc}")
     check("no entry boots a kernel name any more",

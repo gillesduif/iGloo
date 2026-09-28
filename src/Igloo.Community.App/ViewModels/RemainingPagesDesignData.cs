@@ -94,7 +94,7 @@ public sealed class IsoAcquisitionDesignData
     public bool IsProgressIndeterminate { get; }
 
     public IsoAcquisitionResult Result { get; } =
-        new(@"C:\Users\Gilles\AppData\Local\Igloo\iso-cache\debian\debian-13.1.0-amd64-netinst.iso",
+        new(@"C:\Users\developer\AppData\Local\Igloo\iso-cache\debian\debian-13.1.0-amd64-netinst.iso",
             Sha256Verified: true, GpgVerified: true, SizeBytes: 3_006_477_107);
 
     public ICommand AcquireCancelCommand { get; } = new DesignCommand();
@@ -126,7 +126,7 @@ public sealed class FileStagingDesignData
     public bool IsProgressIndeterminate { get; }
 
     public FileStagingResult Result { get; } =
-        new(@"C:\Users\Gilles\AppData\Local\Igloo\staging\debian", 21_474_836_480, 18_442);
+        new(@"C:\Users\developer\AppData\Local\Igloo\staging\debian", 21_474_836_480, 18_442);
 
     public ICommand StageCancelCommand { get; } = new DesignCommand();
 }

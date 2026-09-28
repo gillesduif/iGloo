@@ -7,7 +7,7 @@
 ;      dotnet publish src\Igloo.Community.App\Igloo.Community.App.csproj -c Release -r win-x64 ^
 ;          --self-contained true -o installer\publish
 ;    NOTE: publish from a path WITHOUT an apostrophe. Under
-;    C:\Users\Gilles D'huyvetter\... the SDK's publish Copy step collapses
+;    C:\Users\O'Connor\... the SDK's publish Copy step collapses
 ;    %(RelativePath) and fails with MSB3094 ("DestinationFiles refers to 1
 ;    item(s)") - robocopy src\ + distros\ + Directory.Build.props +
 ;    .editorconfig to a clean path (e.g. C:\Temp\igloo-build) and publish

@@ -44,9 +44,9 @@ public sealed class MigrationSetupDesignData
 
     public IReadOnlyList<BrowserEntry> DetectedBrowsers { get; } =
     [
-        new BrowserEntry("Google Chrome", @"C:\Users\Gilles\AppData\Local\Google\Chrome\User Data"),
-        new BrowserEntry("Microsoft Edge", @"C:\Users\Gilles\AppData\Local\Microsoft\Edge\User Data"),
-        new BrowserEntry("Mozilla Firefox", @"C:\Users\Gilles\AppData\Roaming\Mozilla\Firefox\Profiles"),
+        new BrowserEntry("Google Chrome", @"C:\Users\developer\AppData\Local\Google\Chrome\User Data"),
+        new BrowserEntry("Microsoft Edge", @"C:\Users\developer\AppData\Local\Microsoft\Edge\User Data"),
+        new BrowserEntry("Mozilla Firefox", @"C:\Users\developer\AppData\Roaming\Mozilla\Firefox\Profiles"),
     ];
 
     public IReadOnlyList<SuggestedPackageEntry> DetectedSuggestions { get; } =

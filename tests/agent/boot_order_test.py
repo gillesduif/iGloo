@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ground truth for keeping this system first in the UEFI boot order.
 
-Reported on desktop-living, twice: the machine boots straight into Windows and
+Reported on igloo-lab, twice: the machine boots straight into Windows and
 the GRUB menu never appears, so it looks like Linux was never installed.
 
 The order is set correctly at install time - that part was never broken. What

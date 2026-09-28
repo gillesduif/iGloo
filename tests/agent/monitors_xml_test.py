@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ground truth for the monitors.xml the first-boot agent writes.
 
-Two bugs, both from the Debian 13 runs on desktop-living:
+Two bugs, both from the Debian 13 runs on igloo-lab:
 
   2026-08-19  mutter refused the file outright - "Expected a number, got -826".
               Windows puts the primary monitor at 0,0 and lets the others go

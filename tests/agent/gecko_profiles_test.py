@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ground-truth test for normalise_gecko_profiles() in the first-boot agents.
 
-Ground truth: the Debian 13 run of 2026-08-19 (igloo-logs-desktop-living), where
+Ground truth: the Debian 13 run of 2026-08-19 (igloo-logs-igloo-lab), where
 the agent copied AppData/Roaming/Mozilla/Firefox to ~/.mozilla/firefox correctly
 (580 MB, bootstrap.log line 949) and Firefox still opened with no data at all.
 

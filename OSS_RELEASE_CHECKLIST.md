@@ -129,7 +129,7 @@ Findings that shape the plan:
       history to a GitHub `noreply` address, or set
       `git config user.email "<id>+<user>@users.noreply.github.com"` going forward.
 - [ ] Check for machine-specific paths in committed files
-      (`C:\Users\Gilles D'huyvetter\...`) - leaks your username, and breaks others' builds.
+      (`C:\Users\developer\...`) - leaks your username, and breaks others' builds.
 
 ### 2.2 History decision
 

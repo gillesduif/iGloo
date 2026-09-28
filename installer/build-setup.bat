@@ -5,7 +5,7 @@ rem iGloo setup builder - one command from source tree to iGloo-Setup-<ver>.exe
 rem
 rem   1. Copies src\ + distros\ to C:\Temp\igloo-build  (publishing straight
 rem      from this checkout fails: the SDK's publish Copy step chokes on the
-rem      apostrophe in "Gilles D'huyvetter" with MSB3094 - SDK quirk, not ours)
+rem      apostrophe in a profile name such as "O'Connor" with MSB3094 - SDK quirk, not ours)
 rem   2. Reads the version from src\Igloo.Community.App\Igloo.Community.App.csproj (<Version>)
 rem   3. dotnet publish  (win-x64, self-contained - this is what makes the
 rem      installer work on PCs WITHOUT .NET installed; a plain VS build does

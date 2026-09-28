@@ -2,7 +2,7 @@
 
 What `configure_boot_menu()` in `distros/_shared/agent/igloo_boot.py` changes about
 the generated menu, and which bare-metal failure each change answers. Every finding
-below was measured on desktop-living, not read in documentation.
+below was measured on igloo-lab, not read in documentation.
 
 ## One visit to Windows made Windows the permanent default
 

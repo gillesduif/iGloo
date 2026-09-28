@@ -60,7 +60,7 @@ public sealed class LinuxHostnameTests
 
     [Theory]
     // The Windows computer name wins: the machine keeps the name its owner gave it.
-    [InlineData("DESKTOP-Living", "desktop-living")]
+    [InlineData("IGLOO-LAB", "igloo-lab")]
     [InlineData("Gilles-PC", "gilles-pc")]
     [InlineData("NL-LAPTOP-042", "nl-laptop-042")]
     [InlineData("WIN_11_BOX", "win-11-box")]
@@ -82,6 +82,6 @@ public sealed class LinuxHostnameTests
     [Fact]
     public void Does_not_append_pc_to_a_computer_name()
     {
-        LinuxHostname.FromMachine("DESKTOP-Living", "gilles").Should().NotEndWith("-pc-pc");
+        LinuxHostname.FromMachine("IGLOO-LAB", "testuser").Should().NotEndWith("-pc-pc");
     }
 }
