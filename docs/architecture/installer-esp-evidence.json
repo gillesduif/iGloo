@@ -1,0 +1,307 @@
+{
+  "auditDate": "2026-09-27",
+  "purpose": "Read-only shipped-installer audit; not a production installer profile or signature verification. See installer-esp-binding.md for artifact provenance and limitations.",
+  "files": [
+    {
+      "extractedPath": "fedora-anaconda/usr/lib64/python3.14/site-packages/pyanaconda/modules/storage/partitioning/custom/custom_partitioning.py",
+      "sizeBytes": 49052,
+      "sha256": "ce9779f6a92aee9b5145290c192b5720efe7a01f08d4f852b6469d388d4a1e12"
+    },
+    {
+      "extractedPath": "fedora-anaconda/usr/lib64/python3.14/site-packages/pyanaconda/modules/storage/platform.py",
+      "sizeBytes": 14933,
+      "sha256": "65ea2f37a3bc4d009f1912606edf92615fd832fcafccea3c61eeaee6ca4fb74d"
+    },
+    {
+      "extractedPath": "fedora-anaconda/usr/lib64/python3.14/site-packages/pyanaconda/modules/storage/bootloader/efi.py",
+      "sizeBytes": 10128,
+      "sha256": "ac2e74b68e31c5dc9f169b76d6a611c844c1d6ccc815d5d9642836e345cac3fe"
+    },
+    {
+      "extractedPath": "fedora-extracted/usr/lib/python3.14/site-packages/pykickstart/commands/partition.py",
+      "sizeBytes": 33664,
+      "sha256": "997d7bd1854e70958655533df878d311f51c86441aacc3819de237e7d6aae517"
+    },
+    {
+      "extractedPath": "fedora-extracted/usr/lib/python3.14/site-packages/blivet/devicetree.py",
+      "sizeBytes": 43696,
+      "sha256": "a775f304fdc6b8245ee4b91d588a4785f2af889ee19408addf8f69c42861a389"
+    },
+    {
+      "extractedPath": "debian-partman-efi/lib/partman/fstab.d/efi",
+      "sizeBytes": 1180,
+      "sha256": "cc78261663e6b4a052e9348c48e94ec957e61d4171dfef485d347ef249489d4b"
+    },
+    {
+      "extractedPath": "debian-partman-efi/lib/partman/init.d/50efi",
+      "sizeBytes": 4656,
+      "sha256": "1c096145402a05238947ff01fe382ee621452c5b0b30910ef027a06b023f2ad2"
+    },
+    {
+      "extractedPath": "debian-partman-efi/lib/partman/commit.d/50format_efi",
+      "sizeBytes": 2651,
+      "sha256": "b3003a4e0dcd41e4233e8524be4272236896c7d8b2088391bcd863612ff84d03"
+    },
+    {
+      "extractedPath": "debian-partman-auto/lib/partman/lib/recipes.sh",
+      "sizeBytes": 12719,
+      "sha256": "b6c4a22b90782e0ad7af78c90387d05eb172492a6c3cb5c2ff4b997d56e22193"
+    },
+    {
+      "extractedPath": "debian-grub-installer/usr/bin/grub-installer",
+      "sizeBytes": 37006,
+      "sha256": "3bf5bf5184869e23528d8f3c2b7cccb6c657ed549a1017035abe9de8dddf5d81"
+    },
+    {
+      "extractedPath": "debian-initrd/var/lib/dpkg/info/iso-scan.postinst",
+      "sizeBytes": 12820,
+      "sha256": "a5b8068773bc736903bc24709525d049a1b4328e68e871066ef20fc18ae6a1d8"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/partman/fstab.d/efi",
+      "sizeBytes": 1151,
+      "sha256": "986b08a35f6057d643e2df6600fff0ac0f6d2768be87273e4696f4f6f2f34b3d"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/partman/init.d/50efi",
+      "sizeBytes": 1690,
+      "sha256": "99d102f7bdec0eb44874a01451284a94a753eb9232ae13e7b05c6d7532757baf"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/partman/commit.d/50format_efi",
+      "sizeBytes": 2651,
+      "sha256": "b3003a4e0dcd41e4233e8524be4272236896c7d8b2088391bcd863612ff84d03"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/partman/lib/recipes.sh",
+      "sizeBytes": 12393,
+      "sha256": "15ed4bd0345734ce70ca987dc3816383efca620d87f712c06495023932067676"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/share/grub-installer/grub-installer",
+      "sizeBytes": 45044,
+      "sha256": "fa780fb849763b708fc9d0cf7e1673e75583714dca50cba5532393a56e930da8"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/share/ubiquity/plugininstall.py",
+      "sizeBytes": 78553,
+      "sha256": "323c5385542cad786751297d989ccbb96439ea46c061986c13192e2588aa2ac7"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/share/initramfs-tools/scripts/casper-premount/20iso_scan",
+      "sizeBytes": 692,
+      "sha256": "bb0706e618e26dd64562005bb68cf20f03519386fe5e288f296316a4ea4c6581"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/share/initramfs-tools/scripts/casper-helpers",
+      "sizeBytes": 12725,
+      "sha256": "e29ece94d09e2da5f8338d12a4096d8790ddffdc40d89c26a0258056ffbb62f7"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/ubiquity/bin/ubiquity",
+      "sizeBytes": 24060,
+      "sha256": "6b1e2d2d611da8a978d1a8e37ddd11a5d1df1ef7499b6be4c78d2290f912dc95"
+    },
+    {
+      "extractedPath": "mint-bootloader-contract/usr/share/man/man8/grub-install.8.gz",
+      "sizeBytes": 1962,
+      "sha256": "b339dcb12efa24cdad8c372d2e02c174b0f4952c69c43bbcc1423f6d605c6c01"
+    },
+    {
+      "extractedPath": "mint-bootloader-contract/usr/lib/grub/grub-multi-install",
+      "sizeBytes": 12315,
+      "sha256": "dec0a6ddf6e6ff53fcee054f06c9618ded615e85177e74edf4e7c8198407afde"
+    },
+    {
+      "extractedPath": "mint-bootloader-contract/var/lib/dpkg/info/grub-efi-amd64-signed.postinst",
+      "sizeBytes": 746,
+      "sha256": "97bd82783ba656587981d0f579c229281ed8ed4bec433f2861f1696d846c673e"
+    },
+    {
+      "extractedPath": "mint-bootloader-contract/var/lib/dpkg/info/shim-signed.postinst",
+      "sizeBytes": 5674,
+      "sha256": "ab6073d0e512a020c12ec34b96eb4df02c57f72c3acef163073427307645834a"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/ubiquity/ubiquity/frontend/base.py",
+      "sizeBytes": 16561,
+      "sha256": "48912891ae37abfbd6a5b13f12872ff5b60479b486158325e596bac3ce2aa6f1"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/ubiquity/ubiquity/frontend/noninteractive.py",
+      "sizeBytes": 8858,
+      "sha256": "11e8c371333226026d71cef8615ba62554927435737dd645c8cbe0a6ccd2428b"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/ubiquity/ubiquity/frontend/gtk_ui.py",
+      "sizeBytes": 79014,
+      "sha256": "569f652f042fd212989be7858fcfaa7b202afbf04e2fbbe5a67d0d22a28b48bc"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/ubiquity/ubiquity/misc.py",
+      "sizeBytes": 35706,
+      "sha256": "249b9b1c4e69c41a8c02a8a955467a9a97c946bfed805303e1ffc0aaf2cadfd5"
+    },
+    {
+      "extractedPath": "trixie-controls/grub-efi-amd64/postinst",
+      "sizeBytes": 29026,
+      "sha256": "303d615b47c17c570f07b0733b7f0491ff410775cf0fc5da2762186b1c03b832"
+    },
+    {
+      "extractedPath": "trixie-controls/shim-signed/postinst",
+      "sizeBytes": 2743,
+      "sha256": "3d012f094f2acb224a6603daa71b72a68676dee63368c3fb853cc1ff8827f8b3"
+    },
+    {
+      "extractedPath": "trixie-packages/debootstrap/usr/share/debootstrap/scripts/trixie",
+      "sizeBytes": 530,
+      "sha256": "6b9cbda309ce1b8fbff227d199c52c72b83c0f309cfd212d57fae117fe64f5dc"
+    },
+    {
+      "extractedPath": "trixie-packages/shim-signed-common/usr/sbin/update-secureboot-policy",
+      "sizeBytes": 7306,
+      "sha256": "cc65cd9815056f337c66d5271cc3a989a894a53cbef8f00afb7ff5d6ba7d2ee0"
+    },
+    {
+      "extractedPath": "fedora-initrd-selected/usr_lib_anaconda-lib.sh",
+      "sizeBytes": 18417,
+      "sha256": "7438eae549aa4675e5cde513379937ec44ed786522a62347feb1805661475636"
+    },
+    {
+      "extractedPath": "fedora-initrd-selected/usr_bin_fetch-kickstart-disk",
+      "sizeBytes": 1117,
+      "sha256": "1dd7b3a2a5923507567a9fc2ed09e99431f2da06646c8cb000cfa63485cb0059"
+    },
+    {
+      "extractedPath": "fedora-initrd-selected/usr_lib_dracut_modules.d_80anaconda_parse-kickstart",
+      "sizeBytes": 18197,
+      "sha256": "4294bbd7113a48593f296c3ee96cb41a65d7f86bea3f2e84c3704be9f89abb92"
+    },
+    {
+      "extractedPath": "mint-deployment-audit/casper_filesystem.manifest-remove",
+      "sizeBytes": 2243,
+      "sha256": "82f08134d51095444fdcf061447e12c9d1203fa30e7f3c8004ee886b89418f0d"
+    },
+    {
+      "extractedPath": "mint-deployment-audit/casper_filesystem.size",
+      "sizeBytes": 11,
+      "sha256": "9aeceabda127f9e1e35626f138d5d3a0ac2bc82f5898074d988dbead60f70063"
+    },
+    {
+      "extractedPath": "mint-deployment-source/etc/linuxmint/info",
+      "sizeBytes": 324,
+      "sha256": "b63131237e835179493dbde489e15e94b48884bb2a360c842578262aca6fb375"
+    },
+    {
+      "extractedPath": "mint-deployment-source/etc/apt/sources.list.d/official-package-repositories.list",
+      "sizeBytes": 500,
+      "sha256": "9a621a5605bf96fae04c9d33413f1e5a8a99f2208bec93db16f3302852cba07a"
+    },
+    {
+      "extractedPath": "mint-deployment-source/etc/apt/preferences.d/official-package-repositories.pref",
+      "sizeBytes": 65,
+      "sha256": "c8195401a07de9cee79722b0126b4fa5f28c96be9659dffbd03224aacf776e58"
+    },
+    {
+      "extractedPath": "mint-deployment-source/var/lib/dpkg/info/mintsystem.postinst",
+      "sizeBytes": 2120,
+      "sha256": "2e78231480b31ca37ce5e710dd42e595a3b8c6b96fbca160525b86af8a645282"
+    },
+    {
+      "extractedPath": "mint-deployment-source/var/lib/dpkg/info/mint-live-session.postinst",
+      "sizeBytes": 421,
+      "sha256": "798613f48ccae1b88984e02ee14c5583e3013bebacbc1248f0e3c60bf56c451b"
+    },
+    {
+      "extractedPath": "mint-deployment-source/usr/lib/ubiquity/ubiquity/install_misc.py",
+      "sizeBytes": 45557,
+      "sha256": "df824bf132f0d5822b6a411a02ce41c31cb2f2bcad75b333ceeb81816376c729"
+    },
+    {
+      "extractedPath": "mint-deployment-source/usr/sbin/update-secureboot-policy",
+      "sizeBytes": 7605,
+      "sha256": "fb82f2f3fdbeb6009a71d713eee92bc712d9f0ef9bd9eafa083ce51b4f2c3192"
+    },
+    {
+      "extractedPath": "mint-extracted/usr/lib/ubiquity/user-setup/user-setup-apply",
+      "sizeBytes": 12279,
+      "sha256": "1b060efc4ee651ba4c0e925ad43c34742ba3f5e65e77edbf0e99aa47596f7f06"
+    },
+    {
+      "extractedPath": "trixie-controls/shim-signed-common/postinst",
+      "sizeBytes": 222,
+      "sha256": "d6055e27bd5ff7cab98b42a0ceeff348e6e86225d237071625ab8cc877cfc5b4"
+    },
+    {
+      "extractedPath": "trixie-controls/shim-signed/triggers",
+      "sizeBytes": 40,
+      "sha256": "66593a5c15b87713c9cb55b626d12925b0ec1fc5b0f81b9382603987637b3004"
+    },
+    {
+      "extractedPath": "trixie-packages/grub2-common/etc/kernel/postinst.d/zz-update-grub",
+      "sizeBytes": 646,
+      "sha256": "e35c9b73e608042a6a30ef3e9a053d61257cb0ed113a979d3e880e6618345e19"
+    },
+    {
+      "extractedPath": "trixie-packages/grub2-common/usr/sbin/update-grub",
+      "sizeBytes": 64,
+      "sha256": "d34caba6343ba89573b3fc21df22ca3d041432c3008b6dbdf5c15fabdd0c418d"
+    },
+    {
+      "extractedPath": "trixie-packages/grub-common/etc/grub.d/30_os-prober",
+      "sizeBytes": 12661,
+      "sha256": "735a1995a02d08caa73735556014c69b90ffba28bb41ceae19d77555438023cd"
+    }
+  ],
+  "trixieCandidatePackages": [
+    {
+      "package": "debootstrap",
+      "version": "1.0.141",
+      "url": "https://deb.debian.org/debian/pool/main/d/debootstrap/debootstrap_1.0.141_all.deb",
+      "sha256": "8c02cb8ad712eb67afb0d23fab175c562804cc97eda70b70cb0f3bc2a21732d7",
+      "filename": "debootstrap_1.0.141_all.deb"
+    },
+    {
+      "package": "grub-efi-amd64-signed",
+      "version": "1+2.12+9+deb13u2",
+      "url": "https://deb.debian.org/debian/pool/main/g/grub-efi-amd64-signed/grub-efi-amd64-signed_1+2.12+9+deb13u2_amd64.deb",
+      "sha256": "da8bb31308a3682a7d9343fc42bf7f603ad85bb5483eeb3ece23e2f1be2e9bbd",
+      "filename": "grub-efi-amd64-signed_1+2.12+9+deb13u2_amd64.deb"
+    },
+    {
+      "package": "grub-common",
+      "version": "2.12-9+deb13u2",
+      "url": "https://deb.debian.org/debian/pool/main/g/grub2/grub-common_2.12-9+deb13u2_amd64.deb",
+      "sha256": "a59d34a52e98450165ffc05b75886e139ad77b9d851d25b11eaa973cbdcb3bdd",
+      "filename": "grub-common_2.12-9+deb13u2_amd64.deb"
+    },
+    {
+      "package": "grub-efi-amd64",
+      "version": "2.12-9+deb13u2",
+      "url": "https://deb.debian.org/debian/pool/main/g/grub2/grub-efi-amd64_2.12-9+deb13u2_amd64.deb",
+      "sha256": "f3ab034490e0b80e552fc9ad232ab527b3ff2ad1e3067c8ffc8c64645b8e8778",
+      "filename": "grub-efi-amd64_2.12-9+deb13u2_amd64.deb"
+    },
+    {
+      "package": "grub2-common",
+      "version": "2.12-9+deb13u2",
+      "url": "https://deb.debian.org/debian/pool/main/g/grub2/grub2-common_2.12-9+deb13u2_amd64.deb",
+      "sha256": "0eeac6998ef810a67ecd6bef103bc4005e2b3559a99ee0e06483f3b6a473ad1f",
+      "filename": "grub2-common_2.12-9+deb13u2_amd64.deb"
+    },
+    {
+      "package": "shim-signed",
+      "version": "1.51~1+deb13u1+16.1-2~deb13u1",
+      "url": "https://deb.debian.org/debian/pool/main/s/shim-signed/shim-signed_1.51~1+deb13u1+16.1-2~deb13u1_amd64.deb",
+      "sha256": "3c802fa303c0e6bf126adee74028d1042e3120360d159c2c05181dc9b2f61005",
+      "filename": "shim-signed_1.51~1+deb13u1+16.1-2~deb13u1_amd64.deb"
+    },
+    {
+      "package": "shim-signed-common",
+      "version": "1.51~1+deb13u1+16.1-2~deb13u1",
+      "url": "https://deb.debian.org/debian/pool/main/s/shim-signed/shim-signed-common_1.51~1+deb13u1+16.1-2~deb13u1_all.deb",
+      "sha256": "d26f0c83436223bc805a3c77a025df18f60f4c8328f6c96233355bba8e0a5251",
+      "filename": "shim-signed-common_1.51~1+deb13u1+16.1-2~deb13u1_all.deb"
+    }
+  ]
+}

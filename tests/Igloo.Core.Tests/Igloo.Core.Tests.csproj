@@ -15,5 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Igloo.Core\Igloo.Core.csproj" />
+    <Compile Include="..\Shared\InstallationOwnershipFixture.cs" Link="InstallationOwnershipFixture.cs" />
+    <Compile Include="..\Shared\TargetRootFixture.cs" Link="TargetRootFixture.cs" />
   </ItemGroup>
 </Project>
