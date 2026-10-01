@@ -154,3 +154,15 @@ dotnet_diagnostic.CA1861.severity = none
 generated_code = true
 [**/bin/**.cs]
 generated_code = true
+
+# Exact-byte evidence; integrity tests reject BOM/newline conversion.
+[docs/architecture/debian-root-chunk-transport-manifest.json]
+charset = utf-8
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+# Exact-byte evidence; integrity tests reject BOM/newline conversion.
+[docs/architecture/debian-configured-root-neutralization-evidence.json]
+charset = utf-8
+insert_final_newline = false
+trim_trailing_whitespace = false

@@ -24,6 +24,13 @@ public sealed class DebianRootTransportTests
             Transport = "Chunked", TransportManifestSha256 = "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757",
         };
         Assert.Equal(5, DebianRootTransports.Reopen(bytes, plan).Chunks.Length);
+        Assert.Equal(1121, bytes.Length);
+        Assert.Equal(plan.TransportManifestSha256, DebianConfiguredRootArtifacts.Digest(bytes));
+        // JSON-equivalent bytes are not the pinned transport object. Test the rebuilt resource.
+        foreach (var changed in new[] { bytes.Concat(new byte[] { 10 }).ToArray(),
+            bytes.Concat(new byte[] { 13, 10 }).ToArray(), new byte[] { 239, 187, 191 }.Concat(bytes).ToArray(),
+            Encoding.UTF8.GetBytes(JsonNode.Parse(bytes)!.ToJsonString(new JsonSerializerOptions { WriteIndented = true })) })
+            Assert.Throws<InvalidDataException>(() => DebianRootTransports.Reopen(changed, plan));
         // Codec evidence only: this fixture ownership is never used to execute the real artifact.
         Assert.Throws<InvalidDataException>(() => DebianRootTransports.Reopen(bytes, plan with { BuildId = Guid.NewGuid() }));
     }

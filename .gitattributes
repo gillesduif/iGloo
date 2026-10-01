@@ -6,3 +6,16 @@
 # the shebang line on Linux (bash\r is not a valid interpreter).
 *.sh text eol=lf
 *.py text eol=lf
+
+# Hash-bound evidence: preserve bytes, including absent terminal newline.
+docs/architecture/debian-root-chunk-transport-manifest.json -text
+
+# Hash-bound evidence: preserve bytes, including absent terminal newline.
+docs/architecture/debian-configured-root-neutralization-evidence.json -text
+
+# Historical lab reports retain their original CRLF bytes.
+docs/architecture/debian-canonical-lab-import-evidence.json -text
+docs/architecture/debian-core-configuration-compatibility.json -text
+docs/architecture/debian-core-configuration-reviewed-attempt-evidence.json -text
+docs/architecture/debian-core-configuration-v5-evidence.json -text
+docs/architecture/debian-core-v5-capacity-block.json -text
