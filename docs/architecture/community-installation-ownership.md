@@ -1,5 +1,13 @@
 # Community installation ownership — issue #241 continuation
 
+Latest successor: [post-import configuration attempt](debian-post-import-configuration.md) is blocked; the earlier successful import remains a separate verified checkpoint.
+
+The [later GPT lab acquisition continuation](debian-canonical-lab-acquisition.md)
+adds distinct lab correlation/transition records and actually executes the shared
+Linux inventory through .NET in an all-GPT runtime. These records are not Windows
+identities and cannot yet feed PreparedLayout/lease authorization. Canonical session
+and import qualification remain incomplete; no ownership/recovery gate is relaxed.
+
 Latest integration: the [closed canonical Debian import action](debian-session-boundary.md#later-canonical-import-integration-2026-09-28)
 connects existing ownership/lease/session code to the importer. Fake-boundary tests
 remain distinct from native GPT/full-artifact qualification. The subsequent
@@ -303,3 +311,61 @@ Tests and source inspections do not certify Windows ESP preservation through a
 complete installation. No developer disk/ESP was mounted, created, formatted or
 written; no firmware, BCD or RTC change or reboot occurred. No destructive VM test
 was performed. Validation totals are recorded in the Fleet phase log.
+
+## Later installation-only lab provider seam (2026-09-28)
+
+`InstallationStorage` introduces geometry-only installation facts and a validated
+`IsolatedFileBackedLab` / v1 / `StorageSmoke` context. It does not extend recovery
+canonical identity, make Windows fields optional, or translate virtual serials,
+PARTUUIDs or filesystem UUIDs into Windows provider/volume evidence. Existing Windows
+producers retain their strict validation and serialized records. Both paths share
+`VerifyClosure` for whole-inventory uniqueness, GPT parent/geometry and partition closure.
+
+Only complete correlated acquisition and actual creation/format transitions produce
+the non-deserializable context. Fresh witnesses revalidate it for leases and every
+session effect. Provenance survives plan/lease/native/journal/handoff boundaries;
+production preparation/import support does not consume the lab context. See the
+[executed storage milestone](debian-canonical-lab-acquisition.md#later-storage-session-milestone--2026-09-28).
+Preserved lab ESP evidence is explicitly not Windows boot or recovery evidence.
+
+
+### Later authenticated lab import scope — 2026-09-29
+
+The installation-only seam now also validates **new** schema-2 lab preparation
+with `ConfiguredRootImport` in each creation and format intent. Schema-1 smoke
+records retain their original meaning and cannot be retagged by changing their
+outer scope. The same structural closure and transition validators produce the
+opaque context; Windows-origin records and recovery identities are unchanged.
+
+This context alone cannot authorize source deployment. The separate development
+composition also requires the retained external artifact pin and exact artifact /
+transport bindings. Provenance and scope remain in the immutable plan, canonical
+leases, native declaration, import/session journals and reopened result references.
+See the [latest acquisition continuation](debian-canonical-lab-acquisition.md#later-authenticated-lab-import-composition--2026-09-29)
+for the executed lab boundary. Production consumers remain fail-closed.
+
+## Later same-target configuration lineage — 2026-09-29
+
+`InstallationStorage.ContinueLabSameTarget` retains the validated preparation and
+format transitions, and correlates a fresh whole inventory with the same target
+and journal backing inodes. A new runtime copy is permitted; a substituted target
+or journal is not. `InstallationContinuationV1` binds operation, predecessor and
+checkpoint separately from the original generation. Version-3 CoreConfiguration
+provenance is installation-only and cannot supply Windows provider/volume evidence,
+production readiness, a new format receipt, import replay or firmware authority.
+The [native attempt](debian-post-import-configuration-evidence.json) reached the
+canonical session and verified its neutral baseline, but configuration and teardown
+remain unqualified. Older missing-bridge statements are historical as described in
+the later storage/import milestones; existing Windows v1 semantics are unchanged.
+
+## Explicit checkpoint-derived lab attempt — 2026-09-29
+
+`ContinueLabCheckpoint` is separate from `ContinueLabSameTarget`. It validates a
+protected explicit authorization, exact successful-import/checkpoint ancestry,
+independent copy identities and hashes, and fresh acquisition through the shared
+structural validator. Source or failed-backing aliases, mixed ancestry and invalid
+scope are rejected. Original creation/format receipts remain lineage. The new
+attempt's external host reservation survives copying the old journal; guest
+session/effect stores also reserve their execution. This is a development experiment,
+not product rollback or unlimited retry. The [executed attempt](debian-checkpoint-derived-configuration.md)
+stopped at configuration preflight after the canonical baseline verified.

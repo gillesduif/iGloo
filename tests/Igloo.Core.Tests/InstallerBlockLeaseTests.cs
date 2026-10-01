@@ -20,9 +20,13 @@ public sealed class InstallerBlockLeaseTests
         Assert.Equal(3, leases.Bindings.Length);
         Assert.Equal(InstallerBlockAccess.ReadWrite, leases.Bindings[0].Access);
         Assert.All(leases.Bindings.Skip(1), b => Assert.Equal(InstallerBlockAccess.ReadOnly, b.Access));
-        Assert.DoesNotContain(leases.Bindings, b => b.Partition.PartitionGuid == state.Ownership.Esp.WindowsEsp.Volume.PartitionGuid);
-        Assert.All(leases.Bindings, b => Assert.Equal(state.Ownership.Layout.Plan.TargetDisk, b.Partition.Disk));
+        Assert.DoesNotContain(leases.Bindings, b => b.Partition!.PartitionGuid == state.Ownership.Esp.WindowsEsp.Volume.PartitionGuid);
+        Assert.All(leases.Bindings, b => Assert.Equal(state.Ownership.Layout.Plan.TargetDisk, b.Partition!.Disk));
         Assert.True(InstallerBlockLeases.Revalidate(leases, state.Ownership, state.Root, A(state.Inventory), A(state.Mounts.DeviceNumbers)).Value);
+        var legacy = System.Text.Json.JsonSerializer.Serialize(new { leases.SessionId, leases.GenerationId, leases.AcquiredAtUtc,
+            Bindings = leases.Bindings.Select(b => new { b.Role, b.Partition, b.FileSystem, b.FileSystemUuid, b.Access, b.Locator, b.CanonicalSha256 }),
+            leases.ProtectedStateSha256 });
+        Assert.Equal(legacy, System.Text.Json.JsonSerializer.Serialize(leases));
     }
 
     [Fact]

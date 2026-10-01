@@ -59,19 +59,8 @@ public static class InstallationOwnership
         var observed = inventory.Value;
         var ownership = layout.StorageOwnership!;
         var expected = ownership.PreservedPartitions.Concat(ownership.CreatedPartitions.Select(r => r.Identity)).ToImmutableArray();
-        foreach (var identity in expected)
-        {
-            var match = observed.Partitions.SingleOrDefault(p => p.PartitionGuid == identity.PartitionGuid);
-            if (match is null) return Fail(ObservationAvailability.Absent, "InstallationPartitionMissing");
-            var disk = observed.Disks.Single(d => d.DevicePath == match.DiskDevicePath);
-            if (disk.GptDiskGuid != identity.Disk.GptDiskGuid || disk.SizeBytes != identity.Disk.SizeBytes ||
-                disk.LogicalSectorSize != identity.Disk.LogicalSectorSize || match.PartitionType != identity.PartitionType ||
-                match.OffsetBytes != identity.OffsetBytes || match.SizeBytes != identity.SizeBytes)
-                return Fail(ObservationAvailability.Ambiguous, "InstallationPartitionChanged");
-        }
-        if (observed.Partitions.Any(p => expected.Any(e => e.Disk.GptDiskGuid == observed.Disks.Single(d => d.DevicePath == p.DiskDevicePath).GptDiskGuid) &&
-            !expected.Any(e => e.PartitionGuid == p.PartitionGuid)))
-            return Fail(ObservationAvailability.Ambiguous, "InstallationPartitionSetChanged");
+        var closure = InstallationStorage.VerifyClosure(expected.Select(InstallationStorage.Project).ToImmutableArray(), inventory);
+        if (closure.Availability != ObservationAvailability.Available) return Fail(closure.Availability, closure.Code!);
         var root = ownership.CreatedPartitions.Single(r => r.Role == PreparationRole.LinuxRoot).Identity;
         var rootObserved = observed.Partitions.Single(p => p.PartitionGuid == root.PartitionGuid);
         // A retry with a now-formatted root needs an explicit resume protocol, not fresh-install permission.

@@ -147,12 +147,26 @@ public static class TargetRootMounts
         ArgumentNullException.ThrowIfNull(root);
         var verified = Verify(ownership, root, plan, inventory, readback);
         return verified.Availability == ObservationAvailability.Available ? Observations.Available(
-            $"UUID={root.FileSystemUuid:D} / ext4 defaults,errors=remount-ro 0 1\n" +
-            $"UUID={ownership.Esp.LinuxEsp.FileSystemUuid.ToUpperInvariant()} /boot/efi vfat umask=0077 0 1\n") :
+            FstabText(root.FileSystemUuid, ownership.Esp.LinuxEsp.FileSystemUuid)) :
             Observations.Failure<string>(verified.Availability, verified.Code!);
     }
 
     private static bool Within(string path, string parent) => path == parent ||
         path.StartsWith(parent == "/" ? "/" : parent + "/", StringComparison.Ordinal);
+
+    public static string GenerateFstab(InstallerBlockLeaseSet leases)
+    {
+        ArgumentNullException.ThrowIfNull(leases);
+        var root = leases.Bindings.Single(b => b.Role == InstallerBlockRole.Root);
+        var esp = leases.Bindings.Single(b => b.Role == InstallerBlockRole.LinuxEsp);
+        if (root.FileSystem != "EXT4" || esp.FileSystem != "FAT32" || !Guid.TryParse(root.FileSystemUuid, out var uuid) ||
+            esp.FileSystemUuid.Length != 9 || esp.FileSystemUuid[4] != '-' ||
+            esp.FileSystemUuid.Where((_, i) => i != 4).Any(c => !Uri.IsHexDigit(c)))
+            throw new InvalidDataException("Canonical fstab identity unavailable.");
+        return FstabText(uuid, esp.FileSystemUuid);
+    }
+    private static string FstabText(Guid root, string esp) =>
+        $"UUID={root:D} / ext4 defaults,errors=remount-ro 0 1\n" +
+        $"UUID={esp.ToUpperInvariant()} /boot/efi vfat umask=0077 0 1\n";
     private static Observation<VerifiedTargetMountsV1> Fail(string code, ObservationAvailability state = ObservationAvailability.Ambiguous) => Observations.Failure<VerifiedTargetMountsV1>(state, code);
 }
