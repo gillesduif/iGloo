@@ -7,5 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../../distros/debian/Igloo.Distro.Debian.csproj" />
+    <Compile Include="../../../distros/debian/Deployment/DebianSessionToolProtection.cs" Link="DebianSessionToolProtection.cs" />
   </ItemGroup>
+  <PropertyGroup><AllowUnsafeBlocks>true</AllowUnsafeBlocks></PropertyGroup>
 </Project>

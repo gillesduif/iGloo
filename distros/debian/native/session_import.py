@@ -64,7 +64,11 @@ class ConnectedImportView:
     def __init__(self, session):
         self.session = session
         self.views = {}
-        require(session.declaration.get("ImportPlan") is not None and
+        require((session.declaration.get("ImportPlan") is not None or
+                 session.declaration.get("LabConfiguration") is not None or
+                 session.declaration.get("LabInitramfs") is not None or
+                 session.declaration.get("LabUserData") is not None or
+                 (session.declaration.get("StorageSmoke") or {}).get("Scope") == "StorageSmoke") and
                 [r["Role"] for r in session.supervisor.receipts] == ["Root", "Payload"], "ImportPhaseTopologyRequired")
         try:
             self.verify()
@@ -229,7 +233,12 @@ def perform_import(session):
                 "BuildId": plan["BuildId"], "DerivationId": plan["DerivationId"],
                 "Transport": kind, "TransportManifestSha256": plan.get("TransportManifestSha256"),
                 "DescriptorSha256": plan["DescriptorSha256"], "Qualification": "DevelopmentImportOnly"}
-    except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+    except (OSError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
+        if not intent and type(error) is ValueError and str(error) in (
+                "TransportChunkHashMismatch", "TransportAggregateHashMismatch"):
+            # A closed diagnostic checkpoint, not an import reservation or teardown.
+            # The supervisor still poisons/exits; no retry is enabled by this record.
+            session.channel.ask("ImportSourceRejected", Code=str(error))
         if intent:
             # An observer or checkpoint failure cannot be rewritten into "nothing changed".
             # If this publication also fails the prior durable intent remains OutcomeUnknown.

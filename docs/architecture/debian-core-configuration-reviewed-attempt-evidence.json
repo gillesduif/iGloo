@@ -1,0 +1,972 @@
+{
+  "ReportKind": "Sanitized development-lab summary; raw records independently retained; no production authority",
+  "RecordedAtUtc": "2026-09-29T10:08:32.409639+00:00",
+  "Branch": "refactor/community-fleet-foundation",
+  "StartingHead": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+  "StartingWorkingTree": {
+    "ModifiedTracked": 31,
+    "Untracked": 45,
+    "Index": "Empty",
+    "InitialSnapshotSha256": "3EFA2E165BF757569EA831D8308EC2159127A9A5FFADB7073CDD6AF2444B3B4F",
+    "InitialPaths": [
+      ".editorconfig",
+      ".gitattributes",
+      "distros/debian/Deployment/DebianConfiguredRootImportPlan.cs",
+      "distros/debian/Deployment/DebianImportJournalStorage.cs",
+      "distros/debian/Deployment/DebianMountSession.cs",
+      "distros/debian/Deployment/DebianNativeMountSession.cs",
+      "distros/debian/Deployment/DebianRootTransport.cs",
+      "distros/debian/native/block_session.py",
+      "distros/debian/native/isolation_observer.py",
+      "distros/debian/native/isolation_policy.py",
+      "distros/debian/native/package_broker.py",
+      "distros/debian/native/session_entry.py",
+      "distros/debian/native/session_import.py",
+      "docs/architecture/community-installation-ownership.md",
+      "docs/architecture/debian-configured-root-artifact.md",
+      "docs/architecture/debian-configured-root-neutralization-evidence.json",
+      "docs/architecture/debian-root-chunk-transport-manifest.json",
+      "docs/architecture/debian-session-boundary.md",
+      "docs/fleet/phase-2.md",
+      "src/Igloo.Core/Preparation/InstallationOwnership.cs",
+      "src/Igloo.Core/Preparation/InstallerBlockLeases.cs",
+      "src/Igloo.Core/Preparation/TargetRootMounts.cs",
+      "tests/Igloo.Core.Tests/Igloo.Core.Tests.csproj",
+      "tests/Igloo.Core.Tests/InstallerBlockLeaseTests.cs",
+      "tests/Igloo.Migration.Tests/DebianMountSessionTests.cs",
+      "tests/Igloo.Migration.Tests/DebianRootTransportTests.cs",
+      "tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj",
+      "tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj",
+      "tests/installer/CanonicalImportQualification/Program.cs",
+      "tests/installer/CanonicalImportQualification/README.md",
+      "tests/installer/test_session_import.py",
+      "distros/debian/Deployment/DebianConfigurationContinuation.cs",
+      "distros/debian/Deployment/DebianLabImportPlan.cs",
+      "distros/debian/native/session_configuration.py",
+      "docs/architecture/debian-canonical-gpt-runtime-evidence.json",
+      "docs/architecture/debian-canonical-lab-acquisition.md",
+      "docs/architecture/debian-canonical-lab-import-evidence.json",
+      "docs/architecture/debian-checkpoint-derived-configuration-evidence.json",
+      "docs/architecture/debian-checkpoint-derived-configuration.md",
+      "docs/architecture/debian-post-import-configuration-evidence.json",
+      "docs/architecture/debian-post-import-configuration.md",
+      "docs/architecture/debian-storage-session-smoke-evidence.json",
+      "src/Igloo.Core/Preparation/InstallationStorage.cs",
+      "src/Igloo.Core/Preparation/InstallerLabAcquisition.cs",
+      "tests/Igloo.Core.Tests/InstallationContinuationTests.cs",
+      "tests/Igloo.Core.Tests/InstallationStorageTests.cs",
+      "tests/Igloo.Core.Tests/InstallerLabAcquisitionTests.cs",
+      "tests/Igloo.Migration.Tests/DebianConfigurationContinuationTests.cs",
+      "tests/Igloo.Migration.Tests/DebianLabImportTests.cs",
+      "tests/Igloo.Migration.Tests/DebianStorageSmokeTests.cs",
+      "tests/Shared/LabStorageFixture.cs",
+      "tests/installer/CanonicalImportQualification/InventoryProbe.cs",
+      "tests/installer/CanonicalImportQualification/LabConfiguration.cs",
+      "tests/installer/CanonicalImportQualification/LabConfiguredRootImport.cs",
+      "tests/installer/CanonicalImportQualification/LabStorageSmoke.cs",
+      "tests/installer/CanonicalImportQualification/LabTransitionProbe.cs",
+      "tests/installer/canonical_configuration_derivation.py",
+      "tests/installer/canonical_configuration_guest.py",
+      "tests/installer/canonical_configuration_lab.py",
+      "tests/installer/canonical_configuration_readback.py",
+      "tests/installer/canonical_import_guest.py",
+      "tests/installer/canonical_import_lab.py",
+      "tests/installer/canonical_import_readback.py",
+      "tests/installer/canonical_lab_guest_build.py",
+      "tests/installer/canonical_lab_guest_storage.py",
+      "tests/installer/canonical_lab_runtime.py",
+      "tests/installer/canonical_storage_guest.py",
+      "tests/installer/canonical_storage_lab.py",
+      "tests/installer/configuration_broker_rehearsal.py",
+      "tests/installer/test_canonical_import_readback.py",
+      "tests/installer/test_canonical_lab_runtime.py",
+      "tests/installer/test_configuration_continuation.py",
+      "tests/installer/test_configuration_derivation.py",
+      "tests/installer/test_configuration_readback.py",
+      "tests/installer/test_exact_evidence.py",
+      "tests/installer/test_storage_smoke.py"
+    ]
+  },
+  "CompatibilityReview": {
+    "Report": "debian-core-configuration-compatibility.json",
+    "ExactBytesSha256": "ECCCCB152F6DA345B263C42B1A52CDB15FC1D8C43FA28497F010D3D66324BF22",
+    "PathChecks": 62,
+    "StaticClosureObjects": 74,
+    "MissingStaticDependencies": 0,
+    "Limitation": "The pre-attempt review missed update-exim4.conf gentmpconf assigning root:Debian-exim. Its executed observer incorrectly expected root:root. This was deterministically discoverable and is not an external blocker."
+  },
+  "RunId": "16dd9a84-02e0-402a-a208-89555f1e8f15",
+  "OperationId": "e21b1026-2ca6-4308-b546-55ffd174f682",
+  "SessionId": "bb04e4fe-4a90-4c4a-9410-e0a928e278e5",
+  "OriginalPreparationGeneration": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+  "PlanSha256": "42E40F8B79BE52520E5183668770E8352E7271E69540501524D8D9883D7C080E",
+  "ExecutedPlan": {
+    "SchemaVersion": 1,
+    "OperationId": "e21b1026-2ca6-4308-b546-55ffd174f682",
+    "Provenance": {
+      "Provider": "IsolatedFileBackedLab",
+      "Version": 3,
+      "Scope": "CoreConfiguration",
+      "RunId": "16dd9a84-02e0-402a-a208-89555f1e8f15",
+      "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+      "EvidenceSha256": "4EFF71563F6EDE55D9B18A57F485B0AC869153BDDC8EEB3C4ED7FEE8CB7729F7"
+    },
+    "PredecessorImportSha256": "A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9",
+    "PredecessorCloseSha256": "F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A",
+    "CheckpointSha256": "518AF140A5D7241948FE4C1C5B054BB35E732349524FAA74297863ED7EDA3486",
+    "Hostname": "igloo-lab-config",
+    "Username": "iglootest",
+    "UserId": 1000,
+    "Locale": "en_US.UTF-8",
+    "Timezone": "Etc/UTC",
+    "Keyboard": "us",
+    "TransformationPolicy": "debian-trixie-core-configuration-v2",
+    "DerivationSha256": "63250C1FDE5BB82D5186CA448EAEAC370B1AF6B79D4B6CC535021461810E7A24"
+  },
+  "ResourceDirectory": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15",
+  "AuthorizationStore": "/var/lib/igloo/configuration-authorizations/20260929-plan-reviewed-attempt",
+  "AuthorityAndCopies": {
+    "configuration-derivation.json": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/configuration-derivation.json",
+      "Sha256": "EEAFBF9725F0E3E1B49AFFEA7917872274524718D74F9D9A34D00B9EFBAD223E"
+    },
+    "copy-intent.json": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/copy-intent.json",
+      "Sha256": "1FBB7110979667A8347DCB26264916CB83D01DE0B27A359647186E04F40DB32B"
+    },
+    "host-binding.json": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/host-binding.json",
+      "Sha256": "43BD30ACF0673AAAA0DA15EF7CD8D77F6368688DDF3AE16E3A9ACDDF77B1F561"
+    },
+    "host-readback.json": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/host-readback.json",
+      "Sha256": "E906E2531CEA35FB5039C37502DFA06675EE7C2A65EA4F571C96C8153B3D6734"
+    },
+    "launch-intent.json": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/launch-intent.json",
+      "Sha256": "86C50E74BE5A38329B44591A9E7AA57CAA96BDFA7C41A5F31E10716423831907"
+    },
+    "input-identities.json": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/input-identities.json",
+      "Sha256": "797230BFCCD7AE17229E8E7D73B4B6F962B0246C85BCBD44402049261957CB3F"
+    }
+  },
+  "Derivation": {
+    "Authorization": {
+      "AttemptId": "16dd9a84-02e0-402a-a208-89555f1e8f15",
+      "CheckpointSha256": "518AF140A5D7241948FE4C1C5B054BB35E732349524FAA74297863ED7EDA3486",
+      "CloseSha256": "F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A",
+      "FailedOperationId": "97edf64f-c55c-419e-9f73-adb38b6a517c",
+      "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+      "ImportSha256": "A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9",
+      "JournalSha256": "4B501D7FDA872A3E785F077548D40B38FD524B33DBD3062DC172E1A1B57906BB",
+      "OperationId": "e21b1026-2ca6-4308-b546-55ffd174f682",
+      "Scope": "OneCheckpointDerivedCoreConfiguration",
+      "TargetSha256": "1C63ADEECBAE295E87766D02503F7D7704BE28036832D64FA3FA66738549AE4C",
+      "Version": 1
+    },
+    "AuthorizationSha256": "7499DB1D4E45DA3BD23DFAD3AB5B1711F5B93523928EDAB64963249AB0838BA7",
+    "CheckpointSha256": "518AF140A5D7241948FE4C1C5B054BB35E732349524FAA74297863ED7EDA3486",
+    "Copies": [
+      {
+        "DestinationDevice": 2096,
+        "DestinationInode": 81586,
+        "Length": 42949672960,
+        "ReopenedSha256": "1C63ADEECBAE295E87766D02503F7D7704BE28036832D64FA3FA66738549AE4C",
+        "Serial": "IGLOO-LAB-TARGET",
+        "SourceDevice": 2096,
+        "SourceInode": 77587,
+        "SourceSha256": "1C63ADEECBAE295E87766D02503F7D7704BE28036832D64FA3FA66738549AE4C"
+      },
+      {
+        "DestinationDevice": 2096,
+        "DestinationInode": 81587,
+        "Length": 8589934592,
+        "ReopenedSha256": "4B501D7FDA872A3E785F077548D40B38FD524B33DBD3062DC172E1A1B57906BB",
+        "Serial": "IGLOO-LAB-JOURNAL",
+        "SourceDevice": 2096,
+        "SourceInode": 77592,
+        "SourceSha256": "4B501D7FDA872A3E785F077548D40B38FD524B33DBD3062DC172E1A1B57906BB"
+      }
+    ]
+  },
+  "AuthorizationRecords": {
+    "dispatch-reservation.json": {
+      "Path": "/var/lib/igloo/configuration-authorizations/20260929-plan-reviewed-attempt/dispatch-reservation.json",
+      "Sha256": "0D2EE89A516588EA5FCF1477F12AB8B066BB3C25F0758EDCAFF9D73E683C76BB"
+    },
+    "authority-origin.json": {
+      "Path": "/var/lib/igloo/configuration-authorizations/20260929-plan-reviewed-attempt/authority-origin.json",
+      "Sha256": "F44922284FD5AA3CF41FE132EF8BB20A17FAD13B662395878359CE6D14CA3FC1"
+    },
+    "reservation.json": {
+      "Path": "/var/lib/igloo/configuration-authorizations/20260929-plan-reviewed-attempt/reservation.json",
+      "Sha256": "4D290B251894294BC5D53F4C21DF4F73D5C4C8D90BBFF032F8F725F3E0B2D2DC"
+    },
+    "authorization.json": {
+      "Path": "/var/lib/igloo/configuration-authorizations/20260929-plan-reviewed-attempt/authorization.json",
+      "Sha256": "7499DB1D4E45DA3BD23DFAD3AB5B1711F5B93523928EDAB64963249AB0838BA7"
+    }
+  },
+  "Predecessor": {
+    "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+    "CloseSha256": "F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A",
+    "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+    "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+    "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+    "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+    "Provenance": {
+      "EvidenceSha256": "8FFF55578D29E0229B2012CF01782B30AC9E5B5C1EC752ABAE6CD0B7A10784E6",
+      "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+      "Provider": "IsolatedFileBackedLab",
+      "RunId": "daa72a8f-914a-4574-92ef-4d39ffb0c1e1",
+      "Scope": "ConfiguredRootImport",
+      "Version": 2
+    },
+    "ResultSha256": "A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9",
+    "TransportManifestSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757"
+  },
+  "JournalPlacement": [
+    {
+      "Path": "/lab-journal/configuration-derived/16dd9a84-02e0-402a-a208-89555f1e8f15/session",
+      "Device": 65057,
+      "Inode": 15,
+      "MountId": 58,
+      "Major": 254,
+      "Minor": 33,
+      "FileSystem": "EXT4"
+    },
+    {
+      "Path": "/lab-journal/configuration-derived/16dd9a84-02e0-402a-a208-89555f1e8f15/effects",
+      "Device": 65057,
+      "Inode": 16,
+      "MountId": 58,
+      "Major": 254,
+      "Minor": 33,
+      "FileSystem": "EXT4"
+    }
+  ],
+  "Runtime": {
+    "Dotnet": "8.0.20",
+    "Host": {
+      "Mode": 493,
+      "Sha256": "37674A9F73C1F531B7DCB26F569692F2C85419C0BA4FB7622D5BFC65BB0F5810",
+      "Uid": 0
+    },
+    "ExecutionClosure": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/guest-evidence/execution/execution-closure.json",
+      "Sha256": "96D3951EBA8C37B0B7AC470F18C1DCF387C6FF8C42F18E447F759DF8BE79598E"
+    },
+    "NoNicOrSharesOrPassthrough": true,
+    "AllDisksGpt": true,
+    "Inventory": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/guest-evidence/execution/continuation-inventory.json",
+      "Sha256": "447D436AB3A042E5BD6B70ED3FCB12342B21D78F011EB788485976CAAA3330B7"
+    },
+    "Tools": {
+      "/opt/igloo-config-reviewed-16dd9a84/bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+      "/opt/igloo-config-reviewed-16dd9a84/collector.py": "66E83B8AA504157E97DEF533D59D3280E244F41583799D8BD2A783F6B4491243",
+      "/opt/igloo-config-reviewed-16dd9a84/command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+      "/opt/igloo-config-reviewed-16dd9a84/native/block_session.py": "580629256AF4C98152CD67D13532199425B4A2FB5245D65B7FC0A70266DEB3B8",
+      "/opt/igloo-config-reviewed-16dd9a84/native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "/opt/igloo-config-reviewed-16dd9a84/native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+      "/opt/igloo-config-reviewed-16dd9a84/native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "/opt/igloo-config-reviewed-16dd9a84/native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+      "/opt/igloo-config-reviewed-16dd9a84/native/isolation_policy.py": "2248B386217B51675AA4E1315DF6E2BEABE57518A3FF4DC21F739416770B1437",
+      "/opt/igloo-config-reviewed-16dd9a84/native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+      "/opt/igloo-config-reviewed-16dd9a84/native/package_broker.py": "497E752919858F9067D221659E8B61146B2F34BE750060E9760E51282A307A3F",
+      "/opt/igloo-config-reviewed-16dd9a84/native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+      "/opt/igloo-config-reviewed-16dd9a84/native/session_configuration.py": "D819A24D0DD5B8CADD6DF5DD7374B1E515A37373F694273A7975C3FF03B5F502",
+      "/opt/igloo-config-reviewed-16dd9a84/native/session_entry.py": "CA447F2F726C187992EF12453913279F0A079804511737456F244BED5DB473FB",
+      "/opt/igloo-config-reviewed-16dd9a84/native/session_import.py": "C6C6BD31E392BE78DD8BE1DA711AFDC4CFD3652A36CA5B534D9B770A518AFF3B",
+      "/opt/igloo-config-reviewed-16dd9a84/native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "/opt/igloo-config-reviewed-16dd9a84/native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+      "/usr/bin/dpkg-query": "095817337215129933918CACAE5FD62E86202FE238591BEA207A75B73561E8C5",
+      "/usr/bin/localedef": "6F1190173873A9D4864FC90E498EF151DAC61835468A2F96A28BE30170E245B9",
+      "/usr/bin/openssl": "F4AA15F2822F670AF7B5C1043D7AA6EBBBC64229FD2FAE382EDFC6A4524749C1",
+      "/usr/bin/python3.13": "889C603F0D17CB54060951BCF4C4F9B8C9EBD9E52B392C70209BBB9755D797D9",
+      "/usr/lib/x86_64-linux-gnu/libcrypt.so.1.1.0": "436788729AB71D794A66954D62E930C723E624587F39BEB2F4F86FF1000B1D29"
+    }
+  },
+  "ExecutedInputs": {
+    "bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+    "collector.py": "66E83B8AA504157E97DEF533D59D3280E244F41583799D8BD2A783F6B4491243",
+    "command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+    "harness/CanonicalImportQualification.deps.json": "5A0B3F4F401C01DC380CFEA196665215453BC539604BCAB03077E837AAE64326",
+    "harness/CanonicalImportQualification.dll": "A41955EBF8B11AE0A63654DC0D62E72EF1AFA8DE9EDD272D5712F3480E79FD47",
+    "harness/CanonicalImportQualification.pdb": "9AECB44E2DC78AD141C5535A86E8396507017D729E7E9D1C9E1F76AE4FD97D50",
+    "harness/CanonicalImportQualification.runtimeconfig.json": "28329CF08F6505E73806B17558B187C02F0C1C516FE47EBFB7A013D082AAA306",
+    "harness/CryptSharp.dll": "F14E2E528B56F88106E7DF0D40DB9C4FCDE3DCDB7F7182873B6997CB8D5D0610",
+    "harness/Igloo.Core.dll": "FCC2BD955C25E50448CE2AA234F22186D3313A6B4FDDAAE8BC76736A440184B9",
+    "harness/Igloo.Core.pdb": "3220F082BC5523737D1C023276DC4099AEF91BDBB37BD0240553F8F5188BF182",
+    "harness/Igloo.Distro.Debian.dll": "0B8DF25F0E886C0516AFA42B4E7D33EF33405DBD0988FB2F760F0438580DEABC",
+    "harness/Igloo.Distro.Debian.pdb": "3023F43768C3ED34AA1CE49D5BB76A9FA2E58BBCD98CBDAD8162C086BDCF4370",
+    "harness/Microsoft.Extensions.DependencyInjection.Abstractions.dll": "A0106A638FACAE621F870EDA720CB6C980C1D5D49C2F4351134E3FE043B9291B",
+    "harness/Microsoft.Extensions.Logging.Abstractions.dll": "29E6BFAF5CE079AD4D70DC547D966038992A7428DF6E726084EB9010EC837715",
+    "harness/agent/__pycache__/agent.cpython-312.pyc": "D9B2CA9D534D116A09F36144AD1C1A41FC72E4942115213FB30290AA7233AC20",
+    "harness/agent/__pycache__/display-apply-gnome.cpython-312.pyc": "8290C4BB7F95DDCE6C342BA64BD690F05E0B1296B94E4F2A2226669115F63D02",
+    "harness/agent/agent.py": "3C2EF862B9004F2728770F1583D8F78B1937C8A6A4C2B89C40E3E69993B60C07",
+    "harness/agent/display-apply-gnome.py": "4E1481B7F89F0FE8FD0C41535EDDF82C225CC0C04BEE9089C54A85D1A133AF9F",
+    "harness/agent/display-apply.py": "9D71D75A8B772D3FFDCA11E8B94A9FBEB3181D9217DDCDB0A943504043658B42",
+    "harness/agent/first-boot.sh": "E53587E9A60E1564E89A1E81A69323CADCC35470691D36CF00A9DA1E2483FD12",
+    "harness/agent/grub-theme-stylish-1080p.tar.gz": "FC2EDBB0771C61EB3960065875881AA2E6910A781054252D4EFA32A7F91F36B0",
+    "harness/agent/grub-theme-stylish-4k.tar.gz": "69552CB8C5CC823D819B843508F928C7A273539D958CFA6D8F708B405B494D8E",
+    "harness/agent/igloo-first-boot.service": "0F1C7E880A95502DDFF62AB8CA0AB4D45F153939C0F772F95D3160B4C1D779CD",
+    "harness/agent/igloo_boot.py": "E6C1D7DBDA8C8B99E76EED2E2A77D09E5F98FE629CAAAEB1FC33266B3BE4B628",
+    "harness/distro.json": "0D3D47A4EF961E0528735F1C4AD7CC4FDD58B189795699F33BA432FBD8A4A423",
+    "harness/native/block_session.py": "580629256AF4C98152CD67D13532199425B4A2FB5245D65B7FC0A70266DEB3B8",
+    "harness/native/command_gate.c": "F732845C3DE247AFDC82A6ECCE0432789EFD34500719165637A7132F43BC119E",
+    "harness/native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+    "harness/native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+    "harness/native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+    "harness/native/debian_first_boot.py": "F1F1F359F8D8218C7D5FC6C48E4A9DD44D45EC0B21F16C19BB0A48E9CDD04753",
+    "harness/native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+    "harness/native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+    "harness/native/isolation_policy.py": "2248B386217B51675AA4E1315DF6E2BEABE57518A3FF4DC21F739416770B1437",
+    "harness/native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+    "harness/native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+    "harness/native/package_broker.py": "497E752919858F9067D221659E8B61146B2F34BE750060E9760E51282A307A3F",
+    "harness/native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+    "harness/native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+    "harness/native/session_configuration.py": "D819A24D0DD5B8CADD6DF5DD7374B1E515A37373F694273A7975C3FF03B5F502",
+    "harness/native/session_entry.py": "CA447F2F726C187992EF12453913279F0A079804511737456F244BED5DB473FB",
+    "harness/native/session_import.py": "C6C6BD31E392BE78DD8BE1DA711AFDC4CFD3652A36CA5B534D9B770A518AFF3B",
+    "harness/native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+    "harness/native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+    "harness/preseed/preseed.cfg.template": "315985F8CD368EBFC529A021550AD98C7A8F548E74C4456F07FB6ECE0C3AEB69",
+    "lab/canonical_configuration_guest.py": "592B4582A06F70F0E049A232A823A289C369CFCEAD71C028E476A7BE56A56B69",
+    "lab/canonical_import_guest.py": "AC71D9C105CBC13F3AFF5D2E4193666B971780679134E87F9BC25CD2EF14AF9D",
+    "lab/canonical_storage_guest.py": "FEB359F34397B1E18C40A98900F6F3382AE0792938465339FE3C4342BADF786F",
+    "native/block_session.py": "580629256AF4C98152CD67D13532199425B4A2FB5245D65B7FC0A70266DEB3B8",
+    "native/command_gate.c": "F732845C3DE247AFDC82A6ECCE0432789EFD34500719165637A7132F43BC119E",
+    "native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+    "native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+    "native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+    "native/debian_first_boot.py": "F1F1F359F8D8218C7D5FC6C48E4A9DD44D45EC0B21F16C19BB0A48E9CDD04753",
+    "native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+    "native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+    "native/isolation_policy.py": "2248B386217B51675AA4E1315DF6E2BEABE57518A3FF4DC21F739416770B1437",
+    "native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+    "native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+    "native/package_broker.py": "497E752919858F9067D221659E8B61146B2F34BE750060E9760E51282A307A3F",
+    "native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+    "native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+    "native/session_configuration.py": "D819A24D0DD5B8CADD6DF5DD7374B1E515A37373F694273A7975C3FF03B5F502",
+    "native/session_entry.py": "CA447F2F726C187992EF12453913279F0A079804511737456F244BED5DB473FB",
+    "native/session_import.py": "C6C6BD31E392BE78DD8BE1DA711AFDC4CFD3652A36CA5B534D9B770A518AFF3B",
+    "native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+    "native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A"
+  },
+  "ExecutedSource": {
+    "distros/debian/native/session_configuration.py": "D819A24D0DD5B8CADD6DF5DD7374B1E515A37373F694273A7975C3FF03B5F502",
+    "distros/debian/native/package_broker.py": "497E752919858F9067D221659E8B61146B2F34BE750060E9760E51282A307A3F",
+    "distros/debian/native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+    "distros/debian/native/isolation_policy.py": "2248B386217B51675AA4E1315DF6E2BEABE57518A3FF4DC21F739416770B1437",
+    "distros/debian/native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+    "distros/debian/Deployment/DebianConfigurationContinuation.cs": "34EFCCED7FA73BA71D0A58D721A2F17C6AA3D7C1FAC2266AF24FBBA0C514909E",
+    "tests/installer/canonical_configuration_derivation.py": "1FF1AAF5DE9F5FD618F8B483C5BCAD5945D2181FE0CF8A77018C1C2CA51C87E5",
+    "tests/installer/CanonicalImportQualification/LabConfiguration.cs": "AEC9E6533967608445C1C2794BBEFBFFF980A1566FE10B4F1E782C1DB4FD252C"
+  },
+  "FinalSource": {
+    "distros/debian/native/session_configuration.py": "BD9CAEB9E35DB744EA89827DF5AD3BF543D75251047B7CB78BA7194228CF01A6",
+    "distros/debian/native/package_broker.py": "497E752919858F9067D221659E8B61146B2F34BE750060E9760E51282A307A3F",
+    "distros/debian/native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+    "distros/debian/native/isolation_policy.py": "2248B386217B51675AA4E1315DF6E2BEABE57518A3FF4DC21F739416770B1437",
+    "distros/debian/native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+    "distros/debian/Deployment/DebianConfigurationContinuation.cs": "0C4B0BEC4F21B5F19257EEA5CA463213818B1D6F693F63E36B4CBDE5E6DBA258",
+    "tests/installer/canonical_configuration_derivation.py": "1FF1AAF5DE9F5FD618F8B483C5BCAD5945D2181FE0CF8A77018C1C2CA51C87E5",
+    "tests/installer/CanonicalImportQualification/LabConfiguration.cs": "AEC9E6533967608445C1C2794BBEFBFFF980A1566FE10B4F1E782C1DB4FD252C"
+  },
+  "NativeViewFixtures": {
+    "Count": 5,
+    "Result": "Passed",
+    "Record": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/guest-evidence/execution/current-view-fixtures.json",
+      "Sha256": "D4A215C7AAE0AFCF771FEB2F001AF101A930921934AA34CD8BA4157EA0D681A8"
+    },
+    "Scope": "Actual broker/gate/isolation observer over ordinary-directory fixture, not Debian helper qualification"
+  },
+  "NativeNegative": {
+    "BeforeBlockAcquisition": true,
+    "ConfigurationWritesInvoked": false,
+    "Entrypoint": "--configure-derived-lab",
+    "Result": {
+      "Code": "Import or close binding rejected.",
+      "Configuration": "NotStarted",
+      "ErrorType": "InvalidDataException"
+    }
+  },
+  "NativeSteps": {
+    "Baseline": {
+      "Outcome": "AppliedAndVerified",
+      "Records": [
+        {
+          "Reference": "00000000-D748B56A93395D1739642221030F4D7B25A9A306F1BE7E0BAF0875ED73E073F9.json",
+          "Sha256": "D748B56A93395D1739642221030F4D7B25A9A306F1BE7E0BAF0875ED73E073F9"
+        },
+        {
+          "Reference": "00000001-EFEA48748413A521E2D94B98A7B9F624A38543E4E602AAE2B5EAA92C01290E44.json",
+          "Sha256": "EFEA48748413A521E2D94B98A7B9F624A38543E4E602AAE2B5EAA92C01290E44"
+        }
+      ],
+      "IndependentObservation": {
+        "FilesystemSha256": "1F842DC9D53C5C57B2CD9D77FE5731C29E777C4599C445CC8A3892222687BF13",
+        "NeutralStateSha256": "751CDEE71BF90671367B5B95F8FB17C660A5595E69F8AD6658EA600288FDD358",
+        "OperationId": "e21b1026-2ca6-4308-b546-55ffd174f682",
+        "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+        "PlanSha256": "42E40F8B79BE52520E5183668770E8352E7271E69540501524D8D9883D7C080E",
+        "RootWitness": [
+          65044,
+          2,
+          214
+        ]
+      },
+      "ObserverEvidenceSha256": "9931A7A4AA60C221B6406FF67C23A0247A4BFE06DD4D7AB02D2563B8D2A16016"
+    },
+    "Files": {
+      "Outcome": "AppliedAndVerified",
+      "Records": [
+        {
+          "Reference": "00000002-E4E7E2F0DACE9CF86CDB5EBF84EC2A36E12E5AB397A3F6D121948552520F7915.json",
+          "Sha256": "E4E7E2F0DACE9CF86CDB5EBF84EC2A36E12E5AB397A3F6D121948552520F7915"
+        },
+        {
+          "Reference": "00000003-DBB6585D360CE6D065C7DF5D30F38D208F9EBA3CAA348B58CA697AFF4F0FA39D.json",
+          "Sha256": "DBB6585D360CE6D065C7DF5D30F38D208F9EBA3CAA348B58CA697AFF4F0FA39D"
+        }
+      ],
+      "IndependentObservation": {
+        "ChangedPaths": [
+          "/etc/apt/sources.list.d/debian.sources",
+          "/etc/default/keyboard",
+          "/etc/exim4/update-exim4.conf.conf",
+          "/etc/fstab",
+          "/etc/hostname",
+          "/etc/hosts",
+          "/etc/locale.conf",
+          "/etc/locale.gen",
+          "/etc/localtime",
+          "/etc/mailname",
+          "/etc/network/interfaces",
+          "/etc/resolv.conf",
+          "/etc/timezone"
+        ],
+        "FilesystemDeltaSha256": "660BCED37D6B3BB7117AD130F01112C04A93FC7818137668EC603599A39DA948",
+        "MachineIdentity": "FirstBootPending",
+        "OperationId": "e21b1026-2ca6-4308-b546-55ffd174f682",
+        "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+        "PlanSha256": "42E40F8B79BE52520E5183668770E8352E7271E69540501524D8D9883D7C080E",
+        "ProfileStep": "Files",
+        "RootWitness": [
+          65044,
+          2,
+          214
+        ]
+      },
+      "ObserverEvidenceSha256": "303F895A9B5BEA1737FBAFFEA0F11A6A45B321901CDDE2E95DD7C54E9C1E0782"
+    },
+    "Debconf": {
+      "Outcome": "AppliedAndVerified",
+      "Records": [
+        {
+          "Reference": "00000004-15115C6E639E387E1C349D792B741E1DAB2B0D36D0574AEF130D215A0C48D78B.json",
+          "Sha256": "15115C6E639E387E1C349D792B741E1DAB2B0D36D0574AEF130D215A0C48D78B"
+        },
+        {
+          "Reference": "00000005-A770F89AE9FC584EDBA71D1F68F5098D44F0955C5E0D85B09B32733FA3FF0BA5.json",
+          "Sha256": "A770F89AE9FC584EDBA71D1F68F5098D44F0955C5E0D85B09B32733FA3FF0BA5"
+        }
+      ],
+      "IndependentObservation": {
+        "ChangedPaths": [
+          "/etc/apt/sources.list.d/debian.sources",
+          "/etc/default/keyboard",
+          "/etc/exim4/update-exim4.conf.conf",
+          "/etc/fstab",
+          "/etc/hostname",
+          "/etc/hosts",
+          "/etc/locale.conf",
+          "/etc/locale.gen",
+          "/etc/localtime",
+          "/etc/mailname",
+          "/etc/network/interfaces",
+          "/etc/resolv.conf",
+          "/etc/timezone",
+          "/var/cache/debconf/config.dat",
+          "/var/cache/debconf/config.dat-old"
+        ],
+        "FilesystemDeltaSha256": "FC2B730B621538CD87EF045A9DAFB0903482F05BF71BEE648BCCD5710D985782",
+        "MachineIdentity": "FirstBootPending",
+        "OperationId": "e21b1026-2ca6-4308-b546-55ffd174f682",
+        "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+        "PlanSha256": "42E40F8B79BE52520E5183668770E8352E7271E69540501524D8D9883D7C080E",
+        "ProfileStep": "Debconf",
+        "RootWitness": [
+          65044,
+          2,
+          214
+        ]
+      },
+      "ObserverEvidenceSha256": "9B58D39F03C8A5466EDC46830AEA762104F358373EECAE3BD0E15CA04CA652E9",
+      "Helper": {
+        "State": "Exited",
+        "ExitCode": 0,
+        "ToolSha256": "95DD9CC45752692E9288EED9ABF9D0BBD22BB78FFE59A78CBFCBE96CFFEFBBA5",
+        "IsolationSha256": "9B721A9FBEA7D3FECDF8CCAE6E1DD213A8429C372DB8684F357EA7FBA3EED4ED",
+        "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+        "OperationSha256": "4A6039BD0B671A540D232816FC100D26B2F929C13DF5B9606645DABD8D8A652D"
+      }
+    },
+    "Exim": {
+      "Outcome": "OutcomeUnknown",
+      "Records": [
+        {
+          "Reference": "00000006-E2855092509781279822BCE4FDF47CE0F056294BD7C9979066D0625A6DE37E85.json",
+          "Sha256": "E2855092509781279822BCE4FDF47CE0F056294BD7C9979066D0625A6DE37E85"
+        },
+        {
+          "Reference": "00000007-5DACE20E02D5849984EE14B67FC53402BD210FAC9E5D2A32A8D0813BE4558836.json",
+          "Sha256": "5DACE20E02D5849984EE14B67FC53402BD210FAC9E5D2A32A8D0813BE4558836"
+        }
+      ]
+    },
+    "Tls": {
+      "Outcome": "NotStarted",
+      "Records": []
+    },
+    "Locale": {
+      "Outcome": "NotStarted",
+      "Records": []
+    },
+    "User": {
+      "Outcome": "NotStarted",
+      "Records": []
+    },
+    "Credential": {
+      "Outcome": "NotStarted",
+      "Records": []
+    },
+    "Sudo": {
+      "Outcome": "NotStarted",
+      "Records": []
+    },
+    "Verify": {
+      "Outcome": "NotStarted",
+      "Records": []
+    }
+  },
+  "Configuration": "OutcomeUnknown",
+  "ConfiguredProfileComplete": false,
+  "ForensicObservation": {
+    "Record": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/guest-evidence/execution/forensic-exim-paths.json",
+      "Sha256": "86BDA8A9EBF57F51228EE524DE3F4A3D51FE5F9D2AF76394660A0C9AF609C0E4"
+    },
+    "GeneratedExim": {
+      "Length": 25448,
+      "Uid": 0,
+      "Gid": 104,
+      "Mode": "0644",
+      "TemporaryOutput": "Absent"
+    },
+    "Meaning": "Separate read-only debugfs observation, no journal replay. Establishes generated-file metadata; not a complete post-failure tree verification or helper exit receipt."
+  },
+  "Readback": {
+    "AbsenceIsNotCanonicalTeardown": true,
+    "CompletedSteps": [
+      "Baseline",
+      "Files",
+      "Debconf"
+    ],
+    "Configuration": "OutcomeUnknown",
+    "EffectRecords": [
+      {
+        "Reference": "00000000-D748B56A93395D1739642221030F4D7B25A9A306F1BE7E0BAF0875ED73E073F9.json",
+        "Sha256": "D748B56A93395D1739642221030F4D7B25A9A306F1BE7E0BAF0875ED73E073F9"
+      },
+      {
+        "Reference": "00000001-EFEA48748413A521E2D94B98A7B9F624A38543E4E602AAE2B5EAA92C01290E44.json",
+        "Sha256": "EFEA48748413A521E2D94B98A7B9F624A38543E4E602AAE2B5EAA92C01290E44"
+      },
+      {
+        "Reference": "00000002-E4E7E2F0DACE9CF86CDB5EBF84EC2A36E12E5AB397A3F6D121948552520F7915.json",
+        "Sha256": "E4E7E2F0DACE9CF86CDB5EBF84EC2A36E12E5AB397A3F6D121948552520F7915"
+      },
+      {
+        "Reference": "00000003-DBB6585D360CE6D065C7DF5D30F38D208F9EBA3CAA348B58CA697AFF4F0FA39D.json",
+        "Sha256": "DBB6585D360CE6D065C7DF5D30F38D208F9EBA3CAA348B58CA697AFF4F0FA39D"
+      },
+      {
+        "Reference": "00000004-15115C6E639E387E1C349D792B741E1DAB2B0D36D0574AEF130D215A0C48D78B.json",
+        "Sha256": "15115C6E639E387E1C349D792B741E1DAB2B0D36D0574AEF130D215A0C48D78B"
+      },
+      {
+        "Reference": "00000005-A770F89AE9FC584EDBA71D1F68F5098D44F0955C5E0D85B09B32733FA3FF0BA5.json",
+        "Sha256": "A770F89AE9FC584EDBA71D1F68F5098D44F0955C5E0D85B09B32733FA3FF0BA5"
+      },
+      {
+        "Reference": "00000006-E2855092509781279822BCE4FDF47CE0F056294BD7C9979066D0625A6DE37E85.json",
+        "Sha256": "E2855092509781279822BCE4FDF47CE0F056294BD7C9979066D0625A6DE37E85"
+      },
+      {
+        "Reference": "00000007-5DACE20E02D5849984EE14B67FC53402BD210FAC9E5D2A32A8D0813BE4558836.json",
+        "Sha256": "5DACE20E02D5849984EE14B67FC53402BD210FAC9E5D2A32A8D0813BE4558836"
+      }
+    ],
+    "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+    "LastIndependentObservation": {
+      "ChangedPaths": [
+        "/etc/apt/sources.list.d/debian.sources",
+        "/etc/default/keyboard",
+        "/etc/exim4/update-exim4.conf.conf",
+        "/etc/fstab",
+        "/etc/hostname",
+        "/etc/hosts",
+        "/etc/locale.conf",
+        "/etc/locale.gen",
+        "/etc/localtime",
+        "/etc/mailname",
+        "/etc/network/interfaces",
+        "/etc/resolv.conf",
+        "/etc/timezone",
+        "/var/cache/debconf/config.dat",
+        "/var/cache/debconf/config.dat-old"
+      ],
+      "FilesystemDeltaSha256": "FC2B730B621538CD87EF045A9DAFB0903482F05BF71BEE648BCCD5710D985782",
+      "MachineIdentity": "FirstBootPending",
+      "OperationId": "e21b1026-2ca6-4308-b546-55ffd174f682",
+      "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+      "PlanSha256": "42E40F8B79BE52520E5183668770E8352E7271E69540501524D8D9883D7C080E",
+      "ProfileStep": "Debconf",
+      "RootWitness": [
+        65044,
+        2,
+        214
+      ]
+    },
+    "OperationId": "e21b1026-2ca6-4308-b546-55ffd174f682",
+    "ParentMountinfoAbsent": true,
+    "PlanSha256": "42E40F8B79BE52520E5183668770E8352E7271E69540501524D8D9883D7C080E",
+    "Predecessor": {
+      "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "CloseSha256": "F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A",
+      "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+      "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "Provenance": {
+        "EvidenceSha256": "8FFF55578D29E0229B2012CF01782B30AC9E5B5C1EC752ABAE6CD0B7A10784E6",
+        "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+        "Provider": "IsolatedFileBackedLab",
+        "RunId": "daa72a8f-914a-4574-92ef-4d39ffb0c1e1",
+        "Scope": "ConfiguredRootImport",
+        "Version": 2
+      },
+      "ResultSha256": "A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9",
+      "TransportManifestSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757"
+    },
+    "PreservedEspSha256": "0B1C5550B9FCBE8B9B234D04655BDE475DC0E70168E2F411D01E50740945AE17",
+    "PreservedMatches": true,
+    "PriorJournalBytesUnchanged": true,
+    "ProtectedStateSha256": "359FCD860C41DEF8F41D79C6B226D9DD0A15C25144DCA404F213133E9003137F",
+    "ReplayAuthorized": false,
+    "SessionId": "bb04e4fe-4a90-4c4a-9410-e0a928e278e5",
+    "SessionRecords": [
+      {
+        "Reference": "00000000-86D17722EDCD973E3F2854A1C30D23A9670530ED2E50D759B77F102AF998093D.json",
+        "Sha256": "86D17722EDCD973E3F2854A1C30D23A9670530ED2E50D759B77F102AF998093D"
+      },
+      {
+        "Reference": "00000001-A22A70F6FED7839D7FD36C9AEDBBDFD0ED2A053813C492B9B0B57DE4812D9C63.json",
+        "Sha256": "A22A70F6FED7839D7FD36C9AEDBBDFD0ED2A053813C492B9B0B57DE4812D9C63"
+      },
+      {
+        "Reference": "00000002-79447EA2C8AB66DAC4B8050D03CC7D7C5F5C0C3FCDC16A66A3251E7CA08FFF8B.json",
+        "Sha256": "79447EA2C8AB66DAC4B8050D03CC7D7C5F5C0C3FCDC16A66A3251E7CA08FFF8B"
+      },
+      {
+        "Reference": "00000003-FEDC5B241E8F3DB392CDFF9257EC5523CEAAF81FF1E0C2C7FB2616F2CD2C69DB.json",
+        "Sha256": "FEDC5B241E8F3DB392CDFF9257EC5523CEAAF81FF1E0C2C7FB2616F2CD2C69DB"
+      },
+      {
+        "Reference": "00000004-71BF103D60D7E737BBD1E222B4A20A34D7B902E4EEA8FC0B733F46A3866D1E3A.json",
+        "Sha256": "71BF103D60D7E737BBD1E222B4A20A34D7B902E4EEA8FC0B733F46A3866D1E3A"
+      },
+      {
+        "Reference": "00000005-10A7C96E43B6D5C27C37CE2DA169ACE867609951BFD0AC4FF65085270A658EA3.json",
+        "Sha256": "10A7C96E43B6D5C27C37CE2DA169ACE867609951BFD0AC4FF65085270A658EA3"
+      },
+      {
+        "Reference": "00000006-1DC19126D1664E46BC1895409F3FB67FE112F62F5F18CDF9146E52A1F7F872E8.json",
+        "Sha256": "1DC19126D1664E46BC1895409F3FB67FE112F62F5F18CDF9146E52A1F7F872E8"
+      },
+      {
+        "Reference": "00000007-9C6AD803A1067F40D1AF26ECBA4BB336C22D8F1DAFE348D8B3829A4B35D1498D.json",
+        "Sha256": "9C6AD803A1067F40D1AF26ECBA4BB336C22D8F1DAFE348D8B3829A4B35D1498D"
+      },
+      {
+        "Reference": "00000008-B713307C5C264038507D01B5E88A5E3D47BDDCFF1AF99C00129A94C9E16CDA5B.json",
+        "Sha256": "B713307C5C264038507D01B5E88A5E3D47BDDCFF1AF99C00129A94C9E16CDA5B"
+      },
+      {
+        "Reference": "00000009-9774A002CD2A007D97B23958133115251061B897D08FA7552D1BCED9DE37EEDB.json",
+        "Sha256": "9774A002CD2A007D97B23958133115251061B897D08FA7552D1BCED9DE37EEDB"
+      },
+      {
+        "Reference": "00000010-8D24DE9481EDE23BF3F69AF7AA79ED193D3B2A623C5D5006FAD39A4376370345.json",
+        "Sha256": "8D24DE9481EDE23BF3F69AF7AA79ED193D3B2A623C5D5006FAD39A4376370345"
+      }
+    ],
+    "Teardown": "NotVerified",
+    "VerifierSha256": "3CC926CBC72BE14B72B98DDC8B24B35498C2B8167B7BB047D6001E5488C2C3AF"
+  },
+  "IndependentReadbackRecord": {
+    "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/guest-evidence/execution/independent-result.json",
+    "Sha256": "12A1B009C29E12F497CFB9DEC3085515AE4E1D48678F80AB6D609B22B825CDB5"
+  },
+  "DurableConfigurationSuccess": false,
+  "CanonicalTeardown": "NotVerified",
+  "CloseResult": null,
+  "ProvisioningUnmount": {
+    "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/guest-evidence/execution/provisioning-unmount.json",
+    "Sha256": "655F6A1853B9200A08022401E099A56475A16AB55B5CA5FCE9F6B7BDA5AD7A27"
+  },
+  "Shutdown": {
+    "CanonicalTeardown": "NotVerified",
+    "Configuration": "OutcomeUnknown",
+    "ConsoleLifecycle": "Ordinary provisioning unmount then normal poweroff and console exit; fresh process absence. No canonical teardown claim.",
+    "NormalPowerDownObserved": true,
+    "ProcessAbsent": true,
+    "RetainedBackings": {
+      "journal.raw": {
+        "Device": 2096,
+        "Inode": 81587,
+        "Length": 8589934592,
+        "Sha256": "49E0DF490DFCD7553A6FEB9F24B113A80307A34BBE82247BD9E1F035A73686A1"
+      },
+      "target.raw": {
+        "Device": 2096,
+        "Inode": 81586,
+        "Length": 42949672960,
+        "Sha256": "591236572EC72F533F140F28CBB9C986D70C7B3D464316AA467C1C541812A3BB"
+      }
+    },
+    "Utc": "2026-09-29T10:03:31.156072+00:00"
+  },
+  "Preservation": {
+    "Backings": {
+      "/var/lib/igloo/canonical-labs/a92a3ea6ead649d4b9bc2263adb0a10a/journal.raw": {
+        "Device": 2096,
+        "Inode": 79585,
+        "Length": 8589934592,
+        "Links": 1,
+        "Mode": 384,
+        "Sha256": "E6BD3D805258001C0F3F612CF3A927E276B07443232C7D6EE6C96E14220FB65B"
+      },
+      "/var/lib/igloo/canonical-labs/a92a3ea6ead649d4b9bc2263adb0a10a/target.raw": {
+        "Device": 2096,
+        "Inode": 79584,
+        "Length": 42949672960,
+        "Links": 1,
+        "Mode": 384,
+        "Sha256": "6E9E67B8381FF50A911629FD98FEAD3FCAA101CB3DA514E515ADD5164A89E4E8"
+      },
+      "/var/lib/igloo/canonical-labs/eef3675f8bae45c7837e9100cc1c0f1b/journal.raw": {
+        "Device": 2096,
+        "Inode": 75222,
+        "Length": 8589934592,
+        "Links": 2,
+        "Mode": 420,
+        "Sha256": "A842834C9C638F95756EA6045EA491F3110BB1B7DC9DED64FB4BBBB9641A1965"
+      },
+      "/var/lib/igloo/canonical-labs/eef3675f8bae45c7837e9100cc1c0f1b/target.raw": {
+        "Device": 2096,
+        "Inode": 75221,
+        "Length": 42949672960,
+        "Links": 2,
+        "Mode": 420,
+        "Sha256": "5E17236BBD595B2BEE0FB3E1454CBB9EAD5F898190B4FCABF9FDF454362A26D6"
+      },
+      "/var/lib/igloo/config-checkpoints/import-daa72a8f-20260929/journal.raw": {
+        "Device": 2096,
+        "Inode": 77592,
+        "Length": 8589934592,
+        "Links": 1,
+        "Mode": 256,
+        "Sha256": "4B501D7FDA872A3E785F077548D40B38FD524B33DBD3062DC172E1A1B57906BB"
+      },
+      "/var/lib/igloo/config-checkpoints/import-daa72a8f-20260929/target.raw": {
+        "Device": 2096,
+        "Inode": 77587,
+        "Length": 42949672960,
+        "Links": 1,
+        "Mode": 256,
+        "Sha256": "1C63ADEECBAE295E87766D02503F7D7704BE28036832D64FA3FA66738549AE4C"
+      }
+    },
+    "NoOpenBackingDescriptors": true,
+    "Unchanged": true
+  },
+  "PriorJournalRecordsUnchanged": true,
+  "ConfiguredTargetRetained": false,
+  "PartialTargetRetained": true,
+  "CheckpointOriginalsUnchanged": true,
+  "PostAttemptCorrection": {
+    "TransformationPolicy": "debian-trixie-core-configuration-v3",
+    "NativeExecution": false,
+    "Change": "verify_exim requires authenticated Debian-exim GID 104, UID 0, mode 0644; root-group/unrelated-group/permissive mode rejected. Generated metadata exposed by shared review.",
+    "FinalReview": {
+      "Path": "/var/lib/igloo/canonical-labs/16dd9a8402e0402aa20889555f1e8f15/post-attempt-source-review.json",
+      "Sha256": "C1B3BCE67035A6F2CAE20C461E25B535D518CE61839513214C71F15C64020164"
+    },
+    "PathChecks": 62,
+    "StaticClosureObjects": 81,
+    "AdditionalFullAttempt": false,
+    "ConsumedAttemptReplayAuthorized": false
+  },
+  "Validation": [
+    {
+      "Command": "dotnet build Igloo.sln -warnaserror -m:1",
+      "Environment": "Windows",
+      "Result": "Passed, 0 warnings, 0 errors",
+      "LogSha256": "5F5728F2BE124BE760E32D8F8B78D92AE88FBB736B024ED2F249533BA4E35280"
+    },
+    {
+      "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Result": "Passed, 0 warnings, 0 errors",
+      "LogSha256": "7D24D4BAF199D33DF87C074B0219A776C8993CEC0302048BC7A767F42A7823A9"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Core.Tests/Igloo.Core.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Passed": 390,
+      "Failed": 0,
+      "Skipped": 0,
+      "LogSha256": "B27B3A32DE8633D94E0193FECC56046F0DB3D7B3E3D7B21F33911E59AD545490"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Preflight.Tests/Igloo.Preflight.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Passed": 343,
+      "Failed": 0,
+      "Skipped": 0,
+      "LogSha256": "7CF7290C9D5ABDCBA2B4890130E7C34801090BE79A949CF80C13651867425193"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Community.App.Tests/Igloo.Community.App.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Passed": 58,
+      "Failed": 0,
+      "Skipped": 0,
+      "LogSha256": "25D2A88701D1A8749D6A0B59E985BDB60EB87599ED1A14A20A7D52B9E29A65E5"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Passed": 435,
+      "Failed": 0,
+      "Skipped": 0,
+      "LogSha256": "B8CBA1E0CB11E539D34BC4C860FDDBF34829D2CDC83807FF5A696E3764E52877"
+    },
+    {
+      "Command": "dotnet test Igloo.sln --no-build --no-restore -m:1",
+      "Environment": "Windows, after current solution rebuild",
+      "Passed": 1421,
+      "Failed": 0,
+      "Skipped": 0,
+      "LogSha256": "124F1C26C9F001396C49954A0EA2969A43CF759439ACAA30CBD486110BD9AEEE",
+      "Counting": "Includes the four project counts; do not add them"
+    },
+    {
+      "Command": "python3 -B -m unittest discover -s tests/installer -p 'test_*.py'",
+      "Environment": "Ubuntu-24.04 WSL, unprivileged",
+      "Passed": 324,
+      "Failed": 0,
+      "LogSha256": "3A64494AC41E840C003A8354487921A442F0346B72CF698CD3FB34BC198AB1E9"
+    },
+    {
+      "Command": "python3 -B -m unittest discover -s tests/installer -p 'test_configuration*.py'",
+      "Environment": "Ubuntu-24.04 WSL, unprivileged",
+      "Passed": 23,
+      "Counting": "Subset of 324"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror --filter FullyQualifiedName~DebianConfigurationContinuationTests",
+      "Passed": 17,
+      "Counting": "Subset of 435"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Core.Tests/Igloo.Core.Tests.csproj --no-restore -m:1 -warnaserror --filter FullyQualifiedName~InstallationContinuationTests",
+      "Passed": 15,
+      "Counting": "Subset of 390"
+    },
+    {
+      "Command": "git diff --check",
+      "Result": "Passed, exit 0",
+      "LogSha256": "369CBD8FBDCC0E4FAF9472CC1CA6B72B57E9BF16BCEC9C9A25520803D6BA457B"
+    },
+    {
+      "Command": "Separate byte/whitespace/control-character/size/privacy scan of all 16 changed or new paths relative to initial snapshot",
+      "Result": "Passed; historical and exact-byte evidence hashes unchanged"
+    }
+  ],
+  "Boundaries": {
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "ProductionPreparationAndRegistration": "Disabled",
+    "MachineIdentity": "FirstBootPending",
+    "ImportReplay": false,
+    "ArtifactRebuild": false,
+    "Format": false,
+    "InitramfsAgentBoot": "NotInScope",
+    "CommitOrPush": false
+  },
+  "RemainingBlockers": [
+    "Final v3 Exim observer correction not natively executed",
+    "TLS/locale/account/credential/sudo helpers and full final complement not qualified",
+    "No configuration success or canonical teardown from this run",
+    "The single authorized native attempt is consumed; another requires separate explicit authorization, not replay",
+    "Production authentication, production hardware/journal qualification and downstream stages remain separate"
+  ],
+  "TaskChanges": {
+    "PreExistingPathsModified": [
+      "docs/architecture/debian-session-boundary.md",
+      "docs/fleet/phase-2.md",
+      "tests/installer/CanonicalImportQualification/README.md",
+      "distros/debian/Deployment/DebianConfigurationContinuation.cs",
+      "distros/debian/native/session_configuration.py",
+      "docs/architecture/debian-checkpoint-derived-configuration.md",
+      "docs/architecture/debian-post-import-configuration.md",
+      "tests/Igloo.Migration.Tests/DebianConfigurationContinuationTests.cs",
+      "tests/installer/canonical_configuration_derivation.py",
+      "tests/installer/test_configuration_continuation.py"
+    ],
+    "NewPaths": [
+      "docs/architecture/debian-core-configuration-compatibility.json",
+      "docs/architecture/debian-core-configuration-compatibility.md",
+      "docs/architecture/debian-core-configuration-reviewed-attempt-evidence.json",
+      "tests/installer/configuration_compatibility.py",
+      "tests/installer/configuration_manifest_fixture.json",
+      "tests/installer/test_configuration_compatibility.py"
+    ],
+    "ExistingWorkPreserved": true,
+    "FinalModifiedTracked": 31,
+    "FinalUntracked": 51,
+    "FinalIndex": "Empty",
+    "HeadUnchanged": true
+  },
+  "NotExecuted": [
+    "No second native attempt after the Exim failure",
+    "No full native execution of final transformation policy v3",
+    "No complete configured-state readback or canonical teardown for this attempt",
+    "No power-loss, target boot or production hardware qualification"
+  ],
+  "DevelopmentTrust": {
+    "ExternalPinSha256": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+    "NotAfterUtc": "2026-10-05T09:32:27.464Z",
+    "Outcome": "Existing protected pin valid at actual execution; mounted payload source authenticated before Baseline",
+    "ProductionAuthentication": "Unsupported",
+    "RenewedOrSelfIssued": false
+  }
+}

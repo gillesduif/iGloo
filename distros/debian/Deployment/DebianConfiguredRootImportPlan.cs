@@ -8,7 +8,7 @@ namespace Igloo.Distro.Debian.Deployment;
 // Import is a separate phase: no invented user, credential, agent or installation-complete state.
 public sealed record DebianConfiguredRootImportPlanV1(InstallationOwnershipV1 Ownership,
     RootFileSystemReceiptV1 Root, Guid BuildId, Guid DerivationId, string DescriptorSha256,
-    string PolicySha256, string ManifestSha256, string ContentSha256, long ContentLength)
+    string PolicySha256, string ManifestSha256, string ContentSha256, long ContentLength) : IDebianImportSourceBinding
 {
     public string Transport { get; init; } = "SingleFile";
     public string? TransportManifestSha256 { get; init; }
@@ -38,15 +38,10 @@ public sealed record DebianConfiguredRootImportPlanV1(InstallationOwnershipV1 Ow
         ? Observations.Available(true)
         : Observations.Failure<bool>(ObservationAvailability.Unsupported, "ConfiguredRootContentExceedsFat32SingleFile");
 
-    internal void VerifyArtifact(DebianConfiguredRootArtifactV1 artifact, ReadOnlySpan<byte> descriptor)
+    public void VerifyArtifact(DebianConfiguredRootArtifactV1 artifact, ReadOnlySpan<byte> descriptor)
     {
-        DebianConfiguredRootArtifacts.RequireStructure(artifact);
-        if (artifact.SchemaVersion != 2 || artifact.BuildId != BuildId || artifact.Attestation.Neutralization?.DerivationId != DerivationId ||
-            artifact.Attestation.Neutralization.PlanVersion != "debian-trixie-neutralization-2026-09-28-v2" ||
-            DebianConfiguredRootArtifacts.Digest(descriptor) != DescriptorSha256 || artifact.PackageSet.PolicySha256 != PolicySha256 ||
-            artifact.Manifest.Sha256 != ManifestSha256 || artifact.Content.Sha256 != ContentSha256 || artifact.Content.Length != ContentLength)
-            throw new InvalidDataException("Import source differs from immutable plan.");
-        if (TransportSupport.Availability != ObservationAvailability.Available) throw new NotSupportedException(TransportSupport.Code);
+        ArgumentNullException.ThrowIfNull(artifact);
+        DebianImportSourceBinding.VerifyArtifact(this, artifact, descriptor);
     }
 }
 
@@ -60,5 +55,36 @@ public sealed class DebianDevelopmentRootAuthenticator(DebianRootDevelopmentPinV
         var artifact = DebianConfiguredRootArtifacts.ReopenDevelopmentPinned(descriptor.Span, pin, now);
         return Task.FromResult(Observations.Available(new DebianRootAuthenticationV1("DevelopmentImportOnly",
             pin.DescriptorSha256, artifact.SupportedUntilUtc < pin.NotAfterUtc ? artifact.SupportedUntilUtc : pin.NotAfterUtc)));
+    }
+}
+
+// Source-only contract shared by two closed compositions; it is not storage authority.
+public interface IDebianImportSourceBinding
+{
+    Guid BuildId { get; }
+    Guid DerivationId { get; }
+    string DescriptorSha256 { get; }
+    string PolicySha256 { get; }
+    string ManifestSha256 { get; }
+    string ContentSha256 { get; }
+    long ContentLength { get; }
+    string Transport { get; }
+    string? TransportManifestSha256 { get; }
+    long OtherPayloadBytes { get; }
+    Observation<bool> TransportSupport { get; }
+    void VerifyArtifact(DebianConfiguredRootArtifactV1 artifact, ReadOnlySpan<byte> descriptor);
+}
+
+internal static class DebianImportSourceBinding
+{
+    internal static void VerifyArtifact(IDebianImportSourceBinding plan, DebianConfiguredRootArtifactV1 artifact, ReadOnlySpan<byte> descriptor)
+    {
+        DebianConfiguredRootArtifacts.RequireStructure(artifact);
+        if (artifact.SchemaVersion != 2 || artifact.BuildId != plan.BuildId || artifact.Attestation.Neutralization?.DerivationId != plan.DerivationId ||
+            artifact.Attestation.Neutralization.PlanVersion != "debian-trixie-neutralization-2026-09-28-v2" ||
+            DebianConfiguredRootArtifacts.Digest(descriptor) != plan.DescriptorSha256 || artifact.PackageSet.PolicySha256 != plan.PolicySha256 ||
+            artifact.Manifest.Sha256 != plan.ManifestSha256 || artifact.Content.Sha256 != plan.ContentSha256 || artifact.Content.Length != plan.ContentLength)
+            throw new InvalidDataException("Import source differs from immutable plan.");
+        if (plan.TransportSupport.Availability != ObservationAvailability.Available) throw new NotSupportedException(plan.TransportSupport.Code);
     }
 }

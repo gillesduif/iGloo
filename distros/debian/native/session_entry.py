@@ -23,7 +23,14 @@ def main():
     directory = Path(__file__).resolve().parent
     modules = ("target_files.py", "isolation_policy.py", "isolation_observer.py", "package_broker.py", "mount_supervisor.py",
                "target_observer.py", "deployment_journal.py", "configured_root_metadata.py", "root_transport.py", "configured_root.py",
-               "session_import.py", "block_session.py")
+               "session_import.py", "session_configuration.py")
+    if declaration.get('LabInitramfs') is not None or declaration.get('LabUserData') is not None:
+        modules += ("configured_successor.py", "initramfs_archive.py", "initramfs_generated.py", "initramfs_candidate.py",
+                    "initramfs_observer.py", "initramfs_publication.py", "session_initramfs.py")
+    if declaration.get('LabUserData') is not None:
+        modules += ("debian_first_boot.py", "userdata_contract.py", "userdata_producer.py", "userdata_source.py",
+                    "userdata_admission.py", "userdata_successor.py", "session_userdata.py")
+    modules += ("block_session.py",)
     hashes = declaration["ToolHashes"]
     if not {str(directory / name) for name in modules} <= set(hashes):
         raise ValueError("Incomplete module manifest")
@@ -50,6 +57,12 @@ def main():
         module.__package__ = ""
         sys.modules[module.__name__] = module
         exec(compile(sources[name], module.__file__, "exec"), module.__dict__)
+    if "UserDataObservation" in declaration or "UserDataProducerObservation" in declaration:
+        return sys.modules["session_userdata"].observe(declaration)
+    if "ConfigurationObservation" in declaration:
+        return sys.modules["session_configuration"].observe_configuration(declaration)
+    if "InitramfsObservation" in declaration:
+        return sys.modules["session_initramfs"].observe(declaration)
     if "ImportObservation" in declaration:
         return sys.modules["session_import"].observe_import(declaration)
     if "ImportJournalPreflight" in declaration:
@@ -57,7 +70,8 @@ def main():
         runtime.verify()
         inventory, numbers = sys.modules["block_session"].collect_stable_inventory(declaration, runtime)
         stores = sys.modules["session_import"].journal_store_observation(declaration["ImportJournalPreflight"])
-        print(json.dumps({"Inventory": inventory, "DeviceNumbers": numbers, "Stores": stores}, separators=(",", ":")))
+        extra = {"GuestDisks": sys.modules["block_session"].lab_guest_disks(inventory)} if declaration.get("LabProvenance") is not None else {}
+        print(json.dumps({"Inventory": inventory, "DeviceNumbers": numbers, "Stores": stores, **extra}, separators=(",", ":")))
         return 0
     return sys.modules["block_session"].main(declaration)
 

@@ -1,0 +1,303 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "DevelopmentLabCoreConfigurationPrerequisiteStop",
+  "RecordedAtUtc": "2026-09-29T13:04:25.972085+00:00",
+  "StartingCheckout": {
+    "Branch": "refactor/community-fleet-foundation",
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "ModifiedTracked": 32,
+    "Untracked": 54,
+    "IndexEmpty": true,
+    "InitialSnapshotSha256": "F41FCBEA3CD45B78312B18AFFDC4C5FB0CEBDC3C3D92C19860299D4F6B0D7AE3",
+    "InitialDiffSha256": "B1020E44E867075FD198974DC6467FE5E36B4273F80E5D1CABD343ADD12F0662"
+  },
+  "TransformationPolicy": "debian-trixie-core-configuration-v5",
+  "EffectAndObserverRevisionUnchangedFromStart": true,
+  "DefaultsInputSha256": "6702E1CB0D7035A0D7A2BEEDED69F69ACD8AC2B2778913B5AFE60595936448F5",
+  "DefaultsCorrection": "Only uncomment CREATE_MAIL_SPOOL=no in the bound defaults bytes; do not pass the invalid useradd -K option.",
+  "Budget": {
+    "HelperPassesMaximum": 3,
+    "HelperPassesUsed": 0,
+    "CanonicalAttemptsMaximum": 1,
+    "CanonicalAttemptsUsed": 0,
+    "CanonicalPrerequisite": "Complete successful retained-helper sequence and final configured-state verification on the dispatch revision"
+  },
+  "ProvisioningFailure": {
+    "Scope": "HostFixtureProvisioningOnly",
+    "ResourceDirectory": "/var/lib/igloo/helper-contract-labs/6735aa795c494aee88d07a7c5bd7540d/",
+    "ProducerSha256": "F2F2499F8D9781BFA872C603B3CC573DA3598F8023A47176B600611394B5F957",
+    "ExecutedHostSourceSha256": {
+      "tests/installer/canonical_configuration_derivation.py": "1FF1AAF5DE9F5FD618F8B483C5BCAD5945D2181FE0CF8A77018C1C2CA51C87E5",
+      "tests/installer/canonical_storage_lab.py": "0C32F089FCAE2272D3792E72FAAD8E04263AF9195F5420D9F8F24375F97D0DFF",
+      "tests/installer/canonical_lab_runtime.py": "36C1F2BC4DBAC602817542458F26541AB100C502470A0628602E0481708455A9"
+    },
+    "ProducerCommand": "wsl -d Ubuntu-24.04 -u root -- python3 -B /mnt/c/igloo-lab-runtime/helper-v5-20260929/create-fixture-runtime.py",
+    "CopyCommand": [
+      "cp",
+      "--sparse=always",
+      "--reflink=auto",
+      "--no-clobber",
+      "<protected-checkpoint>/target.raw",
+      "<new-resource>/source.raw"
+    ],
+    "CopyExitCode": 1,
+    "CopyDiagnostic": "error reading checkpoint target.raw: Input/output error",
+    "CompletedBeforeFailure": [
+      "Closed-backing checks",
+      "Checkpoint result hash check",
+      "WSL statvfs capacity check",
+      "Preservation hash scan and record publication",
+      "Creation intent",
+      "Independent runtime copy and hash reopen",
+      "Full checkpoint target hash check immediately before source copy"
+    ],
+    "PartialSourceLastObservedLogicalBytes": 13060612096,
+    "PartialSourceFinalIndependentReopen": false,
+    "WindowsBackingVolumeFreeBytesObservedAfterFailure": 0,
+    "WslDiagnostic": "The distribution failed to start. Error code: 6, failure step: 2; Wsl/Service/CreateInstance/E_FAIL",
+    "CauseAssessment": "Backing-volume exhaustion is likely, not conclusively established as the cause of the copy I/O error; kernel diagnostics unavailable.",
+    "VmLaunchInvoked": false,
+    "HelperDispatchReservationCreated": false,
+    "CanonicalAuthorizationCreated": false,
+    "RetryInvoked": false,
+    "CleanupOrHostRepairInvoked": false,
+    "ProtectedRawRecords": [
+      "budget.json",
+      "preserved-before.json",
+      "intent.json"
+    ],
+    "RawRecordsPostFailureReopen": "Unavailable while WSL cannot start"
+  },
+  "CapacityObservation": {
+    "SchemaVersion": 1,
+    "Scope": "HostCapacityObservationOnly",
+    "Distribution": "Ubuntu-24.04",
+    "BackingVolume": "C:\\",
+    "AvailableBytes": 4275576832,
+    "RequiredAdditionalBytes": 193273528320,
+    "ObservedAtUtc": "2026-09-29T12:56:50.8059102+00:00",
+    "Sufficient": false,
+    "NativeMutationAuthorized": false
+  },
+  "CapacityCommand": "powershell.exe -NoProfile -NonInteractive -File tests/installer/Test-CanonicalLabHostCapacity.ps1 -DistributionName Ubuntu-24.04 -RequiredAdditionalBytes 193273528320",
+  "CapacityExitCode": 2,
+  "CapacityImplementationLimit": "Direct Windows observation executed; WSL-to-Windows bridge fixture-tested only because WSL is unavailable.",
+  "Checkpoint": {
+    "Directory": "/var/lib/igloo/config-checkpoints/import-daa72a8f-20260929/",
+    "ResultHashVerifiedBeforeCopy": "518AF140A5D7241948FE4C1C5B054BB35E732349524FAA74297863ED7EDA3486",
+    "TargetHashVerifiedBeforeCopy": "1C63ADEECBAE295E87766D02503F7D7704BE28036832D64FA3FA66738549AE4C",
+    "TargetLogicalLength": 42949672960,
+    "PriorFailedRuns": [
+      "eef3675f8bae45c7837e9100cc1c0f1b",
+      "a92a3ea6ead649d4b9bc2263adb0a10a",
+      "16dd9a8402e0402aa20889555f1e8f15"
+    ],
+    "PriorHelperRun": "7ada455b3d5148478ee5a82d6a7f1fad",
+    "IntentionalWritesToCheckpointOrPriorBackings": false,
+    "PostFailureUnchangedVerification": "Not available; no claim of successful post-failure preservation readback"
+  },
+  "HelperSteps": {
+    "Baseline": "NotStarted",
+    "Files": "NotStarted",
+    "Debconf": "NotStarted",
+    "Exim": "NotStarted",
+    "TLS": "NotStarted",
+    "Locale": "NotStarted",
+    "User": "NotStarted",
+    "Credential": "NotStarted",
+    "Sudo": "NotStarted",
+    "VerifyConfiguredState": "NotStarted"
+  },
+  "CanonicalSteps": {
+    "Baseline": "NotStarted",
+    "Files": "NotStarted",
+    "Debconf": "NotStarted",
+    "Exim": "NotStarted",
+    "TLS": "NotStarted",
+    "Locale": "NotStarted",
+    "User": "NotStarted",
+    "Credential": "NotStarted",
+    "Sudo": "NotStarted",
+    "VerifyConfiguredState": "NotStarted"
+  },
+  "NativeExecutionRevision": null,
+  "ConfigurationResult": null,
+  "CanonicalTeardownResult": null,
+  "ConfiguredTargetRetained": false,
+  "LabShutdown": "Not invoked; qualification VM was not launched",
+  "CurrentSourceSha256": {
+    "distros/debian/Deployment/DebianConfigurationContinuation.cs": "1F383A8DD830C59C279CDBAA24DD80C97CFF770B34266706D15F1076A2C880FB",
+    "distros/debian/native/session_configuration.py": "EC3E906D437DC220B8AD5774BB1764A546A9E29F0D091B570BD2414D4922C1B2",
+    "distros/debian/native/package_broker.py": "25F9E7D3F89AF21A39DF2FEE308B9FE9BAC06D435F7A294A96C3C9B9F70918A1",
+    "distros/debian/native/isolation_policy.py": "CB211E8DC41B97B01A3F0423E1C5FE0416BA875223F07D4657C977B652BD595F",
+    "tests/installer/configuration_broker_rehearsal.py": "3C10351179EA50B86F8F018FE65F21DE8006B6B8AF4486F29448902288536307",
+    "tests/installer/canonical_configuration_derivation.py": "B2C7695528CCA3E92E4991AF70505C22DBE86BD01F791FF4955CFB72D35D5396",
+    "tests/installer/canonical_storage_lab.py": "0301E0A66BE1B576B0DF1CAEEE005B2E224011CF14D67C39805275C524334F1D",
+    "tests/installer/canonical_lab_capacity.py": "FA6401DE384B8CDD4DAC7E433704B735707F351536300F5987FFE9825FCAA884",
+    "tests/installer/Test-CanonicalLabHostCapacity.ps1": "118960663B974D8087238936505C61DBE13F24FAF55BC63FBE282A0485A3F017",
+    "tests/installer/test_configuration_accounts.py": "AFE5068B193A42A15B33F7F0472BE0681A2A192B8CA79DE66419E55E0E996271",
+    "tests/installer/test_canonical_lab_capacity.py": "791839D894545B111D1611CD130FC6AD7665D86A55AFC935AACA44FED8467E29"
+  },
+  "PublishedButNotNativeExecutedBinarySha256": {
+    "CanonicalImportQualification.dll": "A41955EBF8B11AE0A63654DC0D62E72EF1AFA8DE9EDD272D5712F3480E79FD47",
+    "CryptSharp.dll": "F14E2E528B56F88106E7DF0D40DB9C4FCDE3DCDB7F7182873B6997CB8D5D0610",
+    "Igloo.Core.dll": "FCC2BD955C25E50448CE2AA234F22186D3313A6B4FDDAAE8BC76736A440184B9",
+    "Igloo.Distro.Debian.dll": "99D92B962B43238BD69E68213F57216DA5375B50E9F4638CC2F9B3A808378726",
+    "Microsoft.Extensions.DependencyInjection.Abstractions.dll": "A0106A638FACAE621F870EDA720CB6C980C1D5D49C2F4351134E3FE043B9291B",
+    "Microsoft.Extensions.Logging.Abstractions.dll": "29E6BFAF5CE079AD4D70DC547D966038992A7428DF6E726084EB9010EC837715"
+  },
+  "HistoricalJsonBytesUnchanged": {
+    "docs/architecture/debian-root-chunk-transport-manifest.json": true,
+    "docs/architecture/debian-core-configuration-reviewed-attempt-evidence.json": true,
+    "tests/installer/configuration_manifest_fixture.json": true,
+    "docs/architecture/debian-core-helper-contracts-v5-review.json": true,
+    "docs/architecture/debian-canonical-lab-import-evidence.json": true,
+    "docs/architecture/debian-canonical-gpt-runtime-evidence.json": true,
+    "docs/architecture/debian-core-configuration-compatibility.json": true,
+    "docs/architecture/debian-core-helper-contracts-evidence.json": true,
+    "docs/architecture/debian-storage-session-smoke-evidence.json": true,
+    "docs/architecture/debian-post-import-configuration-evidence.json": true,
+    "docs/architecture/debian-checkpoint-derived-configuration-evidence.json": true,
+    "docs/architecture/debian-configured-root-neutralization-evidence.json": true
+  },
+  "Checks": [
+    {
+      "Command": "dotnet test tests/Igloo.Core.Tests/Igloo.Core.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Result": "390 passed; 0 failed; 0 skipped",
+      "Log": "Core.log",
+      "LogSha256": "9620FDFCFFA8FA2FB4CFAF9C9B95B4EDAB196587786FA82017889B5875F5EB86"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Preflight.Tests/Igloo.Preflight.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Result": "343 passed; 0 failed; 0 skipped",
+      "Log": "Preflight.log",
+      "LogSha256": "279A2E5D284CA6FCBFA69FAE47E64A55628B5EEDA92720672542D1E5666845ED"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Community.App.Tests/Igloo.Community.App.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Result": "58 passed; 0 failed; 0 skipped",
+      "Log": "Community.App.log",
+      "LogSha256": "CAC1B7F81E65073392E33E9CC62330DCC35AA5EE90C98D082CB7FAAA51F7D357"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Result": "437 passed; 0 failed; 0 skipped",
+      "Log": "Migration.log",
+      "LogSha256": "3D4814CE4817725F89F07722BED384DBDDE3287D8DC15089EF2EE45B8A456724"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror --filter FullyQualifiedName~DebianConfigurationContinuationTests",
+      "Environment": "Windows",
+      "Result": "19 passed (overlaps Migration suite)",
+      "Log": "focused-initial-migration.log",
+      "LogSha256": "A572E9B3DE7EA85A2BF63F6E25718592683E099A87C0D69A1A81A0D16F96A24A"
+    },
+    {
+      "Command": "dotnet build Igloo.sln -warnaserror",
+      "Environment": "Windows",
+      "Result": "Passed",
+      "Log": "solution-build.log",
+      "LogSha256": "22020BFD10E7A5FCFE64D73727BC87BD84574B49E085730A2AD36903A7A9FB2F"
+    },
+    {
+      "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Result": "Passed",
+      "Log": "harness-build.log",
+      "LogSha256": "ED6798857A91F14BD8E1A672E700C860CFA61A2163684EDCAAAC32C7262D03C5"
+    },
+    {
+      "Command": "dotnet publish tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror -o C:/igloo-lab-runtime/helper-v5-publish",
+      "Environment": "Windows",
+      "Result": "Passed; published binaries not executed in the qualification guest",
+      "Log": "publish-v5.log",
+      "LogSha256": "CA0596764FD70538E8CF96BE16905C9E5C467E633C263F1782A6B949BE879499"
+    },
+    {
+      "Command": "dotnet test Igloo.sln --no-build --no-restore -m:1",
+      "Environment": "Windows; after successful current-source solution build",
+      "Result": "1423 passed; 0 failed; 0 skipped (includes individual suites)",
+      "Log": "solution-tests.log",
+      "LogSha256": "3F158FF09492D4FBD856981CFEAB74ED2484D5C4A5A6FF525179A10C61FF68CE"
+    },
+    {
+      "Command": "wsl -d Ubuntu-24.04 -- python3 -B -m unittest discover -s tests/installer -p 'test_configuration*.py'",
+      "Environment": "WSL, before provisioning failure",
+      "Result": "28 passed; first configuration discovery preceded the four new account cases",
+      "Log": "focused-initial.log",
+      "LogSha256": "95EB99128E07A84E36C02619ACA4B46208AB6CDA95F824AD85C858BAA0B56E44"
+    },
+    {
+      "Command": "wsl -d Ubuntu-24.04 -- python3 -B -m unittest discover -s tests/installer -p 'test_configuration_accounts.py'",
+      "Environment": "WSL, before provisioning failure",
+      "Result": "4 passed; first configuration discovery preceded the four new account cases",
+      "Log": "accounts-initial.log",
+      "LogSha256": "638D287C0B0A39696192D173099F90DFD19C0B1B2DF974802576F431E7C9EB0B"
+    },
+    {
+      "Command": "wsl -d Ubuntu-24.04 -- python3 -B -m unittest discover -s tests/installer -p 'test_debian_isolation.py'",
+      "Environment": "WSL, before provisioning failure",
+      "Result": "44 passed; first configuration discovery preceded the four new account cases",
+      "Log": "isolation-initial.log",
+      "LogSha256": "08C47DDF7B83EC553EB97AAFA772952A1B7A22A6A77B0B48BAD53A1F0275F7CD"
+    },
+    {
+      "Command": "python -B -m unittest discover -s tests/installer -p test_canonical_lab_capacity.py",
+      "Environment": "Windows; mocked host protocol/provider ordering",
+      "Result": "5 passed",
+      "Log": "capacity-tests-final.log",
+      "LogSha256": "FFE40085DE9AEA3F29E0E1DA0E6AFC771375A4491DF98D1D202B438A808705BC"
+    }
+  ],
+  "InitialTestFailure": "Capacity ordering unit test initially could not import pwd on Windows; platform-only inert test shim corrected; final five pass. No production provider behavior changed.",
+  "ChecksNotExecuted": [
+    "Full Linux unittest discovery after final host-capacity changes",
+    "Current native generic broker fixtures",
+    "Retained-helper sequence",
+    "Canonical configuration",
+    "Exact canonical teardown",
+    "Post-failure checkpoint and prior-backing hashes"
+  ],
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0,
+  "DownstreamWork": "Initramfs/agent/boot not in scope; no handoff produced",
+  "LogsDirectory": "C:/igloo-lab-runtime/helper-v5-20260929/",
+  "Limitations": [
+    "No target account/helper qualification from this run",
+    "No power-loss durability test",
+    "Existing failure-path canonical teardown backlog remains unresolved",
+    "Capacity observation is not ownership or mutation authority"
+  ],
+  "FinalCheckout": {
+    "Branch": "refactor/community-fleet-foundation",
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "ModifiedTracked": 32,
+    "Untracked": 60,
+    "IndexEmpty": true,
+    "ChangedFromInitial": [
+      "docs/fleet/phase-2.md",
+      "tests/installer/CanonicalImportQualification/README.md",
+      "docs/architecture/debian-post-import-configuration.md",
+      "tests/installer/canonical_configuration_derivation.py",
+      "tests/installer/canonical_storage_lab.py"
+    ],
+    "AddedThisContinuation": [
+      "docs/architecture/debian-core-v5-capacity-block.json",
+      "docs/architecture/debian-core-v5-capacity-block.md",
+      "tests/installer/Test-CanonicalLabHostCapacity.ps1",
+      "tests/installer/canonical_lab_capacity.py",
+      "tests/installer/test_canonical_lab_capacity.py",
+      "tests/installer/test_configuration_accounts.py"
+    ]
+  },
+  "WhitespaceAndSourceChecks": {
+    "GitDiffCheck": "Passed; line-ending warnings only",
+    "PythonAstParse": "Passed for changed/untracked Python sources",
+    "UntrackedWhitespaceBomLargeFileAndPrivateLiteralChecks": [],
+    "Scope": "Dirty/untracked paths inspected; no repository-wide reformatting or secret-removal rewrite"
+  }
+}

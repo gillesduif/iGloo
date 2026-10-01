@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Igloo.Core.Preparation;
 
 namespace Igloo.Distro.Debian.Deployment;
 
@@ -43,6 +44,9 @@ public sealed class DebianNativeMountSession : IAsyncDisposable
     private async Task StartCoreAsync(DebianSessionRuntimeV1 runtime, CancellationToken ct)
     {
         await VerifyRuntimeAsync(runtime, ct).ConfigureAwait(false);
+        if (_authority.InitramfsPlan is not null && _authority.InitramfsPlan.ExecutionSha256 !=
+            Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(runtime.ToolHashes))))
+            throw new InvalidDataException("Initramfs execution revision changed.");
         var parentNamespace = new FileInfo("/proc/self/ns/mnt").LinkTarget ?? throw new IOException("Mount namespace unavailable.");
         if (!parentNamespace.StartsWith("mnt:[", StringComparison.Ordinal) || !parentNamespace.EndsWith(']'))
             throw new IOException("Malformed mount namespace identity.");
@@ -57,13 +61,7 @@ public sealed class DebianNativeMountSession : IAsyncDisposable
         _started = process.Start();
         if (!_started) throw new IOException("Session supervisor unavailable.");
         _discardErrors = DiscardBoundedAsync(process.StandardError);
-        await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new
-        {
-            _authority.SessionId, _authority.GenerationId, _authority.PlanSha256, _authority.ImportPlan, EntryPath = runtime.Entry,
-            ParentMountNamespace = parentNamespaceId,
-            CollectorPath = runtime.Collector, CollectorSha256 = runtime.ToolHashes[runtime.Collector], ToolHashes = runtime.ToolHashes,
-            Runtime = RuntimeDeclaration(runtime),
-        }).AsMemory(), ct).ConfigureAwait(false);
+        await process.StandardInput.WriteLineAsync(SerializeRequest(_authority, runtime, parentNamespaceId).AsMemory(), ct).ConfigureAwait(false);
         await process.StandardInput.FlushAsync(ct).ConfigureAwait(false);
         using var startupTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         startupTimeout.CancelAfter(TimeSpan.FromSeconds(60));
@@ -72,6 +70,20 @@ public sealed class DebianNativeMountSession : IAsyncDisposable
         await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new { _authority.SessionId, Accepted = true }).AsMemory(), startupTimeout.Token).ConfigureAwait(false);
         await process.StandardInput.FlushAsync(startupTimeout.Token).ConfigureAwait(false);
     }
+
+    internal static string SerializeRequest(DebianMountSessionAuthority authority, DebianSessionRuntimeV1 runtime, ulong parentNamespaceId) =>
+        JsonSerializer.Serialize(new
+        {
+            authority.SessionId, authority.GenerationId, authority.PlanSha256, ImportPlan = (object?)authority.SourcePlan, StorageSmoke = authority.StorageSmoke?.Provenance, LabImport = authority.SourcePlan is DebianLabImportPlanV1 ? authority.LabStorage?.Provenance : null, ConfigurationPlan = authority.ConfigurationPlan, ConfigurationPredecessor = authority.Predecessor, LabConfiguration = authority.ConfigurationPlan is not null ? authority.LabStorage?.Provenance : null, EntryPath = runtime.Entry,
+            ParentMountNamespace = parentNamespaceId,
+            InitramfsPlan = authority.InitramfsPlan, ConfiguredPredecessor = authority.ConfiguredPredecessor,
+            LabInitramfs = authority.InitramfsPlan is not null ? authority.LabStorage?.Provenance : null,
+            UserDataPlan = authority.UserDataPlan, InitramfsPredecessor = authority.InitramfsPredecessor, UserDataStore = authority.UserDataStore,
+            LabUserData = authority.UserDataPlan is not null ? authority.LabStorage?.Provenance : null,
+            ExecutionSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(runtime.ToolHashes))),
+            CollectorPath = runtime.Collector, CollectorSha256 = runtime.ToolHashes[runtime.Collector], ToolHashes = runtime.ToolHashes,
+            Runtime = RuntimeDeclaration(runtime),
+        });
 
     private static object RuntimeDeclaration(DebianSessionRuntimeV1 runtime) => new
     {
@@ -85,11 +97,17 @@ public sealed class DebianNativeMountSession : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(runtime);
         if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Linux mount session required.");
         string[] modules = ["block_session.py", "mount_supervisor.py", "package_broker.py", "isolation_policy.py", "isolation_observer.py", "target_files.py",
-            "configured_root.py", "root_transport.py", "configured_root_metadata.py", "target_observer.py", "deployment_journal.py", "session_import.py"];
+            "configured_root.py", "root_transport.py", "configured_root_metadata.py", "target_observer.py", "deployment_journal.py", "session_import.py", "session_configuration.py"];
         var directory = Path.GetDirectoryName(runtime.Entry)!;
-        var required = new[] { runtime.Python, runtime.Gate, runtime.Entry, runtime.Collector, runtime.Bubblewrap, runtime.Observer, "/usr/bin/dpkg-query" }
+        if (runtime.ToolHashes.ContainsKey(Path.Combine(directory, "session_initramfs.py")))
+            modules = [.. modules, "configured_successor.py", "initramfs_archive.py", "initramfs_generated.py", "initramfs_candidate.py",
+                "initramfs_observer.py", "initramfs_publication.py", "session_initramfs.py"];
+        if (runtime.ToolHashes.ContainsKey(Path.Combine(directory, "session_userdata.py")))
+            modules = [.. modules, "debian_first_boot.py", "userdata_contract.py", "userdata_producer.py", "userdata_source.py",
+                "userdata_admission.py", "userdata_successor.py", "session_userdata.py"];
+        var required = new[] { runtime.Python, runtime.Gate, runtime.Entry, runtime.Collector, runtime.Bubblewrap, runtime.Observer, "/usr/bin/dpkg-query", "/usr/bin/openssl", "/usr/bin/localedef", "/usr/lib/x86_64-linux-gnu/libcrypt.so.1.1.0" }
             .Concat(modules.Select(m => Path.Combine(directory, m))).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
-        if (!runtime.ToolHashes.Keys.SequenceEqual(required, StringComparer.Ordinal)) throw new InvalidDataException("Incomplete session tool manifest.");
+        if (!runtime.ToolHashes.Keys.Order(StringComparer.Ordinal).SequenceEqual(required, StringComparer.Ordinal)) throw new InvalidDataException("Incomplete session tool manifest.");
         foreach (var (path, hash) in runtime.ToolHashes)
         {
             DebianSessionToolProtection.Verify(path);
@@ -104,6 +122,24 @@ public sealed class DebianNativeMountSession : IAsyncDisposable
         Guid expectedRuntimeFileSystemUuid, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(runtime);
+        return DebianImportJournalStorage.Verify(plan, sessionStore, importStore, expectedRuntimeFileSystemUuid,
+            await ObserveJournalPlacementAsync(runtime, sessionStore, importStore, ct).ConfigureAwait(false));
+    }
+
+    public static async Task<ImmutableArray<DebianJournalStoreWitnessV1>> ObserveImportJournalsAsync(
+        DebianSessionRuntimeV1 runtime, ValidatedInstallationStorage storage, string sessionStore, string importStore,
+        Guid expectedRuntimeFileSystemUuid, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(storage);
+        ArgumentNullException.ThrowIfNull(runtime);
+        return DebianImportJournalStorage.Verify(storage, sessionStore, importStore, expectedRuntimeFileSystemUuid,
+            await ObserveJournalPlacementAsync(runtime, sessionStore, importStore, ct, storage.Provenance).ConfigureAwait(false));
+    }
+
+    private static async Task<JsonElement> ObserveJournalPlacementAsync(DebianSessionRuntimeV1 runtime,
+        string sessionStore, string importStore, CancellationToken ct, InstallationStorageProvenanceV1? provenance = null)
+    {
         await VerifyRuntimeAsync(runtime, ct).ConfigureAwait(false);
         var start = new ProcessStartInfo(runtime.Python) { UseShellExecute = false, RedirectStandardInput = true,
             RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
@@ -118,7 +154,7 @@ public sealed class DebianNativeMountSession : IAsyncDisposable
         {
             await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new
             {
-                ImportJournalPreflight = new[] { sessionStore, importStore }, runtime.ToolHashes,
+                ImportJournalPreflight = new[] { sessionStore, importStore }, LabProvenance = provenance, runtime.ToolHashes,
                 CollectorPath = runtime.Collector, CollectorSha256 = runtime.ToolHashes[runtime.Collector], Runtime = RuntimeDeclaration(runtime),
             }).AsMemory(), timeout.Token).ConfigureAwait(false);
             await process.StandardInput.FlushAsync(timeout.Token).ConfigureAwait(false);
@@ -127,7 +163,7 @@ public sealed class DebianNativeMountSession : IAsyncDisposable
             await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
             await errors.ConfigureAwait(false);
             if (process.ExitCode != 0) throw new IOException("Journal observer failed.");
-            return DebianImportJournalStorage.Verify(plan, sessionStore, importStore, expectedRuntimeFileSystemUuid, observed.RootElement);
+            return observed.RootElement.Clone();
         }
         finally
         {
@@ -146,7 +182,10 @@ public sealed class DebianNativeMountSession : IAsyncDisposable
         {
             _authority.BeginAction(action);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(action == DebianMountSessionAction.ImportConfiguredRoot ? TimeSpan.FromHours(4) : TimeSpan.FromMinutes(10));
+            // Configuration repeats full-tree semantic/complement observations around
+            // the bounded helpers; the mount-only ten-minute budget is insufficient.
+            timeout.CancelAfter(action is DebianMountSessionAction.ImportConfiguredRoot or DebianMountSessionAction.ConfigureCore or DebianMountSessionAction.GenerateInitramfs or DebianMountSessionAction.TransferUserData
+                ? TimeSpan.FromHours(4) : TimeSpan.FromMinutes(10));
             await _process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new { _authority.SessionId, Action = action.ToString() }).AsMemory(), timeout.Token).ConfigureAwait(false);
             await _process.StandardInput.FlushAsync(timeout.Token).ConfigureAwait(false);
             while (true)

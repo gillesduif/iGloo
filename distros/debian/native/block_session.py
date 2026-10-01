@@ -17,6 +17,7 @@ from isolation_observer import mount_records, namespace_ids
 from mount_supervisor import BlockLease, ExactMountSupervisor
 from package_broker import DirectoryLease, Runtime
 import session_import
+import session_configuration
 
 LIMIT = 8 * 1024 * 1024
 
@@ -90,6 +91,59 @@ def collect_stable_inventory(declaration, runtime):
     return second, after
 
 
+def lab_guest_disks(inventory):
+    require(inventory.get("availability") == "Available", "LabWholeInventoryUnavailable")
+    result = []
+    for disk in inventory["disks"]:
+        name = Path(disk["devicePath"]).name
+        result.append({"DevicePath": disk["devicePath"],
+            "Serial": Path("/sys/class/block", name, "serial").read_text().strip(),
+            "PhysicalSectorSize": int(Path("/sys/class/block", name, "queue/physical_block_size").read_text())})
+    return result
+
+
+def lab_provenance(declaration):
+    userdata = declaration.get('LabUserData')
+    if userdata is not None:
+        require(all(declaration.get(k) is None for k in ('StorageSmoke', 'LabImport', 'ImportPlan', 'LabConfiguration', 'ConfigurationPlan', 'LabInitramfs', 'InitramfsPlan')),
+                'MixedLabScopes')
+        require(userdata.get('Provider') == 'IsolatedFileBackedLab' and type(userdata.get('Version')) is int and userdata['Version'] == 5 and
+                userdata.get('Scope') == 'SelectedDocumentTrees' and userdata.get('GenerationId') == declaration['GenerationId'] and
+                declaration['UserDataPlan']['Provenance'] == userdata, 'UserDataProvenanceInvalid')
+        return userdata
+    initramfs = declaration.get('LabInitramfs')
+    if initramfs is not None:
+        require(all(declaration.get(k) is None for k in ('StorageSmoke', 'LabImport', 'ImportPlan', 'LabConfiguration', 'ConfigurationPlan')),
+                'MixedLabScopes')
+        require(initramfs.get('Provider') == 'IsolatedFileBackedLab' and initramfs.get('Version') == 4 and
+                initramfs.get('Scope') == 'InitramfsImage' and initramfs.get('GenerationId') == declaration['GenerationId'] and
+                declaration['InitramfsPlan']['Provenance'] == initramfs, 'InitramfsProvenanceInvalid')
+        return initramfs
+    configuration = declaration.get("LabConfiguration")
+    if configuration is not None:
+        require(declaration.get("StorageSmoke") is None and declaration.get("LabImport") is None and declaration.get("ImportPlan") is None, "MixedLabScopes")
+        require(configuration.get("Provider") == "IsolatedFileBackedLab" and configuration.get("Version") == 3 and
+                configuration.get("Scope") == "CoreConfiguration" and configuration.get("GenerationId") == declaration["GenerationId"] and
+                declaration["ConfigurationPlan"]["Provenance"] == configuration, "ConfigurationProvenanceInvalid")
+        return configuration
+    smoke, imported = declaration.get("StorageSmoke"), declaration.get("LabImport")
+    require(not (smoke is not None and imported is not None), "MixedLabScopes")
+    value = smoke if smoke is not None else imported
+    if value is not None:
+        scope, version = ("StorageSmoke", 1) if smoke is not None else ("ConfiguredRootImport", 2)
+        require(value.get("Provider") == "IsolatedFileBackedLab" and value.get("Version") == version and
+                value.get("Scope") == scope and value.get("GenerationId") == declaration["GenerationId"], "LabProvenanceInvalid")
+        require((declaration.get("ImportPlan") is None) == (smoke is not None), "LabImportScopeChanged")
+        if imported is not None:
+            require(declaration["ImportPlan"].get("Provenance") == imported and
+                    declaration["ImportPlan"].get("SchemaVersion") == 1, "LabImportPlanChanged")
+    return value
+
+
+def root_only(declaration):
+    return lab_provenance(declaration) is not None or declaration.get("ImportPlan") is not None
+
+
 class CanonicalBlocks:
     def __init__(self, declaration, runtime, channel):
         self.declaration, self.runtime, self.channel = declaration, runtime, channel
@@ -100,11 +154,14 @@ class CanonicalBlocks:
     def inventory(self):
         second, after = collect_stable_inventory(self.declaration, self.runtime)
         self.channel.observation_sequence += 1
-        response = self.channel.ask("Inventory", Inventory=second, DeviceNumbers=after,
+        extra = {"GuestDisks": lab_guest_disks(second)} if lab_provenance(self.declaration) is not None else {}
+        response = self.channel.ask("Inventory", Inventory=second, DeviceNumbers=after, **extra,
                                     ObservationSequence=self.channel.observation_sequence)
         leases = response["Leases"]
         require(leases["SessionId"] == self.declaration["SessionId"] and leases["GenerationId"] == self.declaration["GenerationId"],
                 "LeaseSessionChanged")
+        if lab_provenance(self.declaration) is not None:
+            require(leases.get("Provenance") == lab_provenance(self.declaration), "LeaseProvenanceChanged")
         bindings = leases["Bindings"]
         require(len(bindings) == 3 and [b["Role"] for b in bindings] == [0, 1, 2], "LeaseRoleSetChanged")
         if self.bindings is not None:
@@ -141,7 +198,10 @@ class CanonicalBlocks:
         require(stat.S_ISBLK(info.st_mode) and (os.major(info.st_rdev), os.minor(info.st_rdev)) == (lease.major, lease.minor), "BlockDescriptorSubstituted")
         require(fcntl.fcntl(lease.descriptor, fcntl.F_GETFD) & fcntl.FD_CLOEXEC, "BlockDescriptorInheritable")
         size = int.from_bytes(fcntl.ioctl(lease.descriptor, 0x80081272, b"\0" * 8), sys.byteorder)  # BLKGETSIZE64, read-only
-        require(size == binding["Partition"]["SizeBytes"], "BlockDescriptorSizeChanged")
+        partition = binding.get("StoragePartition") if lab_provenance(self.declaration) is not None else binding.get("Partition")
+        require(partition is not None and (binding.get("Partition") is None if lab_provenance(self.declaration) is not None
+                else binding.get("StoragePartition") is None), "MixedBlockProvider")
+        require(size == partition["SizeBytes"], "BlockDescriptorSizeChanged")
 
     def revalidate(self, lease):
         require(not self.failed and self.leases.get(lease.role) is lease, "BlockLeaseNotActive")
@@ -175,6 +235,12 @@ class MountSession:
         self.import_attempted = False
         self.scaffold = False
         self.import_result = None
+        self.configuration_attempted = False
+        self.configuration_result = None
+        self.userdata_attempted = False
+        self.userdata_result = None
+        self.initramfs_attempted = False
+        self.initramfs_result = None
 
     def perform(self, action):
         require(not self.failed and not self.closed, "SessionClosedOrPoisoned")
@@ -186,7 +252,7 @@ class MountSession:
                 self.blocks.acquire()
             elif action == "PrepareImportMountpoints":
                 require(self.acquired and not self.scaffold and not self.supervisor.receipts and
-                        self.declaration.get("ImportPlan") is not None, "ImportScaffoldingOutOfOrder")
+                        root_only(self.declaration), "ImportScaffoldingOutOfOrder")
                 self.blocks.inventory()
                 self.channel.checkpoint({"State": "IntentDurable", "Operation": "CreateImportMountpoints"})
                 self.blocks.inventory()
@@ -196,7 +262,7 @@ class MountSession:
                 self.scaffold = True
             elif action in ("MountRoot", "MountLinuxEsp", "MountPayload"):
                 require(not self.teardown, "SessionCannotRemountAfterTeardown")
-                if self.declaration.get("ImportPlan") is not None:
+                if root_only(self.declaration):
                     require(self.scaffold and action != "MountLinuxEsp", "ImportPhaseCannotMountEspUnderRoot")
                 role = action[5:]
                 lease = self.blocks.leases[role]
@@ -211,8 +277,20 @@ class MountSession:
                     self.supervisor.mount_block(lease, destination)
                 finally:
                     destination.close()
+            elif action == "ConfigureCore":
+                require(self.acquired and not self.teardown and self.declaration.get("LabConfiguration") is not None, "ConfigurationScopeRequired")
+                self.configuration_result = session_configuration.perform(self)
+            elif action == 'TransferUserData':
+                import session_userdata
+                require(self.acquired and not self.teardown and self.declaration.get('LabUserData') is not None, 'UserDataScopeRequired')
+                self.userdata_result = session_userdata.perform(self)
+            elif action == 'GenerateInitramfs':
+                import session_initramfs
+                require(self.acquired and not self.teardown and self.declaration.get('LabInitramfs') is not None,
+                        'InitramfsScopeRequired')
+                self.initramfs_result = session_initramfs.perform(self)
             elif action == "ImportConfiguredRoot":
-                require(self.acquired and not self.teardown, "ImportSessionNotActive")
+                require(self.acquired and not self.teardown and self.declaration.get("StorageSmoke") is None, "ImportSessionNotActive")
                 self.import_result = session_import.perform_import(self)
             elif action in ("UnmountLinuxEsp", "UnmountPayload", "UnmountRoot"):
                 self.teardown = True
@@ -231,6 +309,13 @@ class MountSession:
                     observed = self.supervisor._observe(receipt["Path"])
                     require(observed["Paths"][0]["Identity"] == receipt["Identity"] and
                             observed["Paths"][0]["MountId"] == receipt["MountId"], "SessionMountSubstituted")
+                if self.declaration.get("StorageSmoke") is not None:
+                    view = session_import.ConnectedImportView(self)
+                    try:
+                        view.verify()
+                        self.channel.ask("StorageInspection", Observation=[self.supervisor._observe(r["Path"]) for r in self.supervisor.receipts])
+                    finally:
+                        view.close()
             elif action == "Close":
                 require(not self.supervisor.receipts, "SessionStillMounted")
                 self.channel.checkpoint({"State": "IntentDurable"})
@@ -240,6 +325,12 @@ class MountSession:
             else:
                 raise ValueError("UnsupportedSessionAction")
             result = {"Kind": "Result", "SessionId": self.declaration["SessionId"], "Action": action, "State": "AppliedAndVerified"}
+            if action == "ConfigureCore":
+                result["ConfigurationResult"] = self.configuration_result
+            if action == 'TransferUserData':
+                result['UserDataResult'] = self.userdata_result
+            if action == 'GenerateInitramfs':
+                result['InitramfsResult'] = self.initramfs_result
             if action == "ImportConfiguredRoot":
                 result["ImportResult"] = self.import_result
             return result

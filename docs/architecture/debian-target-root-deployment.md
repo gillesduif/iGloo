@@ -1,5 +1,9 @@
 # Debian Trixie target-root deployment — issue #241
 
+Latest UserData status: the [selected-document producer fixture](debian-userdata-producer-evidence.json)
+below passed on 2026-09-30. Canonical source acquisition/admission and agent/Enrollment
+integration remain closed. This does not supersede the historical results below.
+
 Status: **DEBIAN CONTENT DEPLOYMENT FOUNDATION BLOCKED** (2026-09-28 continuation).
 The [configured-root artifact continuation](debian-configured-root-artifact.md)
 now includes a reviewed, expiring wsdd recommendation exception, a complete signed
@@ -807,3 +811,253 @@ This adds **41 .NET**, **23 Linux deterministic**, and **4 explicit native** tes
 `git diff --check`: **exit 0**, with 28 existing LF/CRLF notices recorded separately;
 new/edited untracked files also have no trailing whitespace.
 No analyzer suppressions, package upgrades, commit or push.
+
+## Selected-document UserData producer fixture — 2026-09-30
+
+The producer now exists separately from the restricted evidence worker. The real
+shared `MigrationManifest.Files` / `MigrationFolder` selection maps each selected
+`sourceRelativePath` tree to `<home>/<name>`. `DebianUserData.Plan` exports that
+mapping and an exact content inventory; `userdata_producer.FixtureContext` checks
+explicit fixture directory leases, account/home identity, complete selected trees,
+source content, collisions and capacity. A manifest digest alone grants no access.
+`perform` reserves a new operation, durably records/reopens intent, copies through
+existing `target_files.beneath`, and invokes a fresh `userdata_entry --observe`
+process. `--reopen` independently validates the terminal producer journal sequence
+and the existing five-field UserData envelope. Producer records v2 bind both the
+observation and result to the exact intent hash/reference and source/account context.
+A later failure invalidates an earlier success-looking record. The first-boot worker
+only consumes receipts; its envelope remains v1.
+
+Supported scope is `SelectedDocumentTreesV1`: nonempty, complete selected ordinary
+file/directory trees from the six existing product folder choices; at most 1,024
+entries and 32 MiB selected bytes. Paths have at most 16 components and 512
+characters, with NFC-normalizable Latin-1 names and simple invariant uppercase
+collision checks. Spaces and accented names are covered. Every selected top-level
+destination must be absent (`CreateNewSelectedTrees`); there is no merge, overwrite,
+cleanup or source mutation. Files receive UID/GID of the verified account and mode
+0600; directories receive 0700. Source permissions are not privileged metadata to
+restore. Complete source and destination fixture snapshots are separately bounded.
+
+Browser profiles, wallpaper/account-picture transfer, arbitrary Unicode outside the
+stated name policy, links, hardlinks, special files, xattrs/ACLs/capabilities, set-ID
+metadata, streams and protected account/key paths are unsupported. Required work is
+rejected, never silently skipped. These Linux fixtures do not supply Windows/NTFS,
+reparse-point or EFS acquisition evidence. Such sources cannot enter this fixture
+composition as a Windows migration. The legacy agent/staging copier is not invoked.
+
+The native acceptance transferred four selected files (313 bytes), including nested,
+empty, binary, spaced and Unicode examples. Independent observation verified every
+selected destination, UID/GID 1000, safe modes, unchanged source and unrelated target
+sentinel. Three durable records and the receipt were reopened in fresh processes.
+The actual native result passed the rebuilt .NET fixture-result decoder. Both stores
+and test accounts are explicitly synthetic; no first-boot configuration was installed
+and no DeploymentContent, Enrollment or FirstBootSucceeded result was manufactured.
+
+See [new evidence](debian-userdata-producer-evidence.json) for the executed hashes,
+commands, reservations, retained runtimes and raw result references. Both allowed
+native acceptance passes were used. The first verified the files but lacked an explicit
+intent hash-link in its receipt evidence; it is retained without final qualification.
+The corrected v2 producer passed the second run on fresh resources, including the
+rehashed-intent substitution regression. Fault-injection fixtures are separate evidence.
+Directory leases closed, tools media was ordinarily unmounted with fresh absence, and
+runtime power-down was observed separately. No canonical target/backing was attached.
+The original runtime's full hash matched after shutdown. No new power-loss claim is made.
+
+The next integration boundary must supply a validated selected-source acquisition
+context and an explicitly authorized destination account/home through the canonical
+owned session, then admit only the exact completed scope's independently reopened
+producer evidence into the protected first-boot input store. This task implements
+only the named fixture composition, not production source authority. The envelope is
+structurally compatible but MUST NOT be installed as production completion evidence;
+its bound result says `FixtureOnlySelectedDocuments`. Missing mandatory producers still
+block first boot. Agent installation, Enrollment, canonical UserData orchestration and
+real user migration qualification remain pending. ProductionAuthentication stays
+Unsupported and NativeSupported stays 0; Windows/recovery/readiness gates are unchanged.
+
+Failure semantics apply to the transfer operation: `NotStarted` means no target
+content effect was released, even when a reservation or intent already exists.
+After a possible directory/file effect, unsuccessful observation or persistence is
+`OutcomeUnknown`; there is no automatic retry, cleanup or rollback claim. The exact
+terminal chain must be reopened, so an earlier result followed by failure cannot
+be admitted as completed UserData. Fixture shutdown is not canonical teardown.
+
+
+## Canonical selected-document successor implementation - 2026-09-30
+
+Current execution status: see [the 2026-10-01 attempt below](#canonical-userdata-execution---2026-10-01).
+The capacity block and unused budgets described in this historical section have been superseded.
+
+Current status: implemented and contract-tested, **not native-qualified**. This
+supersedes missing-wiring statements above only for the development lab composition.
+Earlier fixture evidence remains unchanged. See
+[canonical continuation evidence](debian-userdata-canonical-evidence.json).
+
+`DebianVerifiedInitramfs.Reopen` consumes successful initramfs and exact Close chains.
+`ContinueLabInitramfsCheckpoint` preserves original preparation lineage and validates
+independent copies under a new external one-use
+`OneInitramfsCheckpointSelectedDocuments` authorization. Initial copy equality and
+later payload staging have distinct records and hashes; no new format receipt exists.
+
+`LabUserData.RunAsync` connects shared inventory, ownership/leases and actual journal
+placement verification to `ForLabUserData`, `DebianNativeMountSession` and
+`session_userdata.perform`. Provider version 5 retains lab origin and the closed
+`SelectedDocumentTrees` scope. Earlier scopes cannot acquire `TransferUserData`.
+The wire retains original numeric lease roles/access and existing Windows semantics.
+
+`canonical_userdata_guest.stage_documents` is separate provisioning on the newly
+copied FAT32 payload. It writes only `userdata/<operation>/source`, independently
+reopens its content and compares unrelated artifact objects. Host finalization occurs
+after staging shutdown and rehashes the changed working target. These primitives
+have not executed here. During canonical transfer the acquired payload is read-only;
+runtime/journal/tools media are not alternative sources. Logical OneDrive naming
+proves no Windows, NTFS, cloud, reparse-point or EFS acquisition.
+
+The private-pipe authority declaration and connected root/payload views construct a
+separate canonical context. `userdata_source.observe` verifies the staged inventory,
+current target account database and owned home. The existing copier and independent
+observer remain shared. The full-root observer composes the original artifact,
+verified v5 changes and exact predecessor initramfs with only declared additions.
+The OS filesystem is not subject to the selected transfer's 1,024-entry bound.
+
+Transfer and admission have separate durable intents and reopened results.
+`userdata_admission` derives `/var/lib/igloo/first-boot-input` from the worker contract
+and creates only `userdata.json` and `userdata-evidence.json` (root:root 0644;
+new protected directories 0755). The bundle carries exact producer records, transfer
+and authority bytes, without dependence on a developer-host path. The v1 envelope
+alone is insufficient: `ValidateLabAdmissionStructure` and `validate_admitted_bundle`
+check v2 terminal/intent/context bindings and explicit lab scope. Neither is production
+authority. No worker configuration, DeploymentContent, Enrollment or FirstBootSucceeded
+is created. Later first-boot composition must retain this limited provenance and
+must not substitute it for broader mandatory migration work.
+
+`canonical_userdata_readback.verify` reopens all producer/effect/session records,
+admission links and exact ordinary unmount/Close evidence. Actual .NET serialization
+and Python dispatch/return tests cover this flow with synthetic native effects.
+They do not prove native copying, protected placement or teardown. Ordinary-file
+admission failure fixtures remain to be executed in the isolated runtime.
+
+Read-only predecessor verification reopened 10 effect and 18 session records and
+matched full target/journal/runtime hashes. No original backing was mounted or
+changed. Current Windows backing-volume capacity fails the unchanged 180-GiB gate.
+No copy, canonical reservation, positive attempt or native negative was dispatched;
+both attempt budgets remain unused. Next: fresh successful capacity/pin/tool checks,
+isolated staging and final backing readback, native negative, then the one positive
+canonical attempt, independent handoff and exact teardown. No historical replay.
+
+Scope remains nonempty complete selected ordinary trees, 32 MiB/1,024 entries,
+existing bounded names and CreateNewSelectedTrees. Broader filenames, overwrite,
+privileged metadata, profiles and Windows acquisition remain unsupported.
+ProductionAuthentication is Unsupported and NativeSupported is 0. First boot,
+agent, Enrollment and firmware remain outside scope. No canonical UserData success
+or new retained UserData target is claimed.
+
+## Canonical UserData execution - 2026-10-01
+
+[Execution evidence](debian-userdata-canonical-execution-evidence.json) records the
+new attempt `18e2b3e0-dcc9-45e0-bf8f-4a43f442e5dc`. Current capacity and protected
+development-pin checks passed. The existing provisioner was connected to
+`canonical_userdata_lab.derive` before backing allocation; independent target,
+journal and runtime copies were verified. Ten real isolated ordinary-file admission
+fixtures passed. Separate provisioning staged four selected synthetic files
+(131,130 bytes, six entries), plus an unselected sentinel, on the copied FAT32
+payload. Unrelated payload objects were independently unchanged. Staging shutdown,
+full changed-target hashing and fresh second-launch correlation were recorded.
+
+The separately bound negative dispatched once but stopped at `PredecessorReopen`.
+It therefore did **not** qualify the intended wrong-operation rejection. Native
+observer JSON containing `+` had been escaped as `\u002B` by durable .NET journal
+serialization; the new successor reader incorrectly hashed that escaped form.
+`DebianVerifiedInitramfs.ObservationHashMatches` now recognizes the original native
+ASCII representation while retaining exact journal-chain hashes. Regression tests
+reject a changed observation digest. Read-only reopening of the actual predecessor
+then succeeded; no historical bytes or outcomes were changed.
+
+The positive entrypoint dispatched once on the corrected predecessor-reader revision.
+It returned `NotStarted` / `UserDataSessionUnavailable` / `JsonException` at
+`StorageAndJournalValidation`, before canonical session creation. No target root
+or payload was canonically mounted, no transfer/admission ran, and both new stores
+remained empty. A separate read-only journal observation succeeded, but is not a
+completed canonical placement or session result.
+
+Afterward, the actual protected pin reproduced a strict-schema defect: UserData's
+reader omitted its `ManifestSha256` and `ContentSha256` properties. The final source
+uses the complete `UserDataExternalPin` schema and labels that boundary explicitly.
+The focused regression both reproduces the old rejection and accepts the corrected
+schema without allowing unknown fields. This post-attempt correction was rebuilt
+and tested, **not dispatched natively**. The executed diagnostic does not identify
+a narrower failure location than its recorded boundary; the pin mismatch is a
+confirmed independently reproduced defect, not a recovered traceback.
+
+Both authorized dispatch allocations are consumed (positive 1/1, negative 1/1).
+No retry, reservation deletion or failed-root cleanup occurred. Provisioning's
+journal mount was ordinarily unmounted with an exact independent mount delta;
+canonical teardown is `NotStarted`, not qualified. Normal runtime shutdown was
+observed separately. The powered-off failed derivative and all records remain
+retained. Its complete target hash equals the post-staging hash; the protected
+predecessor target and journal hashes were independently rechecked unchanged.
+
+Next execution requires a separately authorized fresh attempt and native negative,
+using the corrected pin reader after current prerequisites. The complete
+`ForLabUserData` → `session_userdata.perform` → producer/observer → protected
+admission → `canonical_userdata_readback.verify` → exact Close path remains
+unqualified. SelectedDocumentTreesV1 limits and all product/first-boot gates remain
+unchanged; there is no successful canonical UserData handoff.
+
+## Corrected-input UserData canonical attempt — 2026-10-01
+
+Current result: **not qualified**. The separately authorized attempt
+`3d520fa6-876d-4f47-881c-beb089d90aea`, operation
+`634294f1-7ad9-4fb1-99b2-faec481cad92`, consumed one positive dispatch and one
+native negative. See [new execution evidence](debian-userdata-canonical-corrected-attempt-evidence.json).
+The older failed attempt and its evidence retain their original meaning.
+
+The existing 180-GiB host gate passed with 277,691,215,872 bytes available.
+The current net8.0 harness built under SDK 10.0.401 without an Enterprise-2022
+dependency or package/workload change. Shared read-only readiness reopened the
+retained predecessor journal bytes and checked the complete protected external
+pin, including manifest/content ancestry and expiry. Historical guest witnesses
+are used only to reopen historical storage evidence; active continuation still
+collects fresh inventory and guest witnesses. Protected parser copies are not
+claims that an exported record's original parent path is protected.
+
+After independent copy verification, bounded payload staging again delivered
+four selected files, 131,130 bytes. A fresh launch repeated readiness against
+its actual protected inputs. Changing only the operation reached exactly
+`OperationBinding / UserDataOperationBindingRejected`, before canonical session
+creation or producer effects. This qualifies the intended native negative.
+
+The positive run verified canonical ownership/journal placement, acquired leases,
+mounted root/payload and durably recorded **Baseline AppliedAndVerified**.
+It then ended **OutcomeUnknown** at `TransferUserData`, before Transfer intent
+or a producer reservation. No selected-file writer or admission ran.
+Independent readback reopened ten session and two effect records and rejected
+the incomplete handoff with `UserDataIncompleteChains`.
+
+A separate read-only probe of the exact executed module reproduced its import
+of nonexistent `block_session.CanonicalSession`; the actual class is
+`MountSession`. The earlier execution's discarded stderr cannot be recovered.
+Its recorded parent journal mount ID was 67, while independent supervisor
+readback recorded the cloned mount as 209, exposing a second adjacent mismatch.
+
+**Post-failure source, not native qualification:** the constructor now requires
+the real exact `MountSession` type. Journal validation retains the original
+device/inode and joins it to fresh independent path/mount readback in the active
+namespace, requiring private persistent EXT4, exact mount root, noexec/nodev/nosuid,
+and no aliases or child mounts. Import/attribute failures now reach the existing
+Stopped record path. Twenty-three focused Python tests pass, including the real
+constructor with actual .NET context JSON and synthetic filesystem boundaries.
+The copier, receipt publisher and earlier scopes were not broadened.
+
+Root/payload absence was observed in the runtime namespace after supervisor
+disposal. **There is no canonical Unmount/Close receipt.** Provisioning's separate
+journal mount was ordinarily unmounted with an exact observed delta; normal VM
+shutdown was observed separately. The failed derivative and reservations remain
+retained. Its target backing hash differs from staging; no post-failure whole-root
+semantic readback was performed, so the session is not described as effect-free.
+
+Both dispatch allocations are consumed. No retry or new authorization was issued.
+A later authorized attempt must qualify the corrected context/journal connection
+and still complete transfer, admission, independent whole-root delta, durable
+handoff and exact canonical teardown. SelectedDocumentTreesV1 remains limited to
+32 MiB / 1,024 selected entries and the existing filename/metadata policy.
+No general Windows migration, first-boot, agent or production readiness follows.

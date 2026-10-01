@@ -2,7 +2,12 @@
 
 Status: **Phase 2A fake recovery, Phase 2B1 read-only identity, Phase 2B2 local authority/gating, and Phase 2B3.1 shared snapshot contracts/read-only capture composition are implemented. Real execution remains disabled; production recovery readiness remains unavailable.**
 
-## Issue #242 — production capture blockers, 2026-09-26
+Community #241 acceptance continuation: [exact-byte repair and GPT lab runtime](../architecture/debian-canonical-lab-acquisition.md)
+has real Linux .NET inventory/correlation evidence, but no canonical session/import
+qualification. Lab receipt integration remains incomplete. No recovery, preparation,
+registration, production authentication or downstream readiness is enabled.
+
+## Issue #242 â€” production capture blockers, 2026-09-26
 
 **Partial implementation; issue #242 is not closed.** The shared snapshot schema,
 scope and Exact rules remain intact. Core/Preflight own the changes; Fleet.Web,
@@ -347,7 +352,7 @@ ObservationUnavailable / NotImplemented. PreCommitGate, Exact rules and snapshot
 schema are unchanged. No machine configuration mutation, Fleet.Web edit, commit
 or push occurred; unrelated working-tree changes were preserved.
 
-## Phase 2B3.2 — Community durable boot boundary
+## Phase 2B3.2 â€” Community durable boot boundary
 
 Community boot registration now passes through `CommunityRecoveryBoundary`
 immediately before the existing privilege/Boot####/BootNext/BootOrder/BCD/RTC
@@ -396,7 +401,7 @@ limited integration. Fleet.Web, packages, shared RecoverySnapshotV1 APIs,
 RecoveryReadiness and PreCommitGate were not changed. Production RecoveryReadiness
 remains ObservationUnavailable / NotImplemented. No commit or push was performed.
 
-## Phase 2B3.1 — shared canonical RecoverySnapshotV1, 2026-09-21
+## Phase 2B3.1 â€” shared canonical RecoverySnapshotV1, 2026-09-21
 
 The [shared architecture and scope](../architecture/recovery-snapshot-v1.md)
 define one Community + Fleet representation in `Igloo.Core/Recovery`, with
@@ -492,7 +497,7 @@ files. PreCommitGate and protected execution state have no diff. Existing modifi
 GUI/project files and untracked portal/logo/polish scripts and Web UI remain in the
 dirty worktree. Nothing was staged, committed or pushed.
 
-## Phase 2B3 — elevated read-only feasibility, 2026-09-20
+## Phase 2B3 â€” elevated read-only feasibility, 2026-09-20
 
 **Feasibility observations succeeded in several areas, but a complete exact
 recovery snapshot was not proven. Production remains
@@ -790,7 +795,7 @@ ObservationUnavailable/NotImplemented; PreCommitGate is unchanged. The shared
 canonical RecoverySnapshotV1 design was then the Phase 2B3.1 blocker; the subsequent
 shared milestone and its remaining production capture gaps are recorded above.
 
-## Phase 2B2 — protected local state, authorization and read-only gate
+## Phase 2B2 â€” protected local state, authorization and read-only gate
 
 This milestone adds local building blocks, not a production execution endpoint.
 No partition/boot mutation, restoration, reboot, WinRE probe, complete boot
@@ -956,7 +961,7 @@ mutation/verification/restoration semantics without changing Community selection
 or sequencing. The later Phase 2B3 findings above record the completed ACL proof
 and remaining recovery limitations. Production execution remains disabled.
 
-## Phase 2B1 — completed identity milestone (historical scope)
+## Phase 2B1 â€” completed identity milestone (historical scope)
 
 Phase 2B1 extends the consolidated readers; **Phase 2B remains incomplete**.
 There is no second Fleet Windows inspector. Core contains local, typed facts;
@@ -1086,7 +1091,7 @@ still outstanding. No WinRE implementation, RecoveryReadiness, protected executi
 directory, authorization, production endpoint, real partition/boot mutation or
 restoration, reboot or Linux completion receipt is enabled by Phase 2B1.
 
-## Historical shared observation extraction milestone — 2026-09-20
+## Historical shared observation extraction milestone â€” 2026-09-20
 
 The reuse-audit extraction is implemented. This is consolidation of existing
 Community observations, not completion of Phase 2B identity/readiness semantics.
@@ -1148,7 +1153,7 @@ these canonical providers and add strict Fleet projections around their results,
 without replacing the Community compatibility mappings. Complete boot/recovery
 feasibility remains subject to the documented read-access checks.
 
-## Historical host feasibility findings — recovery inspection still blocked
+## Historical host feasibility findings â€” recovery inspection still blocked
 
 ### 2026-09-20 resumed feasibility inspection
 
@@ -1398,7 +1403,7 @@ finding; no destructive retry was performed to reproduce it.
 
 [PartitionResizeService](../../src/Igloo.Preflight/PartitionResizeService.cs)
 accepts a disk number and allocation amount. It selects the candidate with the
-largest reported shrink allowance (lines 107–136), calculates a new size from a
+largest reported shrink allowance (lines 107â€“136), calculates a new size from a
 fresh probe (line 64), and invokes Resize (line 85). It does not accept an exact
 partition identity, expected before-state, authorized after-state or execution
 ID, and does not return a durable verified mutation receipt.
@@ -1416,8 +1421,8 @@ resume. A shared-engine contract change and recovery tests must precede an adapt
 ## Stop condition: boot recovery and restart cannot be proven
 
 DirectInstallService keeps installer drive, disk and partition information in
-in-memory fields (lines 94–103). Boot registration requires those fields and
-fails without them (lines 1308–1311). There is no transaction-bound restore API.
+in-memory fields (lines 94â€“103). Boot registration requires those fields and
+fails without them (lines 1308â€“1311). There is no transaction-bound restore API.
 Re-running all preparation just to rebuild those fields is not a safe recovery
 strategy.
 
@@ -1443,7 +1448,7 @@ partition snapshot and recoverable local manifest. Recognizing a recovery
 partition or having removal code does not prove recoverability.
 
 [WindowsPreflightChecker](../../src/Igloo.Preflight/WindowsPreflightChecker.cs)
-queries BitLocker for `C:` (lines 480–513) and returns Unknown on missing/failed
+queries BitLocker for `C:` (lines 480â€“513) and returns Unknown on missing/failed
 observations. It does not bind recovery evidence to the exact execution volume.
 The real baseline returned Unknown. No suspension or decryption was attempted;
 that observation must block execution. This is an endpoint observation, not a
@@ -1453,7 +1458,7 @@ claim that BitLocker can never be reliably checked on a configured test machine.
 
 [FileStagingService](../../src/Igloo.Migration/FileStagingService.cs) uses a
 per-distro staging directory and deletes a previous staging directory on entry
-(lines 36–44). Fleet cannot store its recovery journal there and blindly reuse
+(lines 36â€“44). Fleet cannot store its recovery journal there and blindly reuse
 the existing staging call on restart. Execution needs an explicit immutable
 artifact set, a protected transaction directory and hash-aware resume behavior.
 
@@ -1474,7 +1479,7 @@ PlanId, profile-revision and original-manifest-hash receipt linking a first boot
 to a specific authorization.
 
 The [Debian-family agent](../../distros/_debian-family/agent/agent.py) collects
-step exceptions but returns zero after the loop (lines 2652–2663). Its
+step exceptions but returns zero after the loop (lines 2652â€“2663). Its
 [first-boot launcher](../../distros/_debian-family/agent/first-boot.sh) writes
 `.done` after invocation without requiring successful post-boot validation.
 The [Fedora launcher](../../distros/fedora-kde/agent/first-boot.sh) also writes
@@ -1486,7 +1491,7 @@ An execution-correlated receipt must report required step and post-boot results,
 retain failure/unknown states, and survive manifest redaction and seed cleanup.
 That receipt also needs an explicit trusted reporting path without copying the
 Windows Agent private key or operator credential into installer artifacts.
-## Issue #241 — Community planning checkpoint (2026-09-26)
+## Issue #241 â€” Community planning checkpoint (2026-09-26)
 
 Priority returned to Community; #243 was not started. Issue #241 is **not closed**.
 The new immutable read-only candidate planner uses the shared canonical readers,
@@ -1523,7 +1528,7 @@ zero warnings/errors. The full `dotnet test .\Igloo.sln --no-build --no-restore
 passed; existing LF/CRLF conversion notices were separate warnings. These tests
 do not validate a native mutation executor or an Exact Community recovery scope.
 
-## Issue #241 — checked native executor continuation (2026-09-27)
+## Issue #241 â€” checked native executor continuation (2026-09-27)
 
 The legacy Community writer was removed. Registration now invokes a plan-bound
 executor owning the durable boundary; native access is private to the callback
@@ -1568,7 +1573,7 @@ Community.App 58, Preflight 306, UsbWriter 23, Fleet 147. The focused interprete
 success tests use fakes; they do not certify native effects or production Exact.
 `git diff --check` passed; LF/CRLF conversion notices are not check failures.
 
-## Issue #241 — firmware-effect boundary audit (2026-09-27)
+## Issue #241 â€” firmware-effect boundary audit (2026-09-27)
 
 Continued from the existing immutable planner and native executor. **#241 remains
 open and not code-complete; #243 was not started.** No production implementation
@@ -1622,7 +1627,7 @@ resolved-scope integration remains an unmet acceptance test, not a skipped test.
 `git diff --check` passed (exit 0); existing LF/CRLF conversion notices were
 separate warnings. The pre-existing mixed working tree was preserved.
 
-## Issue #241 — hybrid registration and existing-entry hardening (2026-09-27)
+## Issue #241 â€” hybrid registration and existing-entry hardening (2026-09-27)
 
 **Still open, not code-complete.** The proposed hybrid already retains the decisive
 unsupported calls: preselected-GUID CreateObject and typed setters on the system
@@ -1676,7 +1681,7 @@ Full `dotnet test .\Igloo.sln --no-build --no-restore -m:1`: **747 passed,
 0 failed, 0 skipped** (152 Core, 21 Migration, 19 Iso, 58 Community.App,
 327 Preflight, 23 UsbWriter, 147 Fleet).
 
-## Issue #241 — direct UEFI pivot blocked on dedicated ESP preparation (2026-09-27)
+## Issue #241 â€” direct UEFI pivot blocked on dedicated ESP preparation (2026-09-27)
 
 The Community product direction now supersedes the hybrid BCD-managed design:
 use an exact planned Boot#### plus one-shot BootNext, without a Windows-side
@@ -1728,7 +1733,7 @@ Core **152**, and Community.App **58**, each with **0 failed / 0 skipped**.
 Preflight 327, UsbWriter 23, Fleet 147. These results validate the preserved
 working tree; they do not validate the unimplemented dedicated ESP design.
 
-## Issue #241 — permanent Linux ESP preparation contracts (2026-09-27)
+## Issue #241 â€” permanent Linux ESP preparation contracts (2026-09-27)
 
 The new iGloo ESP is now explicitly intended to remain the installed Linux ESP.
 There is no planned third ESP and no post-install deletion of this ESP. The Windows
@@ -1786,7 +1791,7 @@ Full `dotnet test .\Igloo.sln --no-build --no-restore -m:1`: **802 passed,
 the solution build includes the distro plugins. No destructive VM validation was
 performed. **#241 remains open and not code-complete.** No commit or push.
 
-## Issue #241 — shipped installer ESP binding audit (2026-09-27)
+## Issue #241 â€” shipped installer ESP binding audit (2026-09-27)
 
 Continued the existing preparation work without enabling it. Added
 `Igloo.Core/Preparation/InstallerEspBinding.cs` and 31 deterministic Core cases.
@@ -1831,7 +1836,7 @@ the final 229-test run and solution build above are clean. No destructive runtim
 validation, native partition creation, firmware/BCD/RTC write or reboot occurred.
 **#241 remains open and not code-complete.** No commit or push.
 
-## Issue #241 — complete installation ownership continuation (2026-09-27)
+## Issue #241 â€” complete installation ownership continuation (2026-09-27)
 
 Continued the existing prepared-layout and actual-media audit. The
 [implementation and complete distro lifecycle findings](../architecture/community-installation-ownership.md)
@@ -1901,7 +1906,7 @@ disks or destructive VM test was executed. The read-only media/package extractio
 and Fedora parser check do not establish bootability. **#241 remains open and not
 code-complete.** No commit or push.
 
-### Community #241 — Debian-only deployment protocol continuation (2026-09-27)
+### Community #241 â€” Debian-only deployment protocol continuation (2026-09-27)
 
 Final status: **DEBIAN DEPLOYMENT ARCHITECTURE BLOCKED**. Debootstrap remains a
 candidate, not an accepted production replacement. See the complete
@@ -1967,7 +1972,7 @@ performed. RecoverySnapshotV1/Exact, RecoveryReadiness and PreCommitGate are
 unchanged. All unrelated existing working-tree edits were preserved. No commit
 or push. **#241 remains open.**
 
-## Issue #241 — target-root deployment lifecycle and receipts (2026-09-27)
+## Issue #241 â€” target-root deployment lifecycle and receipts (2026-09-27)
 
 Continued the current working tree and froze Fedora's explicit storage generator.
 The [complete target-root design](../architecture/target-root-deployment.md) now
@@ -2048,7 +2053,7 @@ unrelated working-tree edits were preserved. **#241 remains open and not
 code-complete.** No commit or push.
 
 
-## Community #241 Debian content continuation — 2026-09-28
+## Community #241 Debian content continuation â€” 2026-09-28
 
 Status: **DEBIAN CONTENT DEPLOYMENT FOUNDATION BLOCKED**. Continued the existing
 43-stage candidate without enabling preparation, registration, deployment, #243,
@@ -2113,7 +2118,7 @@ Validation (all tests deterministic; no deployment or developer boot/storage mut
 No real Trixie workstation bundle or disposable VM installation was claimed.
 Unrelated working-tree changes were preserved. No commit or push.
 
-## Community #241 — Debian non-firmware continuation (2026-09-28)
+## Community #241 â€” Debian non-firmware continuation (2026-09-28)
 
 **DEBIAN NON-FIRMWARE FOUNDATION BLOCKED.** The current Debian engine was extended,
 not restarted. No Fleet #243, Fleet.Web, RecoverySnapshotV1/Exact,
@@ -2174,7 +2179,7 @@ Validation:
 - `git diff --check`: passes; preexisting LF/CRLF notices remain separate.
 - **22 .NET and 32 Linux tests added.** No suppressions, commit or push.
 
-## Community #241 — Debian isolation continuation (2026-09-28)
+## Community #241 â€” Debian isolation continuation (2026-09-28)
 
 **DEBIAN ISOLATION FOUNDATION BLOCKED.** See the new
 [native execution-boundary record](../architecture/debian-isolation-boundary.md)
@@ -2213,7 +2218,7 @@ solution **1,195 passed, 0 failed, 0 skipped**. Build **0 warnings, 0 errors**.
 .NET, 43 Linux policy/primitive and 36 explicit native tests**. No suppressions,
 package upgrades, commit or push. Unrelated working-tree changes were preserved.
 
-## Community #241 — Debian canonical session continuation (2026-09-28)
+## Community #241 â€” Debian canonical session continuation (2026-09-28)
 
 **DEBIAN SESSION FOUNDATION BLOCKED.** See the
 [canonical mount-session record](../architecture/debian-session-boundary.md) for
@@ -2245,7 +2250,7 @@ PreCommitGate. Unrelated working-tree changes are preserved.
 `git diff --check` exits **0**; 28 existing LF/CRLF notices are separate. New/edited
 untracked files also have no trailing whitespace.
 
-## Community #241 — Debian bootstrap primitive decision (2026-09-28)
+## Community #241 â€” Debian bootstrap primitive decision (2026-09-28)
 
 **BLOCKED: no complete replacement bootstrap is qualified.** The
 [bootstrap decision and evidence](../architecture/debian-bootstrap-primitive.md)
@@ -2281,7 +2286,7 @@ Fedora, Fleet.Web, commit or push; unrelated work was preserved.
 `git diff --check`: **exit 0**, with 28 existing LF/CRLF notices kept separate.
 Edited/new untracked files also pass the trailing-whitespace check.
 
-## Community #241 — Debian configured-root artifact candidate (2026-09-28)
+## Community #241 â€” Debian configured-root artifact candidate (2026-09-28)
 
 **DEBIAN CONFIGURED-ROOT ARTIFACT ARCHITECTURE BLOCKED.**
 The [artifact lifecycle and responsibility matrix](../architecture/debian-configured-root-artifact.md)
@@ -2325,7 +2330,7 @@ Full serialized solution: **1,269 passed / 0 failed / 0 skipped**. Build with
 files were also checked directly. No physical disk, firmware, BCD or RTC mutation,
 reboot, package upgrade, commit or push; unrelated working-tree changes preserved.
 
-## Community #241 — real Debian configured-root factory (2026-09-28)
+## Community #241 â€” real Debian configured-root factory (2026-09-28)
 
 **DEBIAN CONFIGURED-ROOT FACTORY BLOCKED.** The [current factory report](../architecture/debian-configured-root-artifact.md)
 and [observed evidence](../architecture/debian-configured-root-factory-evidence.json)
@@ -2368,7 +2373,7 @@ Debian subset **320**, configured-root .NET subset **26**. Full serialized solut
 **1,294 passed / 0 failed / 0 skipped**. Linux discovery **236**, native broker **44**,
 native artifact capability/ACL fixtures **2**, all **0 failed / 0 skipped**.
 
-## Community #241 — Debian neutral artifact and real import (2026-09-28)
+## Community #241 â€” Debian neutral artifact and real import (2026-09-28)
 
 **DEBIAN CONFIGURED-ROOT ARTIFACT QUALIFIED**, for development artifact/import
 mechanics only. The [neutralization report](../architecture/debian-configured-root-neutralization.md)
@@ -2421,7 +2426,7 @@ a direct whitespace check. The earlier publication rejection is retained as
 historical evidence; the later qualified neutral derivation supersedes that
 rejection only, not the remaining production acceptance gates.
 
-### Community #241 — canonical Debian import integration continuation
+### Community #241 â€” canonical Debian import integration continuation
 
 The existing [canonical session](../architecture/debian-session-boundary.md#later-canonical-import-integration-2026-09-28)
 now has a closed development import action, import-specific immutable plan,
@@ -2451,7 +2456,7 @@ capability/ACL fixtures **2**. All final runs: **0 failed / 0 skipped**. Builds 
 the solution and opt-in harness: **0 warnings / 0 errors**. Real GPT/full-artifact
 canonical execution was not run; these counts do not certify it.
 
-### Later Debian FAT32 chunk transport acceptance — 2026-09-28
+### Later Debian FAT32 chunk transport acceptance â€” 2026-09-28
 
 The preceding single-file transport blocker is superseded by explicit versioned
 chunk transport in the existing canonical import plan/authority/reader. The real
@@ -2475,3 +2480,145 @@ native broker fixtures **45**, ACL/capability fixtures **2** (reported separatel
 not physical-storage/canonical proof). Final failures/skips: **0/0**. Build has
 **0 warnings/errors**. Exact commands and evidence limits are in the artifact/session
 documentation and harness README. Issue #241 remains open; no commit or push.
+
+
+### Later Debian storage-session acceptance â€” 2026-09-28
+
+- [x] Tagged lab acquisition plus real creation/format transitions feed shared
+  structural validation and canonical leases without fabricated Windows identities.
+- [x] Actual persistent EXT4 session/import placement verification.
+- [x] Linux .NET canonical acquire/root-RW/payload-RO/inspect/reverse-unmount/close.
+- [x] Seventeen durable session records independently reopened; exact teardown verified.
+- [x] Preserved lab ESP digest unchanged; native changed-backing negative rejected at
+  the same smoke entrypoint before acquisition/reservation.
+- [ ] Full artifact import: deliberately outside this milestone, not invoked.
+
+[Evidence](../architecture/debian-storage-session-smoke-evidence.json) and
+[scope/commands](../architecture/debian-canonical-lab-acquisition.md#later-storage-session-milestone--2026-09-28).
+Current solution checks: 1,377 passed; Linux fixtures: 297 passed; builds have zero
+warnings/errors. These totals do not include the native run as unit tests and do not
+promote production authentication, preparation, registration, NativeSupported or
+readiness. No Fleet implementation change or issue closure is included.
+
+### Later Debian canonical artifact-import acceptance â€” 2026-09-29
+
+- [x] Fresh import-scoped lab transition evidence and externally pinned artifact authority.
+- [x] Unchanged full chunk source delivered to a newly formatted canonical FAT32 payload.
+- [x] Actual shared canonical import, independent 144,911-entry / 1,594-package and neutral-state readback.
+- [x] Preserved lab ESP unchanged; 18 session and 1,823 import records independently reopened.
+- [x] Ordinary exact payload/root teardown, Close and separate normal runtime shutdown.
+- [x] Separate canonical corrupted-source rejection before import reservation/content writes.
+- [ ] Production authentication, target configuration, boot readiness and general hardware qualification.
+
+[New evidence](../architecture/debian-canonical-lab-import-evidence.json) retains the
+positive target and separately reports the negative run's unverified teardown.
+Current rebuilt solution: 1,389 passed; Linux fixtures: 301 passed. Filtered subsets
+are not added to those totals. No power-loss or imported-target boot test occurred.
+This is a Debian development import milestone, not Fleet work or issue closure.
+
+### Later Debian post-import configuration checkpoint â€” 2026-09-29
+
+- [x] Separate predecessor-bound configuration authority; smoke/import scopes remain closed.
+- [x] Successful import/Close independently reopened; powered-off import checkpoint preserved.
+- [x] Actual fresh same-backing ownership, canonical journal placement and mounted baseline verification.
+- [x] Mismatched-predecessor native rejection before block acquisition/configuration writes.
+- [x] Corrected helper-view isolation exercised in five separate native directory fixtures.
+- [ ] Actual required configuration helpers, credentials and configured whole-tree delta qualified.
+- [ ] Durable successful configuration result and exact canonical teardown.
+- [ ] Initramfs or any downstream installation readiness.
+
+The [new attempt evidence](../architecture/debian-post-import-configuration-evidence.json)
+records OutcomeUnknown after intent and before the Files intent. The failed operation
+is consumed; no retry was authorized. Normal lab shutdown is not canonical teardown.
+ProductionAuthentication remains Unsupported and NativeSupported remains zero.
+
+### Later checkpoint-derived configuration experiment â€” 2026-09-29
+
+- [x] Explicit single-attempt authorization outside copied journal storage.
+- [x] Independent byte-verified target/journal copies; old failed aliases and checkpoint originals unchanged.
+- [x] Fresh shared ownership/session/journal validation and complete neutral baseline readback.
+- [x] Current corrected helper view: five native fixtures; mismatched predecessor rejected by derived entrypoint.
+- [ ] Core configuration: stopped before Files intent at the authenticated Trixie locale symlink.
+- [ ] Configured whole-tree result and canonical teardown; no retry authorized for the consumed attempt.
+
+[New evidence](../architecture/debian-checkpoint-derived-configuration-evidence.json)
+records 1,420 rebuilt solution tests and 317 Linux fixtures passing, without treating
+them as configuration acceptance. The final locale-path correction has not executed
+natively. The failed derivative is retained powered off; no initramfs-ready handoff.
+
+### Debian core configuration follow-up — 2026-09-29
+
+- [x] Whole-plan manifest/path review, actual retained helper input inspection and
+  current-source regression/build checks recorded separately from native results.
+- [x] One explicitly authorized independent checkpoint derivative executed through
+  canonical ownership, journal placement, session and restricted broker.
+- [x] Baseline, Files and Debconf independently verified; locale link preserved.
+- [ ] Complete core configuration: Exim readback stopped on a wrong group expectation.
+  Final source corrects it; no further native attempt was authorized or dispatched.
+- [ ] Configured-result publication and canonical teardown/Close: not achieved.
+- [x] Failed derivative, consumed reservations and earlier evidence retained;
+  normal runtime shutdown is separate from canonical teardown.
+
+See the [review and new evidence](../architecture/debian-core-configuration-compatibility.md).
+No initramfs/agent/boot work or production readiness promotion follows this partial result.
+
+### Later retained-helper prerequisite (2026-09-29)
+
+- [x] Actual retained Exim/TLS/locale helpers and fresh independent delta/package
+  observers passed inside the restricted broker on disposable fixture roots.
+- [x] Exim artifact-specific root:Debian-exim ownership preserved and verified.
+- [ ] Account/credential/sudo sequence: both authorized helper passes stopped at
+  User; final v5 corrections remain non-native-tested.
+- [ ] New canonical configuration attempt: not dispatched because its prerequisite
+  failed and the bounded fixture budget is exhausted.
+- [ ] Complete configured state, durable canonical result and exact canonical
+  teardown: not achieved. Ordinary fixture teardown is separate evidence.
+
+See [retained helper contracts](../architecture/debian-core-helper-contracts.md).
+
+### Later v5 provisioning stop (2026-09-29)
+
+- [x] V5 defaults/policy agreement and synthetic account-observer regressions.
+- [x] Underlying Windows volume capacity guard rejects insufficient space before
+  copy/create; WSL virtual free space alone is insufficient evidence.
+- [ ] Fresh retained-helper sequence: not dispatched (0/3 passes used).
+- [ ] Canonical configuration: not dispatched (0/1 attempts used).
+- [ ] Post-failure checkpoint/backing preservation readback: unavailable while WSL
+  cannot start. No success or teardown is inferred from that absence.
+
+The independent source-copy preparation failed with an I/O error; Windows C: was
+observed full. Partial resources remain retained, and no automatic retry or host
+repair occurred. See the [new stop evidence](../architecture/debian-core-v5-capacity-block.md).
+The failure-path teardown backlog and all production gates remain unchanged.
+
+### Later complete v5 core configuration (2026-09-29)
+
+- [x] One fresh retained-root v5 helper sequence, including User/Credential/Sudo and
+  final independent semantic, package and whole-tree-delta verification.
+- [x] One independently authorized checkpoint-derived canonical attempt; original
+  preparation/import lineage retained and no consumed operation replayed.
+- [x] Real canonical ownership, leases, persistent journal placement and restricted
+  helper execution; all ten configuration steps independently verified.
+- [x] Twenty effect and eighteen session records independently reopened and bound
+  to the current predecessor, derivation, operation and plan.
+- [x] Ordinary exact payload/root unmount and Close independently verified;
+  provisioning unmount and normal runtime shutdown recorded separately.
+- [x] Mismatched predecessor rejected through the real derived entrypoint before
+  target acquisition/configuration writes; earlier journal bootstrap remains separate.
+- [x] Configured target and journals retained powered off for a separately authorized
+  next phase. Machine identity remains first-boot pending.
+- [ ] General failed-session teardown/recovery qualification: unchanged backlog;
+  prior failed operations still have no verified canonical teardown.
+- [ ] Initramfs, agent/UserData/Enrollment, first boot and boot/firmware finalization:
+  not part of this result. ProductionAuthentication remains Unsupported and
+  NativeSupported remains 0.
+
+See the [v5 result and evidence](../architecture/debian-core-configuration-v5.md).
+All prior failed resources and outcomes remain unchanged; production gates stay closed.
+# Current Debian initramfs acceptance boundary (2026-09-29)
+
+[Configured-predecessor readback](../architecture/debian-initramfs-continuation.md)
+passed in the isolated lab. Initramfs helper/image verification, successor session
+wiring, exact publication and canonical teardown remain incomplete; no helper or
+canonical initramfs attempt was invoked. This is not installation readiness and
+does not change the v5 configuration result or any production gate.

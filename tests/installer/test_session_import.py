@@ -139,6 +139,9 @@ class SessionImportDispatchTests(unittest.TestCase):
         target.write_bytes(target.read_bytes()[:-1]+b'X')
         with self.assertRaises(ValueError): self.dispatch()
         self.assertFalse(any(kind=='ImportCheckpoint' for kind, _ in self.events))
+        self.assertIn(('ImportSourceRejected', {'Code': 'TransportChunkHashMismatch'}), self.events)
+        self.assertTrue(self.session.failed)
+        with self.assertRaises(ValueError): self.dispatch()
         self.views['Root'].empty()
 
     def test_chunked_transport_wrong_plan_hash_before_import_intent(self):

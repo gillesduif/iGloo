@@ -15,7 +15,7 @@ public static class DebianRootTransports
     public const long MaximumContentLength = 64 * ChunkSize;
     public const int MaximumManifestLength = 32768;
 
-    public static DebianRootTransportV1 Reopen(ReadOnlySpan<byte> bytes, DebianConfiguredRootImportPlanV1 plan)
+    public static DebianRootTransportV1 Reopen(ReadOnlySpan<byte> bytes, IDebianImportSourceBinding plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
         if (bytes.Length is <= 0 or > MaximumManifestLength || plan.Transport != "Chunked" ||

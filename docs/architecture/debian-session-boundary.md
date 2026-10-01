@@ -1,6 +1,23 @@
-# Debian canonical mount session — Community #241
+# Debian canonical mount session â€” Community #241
+
+Latest successor: [v5 core configuration](debian-core-configuration-v5.md) passed on
+a fresh checkpoint derivative, with independent whole-tree/package readback,
+20 reopened effect records, 18 reopened session records and exact canonical teardown.
+The successful import remains a separate immutable checkpoint. This lab result does
+not change production support or authorize initramfs/boot work.
+
+Current lab status (2026-09-29): [full canonical development import and exact teardown
+verified](debian-canonical-lab-import-evidence.json). The historical foundation status
+below remains a production limitation, not a statement that the later lab run is absent.
 
 Status, 2026-09-28: **DEBIAN SESSION FOUNDATION BLOCKED**.
+
+Later [committed-baseline/GPT runtime continuation](debian-canonical-lab-acquisition.md):
+the exact-byte fixtures are repaired, a new GPT runtime boots, and the Linux .NET
+harness executes whole-inventory and tagged lab-correlation probes. Lab receipt
+integration into ownership/leases remains incomplete. No canonical session smoke,
+full import or canonical teardown has run; the historical MBR/.NET limitations
+below are superseded only for this new read-only lab runtime.
 
 ## Later chunk transport qualification (2026-09-28)
 
@@ -15,9 +32,9 @@ transport identity in independently reopened import records and checks the hando
 The native runtime hashes the additional `root_transport.py` module before loading it.
 
 The existing call chain is unchanged after physical source opening:
-`DebianNativeMountSession` → `session_import.perform_import` → FD-relative chunk
-opens beneath the canonical payload → `root_transport.LogicalStream` → existing
-`configured_root.verify_source` / `import_files` → fresh semantic observer → separate
+`DebianNativeMountSession` â†’ `session_import.perform_import` â†’ FD-relative chunk
+opens beneath the canonical payload â†’ `root_transport.LogicalStream` â†’ existing
+`configured_root.verify_source` / `import_files` â†’ fresh semantic observer â†’ separate
 reopened import/session records. The verifier checks every chunk, the concatenated
 original stream and every semantic file **before import reservation**. Import reads
 the same retained FDs, checks identities during reads, hashes each imported file,
@@ -283,12 +300,12 @@ no helper was patched. Its public [foreign/second-stage contract](https://manpag
 splits initial unpacking from completion, but does not provide a switch to omit
 only device/proc setup. In this version:
 
-- `/usr/sbin/debootstrap:618–629` invokes `check_sane_mount` for both install phases.
-- `functions:1845–1894` creates/writes `test-dev-null` with mknod, then tries a bind
+- `/usr/sbin/debootstrap:618â€“629` invokes `check_sane_mount` for both install phases.
+- `functions:1845â€“1894` creates/writes `test-dev-null` with mknod, then tries a bind
   mount if that fails. A pre-existing `/dev/null` does not skip this test.
 - `scripts/debian-common:132` runs setup_devices during the first stage.
-- `scripts/debian-common:139–187` enters second_stage_install, runs setup_proc,
-  then invokes dpkg. `functions:1256–1305` includes tolerated mount failures;
+- `scripts/debian-common:139â€“187` enters second_stage_install, runs setup_proc,
+  then invokes dpkg. `functions:1256â€“1305` includes tolerated mount failures;
   cleanup includes lazy unmount. There is no supported capability-drop hook at
   this boundary in the inspected public interface/helper tree.
 
@@ -432,3 +449,128 @@ the previously authenticated bubblewrap path/SHA environment bindings.
 whitespace failures. New/edited untracked files also pass the trailing-whitespace check.
 Added **41 .NET**, **23 Linux deterministic** and **4 explicit native** tests.
 There was no real GPT, debootstrap, apt or VM lifecycle qualification. No commit/push.
+
+## Later provider-tagged storage-session qualification (2026-09-28)
+
+The [storage-smoke continuation](debian-canonical-lab-acquisition.md#later-storage-session-milestone--2026-09-28)
+and [new evidence](debian-storage-session-smoke-evidence.json) supersede the earlier
+lab ownership-to-lease and persistent-journal-placement blockers for **StorageSmoke
+only**. Actual GPT transitions now produce a validated provider-tagged installation
+context, through shared closure validation into `InstallerBlockLeases`, the existing
+journal verifier, authority and native supervisor. Linux ESP is RO-acquired/unmounted;
+root EXT4/RW and sibling FAT32/RO payload are independently inspected and normally
+unmounted. Seventeen durable records and their chain were independently reopened.
+The preserved lab ESP digest matched. Normal VM shutdown was a separate event.
+
+`ForLabStorageSmoke` contains no import plan/authenticator. `ImportConfiguredRoot`
+and package/configuration actions remain unavailable in that scope. The original
+Windows v1 preparation/receipt/fingerprint and lease JSON semantics remain intact.
+Lab provenance remains explicit in plan, leases, native binding and journal records.
+A tool-manifest ordinal-comparison repair rejects the same exact missing/extra key
+sets without depending on dictionary culture order.
+
+This run did not invoke full import, stage artifact bytes or execute target code.
+The next full-artifact qualification needs fresh preparation/session resources and
+an explicitly authorized development import scope; successful smoke does not supply
+artifact authentication, installation readiness or permission to replay this generation.
+Production gates and NativeSupported=0 are unchanged.
+
+
+## Later authenticated lab import composition â€” 2026-09-29
+
+The storage milestone above remains evidence for StorageSmoke only. New
+`ConfiguredRootImport` preparation uses schema-2 scope-bound intents, fresh
+backings/generation/session and the existing protected external development pin.
+`DebianLabImportPlanV1` and `ForLabDevelopmentImport` connect validated lab storage
+to the same `InstallerBlockLeases`, journal-placement verifier, native supervisor,
+connected root-only view, chunk reader, semantic importer and independent observer.
+`ImportPlan` retains the original Windows typed API; the shared source-only
+`SourcePlan` contract introduces no storage or execution authority on its own.
+
+Session/import stores remain separate. Lab import records retain top-level plan,
+generation and session bindings and add provider provenance. Session completion
+links the reopened import result. Before-intent chunk/aggregate hash rejection can
+record `NotStarted` for **content import** in the session journal; the session still
+becomes OutcomeUnknown, cannot replay and does not acquire a teardown receipt from
+supervisor exit. Earlier mount effects remain visible.
+
+The source is the exact new FAT32 payload, staged before the session from read-only
+provisioning media. All eight objects, the aggregate stream and semantic per-file
+content are reverified inside canonical dispatch. Runtime/journal storage and the
+provisioning ISO are not alternate import sources. ESP remains read-only acquired
+and unmounted. No imported executable, maintainer script or configuration helper runs.
+
+Execution revisions and outcomes are recorded in the new lab-import evidence.
+Historical builder/neutralization attestations and the completed smoke generation
+are not rewritten. ProductionAuthentication remains Unsupported and NativeSupported
+remains zero; target configuration and boot finalization require later boundaries.
+
+The [2026-09-29 full canonical lab import](debian-canonical-lab-import-evidence.json)
+qualifies this chain for the recorded isolated provider/runtime: fresh preparation,
+formatted-root evidence, real leases, persistent journal placement, FAT32 chunk source,
+full semantic import/readback, reopened results and exact normal teardown. The positive
+run has 18 session records and 1,823 import records. Source rejection on a distinct
+generation has 11 session records, an empty import store and an unverified teardown;
+it remains poisoned. See the acquisition document's retained handoff for both outcomes.
+Older missing-integration statements are historical, not the current lab result.
+
+## Later post-import configuration continuation â€” 2026-09-29
+
+`ForLabConfiguration` is a separate closed development composition. It requires
+`DebianVerifiedImport.Reopen`, `ContinueLabSameTarget`, an operation-bound plan,
+external development authentication and fresh persistent journal placement.
+It retains preparation lineage; separate schema-3 session/effect stores reserve
+the successor once and link the original import/Close hashes. Import and smoke
+authorities cannot dispatch ConfigureCore, and this authority cannot import.
+
+The actual session acquired leases, mounted root/payload and independently verified
+the entire neutral baseline. Its unresolved ConfigureCore intent is retained;
+Files and target helpers were not invoked. No canonical unmount/Close evidence was
+produced. Normal shutdown and observed process absence are separate outcomes.
+See [configuration contract and blocked outcome](debian-post-import-configuration.md)
+and [new evidence](debian-post-import-configuration-evidence.json). No production
+support or downstream readiness is promoted by the implementation or fixture tests.
+
+## Later single checkpoint-derived configuration attempt â€” 2026-09-29
+
+The explicit `--configure-derived-lab` composition now binds the protected one-use
+host authorization and independent checkpoint copies to `ContinueLabCheckpoint`,
+then reuses `ForLabConfiguration` and the canonical session. Same-target semantics
+are unchanged. Actual derived ownership, journal placement, root/payload acquisition
+and full neutral baseline verification passed. Configuration preflight rejected the
+Trixie locale symlink before Files intent. No retry occurred; canonical teardown is
+unverified. [New evidence](debian-checkpoint-derived-configuration-evidence.json)
+separates the native attempt from the later tested locale-path correction and normal
+runtime shutdown. Production and downstream readiness remain closed.
+
+## Later reviewed core configuration attempt — 2026-09-29
+
+The [latest attempt](debian-core-configuration-compatibility.md) reused the existing
+checkpoint-derived authority and shared native session. Baseline, Files and Debconf
+passed independent readback. Exim has an OutcomeUnknown result after an observer
+ownership mismatch; TLS and later steps were not reached. Eleven session/eight
+effect records were reopened. There is no canonical teardown or Close; ordinary
+provisioning unmount and normal shutdown remain separate outcomes. The partial
+powered-off derivative and all older failures are preserved, with no retry.
+
+Executed policy v2 and final fixture-tested v3 are separately identified. The latter
+binds Exim output to the authenticated Debian-exim group. Production authentication,
+NativeSupported, preparation/registration and downstream readiness gates are unchanged.
+
+## Later helper-contract prerequisite (2026-09-29)
+
+[Actual retained helper fixtures](debian-core-helper-contracts.md) verified Exim,
+TLS and locale through the existing restricted broker and independent full delta
+observer. The two authorized passes stopped at useradd. Final policy v5 fixes the
+evidenced defaults declaration but has not executed natively. No new canonical
+session or checkpoint-derived reservation was created. Fixture teardown and later
+VM absence do not constitute canonical teardown. The prior import/configuration
+session records retain their original outcomes and production gates remain closed.
+# Later initramfs successor investigation (2026-09-29)
+
+The successful v5 configuration remains the latest completed lab phase.
+[The initramfs continuation](debian-initramfs-continuation.md) separately records
+configured-predecessor chain/content readback and an ordinary read-only inspection
+teardown. No initramfs successor authority, canonical generation/publication,
+result or teardown is qualified. Existing configuration/import/smoke action scopes
+have not been expanded. Earlier failed-session teardown gaps remain open.

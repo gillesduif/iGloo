@@ -88,6 +88,43 @@ class IsolationPolicyTests(unittest.TestCase):
         finally:
             os.close(fd)
 
+    def test_account_audit_probe_stays_denied_without_granting_other_sockets(self):
+        """Interpret the exported classic BPF; never open a host netlink socket."""
+        import errno
+        import struct
+        from dataclasses import replace
+        def decision(selected, syscall, args):
+            fd = policy.seccomp_descriptor(selected)
+            try: data = os.read(fd, os.fstat(fd).st_size)
+            finally: os.close(fd)
+            program = list(struct.iter_unpack('<HBBI', data))
+            context = struct.pack('<IIQ6Q', syscall, 0xc000003e, 0, *args, *([0]*(6-len(args))))
+            pc = 0; accumulator = 0
+            for _ in range(len(program)*2):
+                code, yes, no, value = program[pc]; pc += 1
+                if code == 0x20: accumulator = struct.unpack_from('<I', context, value)[0]
+                elif code == 0x15: pc += yes if accumulator == value else no
+                elif code == 0x25: pc += yes if accumulator > value else no
+                elif code == 0x35: pc += yes if accumulator >= value else no
+                elif code == 0x45: pc += yes if accumulator & value else no
+                elif code == 0x54: accumulator &= value
+                elif code == 0x05: pc += value
+                elif code == 0x06: return value
+                else: self.fail('Unhandled BPF instruction: '+hex(code))
+            self.fail('BPF did not terminate')
+        account = replace(launch(), stage='ConfigureUser', executable='/usr/sbin/useradd', view='CoreConfiguration')
+        for domain in (*range(40), 0xffffffff, 0x100000001):
+            for socket_type, protocol in ((0x80003, 9), (3, 9), (0x80003, 0), (1, 0)):
+                with self.subTest(domain=domain, socket_type=socket_type, protocol=protocol):
+                    result = decision(account, 41, (domain, socket_type, protocol))
+                    expected = 0x7fff0000 if domain == 1 else 0x50000 | (
+                        errno.EAFNOSUPPORT if (domain, socket_type, protocol) == (16, 0x80003, 9) else errno.EPERM)
+                    self.assertEqual(expected, result)
+        for other in (None, launch(), replace(account, view=None), replace(account, executable='/usr/sbin/other')):
+            self.assertEqual(0x50000 | errno.EPERM, decision(other, 41, (16, 0x80003, 9)))
+        self.assertEqual(0x50000 | errno.EPERM, decision(account, 53, (16, 0x80003, 9)))
+        self.assertEqual(0x50000 | errno.EPERM, decision(account, 165, (0, 0, 0)))  # mount
+
     def test_valid_effective_readback_order_independent(self):
         value, host, resources = readback()
         value["Mounts"].reverse(); value["Devices"].reverse()

@@ -2,6 +2,74 @@ using System.Text.Json;
 using Igloo.Core.Abstractions;
 using Igloo.Distro.Debian.Deployment;
 
+if (args.Length is 3 or 5 && args[0] == "--userdata-readiness")
+    return CanonicalImportQualification.LabUserData.Readiness(args[1], args[2],
+        args.Length == 5 ? args[3] : null, args.Length == 5 ? args[4] : null);
+
+if (args.Length == 2 && args[0] == "--reopen-configured-predecessor")
+{
+    var (_, verified) = CanonicalImportQualification.LabInitramfs.Reopen(args[1]);
+    Console.WriteLine(JsonSerializer.Serialize(new { Scope = "ReadOnlyConfiguredPredecessor", verified.ResultSha256,
+        verified.CloseSha256, verified.PlanSha256, EffectAuthorization = false }));
+    return 0;
+}
+
+if (args.Length == 2 && args[0] == "--reopen-initramfs-predecessor")
+{
+    try
+    {
+        var (_, verified) = CanonicalImportQualification.LabUserData.Reopen(args[1]);
+        Console.WriteLine(JsonSerializer.Serialize(new { Scope = "ReadOnlyInitramfsPredecessor", verified.ResultSha256,
+            verified.CloseSha256, verified.PlanSha256, EffectAuthorization = false }));
+        return 0;
+    }
+    catch (InvalidDataException error)
+    {
+        // Fixed validator diagnostics only; never echo paths, input JSON or stack locals.
+        var code = error.Message switch
+        {
+            "Initramfs successor binding rejected." => "InitramfsPlanBinding",
+            "Completed initramfs chains required." => "InitramfsChains",
+            "Initramfs predecessor lineage changed." => "InitramfsLineage",
+            "Initramfs target differs from configured predecessor." => "InitramfsTargetBinding",
+            "Initramfs target or effect order changed." => "InitramfsEffectOrder",
+            "Initramfs independent observation changed." => "InitramfsObservation",
+            "Initramfs generator did not complete." => "InitramfsGeneration",
+            "Initramfs publication differs." => "InitramfsPublication",
+            "Initramfs Close or handoff missing." => "InitramfsClose",
+            _ => "PredecessorValidationUnavailable"
+        };
+        Console.WriteLine(JsonSerializer.Serialize(new { Scope = "ReadOnlyInitramfsPredecessor", Code = code,
+            Validator = new System.Diagnostics.StackTrace(error).GetFrame(0)?.GetMethod()?.DeclaringType?.Name, EffectAuthorization = false }));
+        return 2;
+    }
+}
+
+if (args.Length == 9 && args[0] == "--userdata-derived-lab")
+    return await CanonicalImportQualification.LabUserData.RunAsync(args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
+
+if (args.Length == 8 && args[0] == "--initramfs-derived-lab")
+    return await CanonicalImportQualification.LabInitramfs.RunAsync(args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
+
+if (args.Length == 7 && args[0] == "--configure-derived-lab")
+    return await CanonicalImportQualification.LabConfiguration.RunAsync(args[1], args[2], args[3], args[4], args[5], args[6]);
+if (args.Length == 6 && args[0] == "--configure-lab")
+    return await CanonicalImportQualification.LabConfiguration.RunAsync(args[1], args[2], args[3], args[4], args[5]);
+
+if (args.Length == 4 && args[0] == "--observe-inventory")
+    return await CanonicalImportQualification.InventoryProbe.RunAsync(args[1], args[2], args[3]);
+if (args.Length == 5 && args[0] == "--observe-lab")
+    return await CanonicalImportQualification.InventoryProbe.RunAsync(args[1], args[2], args[4], args[3]);
+
+if (args.Length == 3 && args[0] == "--verify-lab-transition")
+    return await CanonicalImportQualification.LabTransitionProbe.RunAsync(args[1], args[2]);
+
+if (args.Length == 4 && args[0] == "--smoke-development")
+    return await CanonicalImportQualification.LabStorageSmoke.RunAsync(args[1], args[2], args[3]);
+
+if (args.Length == 7 && args[0] == "--import-lab-development")
+    return await CanonicalImportQualification.LabConfiguredRootImport.RunAsync(args[1], args[2], args[3], args[4], args[5], args[6]);
+
 // Opt-in lab composition of the SAME authority/transport/importer. No provisioning,
 // synthetic inventory, fallback source, fixture lease, package or firmware execution.
 // Required lab setup and persistent-store qualification are documented beside this tool.
@@ -42,9 +110,12 @@ await using var session = new DebianNativeMountSession(authority);
 using var cancellation = new CancellationTokenSource(TimeSpan.FromHours(5));
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancellation.Cancel(); };
 await session.StartAsync(runtime, cancellation.Token);
-foreach (var action in new[] { DebianMountSessionAction.AcquireLeases, DebianMountSessionAction.PrepareImportMountpoints,
-    DebianMountSessionAction.MountRoot, DebianMountSessionAction.MountPayload, DebianMountSessionAction.ImportConfiguredRoot,
-    DebianMountSessionAction.Inspect, DebianMountSessionAction.UnmountPayload, DebianMountSessionAction.UnmountRoot, DebianMountSessionAction.Close })
+var actions = new List<DebianMountSessionAction> { DebianMountSessionAction.AcquireLeases,
+    DebianMountSessionAction.PrepareImportMountpoints, DebianMountSessionAction.MountRoot, DebianMountSessionAction.MountPayload };
+if (args[0] == "--run-development") actions.Add(DebianMountSessionAction.ImportConfiguredRoot);
+actions.AddRange([DebianMountSessionAction.Inspect, DebianMountSessionAction.UnmountPayload,
+    DebianMountSessionAction.UnmountRoot, DebianMountSessionAction.Close]);
+foreach (var action in actions)
 {
     // Result diagnostics are NOT durable evidence; the two Linux journals own that evidence.
     // No finally-based lazy cleanup or automatic retry after an uncertain action.

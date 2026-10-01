@@ -140,6 +140,13 @@ def persist(directory, name, value):
     return digest(data)
 
 
+def validate_completion_receipt(receipt, generation, kind):
+    require(set(receipt) == {"SchemaVersion", "GenerationId", "Kind", "State", "EvidenceSha256"} and
+                    receipt["SchemaVersion"] == 1 and receipt["GenerationId"] == generation and
+                    receipt["Kind"] == kind and receipt["State"] == "AppliedAndVerified" and
+                    re.fullmatch(r"[0-9A-F]{64}", receipt["EvidenceSha256"]), "RequiredReceiptIncomplete")
+
+
 def execute(config_bytes, worker_bytes, inputs_fd, state_fd, invocation_id, *, input_owner=0):
     config = decode(config_bytes)
     validate_configuration(config)
@@ -157,10 +164,7 @@ def execute(config_bytes, worker_bytes, inputs_fd, state_fd, invocation_id, *, i
             data = read_at(inputs_fd, item["FileName"], input_owner)
             require(digest(data) == item["Sha256"], "RequiredReceiptHashMismatch")
             receipt = decode(data)
-            require(set(receipt) == {"SchemaVersion", "GenerationId", "Kind", "State", "EvidenceSha256"} and
-                    receipt["SchemaVersion"] == 1 and receipt["GenerationId"] == config["GenerationId"] and
-                    receipt["Kind"] == item["Kind"] and receipt["State"] == "AppliedAndVerified" and
-                    re.fullmatch(r"[0-9A-F]{64}", receipt["EvidenceSha256"]), "RequiredReceiptIncomplete")
+            validate_completion_receipt(receipt, config["GenerationId"], item["Kind"])
             verified.append(item)
         result = {**base, "State": "FirstBootSucceeded", "IntentSha256": intent, "VerifiedReceipts": verified}
         persist(state_fd, "outcome.json", result)

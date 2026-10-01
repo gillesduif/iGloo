@@ -12,6 +12,7 @@ public sealed record DebianJournalStoreWitnessV1(string Path, ulong Device, ulon
 public sealed class DebianLinuxDeploymentJournal(string privateStore, string journalToolPath, string journalToolSha256,
     DebianJournalStoreWitnessV1? storeWitness = null, DebianSessionRuntimeV1? runtime = null) : IDebianDeploymentJournal
 {
+    internal DebianJournalStoreWitnessV1? PersistentWitness => storeWitness;
     private Guid _generation;
     private string? _planHash;
     public bool HasPersistentStoreWitness => storeWitness is not null && storeWitness.Path == privateStore && storeWitness.FileSystem == "EXT4" &&

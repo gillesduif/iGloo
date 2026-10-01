@@ -12,6 +12,7 @@ from pathlib import Path
 import signal
 import stat
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
 
@@ -83,7 +84,13 @@ def sealed_copy(data, name):
         raise
 
 
-def verify_effective(observed, host_namespaces, resources, profile):
+def resource_paths(resources, view):
+    return {"/": resources["root"].identity, "/run/igloo-source": resources["payload"].identity,
+            **({"/var/tmp": resources["workspace"].identity} if view == 'InitramfsCandidate' else
+               {"/boot/efi": resources["esp"].identity})}
+
+
+def verify_effective(observed, host_namespaces, resources, profile, view=None):
     """Checks actual kernel evidence, not requested bwrap flags or a status boolean."""
     expected_caps = sum(1 << c for c in CAPS[profile])
     require(observed["State"] == "T" and observed["Uid"] == [0]*4 and observed["Gid"] == [0]*4, "GateIdentityChanged")
@@ -93,8 +100,7 @@ def verify_effective(observed, host_namespaces, resources, profile):
     require(observed["NetworkDevices"] == ["lo"] and not observed["SysEntries"], "NetworkOrFirmwareExposed")
     require(observed["RunEntries"] == ["igloo-gate", "igloo-source"], "UnexpectedRuntimeExposure")
     require(not observed["Sockets"], "ServiceSocketExposed")
-    require(observed["Paths"] == {"/": resources["root"].identity, "/boot/efi": resources["esp"].identity,
-                                  "/run/igloo-source": resources["payload"].identity}, "MountedResourceSubstituted")
+    require(observed["Paths"] == resource_paths(resources, view), "MountedResourceSubstituted")
     init = observed["Init"]
     require(init["NamespacePid"] == 1 and init["Root"] == resources["root"].identity and
             init["Namespaces"] == observed["Namespaces"] and init["EffectiveCapabilities"] == 0, "NamespaceInitExposed")
@@ -115,13 +121,22 @@ def verify_effective(observed, host_namespaces, resources, profile):
     mounts = observed["Mounts"]
     require(len({m["Path"] for m in mounts}) == len(mounts) and all(not m["Propagation"] for m in mounts), "StackedOrPropagatingMount")
     basic = {"/", "/boot/efi", "/dev", "/dev/pts", "/proc", "/sys", "/run", "/run/igloo-source", "/run/igloo-gate", "/tmp"}
+    if view == 'InitramfsCandidate':
+        basic.remove("/boot/efi")
+        basic.add("/var/tmp")
+    if view == 'CoreConfiguration':
+        basic.add('/boot')
+        boot = [m for m in mounts if m['Path'] == '/boot']
+        require(len(boot) == 1 and boot[0]['FileSystem'] == 'tmpfs' and 'ro' in boot[0]['Options'], 'ConfigurationBootViewChanged')
     proc_masks = {"/proc/sys", "/proc/sysrq-trigger", "/proc/irq", "/proc/bus"}
     # The tool overlay is validated by the caller with the sealed expected bytes.
     tool_mounts = [m for m in mounts if m["Path"].startswith(("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/"))]
     require(len(tool_mounts) == 1 and "ro" in tool_mounts[0]["Options"], "ToolMountChanged")
     require({m["Path"] for m in mounts} <= basic | proc_masks | set(allowed) | {tool_mounts[0]["Path"]}, "UnexpectedMount")
-    for path, mode in (("/", "ro" if profile == Profile.OBSERVER else "rw"), ("/boot/efi", "ro"),
-                       ("/run/igloo-source", "ro"), ("/sys", "ro"), ("/proc", "ro")):
+    access = (("/", "ro" if profile == Profile.OBSERVER or view == 'InitramfsCandidate' else "rw"),
+              ("/var/tmp", "rw") if view == 'InitramfsCandidate' else ("/boot/efi", "ro"),
+              ("/run/igloo-source", "ro"), ("/sys", "ro"), ("/proc", "ro"))
+    for path, mode in access:
         matches = [m for m in mounts if m["Path"] == path]
         require(len(matches) == 1 and mode in matches[0]["Options"], "MountAccessChanged")
     for mount in mounts:
@@ -134,23 +149,47 @@ class PackageBroker:
     def __init__(self, runtime):
         self.runtime = runtime
 
-    def execute(self, launch: Launch, resources, durable_intent, *, input_fd=None):
+    @staticmethod
+    def _validate_font_query(launch):
+        require(launch.profile == Profile.OBSERVER and launch.stage == 'InspectArtifacts' and
+                launch.view == 'CoreConfiguration' and launch.input_kind == 'None' and
+                launch.executable in ('/usr/bin/fc-cat', '/usr/bin/fc-query', '/usr/bin/fc-match'), 'FontQueryProfile')
+        import re
+        args = launch.arguments
+        if launch.executable == '/usr/bin/fc-cat':
+            require(len(args) == 2 and args[0] == '--verbose' and
+                    re.fullmatch(r'/run/igloo-source/[0-9a-f]{32}-le64.cache-9', args[1]), 'FontCacheQueryArguments')
+        elif launch.executable == '/usr/bin/fc-match':
+            require(args in (('--format', '%{file}'), ('--format', '%{file}', 'monospace')), 'FontSelectionArguments')
+        else:
+            require(len(args) == 3 and args[:2] == ('--format', '%{=unparse}') and
+                    args[2] in ('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                                '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf'), 'FontSourceQueryArguments')
+    def query_font(self, launch, resources, durable_intent):
+        """Bounded read-only font observation; raw output stays with the observer."""
+        self._validate_font_query(launch)
+        return self.execute(launch, resources, durable_intent, _font_query=True)
+
+    def execute(self, launch: Launch, resources, durable_intent, *, input_fd=None, _font_query=False):
+        if _font_query:
+            self._validate_font_query(launch)
         # Serialize cooperating broker sessions. This cannot defend against a
         # compromised privileged host; that is outside the package threat model.
         locks = []
         try:
-            require(set(resources) == {"root", "esp", "payload"}, "ResourceSetChanged")
+            require(set(resources) == ({"root", "workspace", "payload"} if launch.view == "InitramfsCandidate" else
+                {"root", "esp", "payload"}), "ResourceSetChanged")
             for name in sorted(resources):
                 resource = resources[name]
                 resource.verify()
                 fcntl.flock(resource.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 locks.append(resource.fd)
-            return self._execute(launch, resources, durable_intent, input_fd=input_fd)
+            return self._execute(launch, resources, durable_intent, input_fd=input_fd, font_query=_font_query)
         finally:
             for fd in reversed(locks):
                 fcntl.flock(fd, fcntl.LOCK_UN)
 
-    def _execute(self, launch: Launch, resources, durable_intent, *, input_fd=None):
+    def _execute(self, launch: Launch, resources, durable_intent, *, input_fd=None, font_query=False):
         """Called by a trusted session after canonical inventory/mount validation.
 
         durable_intent must fsync/reopen the stage intent; it receives only hashes.
@@ -159,7 +198,8 @@ class PackageBroker:
         """
         launch.validate()
         require(os.geteuid() == 0, "PrivilegedMountSupervisorRequired")
-        require(set(resources) == {"root", "esp", "payload"}, "ResourceSetChanged")
+        require(set(resources) == ({"root", "workspace", "payload"} if launch.view == "InitramfsCandidate" else
+                {"root", "esp", "payload"}), "ResourceSetChanged")
         require(len({tuple(r.identity) for r in resources.values()}) == 3, "AliasedResources")
         require(callable(durable_intent), "DurableIntentRequired")
         self.runtime.verify()
@@ -180,6 +220,7 @@ class PackageBroker:
         gate_pidfd = None
         command_started = False
         observation = None
+        query_output = tempfile.TemporaryFile() if font_query else None
         try:
             with os.fdopen(tool_fd, "rb") as tool:
                 info = os.fstat(tool.fileno())
@@ -188,17 +229,36 @@ class PackageBroker:
             require(len(content) <= 64 * 1024 * 1024 and digest(content) == launch.tool_hash, "TargetToolChanged")
             tool_copy = sealed_copy(content, "igloo-tool"); temporary.append(tool_copy)
             gate_copy = sealed_copy(Path(self.runtime.gate).read_bytes(), "igloo-gate"); temporary.append(gate_copy)
-            seccomp_fd = seccomp_descriptor(); temporary.append(seccomp_fd)
+            seccomp_fd = seccomp_descriptor(launch); temporary.append(seccomp_fd)
             filter_hash = digest(os.pread(seccomp_fd, os.fstat(seccomp_fd).st_size, 0))
             args = [self.runtime.gate, "--supervise", self.runtime.bubblewrap, "--unshare-pid", "--unshare-net", "--unshare-ipc", "--unshare-uts",
                     "--new-session", "--die-with-parent", "--cap-drop", "ALL", "--clearenv", "--chdir", "/"]
             args += ["--cap-add", "CAP_SETPCAP"]  # Gate drops this before readback or package exec.
+            if launch.hostname is not None:
+                args += ["--hostname", launch.hostname]
             for cap in CAPS[launch.profile]:
                 args += ["--cap-add", CAP_NAMES[cap]]
             for name, value in ENVIRONMENT.items():
                 args += ["--setenv", name, value]
-            args += ["--ro-bind" if launch.profile == Profile.OBSERVER else "--bind", f"/proc/self/fd/{resources['root'].fd}", "/",
-                     "--ro-bind", f"/proc/self/fd/{resources['esp'].fd}", "/boot/efi", "--dev", "/dev", "--proc", "/proc",
+            if font_query and launch.executable != '/usr/bin/fc-match':
+                # A closed observer projection supplies only verified fonts and
+                # cache inputs; never inspect the configured target's font cache.
+                args += ['--setenv', 'FONTCONFIG_SYSROOT', '/run/igloo-source/font-root',
+                         '--setenv', 'FONTCONFIG_FILE', '/etc/fonts/query.conf']
+            args += ["--ro-bind" if launch.profile == Profile.OBSERVER or launch.view == "InitramfsCandidate" else "--bind", f"/proc/self/fd/{resources['root'].fd}", "/"]
+            if launch.view == 'CoreConfiguration':
+                # The neutral artifact deliberately has no /boot/efi. Its helper
+                # destination exists only in a private tmpfs over /boot. Never
+                # create mountpoint scaffolding in the imported kernel tree.
+                args += ['--tmpfs', '/boot']
+            if launch.view == 'InitramfsCandidate':
+                # Workspace is an independently leased disposable directory. The
+                # target, including /boot, remains read-only throughout generation.
+                args += ['--bind', f"/proc/self/fd/{resources['workspace'].fd}", '/var/tmp']
+            else:
+                args += ["--ro-bind", f"/proc/self/fd/{resources['esp'].fd}", "/boot/efi"]
+            if launch.view == 'CoreConfiguration': args += ['--remount-ro', '/boot']
+            args += ["--dev", "/dev", "--proc", "/proc",
                      "--remount-ro", "/proc", "--tmpfs", "/sys", "--remount-ro", "/sys", "--tmpfs", "/run", "--tmpfs", "/tmp",
                      "--ro-bind", f"/proc/self/fd/{resources['payload'].fd}", "/run/igloo-source",
                      "--perms", "0555", "--ro-bind-data", str(gate_copy), "/run/igloo-gate",
@@ -207,15 +267,17 @@ class PackageBroker:
                      format(sum(1 << c for c in CAPS[launch.profile]), "x"), launch.executable, *launch.arguments]
             host_namespaces = namespace_ids("self")
             process = subprocess.Popen(args, stdin=subprocess.DEVNULL if input_fd is None else input_fd,
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=ENVIRONMENT,
+                                       stdout=query_output if font_query else subprocess.DEVNULL,
+                                       stderr=query_output if font_query else subprocess.DEVNULL, env=ENVIRONMENT,
                                        pass_fds=(*temporary, *(r.fd for r in resources.values())), start_new_session=True)
             deadline = time.monotonic() + min(30, launch.timeout_seconds)
             gate_pid = self._gate(process, deadline)
             gate_pidfd = os.pidfd_open(gate_pid)
-            expected_paths = {"/": resources["root"].identity, "/boot/efi": resources["esp"].identity,
-                              "/run/igloo-source": resources["payload"].identity}
+            expected_paths = resource_paths(resources, launch.view)
             observation = self._observe(gate_pid, launch.timeout_seconds, expected_paths)
-            verify_effective(observation, host_namespaces, resources, launch.profile)
+            verify_effective(observation, host_namespaces, resources, launch.profile, launch.view)
+            if launch.hostname is not None:
+                require(observation["Hostname"] == launch.hostname, "TargetUtsHostnameChanged")
             require(digest(Path(f"/proc/{gate_pid}/exe").read_bytes()) == self.runtime.gate_hash, "GateExecutableChanged")
             require(digest(Path(f"/proc/{observation['Init']['Pid']}/exe").read_bytes()) == self.runtime.bubblewrap_hash,
                     "NamespaceInitExecutableChanged")
@@ -229,18 +291,33 @@ class PackageBroker:
             require(self._observe(gate_pid, launch.timeout_seconds, expected_paths) == observation, "EffectivePolicyChangedAfterIntent")
             command_started = True  # A failed release is still an uncertain start.
             signal.pidfd_send_signal(gate_pidfd, signal.SIGCONT)
-            code = process.wait(timeout=launch.timeout_seconds)
-            return {"Generation": launch.generation, "PlanSha256": launch.plan_hash, "Stage": launch.stage,
+            if font_query:
+                query_deadline = time.monotonic() + launch.timeout_seconds
+                while process.poll() is None:
+                    require(os.fstat(query_output.fileno()).st_size <= 1024 * 1024, 'FontQueryOutputBudget')
+                    require(time.monotonic() < query_deadline, 'FontQueryDeadline')
+                    time.sleep(0.01)
+                code = process.returncode
+                require(os.fstat(query_output.fileno()).st_size <= 1024 * 1024, 'FontQueryOutputBudget')
+                query_output.seek(0)
+                output = query_output.read()
+            else:
+                code = process.wait(timeout=launch.timeout_seconds)
+            result = {"Generation": launch.generation, "PlanSha256": launch.plan_hash, "Stage": launch.stage,
                     "OperationSha256": launch.public_identity(), "ToolSha256": launch.tool_hash,
                     "State": "Exited", "ExitCode": code, "IsolationSha256": digest(canonical(observation)),
                     "SeccompSha256": filter_hash, "Observation": observation}
-        except (OSError, ValueError, subprocess.TimeoutExpired):
+            return (result, output) if font_query else result
+        except (OSError, ValueError, subprocess.TimeoutExpired) as error:
             # Never emit command output, secret input or exception text. Setup can
             # have created mountpoint directories even before the command starts.
             return {"Generation": launch.generation, "PlanSha256": launch.plan_hash, "Stage": launch.stage,
                     "OperationSha256": launch.public_identity(), "State": "OutcomeUnknown" if command_started else "SetupRejected",
-                    "ExitCode": None, "Observation": observation}
+                    "ExitCode": None, "Observation": observation,
+                    "Code": str(error) if isinstance(error, Rejected) and str(error).isascii() and str(error).isalnum() else type(error).__name__}
         finally:
+            if query_output is not None:
+                query_output.close()
             if gate_pidfd is not None:
                 try:
                     signal.pidfd_send_signal(gate_pidfd, signal.SIGKILL)

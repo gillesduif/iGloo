@@ -1,0 +1,360 @@
+{
+  "SchemaVersion": 1,
+  "RecordedAtUtc": "2026-09-30T10:10:23.079080+00:00",
+  "Scope": "CanonicalLabSelectedDocumentsV1",
+  "Outcome": "ImplementationAndContractTestsOnly_NativeNotStarted",
+  "StartingCheckout": {
+    "Branch": "refactor/community-fleet-foundation",
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "ModifiedTracked": 36,
+    "Untracked": 94,
+    "IndexEmpty": true,
+    "InitialFileSnapshotSha256": "6FB6359D3B7219D36B6CDC860A0083019C89F2037A25640D98DBDB16091DE041"
+  },
+  "ChangesThisContinuation": {
+    "ModifiedPreviouslyDirtyOrUntracked": [
+      "distros/debian/Deployment/DebianMountSession.cs",
+      "distros/debian/Deployment/DebianNativeMountSession.cs",
+      "distros/debian/native/block_session.py",
+      "distros/debian/native/session_entry.py",
+      "distros/debian/native/session_import.py",
+      "docs/architecture/debian-target-root-deployment.md",
+      "tests/installer/CanonicalImportQualification/Program.cs",
+      "tests/installer/CanonicalImportQualification/README.md",
+      "distros/debian/Deployment/DebianConfigurationContinuation.cs",
+      "distros/debian/Deployment/DebianConfiguredPredecessor.cs",
+      "distros/debian/native/configured_successor.py",
+      "distros/debian/native/userdata_producer.py",
+      "src/Igloo.Core/Preparation/InstallationStorage.cs",
+      "tests/Igloo.Migration.Tests/DebianConfigurationContinuationTests.cs",
+      "tests/Igloo.Migration.Tests/DebianUserDataTests.cs"
+    ],
+    "ModifiedPreviouslyClean": [
+      "distros/debian/Deployment/DebianLinuxDeploymentJournal.cs"
+    ],
+    "NewFiles": [
+      "distros/debian/Deployment/DebianInitramfsPredecessor.cs",
+      "distros/debian/Deployment/DebianUserDataAdmission.cs",
+      "distros/debian/Deployment/DebianUserDataContinuation.cs",
+      "distros/debian/native/session_userdata.py",
+      "distros/debian/native/userdata_admission.py",
+      "distros/debian/native/userdata_contract.py",
+      "distros/debian/native/userdata_source.py",
+      "distros/debian/native/userdata_successor.py",
+      "tests/Igloo.Migration.Tests/DebianInitramfsPredecessorTests.cs",
+      "tests/Igloo.Migration.Tests/DebianUserDataAdmissionTests.cs",
+      "tests/Igloo.Migration.Tests/DebianUserDataSuccessorTests.cs",
+      "tests/installer/CanonicalImportQualification/LabUserData.cs",
+      "tests/installer/canonical_userdata_guest.py",
+      "tests/installer/canonical_userdata_lab.py",
+      "tests/installer/canonical_userdata_readback.py",
+      "tests/installer/test_userdata_admission.py",
+      "tests/installer/test_userdata_session.py",
+      "docs/architecture/debian-userdata-canonical-evidence.json"
+    ]
+  },
+  "CallChain": [
+    "LabUserData.Reopen / DebianVerifiedInitramfs.Reopen",
+    "ContinueLabInitramfsCheckpoint",
+    "ObserveImportJournalsAsync / DebianImportJournalStorage.Verify",
+    "ForLabUserData / InstallerBlockLeases / DebianNativeMountSession",
+    "session_userdata.perform / userdata_source.observe",
+    "userdata_producer._transfer / independent observe and reopen",
+    "userdata_admission.declaration / publish / observe",
+    "userdata_successor.verify_delta",
+    "canonical_userdata_readback.verify / exact Close"
+  ],
+  "Contract": {
+    "StorageProvider": "IsolatedFileBackedLab",
+    "ProviderVersion": 5,
+    "Scope": "SelectedDocumentTrees",
+    "Authorization": "OneInitramfsCheckpointSelectedDocuments",
+    "TransferScope": "SelectedDocumentTreesV1",
+    "SelectedBytesLimit": 33554432,
+    "SelectedEntryLimit": 1024,
+    "Names": "Existing NFC-normalizable Latin-1, 512 characters, 16 components",
+    "CollisionPolicy": "CreateNewSelectedTrees",
+    "ReceiptEnvelopeVersion": 1,
+    "ProducerRecordVersion": 2,
+    "EffectSessionVersion": 5,
+    "ProtectedInputDirectory": "/var/lib/igloo/first-boot-input",
+    "AdmissionFiles": [
+      "userdata.json",
+      "userdata-evidence.json"
+    ],
+    "AdmissionMode": "root:root 0644; new protected directories 0755"
+  },
+  "ReadOnlyPredecessorVerification": {
+    "Outcome": "Passed",
+    "RunId": "c5dc04e9-18f6-4b78-b60a-2346e2d70000",
+    "EffectRecords": 10,
+    "SessionRecords": 18,
+    "RawReference": "C:/igloo-lab-runtime/canonical-userdata-20260930/predecessor-reopen.json",
+    "RawSha256": "85A680C85678ECCCAC84FF1D13BA94633337337A88E50F211099D7F3D8CB471C",
+    "FullTargetJournalRuntimeHashesMatched": true,
+    "OriginalsMounted": false,
+    "OriginalsWritten": false
+  },
+  "Capacity": {
+    "Host": {
+      "SchemaVersion": 1,
+      "Scope": "HostCapacityObservationOnly",
+      "Distribution": "Ubuntu-24.04",
+      "BackingVolume": "C:\\",
+      "AvailableBytes": 175973011456,
+      "RequiredAdditionalBytes": 193273528320,
+      "ObservedAtUtc": "2026-09-30T10:05:02.6377770+00:00",
+      "Sufficient": false,
+      "NativeMutationAuthorized": false
+    },
+    "GuestAvailableBytes": 686245437440,
+    "ShortfallBytes": 17300516864,
+    "RequiredReservePolicyChanged": false,
+    "ExternalObservationReference": "C:/igloo-lab-runtime/canonical-userdata-20260930/final-capacity.json"
+  },
+  "NativeExecution": {
+    "NewResourcesProvisioned": false,
+    "ReservationCreated": false,
+    "PositiveAttemptsUsed": 0,
+    "PositiveAttemptsAuthorized": 1,
+    "NegativeCasesUsed": 0,
+    "NegativeCasesAuthorized": 1,
+    "PayloadStaging": "NotStarted",
+    "SourceAccountAcquisition": "NotStarted",
+    "CanonicalTransfer": "NotStarted",
+    "FilesTransferred": 0,
+    "BytesTransferred": 0,
+    "ProducerResult": "NotStarted",
+    "ProtectedAdmission": "NotStarted",
+    "WholeRootDelta": "NotStarted",
+    "CanonicalTeardown": "NotStarted",
+    "NewVmShutdown": "NotStarted",
+    "RetainedUserDataTarget": null,
+    "ExecutedNativeRevision": null,
+    "CurrentExecutionPinValidated": false
+  },
+  "Validation": [
+    {
+      "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+      "Platform": "Windows",
+      "Result": "Passed; zero warnings/errors"
+    },
+    {
+      "Command": "dotnet build Igloo.sln --no-restore -m:1 -warnaserror",
+      "Platform": "Windows",
+      "Result": "Passed; zero warnings/errors"
+    },
+    {
+      "Command": "dotnet test Igloo.sln --no-build --no-restore -m:1 -warnaserror",
+      "Platform": "Windows; rebuilt current source",
+      "Result": "Passed",
+      "Suites": {
+        "Core": 398,
+        "Migration": 458,
+        "Iso": 19,
+        "Community.App": 58,
+        "Preflight": 343,
+        "UsbWriter": 23,
+        "Fleet": 153
+      },
+      "Skipped": 0
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Passed": 458,
+      "Overlap": "Do not add to solution totals"
+    },
+    {
+      "Command": "unittest.defaultTestLoader.loadTestsFromNames([test_userdata_session,test_userdata_admission.WireTests,test_userdata_producer.WireTests,test_configured_successor,test_block_session,test_session_import])",
+      "Platform": "WSL Ubuntu-24.04 python3 -B; synthetic native boundaries",
+      "Passed": 62,
+      "Skipped": 0,
+      "WireInputs": "Actual current .NET exports under external session-wire/wire/fixture-wire directories"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-build --no-restore -m:1 -warnaserror --filter FullyQualifiedName~PythonTerminalAndAdmissionReturnToRealDotNetConsumer",
+      "Passed": 1,
+      "Environment": "IGLOO_USERDATA_ADMISSION_RETURN points to Python synthetic output",
+      "Overlap": "Migration subset; no native admission proof"
+    },
+    {
+      "Command": "AST parse UserData native/provisioning/test modules",
+      "Result": "Passed"
+    },
+    {
+      "Command": "git diff --check; changed/untracked BOM, whitespace and size checks",
+      "Result": "Passed; no historical JSON modified; existing Git newline notices"
+    }
+  ],
+  "OmittedChecks": [
+    "Isolated ordinary-file admission failure fixtures",
+    "Fresh protected pin/tool/launch/source/account/journal validation",
+    "Native negative and positive canonical transfer",
+    "Actual transfer/admission/whole-root/preserved-object readback and exact teardown",
+    "No repeated initramfs/helper qualification; generator/isolation/image observer unchanged"
+  ],
+  "FinalSourceIdentities": {
+    "distros/debian/Deployment/DebianLinuxDeploymentJournal.cs": {
+      "Length": 6583,
+      "Sha256": "A4AD8D960D2CE972259A7FBDABCCAB55C5AB4740F5D8A00BC4227267A650FD5F"
+    },
+    "distros/debian/Deployment/DebianMountSession.cs": {
+      "Length": 48971,
+      "Sha256": "6BFA628021E5D330C4AC3F0CB8056F4381DF56C238EB625CB4895A28FD8D7E0D"
+    },
+    "distros/debian/Deployment/DebianNativeMountSession.cs": {
+      "Length": 16657,
+      "Sha256": "D22517AB7F9A2517BDB8BA4A601314D7EF417FEA85E792BCB555BC3FF958EAF0"
+    },
+    "distros/debian/native/block_session.py": {
+      "Length": 22529,
+      "Sha256": "38B7A31EFC3AB644B67AE59938DA29AF27FCCB2715B9AE135CA52BD5FB475B29"
+    },
+    "distros/debian/native/session_entry.py": {
+      "Length": 4626,
+      "Sha256": "D98816ECFEB5B25A3274C4A24AB72D47DEA2F1025C7E6844934B421EF3A8DA53"
+    },
+    "distros/debian/native/session_import.py": {
+      "Length": 15729,
+      "Sha256": "F434CBBDD0E1D945A864121F2A64255B03F67AC3D6D71427AA79F94CB44F9075"
+    },
+    "docs/architecture/debian-target-root-deployment.md": {
+      "Length": 67870,
+      "Sha256": "6DB8DDB1AB00243D46249111E1814174E87EF2F6C8E3392D74E267547127EBFA"
+    },
+    "tests/installer/CanonicalImportQualification/Program.cs": {
+      "Length": 7094,
+      "Sha256": "0D79F25F199FD9EECC74069E68C4CF62555F6FBEBBF07E3EDB14946EB77D4DA4"
+    },
+    "tests/installer/CanonicalImportQualification/README.md": {
+      "Length": 37132,
+      "Sha256": "16D7FD3445A2F0B683E084559D5198C99BE569D0928B6459801ABCC5C5170D0E"
+    },
+    "distros/debian/Deployment/DebianConfigurationContinuation.cs": {
+      "Length": 10263,
+      "Sha256": "78756006DB9CD38C091E61C471ABB65E20B9A905F581AB0B32B5E10DADFC0A1D"
+    },
+    "distros/debian/Deployment/DebianConfiguredPredecessor.cs": {
+      "Length": 8131,
+      "Sha256": "479F8299F365E0A7F7D8C47EBADBE98319DD9EC187B1F1A070B963CDAD637D93"
+    },
+    "distros/debian/Deployment/DebianInitramfsPredecessor.cs": {
+      "Length": 9694,
+      "Sha256": "70683FF2FD2342F4B38ADB37370072564CE14191CC153EAE97D5A867A2C879C7"
+    },
+    "distros/debian/Deployment/DebianUserDataAdmission.cs": {
+      "Length": 8706,
+      "Sha256": "A0B51979A61356E057012A347A9F4221267DB5311A26B28857DA3EA0770B8643"
+    },
+    "distros/debian/Deployment/DebianUserDataContinuation.cs": {
+      "Length": 14272,
+      "Sha256": "D9C3A11BAD3C4E6356CED543848EAE017C352E88D38FD7BE47A88EDCE42A10D0"
+    },
+    "distros/debian/native/configured_successor.py": {
+      "Length": 2890,
+      "Sha256": "0C8B0363267A2FD2CF988460708B97494E4834179BA102ED8653A6A0B733E8D3"
+    },
+    "distros/debian/native/session_userdata.py": {
+      "Length": 14416,
+      "Sha256": "DD8CE16F90D0C0334140C8482F1A3144417BD71FC5530C69D85CF74D518B67E8"
+    },
+    "distros/debian/native/userdata_admission.py": {
+      "Length": 5871,
+      "Sha256": "21E1F3E5AD859D58B2382C60A53135120646AA633E90CD14C1CD9D80F7E94888"
+    },
+    "distros/debian/native/userdata_contract.py": {
+      "Length": 13133,
+      "Sha256": "1F4777EC4CEC0F66F43EA228C860F1C881814297ED09F0584733AC26E875B566"
+    },
+    "distros/debian/native/userdata_producer.py": {
+      "Length": 18653,
+      "Sha256": "E1491A608B00015C63D30B55FCB217C7AD0404800737471FBD652666D23F295F"
+    },
+    "distros/debian/native/userdata_source.py": {
+      "Length": 4432,
+      "Sha256": "41FB2CEA7B9B9BA73B9F96A650906FFDF651EBE6A14EF89E1D34112700C43BD3"
+    },
+    "distros/debian/native/userdata_successor.py": {
+      "Length": 4895,
+      "Sha256": "2DA0161806AD694FA159E97B33929B6116F962ED0F1D355F9E672238D50111D6"
+    },
+    "src/Igloo.Core/Preparation/InstallationStorage.cs": {
+      "Length": 32109,
+      "Sha256": "CAE9067D903C69CD0AF8B8383DE7ACEAB7AB2CD6ECEA68D4446B6B90E36B6CD0"
+    },
+    "tests/Igloo.Migration.Tests/DebianConfigurationContinuationTests.cs": {
+      "Length": 20562,
+      "Sha256": "A58C33EE082843BD4F02382091642972A7D63FBB3068175A1AF2943FE975D50E"
+    },
+    "tests/Igloo.Migration.Tests/DebianInitramfsPredecessorTests.cs": {
+      "Length": 5502,
+      "Sha256": "1C082034A2BD1DE4E3BAE7C30695BA023033EDA2860D43BCBDFDFBC48C01E197"
+    },
+    "tests/Igloo.Migration.Tests/DebianUserDataAdmissionTests.cs": {
+      "Length": 5515,
+      "Sha256": "94B45459D8D6A47466D3BBBDAE8A1A28820560E5D3AC4ACA9F5162ABB9B6F375"
+    },
+    "tests/Igloo.Migration.Tests/DebianUserDataSuccessorTests.cs": {
+      "Length": 6202,
+      "Sha256": "0E09DD695C919E20BA869EE42FCE4FC8B5A4E39C31EEB5F49C1B9E08AA1EA3F2"
+    },
+    "tests/Igloo.Migration.Tests/DebianUserDataTests.cs": {
+      "Length": 6343,
+      "Sha256": "82BEC6A10100E34CD0410F4FB5062E5CEF287A59D6D36C7A81450F8A12B2C2BB"
+    },
+    "tests/installer/CanonicalImportQualification/LabUserData.cs": {
+      "Length": 10256,
+      "Sha256": "427773B691A7937833402ABD1F142E586DF1312C7219682455D849681B8FA185"
+    },
+    "tests/installer/canonical_userdata_guest.py": {
+      "Length": 16234,
+      "Sha256": "E800FEA926EEF1D3AEF27B5B10F8456E516BBDE425EF461F5E535A348D555619"
+    },
+    "tests/installer/canonical_userdata_lab.py": {
+      "Length": 6289,
+      "Sha256": "B0E1C7D20F057AB8E039C4405670813E0A70B421AC277AAAE02A498F0A23A1AF"
+    },
+    "tests/installer/canonical_userdata_readback.py": {
+      "Length": 6917,
+      "Sha256": "DAF6C61B8997CB4321E972B86A07BF921CF84A92F9AF7133CB273D1694AC3F94"
+    },
+    "tests/installer/test_userdata_admission.py": {
+      "Length": 11828,
+      "Sha256": "BA9B18ADFBD1B178435E936A825FA48ACD97659681FA6ADED3F35C91BFFD2DDC"
+    },
+    "tests/installer/test_userdata_session.py": {
+      "Length": 13072,
+      "Sha256": "1495DB5B1EABDB9A89416C6B138BA4D914D669555989F3242395482376CFA3AF"
+    }
+  },
+  "BuiltNotNativeExecuted": {
+    "tests/installer/CanonicalImportQualification/bin/Debug/net8.0/CanonicalImportQualification.dll": {
+      "Sha256": "89A8301280C43A181E2239E16685FF6058D92A19C24DF7D1B25DDDEB818D7B9F"
+    },
+    "src/Igloo.Core/bin/Debug/net8.0/Igloo.Core.dll": {
+      "Sha256": "61FFBB7D414DB30E936409D8188CDFDE5DE2B2E796A8C7585D32B8A390C837DF"
+    },
+    "distros/debian/bin/Debug/net8.0/Igloo.Distro.Debian.dll": {
+      "Sha256": "614830AB8C4DA7D5F13D360F1D95A91DC9F6182B8DE0B65AE82A893488AD868B"
+    }
+  },
+  "RemainingBoundary": [
+    "Fresh successful existing host/guest capacity checks; no reserve reduction/evidence deletion",
+    "Current protected pin/tools; fresh authorization and independent copies",
+    "Isolated admission fixtures, staged payload delivery and changed-backing readback",
+    "Separate invalid-operation entrypoint then one positive canonical attempt",
+    "Independent producer/admission/session handoff, whole-root delta, exact teardown and separate shutdown"
+  ],
+  "Claims": {
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "ProductionEnablement": false,
+    "FirstBootSucceeded": false,
+    "AgentInstalled": false,
+    "Enrollment": false,
+    "GeneralWindowsMigrationQualified": false,
+    "MilestoneComplete": false,
+    "HistoricalEvidenceRewritten": false,
+    "PriorFailureTeardownPromoted": false
+  }
+}

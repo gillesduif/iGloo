@@ -23,6 +23,21 @@ public static class DebianFirstBootEvidence
 {
     private static readonly JsonSerializerOptions StrictJson = new() { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
     public const string Profile = "debian-first-boot-evidence-v1";
+    private static readonly string[] CompletionFields = ["SchemaVersion", "GenerationId", "Kind", "State", "EvidenceSha256"];
+
+    public static bool ValidCompletionReceipt(JsonElement receipt, Guid generation, string kind)
+    {
+        try
+        {
+            return generation != Guid.Empty && kind is "DeploymentContent" or "UserData" or "Enrollment" &&
+                receipt.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal).SequenceEqual(
+                    CompletionFields.Order(StringComparer.Ordinal)) &&
+                receipt.GetProperty("SchemaVersion").GetInt32() == 1 && receipt.GetProperty("GenerationId").GetGuid() == generation &&
+                receipt.GetProperty("Kind").GetString() == kind && receipt.GetProperty("State").GetString() == "AppliedAndVerified" &&
+                DebianDeploymentPlanning.Hash(receipt.GetProperty("EvidenceSha256").GetString());
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException or FormatException) { return false; }
+    }
 
     public static byte[] WorkerBytes()
     {
@@ -50,9 +65,16 @@ public static class DebianFirstBootEvidence
 
     public static string Configuration(Guid generation, DebianFirstBootPlanV1 plan)
     {
-        if (generation == Guid.Empty || !Valid(plan)) throw new InvalidDataException("Invalid first-boot evidence plan.");
-        return JsonSerializer.Serialize(new { SchemaVersion = 1, GenerationId = generation, Profile, WorkerSha256,
-            RequiredReceipts = plan.RequiredReceipts.OrderBy(r => r.Kind, StringComparer.Ordinal).ToImmutableArray() });
+        if (generation == Guid.Empty || !Valid(plan))
+            throw new InvalidDataException("Invalid first-boot evidence plan.");
+        return JsonSerializer.Serialize(new
+        {
+            SchemaVersion = 1,
+            GenerationId = generation,
+            Profile,
+            WorkerSha256,
+            RequiredReceipts = plan.RequiredReceipts.OrderBy(r => r.Kind, StringComparer.Ordinal).ToImmutableArray()
+        });
     }
 
     public static Observation<DebianAgentReceiptV1> Installed(DebianAgentInstallProfileV1 profile,
@@ -96,7 +118,8 @@ public static class DebianFirstBootEvidence
                 root.GetProperty("ConfigurationSha256").GetString() != installed.ConfigurationSha256 ||
                 !DebianDeploymentPlanning.Hash(root.GetProperty("IntentSha256").GetString()) || service.Value.InvocationId == Guid.Empty ||
                 root.GetProperty("InvocationId").GetGuid() != service.Value.InvocationId || service.Value.UnitName != "igloo-deployment.service" ||
-                service.Value.ExecMainCode != 1) throw new InvalidDataException();
+                service.Value.ExecMainCode != 1)
+                throw new InvalidDataException();
             var state = root.GetProperty("State").GetString() switch
             {
                 "FirstBootSucceeded" => DebianFirstBootState.FirstBootSucceeded,
@@ -106,12 +129,18 @@ public static class DebianFirstBootEvidence
             var required = JsonSerializer.Deserialize<ImmutableArray<DebianFirstBootRequirementV1>>(root.GetProperty("VerifiedReceipts"), StrictJson);
             if (state == DebianFirstBootState.FirstBootSucceeded
                 ? service.Value.ExecMainStatus != 0 || service.Value.Result != "success"
-                : service.Value.ExecMainStatus == 0 || service.Value.Result != "exit-code") throw new InvalidDataException();
+                : service.Value.ExecMainStatus == 0 || service.Value.Result != "exit-code")
+                throw new InvalidDataException();
             if (required.IsDefault || required.Any(r => r is null) || (state == DebianFirstBootState.FirstBootSucceeded
                 ? !required.OrderBy(r => r.Kind, StringComparer.Ordinal).SequenceEqual(plan.RequiredReceipts.OrderBy(r => r.Kind, StringComparer.Ordinal))
-                : !required.IsEmpty)) throw new InvalidDataException();
-            return Observations.Available(installed with { State = state,
-                FirstBootEvidenceSha256 = Convert.ToHexString(SHA256.HashData(observation.Value.AsSpan())), Service = service.Value });
+                : !required.IsEmpty))
+                throw new InvalidDataException();
+            return Observations.Available(installed with
+            {
+                State = state,
+                FirstBootEvidenceSha256 = Convert.ToHexString(SHA256.HashData(observation.Value.AsSpan())),
+                Service = service.Value
+            });
         }
         catch (JsonException) { return Invalid(); }
         catch (InvalidDataException) { return Invalid(); }

@@ -1,6 +1,6 @@
 """Fresh-process, read-only kernel acquisition for a stopped command gate.
 
-Does not enter the target namespaces or run target executables. This reports
+Enters only UTS briefly for a read-only hostname observation; never runs target executables. This reports
 mechanism evidence; canonical storage ownership remains the shared resolver's job.
 """
 import argparse
@@ -73,7 +73,10 @@ def observe(pid, expected_paths=None):
     before = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19]
     values = status(pid)
     root = f"/proc/{pid}/root"
-    paths = {path: inode(root + path) for path in ("/", "/boot/efi", "/run/igloo-source")}
+    requested = tuple(expected_paths) if expected_paths is not None else ("/", "/boot/efi", "/run/igloo-source")
+    if set(requested) not in ({"/", "/boot/efi", "/run/igloo-source"}, {"/", "/var/tmp", "/run/igloo-source"}):
+        raise ValueError("UnsupportedObservedResourceSet")
+    paths = {path: inode(root + path) for path in requested}
     if expected_paths is not None and paths != expected_paths:
         raise ValueError("ResourceIdentityMismatchBeforeTreeInspection")
     devices, sockets = special_files(root)
@@ -109,6 +112,18 @@ def observe(pid, expected_paths=None):
     after = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19]
     if before != after or status(pid)["State"].strip().split()[0] != "T":
         raise ValueError("CommandGateChangedDuringReadback")
+    # Read the actual isolated UTS state in this fresh observer process. This neither
+    # changes the host hostname nor executes target code. Restore before returning.
+    import ctypes
+    old = os.open("/proc/self/ns/uts", os.O_RDONLY | os.O_CLOEXEC)
+    selected = os.open(f"/proc/{pid}/ns/uts", os.O_RDONLY | os.O_CLOEXEC)
+    libc = ctypes.CDLL(None, use_errno=True)
+    try:
+        if libc.setns(selected, 0x04000000) != 0: raise OSError("UtsObservationUnavailable")
+        result["Hostname"] = os.uname().nodename
+    finally:
+        if libc.setns(old, 0x04000000) != 0: raise OSError("UtsObserverRestoreFailed")
+        os.close(selected); os.close(old)
     return result
 
 

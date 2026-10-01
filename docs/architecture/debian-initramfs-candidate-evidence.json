@@ -1,0 +1,417 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "RetainedInitramfsCandidateHelperQualification",
+  "Qualification": "PassedForDeclaredLabCandidateOnly",
+  "BaselineCommit": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+  "Branch": "refactor/community-fleet-foundation",
+  "InitialWorkingTree": {
+    "ModifiedTracked": 32,
+    "Untracked": 71,
+    "IndexEmpty": true,
+    "StatusSha256": "83F2300763990B0944AD239C79F6189919133402A950E3788B15288B91A8AEB3",
+    "FileSnapshotSha256": "61CA3E384FD80330CDDD475BF2512A5BE559D71C6804D33B1B5D8113B6657832",
+    "SnapshotTimingNote": "File snapshot followed the first small diagnostic-rehearsal edit; prior exact rehearsal identity is retained separately.",
+    "PreEditRehearsalSha256": "508E6F1939905AD01F49721F66D2A7763B087D6C3981B19B8CD978CBFBB50510"
+  },
+  "AttemptBudget": {
+    "AuthorizedHelperPasses": 3,
+    "HelperPassesUsed": 2,
+    "CanonicalAttemptsUsed": 0,
+    "CanonicalAuthorizedThisTask": false,
+    "FurtherGenerationStoppedAfterSuccess": true
+  },
+  "Predecessor": {
+    "Run": "60068939-1509-4b7c-99da-560446fbbc53",
+    "ConfigurationResultSha256": "54EC121627C7D45BCCB47621CFD6C05F1C22C91E0C17241ED2329F9D0DD6443D",
+    "CloseResultSha256": "D21FE8A94119D47270A91CED0962F6CF6637ADAE0C0825F453CC9AFAEF964001",
+    "RetentionSha256": "E0501EC9A4192777AAF579121A7D13873B665602AB83068D947DB7BB5C8264D4",
+    "CurrentRawChainVerifier": "canonical_configuration_readback.verify",
+    "EffectRecordsReopened": 20,
+    "SessionRecordsReopened": 18,
+    "RawChainReadbackSha256": "1262654F683B0E5993CB2932D06BBD642F836F10698BBADC14F76A8397D3B892",
+    "ProtectedBackingsRechecked": {
+      "journal.raw": {
+        "Device": 2096,
+        "Inode": 13327,
+        "Length": 8589934592,
+        "Sha256": "9FDF4059917954C424DD2081D88D71BC817774AF425746D941FEB735BCE8AA04",
+        "Unchanged": true
+      },
+      "target.raw": {
+        "Device": 2096,
+        "Inode": 13326,
+        "Length": 42949672960,
+        "Sha256": "FB3005ACC26A229E95C1B17B069C90D7459689004EA5A06D2E6A4A34B1EEF51F",
+        "Unchanged": true
+      }
+    }
+  },
+  "Lab": {
+    "ResourceDirectory": "/var/lib/igloo/initramfs-helper-labs/506f4c6f45564a0abc4f96d091789b0a",
+    "HostLaunchReadback": {
+      "Files": {
+        "/var/lib/igloo/initramfs-helper-labs/506f4c6f45564a0abc4f96d091789b0a/runtime.raw": {
+          "Access": 2,
+          "Device": 2096,
+          "Inode": 12202,
+          "Length": 25769803776
+        },
+        "/var/lib/igloo/initramfs-helper-labs/506f4c6f45564a0abc4f96d091789b0a/source.raw": {
+          "Access": 0,
+          "Device": 2096,
+          "Inode": 12239,
+          "Length": 42949672960
+        },
+        "/var/lib/igloo/initramfs-helper-labs/506f4c6f45564a0abc4f96d091789b0a/tools.iso": {
+          "Access": 0,
+          "Device": 2096,
+          "Inode": 84580,
+          "Length": 1587200
+        }
+      },
+      "LaunchSha256": "F696C37E7AF00ABBC8F87A355144E3C33996FAD111FDE4A11758A03E4660153F",
+      "Pid": 4264
+    },
+    "HostCapacityBeforeAcceptance": {
+      "AvailableBytes": 254833229824,
+      "BackingVolume": "C:\\",
+      "Distribution": "Ubuntu-24.04",
+      "NativeMutationAuthorized": false,
+      "ObservedAtUtc": "2026-09-29T20:05:25.7635920+00:00",
+      "RequiredAdditionalBytes": 193273528320,
+      "SchemaVersion": 1,
+      "Scope": "HostCapacityObservationOnly",
+      "Sufficient": true
+    },
+    "GuestAvailableBytesBeforeAcceptance": 17459929088,
+    "GuestRequiredBytesBeforeCopy": 12884901888,
+    "DevelopmentPinValidAt": "2026-09-29T20:05:25.805792+00:00",
+    "DevelopmentPinExpiryUnchanged": "2026-10-05T09:32:27.464Z",
+    "Boundary": {
+      "Nic": false,
+      "HostShares": false,
+      "HostServiceSockets": false,
+      "PhysicalStoragePassthrough": false,
+      "TargetBoot": false,
+      "Efi": false,
+      "OriginalsAttachedWritable": false
+    },
+    "FinalBackingRetention": {
+      "runtime.raw": {
+        "Device": 2096,
+        "Inode": 12202,
+        "Length": 25769803776,
+        "Sha256": "0F7EB5EA2DC77A33841DAFED6DCD26BDC9F386CCFC3A13962E4FBD9535583EEB"
+      },
+      "source.raw": {
+        "Device": 2096,
+        "Inode": 12239,
+        "Length": 42949672960,
+        "Sha256": "FB3005ACC26A229E95C1B17B069C90D7459689004EA5A06D2E6A4A34B1EEF51F"
+      }
+    }
+  },
+  "Strategy": {
+    "Executable": "/usr/sbin/mkinitramfs",
+    "ToolSha256": "16780CBE540FA1A9D7B1FAAD173B1FD74BDD4DE3E56E773D10462D9CE77161BF",
+    "KernelRelease": "6.12.107+deb13-amd64",
+    "KernelPackageVersion": "6.12.107-1",
+    "InitramfsToolsVersion": "0.148.4",
+    "Modules": "most",
+    "CpuVendor": "AuthenticAMD",
+    "RootUuid": "398f0d87-e17c-46d6-866f-24d10d747006",
+    "Resume": "none",
+    "Compression": "gzip",
+    "TargetReadOnlyIncludingBoot": true,
+    "WorkspaceSeparatelyLeased": true,
+    "ActualEspUnexposed": true,
+    "ManagedUpdateState": "NotPerformed",
+    "Publication": "NotPerformed",
+    "Ldconfig": "Retained glibc path-prefix fallback worked with chroot still denied; cache independently verified.",
+    "BootScriptPrereqs": "Retained metadata branches reviewed; no boot actions executed."
+  },
+  "Passes": [
+    {
+      "Number": 1,
+      "Kind": "DiagnosticOnly",
+      "GeneratorExitCode": 0,
+      "CompleteImageQualification": false,
+      "OriginalDiagnosticResultPreserved": true,
+      "CandidateGuestPath": "/var/lib/igloo/initramfs-fixture-1/workspace/candidate.img",
+      "Length": 150837979,
+      "Sha256": "0FCAEFF99DD7A1E80FDA6890859B2A302AB2AF77D63BC06987B4772180E13015",
+      "ExecutionSha256": "279822B2EE5159A5B50D5AB986BF0F6CE4B701237E98B7FE37AEED0F90FA5E77",
+      "ReadOnlyObserverDevelopmentPerformed": true
+    },
+    {
+      "Number": 2,
+      "Kind": "FreshCompleteAcceptance",
+      "Candidate": {
+        "GuestPath": "/var/lib/igloo/initramfs-fixture-2/workspace/candidate.img",
+        "Length": 150835944,
+        "Sha256": "DBCD976F4E5BD2B52C6859A3046043BDF604FF6EEEFAD055D5F8DB80187A7302"
+      },
+      "Generation": {
+        "State": "Exited",
+        "ExitCode": 0,
+        "OperationSha256": "D359A37647B60E2BD1B55A97C114110353825B9F3E8BAE1F094AEB32D121DE85",
+        "ToolSha256": "16780CBE540FA1A9D7B1FAAD173B1FD74BDD4DE3E56E773D10462D9CE77161BF",
+        "IsolationSha256": "7873D8E36E36DA2076E5F3C224DA49A204CDF606AB68670BE828C7902EC8F6E9",
+        "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432"
+      },
+      "Observation": {
+        "CompleteImageQualification": true,
+        "ConfiguredRootUnchanged": true,
+        "Entries": 3310,
+        "GeneratedContent": {
+          "DependencyIndices": "Verified",
+          "FontCaches": "VerifiedRetainedQueries",
+          "GeneratedPaths": [
+            "etc/ld.so.cache",
+            "kernel/x86/microcode/.enuineIntel.align.0123456789abc",
+            "kernel/x86/microcode/AuthenticAMD.bin",
+            "kernel/x86/microcode/GenuineIntel.bin",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.alias",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.alias.bin",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.builtin.alias.bin",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.builtin.bin",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.dep",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.dep.bin",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.devname",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.softdep",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.symbols",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.symbols.bin",
+            "usr/lib/modules/6.12.107+deb13-amd64/modules.weakdep",
+            "var/cache/fontconfig/3830d5c3ddfd5cd38a049b759396e72e-le64.cache-9",
+            "var/cache/fontconfig/4c599c202bc5c08e2d34565a40eac3b2-le64.cache-9",
+            "var/cache/fontconfig/7ef2298fde41cc6eeb7af42e48b7d293-le64.cache-9",
+            "var/cache/fontconfig/d589a48862398ed80a3d6066f4f56f4c-le64.cache-9"
+          ],
+          "LibraryCache": "Verified",
+          "Microcode": "VerifiedAuthenticAMDMost",
+          "RequiredModuleLookups": {
+            "ext4": "DependencyClosureVerified",
+            "virtio": "BuiltIn",
+            "virtio_blk": "DependencyClosureVerified",
+            "virtio_pci": "BuiltIn"
+          }
+        },
+        "ImageLength": 150835944,
+        "ImageSha256": "DBCD976F4E5BD2B52C6859A3046043BDF604FF6EEEFAD055D5F8DB80187A7302",
+        "KernelRelease": "6.12.107+deb13-amd64",
+        "Modules": 874,
+        "Policy": "debian-trixie-lab-initramfs-candidate-v1",
+        "RootUuid": "398f0d87-e17c-46d6-866f-24d10d747006",
+        "TargetBooted": false
+      },
+      "ExecutionSha256": "F16BA7CD6B9A97B3F2BF50A8AF88D24C3F0AB009B30C410A0688ACCA1A8D1DDF",
+      "FixtureRecordReferences": {
+        "acceptance-result.json": "7C3E24394580B33AD0BB217FC562751CB4B9165B09C3F80339ACB03AACDA83B0",
+        "source-baseline.json": "2B64CFBA3912E420C55D98EF2A182A3215FA30D3B3A8E990277C6346172B51B4",
+        "generation-intent.json": "A3C2BC484F8011A36C5267CF1B91B26C84363E37ECE6C3C3F615CEA5D81F2630",
+        "observer-process.json": "0CBE1BBBFA70DEE9B0B607F990C68779B7432654B7DFABF528339D4CE31CB01E",
+        "candidate-observation.json": "BDB739D62E04449005AB59C3F169C917F98849B88840DF530780969F9CF19EAB",
+        "generation-result.json": "1523513C3E43F4F013CD683C5E4977085D1951DB759DAAA52A6711B5A5E7A158",
+        "execution.json": "F16BA7CD6B9A97B3F2BF50A8AF88D24C3F0AB009B30C410A0688ACCA1A8D1DDF",
+        "intent.json": "36646BC1517792C8DFD98E2EC6C55EEC18824149152AD8EAE9B83EE147C8D8AF",
+        "unchanged-configured-root.json": "5E60A66992070BCB5646EAAD3D0F6FCF21F45B59FBD167E1ED726D18E3A22B8E",
+        "plan.json": "8EC00C0E02C82087AD4639B1CA65CAF32D85D36F9522AD48733803BFF18E3F95",
+        "preflight.json": "E1374C1BE16FCA61817E3C380641F2F3EAF8E64035ED0A02D1887F23689247AA",
+        "observer-request.json": "6561A9156E550148F9359AE503944612E3F49685937032B2ACA854E5FE5B4C67"
+      }
+    }
+  ],
+  "ExecutedSourceSha256": {
+    "bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+    "command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+    "lab/initramfs_broker_rehearsal.py": "609BAA70C3DAAE0CBD71E5EEF3D8EB81134357C1792009CF7D32D46E1B12790F",
+    "native/block_session.py": "580629256AF4C98152CD67D13532199425B4A2FB5245D65B7FC0A70266DEB3B8",
+    "native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+    "native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+    "native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+    "native/configured_successor.py": "5FDE49F7F8032629E1D8E1BF9F1B97FA24D82E91B493D684E3044868315B4CA1",
+    "native/debian_first_boot.py": "F1F1F359F8D8218C7D5FC6C48E4A9DD44D45EC0B21F16C19BB0A48E9CDD04753",
+    "native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+    "native/initramfs_archive.py": "0F01F2CBE46EB4975A79DAAFCE94BDFFCC3714ED843CC9DC1CA4B4E28CEC6CFC",
+    "native/initramfs_candidate.py": "EB663235CE5CC791C18E13F2904C9C894090E90421E0DB09DE5B3DD5EB2E6BD6",
+    "native/initramfs_generated.py": "0E26510714D6B79A75FF00AF4ACEBA3FDC38F436F16D13435553D2080C7467FC",
+    "native/isolation_observer.py": "14182A2A7A42A9C7A76CF6D6712F31366AF96783FF04F1EE7CE57E24EE5295A2",
+    "native/isolation_policy.py": "36DD2CBF01461BE37035D01526E61FF5F69307C6ADA8BE397CBF9B1D18CA6F45",
+    "native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+    "native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+    "native/package_broker.py": "F7DDBAC0E1B22C7FEB9E995D3507404B3B3F020E21DCB7BD9FC8ED1BC87BF354",
+    "native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+    "native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+    "native/session_configuration.py": "EC3E906D437DC220B8AD5774BB1764A546A9E29F0D091B570BD2414D4922C1B2",
+    "native/session_entry.py": "CA447F2F726C187992EF12453913279F0A079804511737456F244BED5DB473FB",
+    "native/session_import.py": "C6C6BD31E392BE78DD8BE1DA711AFDC4CFD3652A36CA5B534D9B770A518AFF3B",
+    "native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+    "native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A"
+  },
+  "ObserverContracts": {
+    "ModuleIndices": "Bounded kmod trie/text semantics against authenticated source filtered to selected modules; complete required kmod lookup including soft dependencies.",
+    "Microcode": "Exact AMD source concatenation; source-bound Intel record identities and strict selected/extended-signature comparison.",
+    "Fonts": "Four directory-bound fontconfig caches and complete retained fc-cat patterns versus retained fc-query source fonts; independent fc-match selection.",
+    "FontReadOnlyDiagnostic": "Only exact No writable cache directories messages tolerated for read-only source selection; no required cache output omitted.",
+    "LibraryCache": "Bounded complete glibc cache structure, SONAME/source ELF closure and independent retained ldconfig query.",
+    "CopiedPayload": "Source bytes, explicit umask transformations, owner/mode/link checks; unknown generated data fails.",
+    "SecretPolicy": "Prohibited paths/private-key/account patterns rejected; only exact authenticated ELF parser literals are distinguished from credentials.",
+    "ScopeLimit": "Declared amd64 AuthenticAMD/virtio-block/EXT4 lab; not universal hardware or boot qualification."
+  },
+  "NativeReadOnlyRejections": {
+    "Scope": "ReadOnlyCandidateObserverNegatives",
+    "CandidateSha256": "DBCD976F4E5BD2B52C6859A3046043BDF604FF6EEEFAD055D5F8DB80187A7302",
+    "CandidateUnchanged": true,
+    "GeneratorInvoked": false,
+    "Cases": [
+      {
+        "Case": "WrongKernel",
+        "RejectedBy": "InitramfsObserverPolicy"
+      },
+      {
+        "Case": "CompressedCorruption",
+        "RejectedBy": "InitramfsCompressionCorrupt"
+      },
+      {
+        "Case": "AuthenticatedModuleSubstitution",
+        "RejectedBy": "InitramfsModuleChanged"
+      },
+      {
+        "Case": "ProhibitedAccountMaterial",
+        "RejectedBy": "InitramfsProhibitedIdentityPath"
+      },
+      {
+        "Case": "DependencyIndexTrailingData",
+        "RejectedBy": "ModuleIndexTrailingBytes"
+      },
+      {
+        "Case": "MicrocodeSourceSubstitution",
+        "RejectedBy": "AmdMicrocodeComposition"
+      }
+    ]
+  },
+  "FixtureRetention": {
+    "GuestRecord": "/root/initramfs-evidence/candidate-retention.json",
+    "Sha256": "263E9B564E234B036BF05D9591C91498F8954F25011181AF5FE028C3AF4F3D28"
+  },
+  "FixtureTeardown": {
+    "Sha256": "7623B9A6BDEC12435A9248667BF994D6F412FB9133618E80F1293A94FDECAADE",
+    "Record": {
+      "Scope": "OrdinaryFixtureUnmountOnly",
+      "CanonicalTeardown": false,
+      "Results": [
+        {
+          "Path": "/mnt/initramfs-payload",
+          "MountId": 63,
+          "Absent": true,
+          "ExactDelta": true
+        },
+        {
+          "Path": "/mnt/configured-source",
+          "MountId": 57,
+          "Absent": true,
+          "ExactDelta": true
+        },
+        {
+          "Path": "/mnt/initramfs-tools",
+          "MountId": 52,
+          "Absent": true,
+          "ExactDelta": true
+        }
+      ],
+      "NormalShutdown": "NotYetInvoked",
+      "CandidateRetentionSha256": "263E9B564E234B036BF05D9591C91498F8954F25011181AF5FE028C3AF4F3D28"
+    }
+  },
+  "NormalRuntimeShutdown": {
+    "CanonicalTeardown": false,
+    "GuestPowerDownObserved": true,
+    "OpenDescriptors": 0,
+    "ProcessState": "Absent",
+    "RuntimePoweredOff": true
+  },
+  "Checks": [
+    {
+      "Environment": "WSL Ubuntu-24.04",
+      "Command": "python3 -B -m unittest discover -s tests/installer -p 'test_*.py'",
+      "Passed": 357,
+      "Result": "Passed",
+      "LogSha256": "635A6F3516F694D2E07EB8E29752C8D7B59ED9D0B178415FC93DC147E0517BBE"
+    },
+    {
+      "Command": "python3 -B -m unittest discover -s tests/installer -p 'test_initramfs*.py'",
+      "Passed": 15,
+      "OverlappingSubset": true
+    },
+    {
+      "Command": "python3 -B -m unittest discover -s tests/installer -p test_configured_successor.py",
+      "Passed": 3,
+      "OverlappingSubset": true
+    },
+    {
+      "Command": "python3 -B -m unittest discover -s tests/installer -p test_debian_isolation.py",
+      "Passed": 44,
+      "OverlappingSubset": true
+    }
+  ],
+  "ChecksNotExecuted": [
+    "No .NET source changed; no new .NET build/solution claim.",
+    "No additional generic privileged probe pass; actual retained generation/font queries exercised current stopped gate and isolation observer.",
+    "No canonical dispatch, target publication or canonical teardown.",
+    "No power-loss or target-boot validation."
+  ],
+  "ValidationCorrections": [
+    "Expected source-bound ntfs-3g set-ID archive data and early microcode directory metadata.",
+    "Filtered module index ordering/multiplicity and soft-dependency lookup.",
+    "Intel extended-signature list-all normalization against source selection.",
+    "Generated font directory projection and complete source patterns.",
+    "Supported glibc chroot fallback, private systemd library search path and exact source-bound libgio delimiter literals."
+  ],
+  "RemainingCanonicalIntegration": [
+    "Configured-state successor authorization consuming DebianVerifiedConfiguration.Reopen without retagging old scopes.",
+    "Connect candidate plan/view to DebianMountSessionAuthority, DebianNativeMountSession, shared leases and verified persistent journals.",
+    "Exact create-new target publication, independent final published-image and whole-tree-delta verification, durable result/handoff.",
+    "Canonical positive/precondition-negative dispatch and exact teardown; managed update state and bootloader integration remain deferred."
+  ],
+  "Preservation": {
+    "ProtectedConfiguredTargetAndJournalFullHashesUnchanged": true,
+    "ReadOnlySourceCopyFullHashUnchanged": true,
+    "HistoricalEvidenceHashesUnchanged": true,
+    "PriorFailedResourcesWritten": false,
+    "PriorFailedResourcesFullyRehashedThisTask": false,
+    "NoGitMutationOrCommitPush": true,
+    "NoProductionEnablement": true
+  },
+  "ChangedThisContinuation": [
+    "distros/debian/native/package_broker.py",
+    "distros/debian/native/initramfs_archive.py",
+    "distros/debian/native/initramfs_candidate.py",
+    "distros/debian/native/initramfs_generated.py",
+    "tests/installer/initramfs_broker_rehearsal.py",
+    "tests/installer/test_initramfs_archive.py",
+    "tests/installer/test_initramfs_generated.py",
+    "docs/architecture/debian-initramfs-continuation.md",
+    "docs/architecture/debian-initramfs-candidate-evidence.json"
+  ],
+  "FinalSourceSha256": {
+    "distros/debian/native/package_broker.py": "F7DDBAC0E1B22C7FEB9E995D3507404B3B3F020E21DCB7BD9FC8ED1BC87BF354",
+    "distros/debian/native/initramfs_archive.py": "0F01F2CBE46EB4975A79DAAFCE94BDFFCC3714ED843CC9DC1CA4B4E28CEC6CFC",
+    "distros/debian/native/initramfs_candidate.py": "EB663235CE5CC791C18E13F2904C9C894090E90421E0DB09DE5B3DD5EB2E6BD6",
+    "distros/debian/native/initramfs_generated.py": "0E26510714D6B79A75FF00AF4ACEBA3FDC38F436F16D13435553D2080C7467FC",
+    "tests/installer/initramfs_broker_rehearsal.py": "609BAA70C3DAAE0CBD71E5EEF3D8EB81134357C1792009CF7D32D46E1B12790F",
+    "tests/installer/test_initramfs_archive.py": "588A3BED8692BE50744370015467EF593CE941F8A150BB3CE305D83665CE2F08",
+    "tests/installer/test_initramfs_generated.py": "0C53BE9FE3740D4926A5542FB6864456BEA20D454FF902103CC0A201BBAFEC4A",
+    "docs/architecture/debian-initramfs-continuation.md": "DB87AC4D269E61F4B6D63625099E00F2CA2E70AF9A09E6CB880F03A50D0F70B1"
+  },
+  "FinalWorkingTree": {
+    "ModifiedTracked": 32,
+    "Untracked": 74,
+    "IndexEmpty": true
+  },
+  "Gates": {
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "ProductionPreparationRegistration": "Disabled",
+    "RecoverySemantics": "Unchanged"
+  }
+}

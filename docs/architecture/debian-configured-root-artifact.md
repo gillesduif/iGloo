@@ -1,7 +1,22 @@
 # Debian configured-root artifact — Community #241
 
+Latest successor: [post-import configuration attempt](debian-post-import-configuration.md) is blocked; the earlier successful import remains a separate verified checkpoint.
+
+Current continuation (2026-09-29): the unchanged artifact has completed a
+[full canonical lab import](debian-canonical-lab-import-evidence.json) from its freshly
+prepared FAT32 payload, with independent filesystem/package/neutral-state readback,
+reopened import/session records and exact teardown. This supersedes earlier missing
+lab-integration statements only for the recorded development provider/runtime.
+Production authentication and later target configuration remain unsupported/unqualified.
+
 Status, 2026-09-28: **DEBIAN CONFIGURED-ROOT ARTIFACT QUALIFIED** for development
 publication/import mechanics. Production deployment remains blocked.
+
+The [post-commit integrity and GPT-runtime continuation](debian-canonical-lab-acquisition.md)
+restores two accidentally newline-modified exact-byte evidence copies and rereads
+all retained chunk bytes against their original hashes. It runs the Linux .NET
+inventory/acquisition probe in a new GPT runtime, but does not yet qualify a
+canonical full-artifact import. Original artifact and trust bindings remain intact.
 
 The later [canonical import integration](debian-session-boundary.md#later-canonical-import-integration-2026-09-28)
 adds a closed session action, connected root-only view, payload-FD source binding,
@@ -569,3 +584,12 @@ integration is still outstanding. The existing real configured root was reused;
 no factory rebuild occurred. No developer storage, ESP, firmware, BCD or RTC was
 modified, and the developer machine was not rebooted. The factory guest is separate
 from the required disposable VMware migration/boot/recovery acceptance tests.
+
+## Later configuration-result boundary — 2026-09-29
+
+The [post-import configuration continuation](debian-post-import-configuration.md)
+uses the unchanged artifact verifier for its pre-mutation baseline. A configured
+result is a separate declared-delta model, never a relaxed ArtifactValid verdict.
+The native attempt verified that baseline but stopped before configuration writes;
+no configured result or canonical teardown was established. The immutable source,
+descriptor, manifest, stream, external pin and historical attestations are unchanged.

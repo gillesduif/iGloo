@@ -39,7 +39,7 @@ ENVIRONMENT = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C", "HOME": "
                "DEBIAN_FRONTEND": "noninteractive", "DEBCONF_NONINTERACTIVE_SEEN": "true"}
 STAGES = {
     Profile.PACKAGE: frozenset(("ConfigurePackagePolicy", "InstallKernel", "InstallFirmware", "InstallDesktop")),
-    Profile.CONFIGURATION: frozenset(("ConfigureLocale", "ConfigureUser", "ConfigureSudo", "GenerateInitramfs")),
+    Profile.CONFIGURATION: frozenset(("ConfigureLocale", "ConfigureUser", "ConfigureSudo", "GenerateInitramfs", "ConfigureIdentity")),
     Profile.OBSERVER: frozenset(("InspectPackageState", "InspectArtifacts")),
 }
 # Deny old and new mount APIs, device creation, namespace creation/entry, kernel
@@ -85,8 +85,16 @@ class Launch:
     arguments: tuple
     timeout_seconds: int = 300
     input_kind: str = "None"
+    hostname: str | None = None
+    view: str | None = None
 
     def validate(self):
+        require(self.view is None or self.view == 'CoreConfiguration' and self.profile in (Profile.CONFIGURATION, Profile.OBSERVER) or
+                self.view == 'InitramfsCandidate' and self.profile == Profile.CONFIGURATION and
+                self.stage == 'GenerateInitramfs' and self.executable == '/usr/sbin/mkinitramfs' and
+                self.input_kind == 'None', 'InvalidConfigurationView')
+        require(self.hostname is None or self.profile in (Profile.CONFIGURATION, Profile.OBSERVER) and
+                type(self.hostname) is str and re.fullmatch(r"[a-z][a-z0-9-]{1,62}", self.hostname), "InvalidIsolatedHostname")
         require(str(uuid.UUID(self.generation)) == self.generation and uuid.UUID(self.generation).int != 0, "InvalidGeneration")
         require(sha(self.plan_hash) and sha(self.tool_hash), "InvalidLaunchHash")
         require(self.profile in STAGES and self.stage in STAGES[self.profile], "StageProfileUnsupported")
@@ -94,8 +102,17 @@ class Launch:
                 "InvalidExecutablePath")
         require(type(self.arguments) is tuple and len(self.arguments) <= 8192 and
                 all(type(a) is str and "\x00" not in a and len(a) <= 4096 for a in self.arguments), "InvalidArgv")
+        if self.view == 'InitramfsCandidate':
+            require(len(self.arguments) == 11 and self.arguments[:5] ==
+                    ('-d', '/var/tmp/config', '-m', 'most', '-r') and self.arguments[6:] ==
+                    ('-c', 'gzip', '-o', '/var/tmp/candidate.img', '6.12.107+deb13-amd64') and
+                    re.fullmatch(r'UUID=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', self.arguments[5]),
+                    'InitramfsCandidateCommandMismatch')
         require(type(self.timeout_seconds) is int and 1 <= self.timeout_seconds <= 7200, "InvalidTimeout")
-        require(self.input_kind in ("None", "EncryptedPassword", "PublicDebconf"), "InvalidInputContract")
+        require(self.input_kind in ("None", "EncryptedPassword", "PublicDebconf", "IdentityDebconf"), "InvalidInputContract")
+        require(self.input_kind != "IdentityDebconf" or
+                (self.stage, self.executable, self.arguments) == ("ConfigureIdentity", "/usr/bin/debconf-communicate", ("exim4-config",)),
+                "IdentityDebconfCommandMismatch")
         require(self.input_kind != "EncryptedPassword" or
                 (self.stage, self.executable, self.arguments) == ("ConfigureUser", "/usr/sbin/chpasswd", ("--encrypted",)),
                 "CredentialCommandMismatch")
@@ -109,7 +126,9 @@ class Launch:
         # Public argv identifies intent, but is not copied into command receipts.
         return digest(canonical({"Generation": self.generation, "Plan": self.plan_hash, "Stage": self.stage,
                                  "Profile": self.profile.value, "Executable": self.executable, "Tool": self.tool_hash,
-                                 "Argv": self.arguments, "Input": self.input_kind, "Timeout": self.timeout_seconds}))
+                                 "Argv": self.arguments, "Input": self.input_kind, "Timeout": self.timeout_seconds,
+                                 **({"Hostname": self.hostname} if self.hostname is not None else {}),
+                                 **({"View": self.view} if self.view is not None else {})}))
 
 
 class Comparison(ctypes.Structure):
@@ -117,7 +136,16 @@ class Comparison(ctypes.Structure):
                 ("datum_a", ctypes.c_uint64), ("datum_b", ctypes.c_uint64)]
 
 
-def seccomp_descriptor():
+def seccomp_descriptor(launch=None):
+    # Offline account helpers have no audit service. Keep the exact libaudit
+    # socket probe denied, but report the supported unavailable-interface errno.
+    # No netlink FD or audit capability is granted. Other profiles keep EPERM.
+    account_audit = False
+    if launch is not None:
+        launch.validate()
+        account_audit = (launch.view == 'CoreConfiguration' and launch.profile == Profile.CONFIGURATION and
+            (launch.stage, launch.executable) in (('ConfigureUser', '/usr/sbin/useradd'),
+                ('ConfigureUser', '/usr/sbin/chpasswd'), ('ConfigureSudo', '/usr/sbin/usermod')))
     require(platform.machine() == "x86_64", "SeccompArchitectureUnsupported")
     library = ctypes.CDLL("libseccomp.so.2", use_errno=True)
     library.seccomp_init.argtypes = [ctypes.c_uint32]
@@ -134,11 +162,13 @@ def seccomp_descriptor():
     require(context, "SeccompContextUnavailable")
     descriptor = os.memfd_create("igloo-seccomp", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
     try:
-        def rule(name, error=errno.EPERM, comparison=None):
+        def rule(name, error=errno.EPERM, comparison=None, comparisons=()):
             number = library.seccomp_syscall_resolve_name(name.encode())
             require(number >= 0, "SeccompSyscallUnsupported:" + name)
+            values = (comparison,) if comparison is not None else comparisons
+            array = (Comparison * len(values))(*values) if values else None
             require(library.seccomp_rule_add_array(context, 0x00050000 | error, number,
-                                                  int(comparison is not None), ctypes.byref(comparison) if comparison else None) == 0,
+                                                  len(values), array) == 0,
                     "SeccompRuleRejected:" + name)
         for name in DENIED:
             rule(name)
@@ -148,7 +178,18 @@ def seccomp_descriptor():
         for bit in (1 << n for n in range(32) if NAMESPACE_FLAGS & (1 << n)):
             rule("clone", comparison=Comparison(0, 7, bit, bit))  # MASKED_EQ
         # UNIX sockets are confined by both filesystem and network namespaces.
-        rule("socket", comparison=Comparison(0, 1, 1, 0))  # NE AF_UNIX
+        if account_audit:
+            # Disjoint conditions avoid overlapping errno actions. AF_NETLINK=16,
+            # NETLINK_AUDIT=9, SOCK_RAW|SOCK_CLOEXEC=0x80003 on the pinned amd64 ABI.
+            rule('socket', comparison=Comparison(0, 2, 1, 0))  # domain < AF_UNIX
+            rule('socket', comparison=Comparison(0, 6, 16, 0))  # domain > AF_NETLINK
+            for domain in range(2, 16): rule('socket', comparison=Comparison(0, 4, domain, 0))
+            rule('socket', comparisons=(Comparison(0, 4, 16, 0), Comparison(2, 1, 9, 0)))
+            rule('socket', comparisons=(Comparison(0, 4, 16, 0), Comparison(2, 4, 9, 0), Comparison(1, 1, 0x80003, 0)))
+            rule('socket', errno.EAFNOSUPPORT, comparisons=(Comparison(0, 4, 16, 0),
+                Comparison(2, 4, 9, 0), Comparison(1, 4, 0x80003, 0)))
+        else:
+            rule("socket", comparison=Comparison(0, 1, 1, 0))  # NE AF_UNIX
         rule("socketpair", comparison=Comparison(0, 1, 1, 0))
         # TIOCSTI / TIOCLINUX, even if a controlling terminal was mistakenly supplied.
         for request in (0x5412, 0x541c):

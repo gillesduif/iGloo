@@ -20,7 +20,8 @@ public sealed class DebianMountSessionTests
         internal Journal ImportJournal { get; } = new();
         internal byte[]? Descriptor { get; }
         internal byte[]? TransportManifest { get; }
-        internal Harness(bool import = false, bool chunked = false)
+        internal InstallerLabStorageEvidenceV1? LabEvidence { get; }
+        internal Harness(bool import = false, bool chunked = false, bool lab = false)
         {
             if (!import) { Session = new(Plan(Storage), Journal); return; }
             var artifact = DebianConfiguredRootTests.Artifact();
@@ -41,8 +42,16 @@ public sealed class DebianMountSessionTests
                     Chunks = new[] { new { Index = 0, Name = "root.content.0000", Length = plan.ContentLength, Sha256 = plan.ContentSha256 } } });
                 plan = plan with { Transport = "Chunked", TransportManifestSha256 = DebianConfiguredRootArtifacts.Digest(TransportManifest) };
             }
-            Session = DebianMountSessionAuthority.ForDevelopmentImport(plan, Journal, ImportJournal,
-                new(artifact.BuildId, plan.DescriptorSha256, plan.PolicySha256, now.AddMinutes(-1), now.AddDays(1)));
+            var pin = new DebianRootDevelopmentPinV1(artifact.BuildId, plan.DescriptorSha256, plan.PolicySha256, now.AddMinutes(-1), now.AddDays(1));
+            if (lab)
+            {
+                LabEvidence = LabStorageFixture.Create(true);
+                var storage = LabStorageFixture.Validate(LabEvidence);
+                var labPlan = new DebianLabImportPlanV1(1, storage.Provenance, plan.BuildId, plan.DerivationId, plan.DescriptorSha256,
+                    plan.PolicySha256, plan.ManifestSha256, plan.ContentSha256, plan.ContentLength, plan.Transport, plan.TransportManifestSha256, 0);
+                Session = DebianMountSessionAuthority.ForLabDevelopmentImport(storage, labPlan, Journal, ImportJournal, pin);
+            }
+            else Session = DebianMountSessionAuthority.ForDevelopmentImport(plan, Journal, ImportJournal, pin);
         }
         internal async Task StartAsync()
         {
@@ -55,7 +64,9 @@ public sealed class DebianMountSessionTests
         {
             Session.SessionId, Session.GenerationId, Session.PlanSha256, Action = Action.ToString(),
             Kind = kind, Challenge = challenge ?? Guid.NewGuid(), ObservationSequence = Sequence,
-            Inventory = Inventory(Storage.Inventory), DeviceNumbers = Storage.Mounts.DeviceNumbers, Record = record,
+            Inventory = LabEvidence is null ? Inventory(Storage.Inventory) : JsonSerializer.Deserialize<JsonElement>(LabEvidence.Transitions[^1].Formatted),
+            DeviceNumbers = LabEvidence is null ? Storage.Mounts.DeviceNumbers : LabStorageFixture.Numbers(LinuxInstallerInventoryProtocol.Parse(LabEvidence.Transitions[^1].Formatted).Value),
+            GuestDisks = LabEvidence?.GuestDisks, Record = record,
         });
         internal async Task InventoryAsync()
         {
@@ -93,35 +104,57 @@ public sealed class DebianMountSessionTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ImportUsesOwnPlanCanonicalResolverAndSeparateReopenedJournal(bool chunked)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ImportUsesOwnPlanCanonicalResolverAndSeparateReopenedJournal(bool chunked, bool lab)
     {
-        var h = new Harness(true, chunked); await h.BeginImportAsync();
+        var h = new Harness(true, chunked, lab); await h.BeginImportAsync();
         Assert.Equal(3, h.Session.Leases!.Bindings.Length);
-        Assert.DoesNotContain("Credential", h.Session.ImportPlan!.Fingerprint(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Credential", h.Session.PlanSha256, StringComparison.Ordinal);
         await h.AuthenticateAsync();
         await h.ImportCheckpointAsync(new { Outcome = "IntentDurable" });
         await h.CheckpointAsync("IntentDurable");
         await h.InventoryAsync();
         await h.ImportCheckpointAsync(new { Outcome = "Progress", FilesWritten = 64 });
         var observed = new { h.Session.GenerationId, h.Session.SessionId, h.Session.PlanSha256,
-            h.Session.ImportPlan.ManifestSha256, FilesystemSha256 = Hash, PackageStateSha256 = Hash, NeutralStateSha256 = Hash };
+            h.Session.SourcePlan!.ManifestSha256, FilesystemSha256 = Hash, PackageStateSha256 = Hash, NeutralStateSha256 = Hash };
         var result = await h.ImportCheckpointAsync(new { Outcome = "AppliedAndVerified", FilesystemSha256 = Hash,
             PackageStateSha256 = Hash, NeutralStateSha256 = Hash, ObserverEvidence = observed,
             ObserverEvidenceSha256 = DebianDeploymentPlanning.TextHash(JsonSerializer.Serialize(observed)) });
         await h.CheckpointAsync("AppliedAndVerified");
         h.Session.CompleteAction(JsonSerializer.SerializeToElement(new { h.Session.SessionId, Action = h.Action.ToString(), State = "AppliedAndVerified",
             ImportResult = new { Reference = result.GetProperty("Reference").GetString(), Sha256 = result.GetProperty("Sha256").GetString(),
-                h.Session.GenerationId, h.Session.PlanSha256, h.Session.ImportPlan.BuildId, h.Session.ImportPlan.DerivationId,
-                h.Session.ImportPlan.DescriptorSha256, h.Session.ImportPlan.Transport, h.Session.ImportPlan.TransportManifestSha256,
+                h.Session.GenerationId, h.Session.PlanSha256, h.Session.SourcePlan!.BuildId, h.Session.SourcePlan!.DerivationId,
+                h.Session.SourcePlan!.DescriptorSha256, h.Session.SourcePlan!.Transport, h.Session.SourcePlan!.TransportManifestSha256,
                 Qualification = "DevelopmentImportOnly" } }));
         Assert.Throws<InvalidOperationException>(() => h.Session.BeginAction(DebianMountSessionAction.ImportConfiguredRoot));
         Assert.Equal(3, h.ImportJournal.Checkpoints.Count);
+        foreach (var bytes in h.ImportJournal.Checkpoints)
+        {
+            using var checkpoint = JsonDocument.Parse(bytes);
+            Assert.Equal(h.Session.PlanSha256, checkpoint.RootElement.GetProperty("PlanSha256").GetString());
+            if (lab) Assert.Equal("ConfiguredRootImport", checkpoint.RootElement.GetProperty("Provenance").GetProperty("Scope").GetString());
+        }
         foreach (var action in new[] { DebianMountSessionAction.UnmountPayload, DebianMountSessionAction.UnmountRoot, DebianMountSessionAction.Close })
             await h.RunAsync(action);
         Assert.Equal(DebianMountSessionState.Closed, h.Session.State);
         Assert.Equal(ObservationAvailability.Unsupported, DebianDeploymentSupport.Production.Availability);
+    }
+
+    [Fact]
+    public async Task SourceHashRejectionRecordsNoImportReservationAndPoisonsSession()
+    {
+        var h = new Harness(true, true, true); await h.BeginImportAsync(); await h.AuthenticateAsync();
+        var message = JsonSerializer.SerializeToElement(new { h.Session.SessionId, h.Session.GenerationId, h.Session.PlanSha256,
+            Action = "ImportConfiguredRoot", Kind = "ImportSourceRejected", Challenge = Guid.NewGuid(), Code = "TransportChunkHashMismatch" });
+        await h.Session.AcceptEventAsync(message, CancellationToken.None);
+        Assert.Empty(h.ImportJournal.Checkpoints);
+        using var record = JsonDocument.Parse(h.Journal.Checkpoints[^1]);
+        Assert.Equal("NotStarted", record.RootElement.GetProperty("State").GetString());
+        Assert.False(record.RootElement.GetProperty("Evidence").GetProperty("ImportReserved").GetBoolean());
+        Assert.Equal(DebianMountSessionState.OutcomeUnknown, h.Session.State);
+        Assert.Throws<InvalidOperationException>(() => h.Session.BeginAction(DebianMountSessionAction.ImportConfiguredRoot));
     }
 
     [Fact]

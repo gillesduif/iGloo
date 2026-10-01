@@ -1,0 +1,1034 @@
+{
+  "ReportKind": "Sanitized retained-helper fixture summary; not canonical configuration qualification",
+  "RecordedAtUtc": "2026-09-29T11:49:07.662717+00:00",
+  "Branch": "refactor/community-fleet-foundation",
+  "StartingHead": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+  "StartingWorkingTree": {
+    "ModifiedTracked": 31,
+    "Untracked": 51,
+    "Index": "Empty",
+    "SnapshotSha256": "03EDC6BB10DE752A24BBA072304D29A1DB94E33BD22BCDC8C62022E53F4B2660"
+  },
+  "ChangedThisContinuation": [
+    "distros/debian/Deployment/DebianConfigurationContinuation.cs",
+    "distros/debian/native/isolation_policy.py",
+    "distros/debian/native/package_broker.py",
+    "distros/debian/native/session_configuration.py",
+    "docs/architecture/debian-checkpoint-derived-configuration.md",
+    "docs/architecture/debian-core-helper-contracts-evidence.json",
+    "docs/architecture/debian-core-helper-contracts-v5-review.json",
+    "docs/architecture/debian-core-helper-contracts.md",
+    "docs/architecture/debian-post-import-configuration.md",
+    "docs/architecture/debian-session-boundary.md",
+    "docs/fleet/phase-2.md",
+    "tests/Igloo.Migration.Tests/DebianConfigurationContinuationTests.cs",
+    "tests/installer/CanonicalImportQualification/README.md",
+    "tests/installer/configuration_broker_rehearsal.py",
+    "tests/installer/configuration_compatibility.py",
+    "tests/installer/configuration_manifest_fixture.json",
+    "tests/installer/test_configuration_compatibility.py",
+    "tests/installer/test_configuration_continuation.py",
+    "tests/installer/test_debian_isolation.py"
+  ],
+  "CurrentSourceSha256": {
+    "distros/debian/native/session_configuration.py": "EC3E906D437DC220B8AD5774BB1764A546A9E29F0D091B570BD2414D4922C1B2",
+    "distros/debian/native/isolation_policy.py": "CB211E8DC41B97B01A3F0423E1C5FE0416BA875223F07D4657C977B652BD595F",
+    "distros/debian/native/package_broker.py": "25F9E7D3F89AF21A39DF2FEE308B9FE9BAC06D435F7A294A96C3C9B9F70918A1",
+    "distros/debian/Deployment/DebianConfigurationContinuation.cs": "1F383A8DD830C59C279CDBAA24DD80C97CFF770B34266706D15F1076A2C880FB",
+    "tests/installer/configuration_broker_rehearsal.py": "3C10351179EA50B86F8F018FE65F21DE8006B6B8AF4486F29448902288536307",
+    "tests/installer/configuration_compatibility.py": "BE87B9461FD6651C10AE1B5B2C9C3233E4BBB71B6052549CA9BDB69C16B48B0B",
+    "tests/installer/configuration_manifest_fixture.json": "D2739AA1AFA5B209A2AC7F53E18028BA9CD6ED6EE5DF5BA2F487796F2CF7BC94",
+    "tests/installer/test_configuration_compatibility.py": "526C993474CC7EB83ECCC814F97A719BB0549B9DF5A93F6198EA8F29EDB855F8",
+    "tests/installer/test_configuration_continuation.py": "5A22A4825E461E0780BC806EF53A48CC5FF3CF83BF8C7B1195BF9E22412115BF",
+    "tests/installer/test_debian_isolation.py": "22054729B3B2DA965843F682DFE067BBB92E909CA644F7CE361A54DCA7B1889E",
+    "tests/Igloo.Migration.Tests/DebianConfigurationContinuationTests.cs": "A251792A93573998B29F6DDA8AB0FDB656713A0FBD3C7581EA37BBA01D53AED7"
+  },
+  "CurrentPolicy": "debian-trixie-core-configuration-v5",
+  "CurrentPolicyNativeExecuted": false,
+  "ExecutedPasses": [
+    {
+      "Fixture": "/var/lib/igloo/helper-contract-labs/7ada455b3d5148478ee5a82d6a7f1fad/guest-evidence/helper-contract-initial",
+      "Policy": "debian-trixie-core-configuration-v3",
+      "Baseline": {
+        "FilesystemSha256": "1F842DC9D53C5C57B2CD9D77FE5731C29E777C4599C445CC8A3892222687BF13",
+        "NeutralSha256": "751CDEE71BF90671367B5B95F8FB17C660A5595E69F8AD6658EA600288FDD358",
+        "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+        "State": "Verified"
+      },
+      "Steps": {
+        "Files": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/timezone"
+            ],
+            "FilesystemDeltaSha256": "660BCED37D6B3BB7117AD130F01112C04A93FC7818137668EC603599A39DA948",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Files",
+            "State": "Verified"
+          }
+        },
+        "Debconf": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/timezone",
+              "/var/cache/debconf/config.dat",
+              "/var/cache/debconf/config.dat-old"
+            ],
+            "FilesystemDeltaSha256": "FC2B730B621538CD87EF045A9DAFB0903482F05BF71BEE648BCCD5710D985782",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Debconf",
+            "State": "Verified"
+          },
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 0,
+            "ToolSha256": "95DD9CC45752692E9288EED9ABF9D0BBD22BB78FFE59A78CBFCBE96CFFEFBBA5",
+            "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+            "IsolationSha256": "54E1118A29D061E99DA649968E8259F05A1B5874E26144F484249C40120935F7",
+            "OperationSha256": "E144A9E43F56A16E45632115BA04F49E278E98647FFEB7CB0CCB76D1D1938DD0",
+            "PlanSha256": "51CF9521BD33EE27ABCFCF091C943E0C8A3F0F14E8B67C501CFB33C700CC1BF6"
+          }
+        },
+        "Exim": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/timezone",
+              "/var/cache/debconf/config.dat",
+              "/var/cache/debconf/config.dat-old",
+              "/var/lib/exim4/config.autogenerated"
+            ],
+            "FilesystemDeltaSha256": "54C625D613C60063E05CFB683532C11DC29B003EEADCE3A5B626F4258C582882",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Exim",
+            "State": "Verified"
+          },
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 0,
+            "ToolSha256": "7569A682138BE2786278550FFE06A3776888A2E61B264E45086FBD70DAA61AD9",
+            "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+            "IsolationSha256": "441785E5189FAF11A034AE57060F57A118B81309B95B11431A0C6A416FB0B0F9",
+            "OperationSha256": "DD67C788C4171EC12C0DCF26FBCF451D6CDFDF6329A02B1C3BD698E6028303C7",
+            "PlanSha256": "51CF9521BD33EE27ABCFCF091C943E0C8A3F0F14E8B67C501CFB33C700CC1BF6"
+          }
+        },
+        "Tls": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/ssl/certs/13018e67.0",
+              "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+              "/etc/ssl/private/ssl-cert-snakeoil.key",
+              "/etc/timezone",
+              "/var/cache/debconf/config.dat",
+              "/var/cache/debconf/config.dat-old",
+              "/var/lib/exim4/config.autogenerated"
+            ],
+            "FilesystemDeltaSha256": "AF61DA6C655ACAFF3F62FAFCD7D2E01DD4E7B38A1E4ED6F408172F4995345671",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Tls",
+            "State": "Verified"
+          },
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 0,
+            "ToolSha256": "4E45246E6AA4B93B3A5B4C955573142C6F1FF32041BB9A697B458B09EC25F8A4",
+            "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+            "IsolationSha256": "FF18A4C28446820DF4EBB9AACAD72D29B4E492BDA0A6264E6441D53E888AAD31",
+            "OperationSha256": "E525692B794A8DC34164811739F561DE6D61C75BB42FC83CA2BC16974097E235",
+            "PlanSha256": "51CF9521BD33EE27ABCFCF091C943E0C8A3F0F14E8B67C501CFB33C700CC1BF6"
+          }
+        },
+        "Locale": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/ssl/certs/13018e67.0",
+              "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+              "/etc/ssl/private/ssl-cert-snakeoil.key",
+              "/etc/timezone",
+              "/usr/lib/locale/locale-archive",
+              "/var/cache/debconf/config.dat",
+              "/var/cache/debconf/config.dat-old",
+              "/var/lib/exim4/config.autogenerated"
+            ],
+            "FilesystemDeltaSha256": "19248E00735FBE6B2A6ED15FBC17FD4E33057E53567305C237D75D39EF570BA5",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Locale",
+            "State": "Verified"
+          },
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 0,
+            "ToolSha256": "14A9B4D337F1637DD57B31086C20222C57D103496902FE5F4A4C9C83A3BC53DD",
+            "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+            "IsolationSha256": "E7C6867D7FAE242C10934C19822BB4706BAD3132A37F6B43D54D7E338DEF0454",
+            "OperationSha256": "DDAEB48C3BF60502FCEAF0D4DE6E5FEBDE25FF62D2B5D8AB16210365FCA9114D",
+            "PlanSha256": "51CF9521BD33EE27ABCFCF091C943E0C8A3F0F14E8B67C501CFB33C700CC1BF6"
+          }
+        },
+        "User": {
+          "Outcome": "HelperFailed",
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 1,
+            "ToolSha256": "3FD1735EB46D2CC6067C509B11C7E7BF1E9DCA2EA53F0947BF4F3B1FA93B4225",
+            "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+            "IsolationSha256": "B0D86C55290723BA3994CC6D196153A9E81356AFBC9F1C535843592BC2941BC2",
+            "OperationSha256": "5E136A10C06F2307EACD3AB0FE32D404D793607310F8ACD61FF5E916797FC389",
+            "PlanSha256": "51CF9521BD33EE27ABCFCF091C943E0C8A3F0F14E8B67C501CFB33C700CC1BF6"
+          }
+        },
+        "Credential": {
+          "Outcome": "NotInvoked"
+        },
+        "Sudo": {
+          "Outcome": "NotInvoked"
+        },
+        "Verify": {
+          "Outcome": "NotInvoked"
+        }
+      },
+      "Failure": {
+        "CanonicalQualification": false,
+        "Code": "FixtureHelperFailed:User",
+        "State": "Failed",
+        "Step": "User",
+        "VerifiedSteps": [
+          "Files",
+          "Debconf",
+          "Exim",
+          "Tls",
+          "Locale"
+        ]
+      },
+      "Records": {
+        "00-Baseline.json": {
+          "Sha256": "EDD7E31D81104DD8E9FC9492950433AB3BBF24C8DB4263890E6AF54E63463518",
+          "Length": 277
+        },
+        "Debconf-helper.json": {
+          "Sha256": "709AC838DADCEB60D80159C8E4DC40DEC458C6829DBF0D8D4339A68D9E18EA6E",
+          "Length": 6619
+        },
+        "Debconf-intent.json": {
+          "Sha256": "ED6E35106A7BD3FD44BADBE5141E6233D5201AB5C0CA841C0D80DAEA8C4504B4",
+          "Length": 268
+        },
+        "Debconf-result.json": {
+          "Sha256": "766609A1E0BF376D12937A29D8EAC69211CEC2D75BACE641608A4559108C167B",
+          "Length": 619
+        },
+        "Exim-helper.json": {
+          "Sha256": "57C47F8356676A948679AAFECF356AE97E8262B14E9A4855E393FC65AAA3FF51",
+          "Length": 6617
+        },
+        "Exim-intent.json": {
+          "Sha256": "2CB6653E44CD51BD2169D0127FE35983FA834ACFD5BC2D85DDE87A41FBD39951",
+          "Length": 265
+        },
+        "Exim-result.json": {
+          "Sha256": "B9F53068B0396055FECCB00F823D80CBC06BFF162D4C3056228C89377F0A59B3",
+          "Length": 654
+        },
+        "Files-intent.json": {
+          "Sha256": "6EB2B7FBA350C2EC911BCE8AFD8B3516755E35102D6BDB7A845E9F6BFB092562",
+          "Length": 142
+        },
+        "Files-result.json": {
+          "Sha256": "EA973EDE89B71879C227D2D6EA5AB52AD2396993E0F220E6B2DB4FD9234A98C2",
+          "Length": 549
+        },
+        "Locale-helper.json": {
+          "Sha256": "72440241D8C2DABD0205928E3D7641C89D2FAB95D256F65D8F3BD19C67C4CCAD",
+          "Length": 6610
+        },
+        "Locale-intent.json": {
+          "Sha256": "33C44D64C7C3FC1C6599C242F88D38571F938A9F2611F92B6D1FC2F5A3CB6150",
+          "Length": 267
+        },
+        "Locale-result.json": {
+          "Sha256": "A527A0E8D93F5CA315711F64A9451974B8F1AB81487E2DBC6FAB48A1A8B8EF57",
+          "Length": 797
+        },
+        "Tls-helper.json": {
+          "Sha256": "22287BA813F2AB114955C8E6D4D23FDF26AADBCD6C0C4BDA4A56B4C8B8F7C230",
+          "Length": 6615
+        },
+        "Tls-intent.json": {
+          "Sha256": "66E77F637E13ECCB2F414619AC72E28BC6F67F2212605DA3330716B4E3EE4E7D",
+          "Length": 264
+        },
+        "Tls-result.json": {
+          "Sha256": "A1F866FDD42B7C4E9261E6432ED102AFEBF53272FEA4004993D8EB006948697A",
+          "Length": 761
+        },
+        "User-helper.json": {
+          "Sha256": "B003395061B524987EBCE489A369F6CD0318D39AD452983B47475125A49F4718",
+          "Length": 6605
+        },
+        "User-intent.json": {
+          "Sha256": "1A24F22EE320A0FFC94231B5837F95C325718F60B7DF2A5EB0A7D7A0FF20EF2E",
+          "Length": 265
+        },
+        "failure.json": {
+          "Sha256": "9C051CCD3AC792AF26CD94A6F2AF8869FCFE62690B9C91C010F394A12253AB39",
+          "Length": 155
+        },
+        "intent.json": {
+          "Sha256": "B995F58C9B000E67E04285E33B79CBCF749AE3234422FE37662E6C2AE74E68C4",
+          "Length": 290
+        }
+      }
+    },
+    {
+      "Fixture": "/var/lib/igloo/helper-contract-labs/7ada455b3d5148478ee5a82d6a7f1fad/guest-evidence/helper-contract-corrected",
+      "Policy": "debian-trixie-core-configuration-v4",
+      "Baseline": {
+        "FilesystemSha256": "1F842DC9D53C5C57B2CD9D77FE5731C29E777C4599C445CC8A3892222687BF13",
+        "NeutralSha256": "751CDEE71BF90671367B5B95F8FB17C660A5595E69F8AD6658EA600288FDD358",
+        "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+        "State": "Verified"
+      },
+      "Steps": {
+        "Files": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/timezone"
+            ],
+            "FilesystemDeltaSha256": "660BCED37D6B3BB7117AD130F01112C04A93FC7818137668EC603599A39DA948",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Files",
+            "State": "Verified"
+          }
+        },
+        "Debconf": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/timezone",
+              "/var/cache/debconf/config.dat",
+              "/var/cache/debconf/config.dat-old"
+            ],
+            "FilesystemDeltaSha256": "FC2B730B621538CD87EF045A9DAFB0903482F05BF71BEE648BCCD5710D985782",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Debconf",
+            "State": "Verified"
+          },
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 0,
+            "ToolSha256": "95DD9CC45752692E9288EED9ABF9D0BBD22BB78FFE59A78CBFCBE96CFFEFBBA5",
+            "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+            "IsolationSha256": "B32447843CA0EEC650C7708317894A9787CACF3B45F9A90639FDE5DC5859BC1E",
+            "OperationSha256": "5D8611D2C8FA24E87CB0D67C8B56532F4ED31253A9BE5BA2A56F3514256FEA62",
+            "PlanSha256": "33112E61AF368202D78282339D61F6104F3F3938444B296743F03B69B2F9EF65"
+          }
+        },
+        "Exim": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/timezone",
+              "/var/cache/debconf/config.dat",
+              "/var/cache/debconf/config.dat-old",
+              "/var/lib/exim4/config.autogenerated"
+            ],
+            "FilesystemDeltaSha256": "54C625D613C60063E05CFB683532C11DC29B003EEADCE3A5B626F4258C582882",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Exim",
+            "State": "Verified"
+          },
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 0,
+            "ToolSha256": "7569A682138BE2786278550FFE06A3776888A2E61B264E45086FBD70DAA61AD9",
+            "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+            "IsolationSha256": "1515405B7FC6BF2EE05CDCC466FDDBC59BC9ADFCD16291361E7BA8EEA9DC4169",
+            "OperationSha256": "F2CAE420DE22865745FEC2D6336F08CC7D44B5C95009FA11AA3538483396071C",
+            "PlanSha256": "33112E61AF368202D78282339D61F6104F3F3938444B296743F03B69B2F9EF65"
+          }
+        },
+        "Tls": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/ssl/certs/13018e67.0",
+              "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+              "/etc/ssl/private/ssl-cert-snakeoil.key",
+              "/etc/timezone",
+              "/var/cache/debconf/config.dat",
+              "/var/cache/debconf/config.dat-old",
+              "/var/lib/exim4/config.autogenerated"
+            ],
+            "FilesystemDeltaSha256": "C891676DB816960E71C3F84E42469540B036227D281D8BB428552C8AE9F83F46",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Tls",
+            "State": "Verified"
+          },
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 0,
+            "ToolSha256": "4E45246E6AA4B93B3A5B4C955573142C6F1FF32041BB9A697B458B09EC25F8A4",
+            "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+            "IsolationSha256": "BF57C43E51F630F6BD09EA4CEAC4D8322297E4F62F9ED5CBD93D0A9C11B3E9EE",
+            "OperationSha256": "D44DFF4457A89E748740255F4AB43CEB60CA73A2A4701ECF6499BC78277D0D15",
+            "PlanSha256": "33112E61AF368202D78282339D61F6104F3F3938444B296743F03B69B2F9EF65"
+          }
+        },
+        "Locale": {
+          "Outcome": "IndependentlyVerified",
+          "Readback": {
+            "ChangedPaths": [
+              "/etc/apt/sources.list.d/debian.sources",
+              "/etc/default/keyboard",
+              "/etc/exim4/update-exim4.conf.conf",
+              "/etc/fstab",
+              "/etc/hostname",
+              "/etc/hosts",
+              "/etc/locale.conf",
+              "/etc/locale.gen",
+              "/etc/localtime",
+              "/etc/mailname",
+              "/etc/network/interfaces",
+              "/etc/resolv.conf",
+              "/etc/ssl/certs/13018e67.0",
+              "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+              "/etc/ssl/private/ssl-cert-snakeoil.key",
+              "/etc/timezone",
+              "/usr/lib/locale/locale-archive",
+              "/var/cache/debconf/config.dat",
+              "/var/cache/debconf/config.dat-old",
+              "/var/lib/exim4/config.autogenerated"
+            ],
+            "FilesystemDeltaSha256": "B6CFE00127228A35D8A3613C9D8AC988100F82E0AF67AC880273DCB76A3FC78A",
+            "MachineIdentity": "FirstBootPending",
+            "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+            "ProfileStep": "Locale",
+            "State": "Verified"
+          },
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 0,
+            "ToolSha256": "14A9B4D337F1637DD57B31086C20222C57D103496902FE5F4A4C9C83A3BC53DD",
+            "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+            "IsolationSha256": "91AC51BB14CA6806177A90045DB76B4F422A2BF29AB223989C717C0AB001C966",
+            "OperationSha256": "C90D52FD39C45C1514D7E77EFD84E70A9DB03D892A9026C3501828844505889F",
+            "PlanSha256": "33112E61AF368202D78282339D61F6104F3F3938444B296743F03B69B2F9EF65"
+          }
+        },
+        "User": {
+          "Outcome": "HelperFailed",
+          "Helper": {
+            "State": "Exited",
+            "ExitCode": 3,
+            "ToolSha256": "3FD1735EB46D2CC6067C509B11C7E7BF1E9DCA2EA53F0947BF4F3B1FA93B4225",
+            "SeccompSha256": "E1A4EDD3429A67F17CBFA9F457F7693B6A3A535212EF8C809B49A4B66567EE9B",
+            "IsolationSha256": "03A50F9F17883CAE6345BE2F530714A20CFDFB69DADD4B9CEBC60BC46752BBD4",
+            "OperationSha256": "F56396E7A2D1C86113ABFBB15CC27B15F13B624563FB554549010889296C5D46",
+            "PlanSha256": "33112E61AF368202D78282339D61F6104F3F3938444B296743F03B69B2F9EF65"
+          }
+        },
+        "Credential": {
+          "Outcome": "NotInvoked"
+        },
+        "Sudo": {
+          "Outcome": "NotInvoked"
+        },
+        "Verify": {
+          "Outcome": "NotInvoked"
+        }
+      },
+      "Failure": {
+        "CanonicalQualification": false,
+        "Code": "FixtureHelperFailed:User",
+        "State": "Failed",
+        "Step": "User",
+        "VerifiedSteps": [
+          "Files",
+          "Debconf",
+          "Exim",
+          "Tls",
+          "Locale"
+        ]
+      },
+      "Records": {
+        "00-Baseline.json": {
+          "Sha256": "EDD7E31D81104DD8E9FC9492950433AB3BBF24C8DB4263890E6AF54E63463518",
+          "Length": 277
+        },
+        "Debconf-helper.json": {
+          "Sha256": "88B1835DD69A24C5BB088B1335B371EE499F753F53F81692CC1DFA185FD2F5EB",
+          "Length": 6627
+        },
+        "Debconf-intent.json": {
+          "Sha256": "DEAE7C2606730BE2DE9D1C6EF821C225936B25A6911007F3C50D628A6D558095",
+          "Length": 268
+        },
+        "Debconf-result.json": {
+          "Sha256": "766609A1E0BF376D12937A29D8EAC69211CEC2D75BACE641608A4559108C167B",
+          "Length": 619
+        },
+        "Exim-helper.json": {
+          "Sha256": "E9CD0E15FC3C6B879D57E44F041DFDC61688F6FA8A8F715DCEA11F53C4A02316",
+          "Length": 6625
+        },
+        "Exim-intent.json": {
+          "Sha256": "3A47CB0A7706D42CD2095028A2D1EE076189999F224E4236555281CC83FD9628",
+          "Length": 265
+        },
+        "Exim-result.json": {
+          "Sha256": "B9F53068B0396055FECCB00F823D80CBC06BFF162D4C3056228C89377F0A59B3",
+          "Length": 654
+        },
+        "Files-intent.json": {
+          "Sha256": "F8B2CE051E7504F1A730B24188F65FF1E93800F5E78F8383BC7820FF291A5C46",
+          "Length": 142
+        },
+        "Files-result.json": {
+          "Sha256": "EA973EDE89B71879C227D2D6EA5AB52AD2396993E0F220E6B2DB4FD9234A98C2",
+          "Length": 549
+        },
+        "Locale-helper.json": {
+          "Sha256": "288F876B5EB11BF0D48BA244FB7128029FC80B82A306423172D72F8459241276",
+          "Length": 6617
+        },
+        "Locale-intent.json": {
+          "Sha256": "A5BE0596D4D237A7BA8E55A9DC8303E805FE9D3919952BF783729A45317018FB",
+          "Length": 267
+        },
+        "Locale-result.json": {
+          "Sha256": "83B8D7177EC16DFA5A300195A8992F4A1B7C35851A47AB9EE9320BF8DBFBDEBB",
+          "Length": 797
+        },
+        "Tls-helper.json": {
+          "Sha256": "691F7961DDC0DF8EC5FE7B8835728E9EAFB32CE5261E61E799463B75BE582AC6",
+          "Length": 6622
+        },
+        "Tls-intent.json": {
+          "Sha256": "46F41652318F7A0DD42706BF9F830754B6C2F23F2BED07524F56FEA8EA48AF43",
+          "Length": 264
+        },
+        "Tls-result.json": {
+          "Sha256": "A2E167DCACD5D3EBE893FF0764025E288200FCD2F8738700E0C44D8E96B10EB4",
+          "Length": 761
+        },
+        "User-helper.json": {
+          "Sha256": "A700F0C016BE58B395BAEFDE5FB7DD5B49CBC9C88FF678F069D5BFC2FA3FA495",
+          "Length": 6612
+        },
+        "User-intent.json": {
+          "Sha256": "8D4DEC4DCFB035155937E7BFE035747CD0DE643FCD1AD57226547DDBDC7D5AE5",
+          "Length": 265
+        },
+        "failure.json": {
+          "Sha256": "9C051CCD3AC792AF26CD94A6F2AF8869FCFE62690B9C91C010F394A12253AB39",
+          "Length": 155
+        },
+        "intent.json": {
+          "Sha256": "067CC40CFC9435B8F9CDFEB9750B467F9D6DD06850C29750793953540B0541A0",
+          "Length": 290
+        },
+        "post-failure-readback.json": {
+          "Sha256": "F2FE3852DD1A0ABEDA2BA40B782E14159CB55B2C9CFC7B79B531810343176C36",
+          "Length": 909
+        }
+      }
+    }
+  ],
+  "RebuiltButNotNativeExecutedBinaries": {
+    "CanonicalImportQualification.dll": "2D8D116D7605A3D6A20701241DDF2AC3BDD31A76BB41E1A68AC947CC7FA7AC5D",
+    "Igloo.Core.dll": "CD8C1B626FA22A88048BD8AA0C0C3DCF7BE1C22AF35B7219377F2E4C13027D69",
+    "Igloo.Distro.Debian.dll": "3AAE2240D1BDB5EE043AD1EED280EAF3946F44BEC2659CD9D50434BEC33F2562"
+  },
+  "ExecutedInputInventories": {
+    "executed-inputs.json": {
+      "bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+      "command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+      "lab/configuration_broker_rehearsal.py": "75A7C76F6317DA96EFBD14C997F30DAED640D075D76386F61DCD5758CEA4960E",
+      "native/block_session.py": "580629256AF4C98152CD67D13532199425B4A2FB5245D65B7FC0A70266DEB3B8",
+      "native/command_gate.c": "F732845C3DE247AFDC82A6ECCE0432789EFD34500719165637A7132F43BC119E",
+      "native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+      "native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+      "native/debian_first_boot.py": "F1F1F359F8D8218C7D5FC6C48E4A9DD44D45EC0B21F16C19BB0A48E9CDD04753",
+      "native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+      "native/isolation_policy.py": "2248B386217B51675AA4E1315DF6E2BEABE57518A3FF4DC21F739416770B1437",
+      "native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+      "native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+      "native/package_broker.py": "497E752919858F9067D221659E8B61146B2F34BE750060E9760E51282A307A3F",
+      "native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+      "native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+      "native/session_configuration.py": "AE453C81C4D8BBF38B65C805E38F8861B85679451CDC1F816E5400001E72CB9E",
+      "native/session_entry.py": "CA447F2F726C187992EF12453913279F0A079804511737456F244BED5DB473FB",
+      "native/session_import.py": "C6C6BD31E392BE78DD8BE1DA711AFDC4CFD3652A36CA5B534D9B770A518AFF3B",
+      "native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+      "probe": "74E4CF1F02CDC8E6CEAF00D553CA10440871EE4C3D8258730BF947D53B3D592D"
+    },
+    "corrected-executed-inputs.json": {
+      "bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+      "command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+      "lab/configuration_broker_rehearsal.py": "75A7C76F6317DA96EFBD14C997F30DAED640D075D76386F61DCD5758CEA4960E",
+      "native/block_session.py": "580629256AF4C98152CD67D13532199425B4A2FB5245D65B7FC0A70266DEB3B8",
+      "native/command_gate.c": "F732845C3DE247AFDC82A6ECCE0432789EFD34500719165637A7132F43BC119E",
+      "native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+      "native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+      "native/debian_first_boot.py": "F1F1F359F8D8218C7D5FC6C48E4A9DD44D45EC0B21F16C19BB0A48E9CDD04753",
+      "native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+      "native/isolation_policy.py": "CB211E8DC41B97B01A3F0423E1C5FE0416BA875223F07D4657C977B652BD595F",
+      "native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+      "native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+      "native/package_broker.py": "25F9E7D3F89AF21A39DF2FEE308B9FE9BAC06D435F7A294A96C3C9B9F70918A1",
+      "native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+      "native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+      "native/session_configuration.py": "990B2054BDE54BA8BDF2E6991D9E65CB9DE9D3CCB9F6D6F30F4A1396A4DF0644",
+      "native/session_entry.py": "CA447F2F726C187992EF12453913279F0A079804511737456F244BED5DB473FB",
+      "native/session_import.py": "C6C6BD31E392BE78DD8BE1DA711AFDC4CFD3652A36CA5B534D9B770A518AFF3B",
+      "native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+      "probe": "74E4CF1F02CDC8E6CEAF00D553CA10440871EE4C3D8258730BF947D53B3D592D"
+    }
+  },
+  "ProtectedTools": [
+    {
+      "Mode": "0o755",
+      "Path": "/usr/bin/python3.13",
+      "Sha256": "889C603F0D17CB54060951BCF4C4F9B8C9EBD9E52B392C70209BBB9755D797D9",
+      "Uid": 0
+    },
+    {
+      "Mode": "0o755",
+      "Path": "/usr/bin/openssl",
+      "Sha256": "F4AA15F2822F670AF7B5C1043D7AA6EBBBC64229FD2FAE382EDFC6A4524749C1",
+      "Uid": 0
+    },
+    {
+      "Mode": "0o755",
+      "Path": "/usr/bin/localedef",
+      "Sha256": "6F1190173873A9D4864FC90E498EF151DAC61835468A2F96A28BE30170E245B9",
+      "Uid": 0
+    },
+    {
+      "Mode": "0o755",
+      "Path": "/usr/bin/dpkg-query",
+      "Sha256": "095817337215129933918CACAE5FD62E86202FE238591BEA207A75B73561E8C5",
+      "Uid": 0
+    },
+    {
+      "Mode": "0o755",
+      "Path": "/usr/bin/dpkg",
+      "Sha256": "0A20F6015FBB7C011571F3ED227A138B12CE282E46B7FDFC239558BC5A7BC9E5",
+      "Uid": 0
+    },
+    {
+      "Mode": "0o755",
+      "Path": "/opt/igloo-helper-contracts-v3/bwrap",
+      "Sha256": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+      "Uid": 0
+    },
+    {
+      "Mode": "0o755",
+      "Path": "/opt/igloo-helper-contracts-v3/command-gate",
+      "Sha256": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+      "Uid": 0
+    }
+  ],
+  "HostLaunch": {
+    "Reference": "/var/lib/igloo/helper-contract-labs/7ada455b3d5148478ee5a82d6a7f1fad/launch-intent.json",
+    "Sha256": "0F82FB1D9665E2C5388DFEB50AA228454C63515BA5EA8A0A7E6AEB0028453D6C",
+    "Length": 1504
+  },
+  "ActualHostDescriptorReadback": {
+    "Reference": "/var/lib/igloo/helper-contract-labs/7ada455b3d5148478ee5a82d6a7f1fad/host-readback.json",
+    "Sha256": "8D274967D7DA6DCF5BA447A18826A2C9BD557DA93A8C7CD088AC88A3ED16EB70",
+    "Length": 678
+  },
+  "RetainedResources": "/var/lib/igloo/helper-contract-labs/7ada455b3d5148478ee5a82d6a7f1fad",
+  "FixtureRoots": [
+    "/root/helper-contract-initial/root",
+    "/root/helper-contract-corrected/root"
+  ],
+  "PostFailureIndependentReadback": {
+    "CanonicalTeardown": false,
+    "MatchesVerifiedLocalePrefix": true,
+    "Observation": {
+      "ChangedPaths": [
+        "/etc/apt/sources.list.d/debian.sources",
+        "/etc/default/keyboard",
+        "/etc/exim4/update-exim4.conf.conf",
+        "/etc/fstab",
+        "/etc/hostname",
+        "/etc/hosts",
+        "/etc/locale.conf",
+        "/etc/locale.gen",
+        "/etc/localtime",
+        "/etc/mailname",
+        "/etc/network/interfaces",
+        "/etc/resolv.conf",
+        "/etc/ssl/certs/13018e67.0",
+        "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+        "/etc/ssl/private/ssl-cert-snakeoil.key",
+        "/etc/timezone",
+        "/usr/lib/locale/locale-archive",
+        "/var/cache/debconf/config.dat",
+        "/var/cache/debconf/config.dat-old",
+        "/var/lib/exim4/config.autogenerated"
+      ],
+      "FilesystemDeltaSha256": "B6CFE00127228A35D8A3613C9D8AC988100F82E0AF67AC880273DCB76A3FC78A",
+      "MachineIdentity": "FirstBootPending",
+      "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+      "ProfileStep": "Locale",
+      "State": "Verified"
+    },
+    "Scope": "ReadOnlyFixtureForensics"
+  },
+  "FixtureTeardown": {
+    "AfterSha256": "CA3B6EBF73091D83DDCEE1DBA09494D27B48820EA18788BB36997C22C39EF3D1",
+    "BeforeSha256": "60D97FBC63AC4AC971C52E06937A87768CADC7521ECCCAF233B6C1EB39A8B3BC",
+    "CanonicalTeardown": false,
+    "FixtureRootsRetained": true,
+    "FreshAbsenceVerified": true,
+    "OrdinaryUnmounts": [
+      {
+        "MountRecord": "57 29 254:20 / /mnt/helper-checkpoint ro,nosuid,nodev,noexec,relatime shared:177 - ext4 /dev/vdb4 ro,norecovery",
+        "Path": "/mnt/helper-checkpoint"
+      },
+      {
+        "MountRecord": "63 29 254:19 / /mnt/helper-payload ro,nosuid,nodev,noexec,relatime shared:182 - vfat /dev/vdb3 ro,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro",
+        "Path": "/mnt/helper-payload"
+      },
+      {
+        "MountRecord": "52 29 11:0 / /mnt/helper-contract-tools ro,nosuid,nodev,noexec,relatime shared:172 - iso9660 /dev/sr0 ro,nojoliet,check=s,map=n,blocksize=2048,iocharset=utf8",
+        "Path": "/mnt/helper-contract-tools"
+      }
+    ],
+    "Scope": "FixtureProvisioningMountTeardown"
+  },
+  "Shutdown": {
+    "CanonicalTeardown": false,
+    "ConsoleSha256": "02EA8BFA0120EE3C3D27ABAB9F91A673D1AB721E0B9FEC729FFE79FD51A6B784",
+    "Initial55SecondAbsenceCheck": false,
+    "LaterConsoleSha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "PowerDownObserved": false,
+    "PoweroffRequestedOnce": true,
+    "QemuProcessAbsent": true,
+    "Utc": "2026-09-29T11:41:36.410987+00:00"
+  },
+  "Preservation": {
+    "Before": {
+      "Reference": "/var/lib/igloo/helper-contract-labs/7ada455b3d5148478ee5a82d6a7f1fad/preserved-before.json",
+      "Sha256": "FA7D65FE34DD44624419295709B6EFBE2597CD7233180171BB377033B0E6D6BC",
+      "Length": 1994
+    },
+    "After": {
+      "Reference": "/var/lib/igloo/helper-contract-labs/7ada455b3d5148478ee5a82d6a7f1fad/preserved-after.json",
+      "Sha256": "E851A2004F61BBE72FA6BB0288908B339AFE4D873AF64C2ADB4C92A3ED808467",
+      "Length": 2319
+    },
+    "CheckpointAndThreePriorFailedBackingPairsUnchanged": true,
+    "Scope": "Full bytes plus device/inode/length/link-count; old reservations not modified"
+  },
+  "Corrections": [
+    {
+      "Policy": "v4",
+      "Change": "Exact account audit socket remains denied with EAFNOSUPPORT; other denials unchanged; no new capability",
+      "NativeResult": "User progressed from exit 1 to exit 3; no syscall trace or stderr capture claimed"
+    },
+    {
+      "Policy": "v5",
+      "Change": "CREATE_MAIL_SPOOL=no is a hash-bound /etc/default/useradd Files edit; remove invalid login.defs -K override",
+      "NativeResult": "Not executed; fixture budget exhausted"
+    }
+  ],
+  "ContractProvenance": {
+    "ArtifactManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+    "EximGroup": "Authenticated target /etc/group Debian-exim GID 104; retained helper gentmpconf root:Debian-exim",
+    "TlsGroup": "Authenticated target /etc/group ssl-cert GID 105",
+    "UserDefaultsBeforeSha256": "6702E1CB0D7035A0D7A2BEEDED69F69ACD8AC2B2778913B5AFE60595936448F5",
+    "AccountHelperSha256": "3FD1735EB46D2CC6067C509B11C7E7BF1E9DCA2EA53F0947BF4F3B1FA93B4225",
+    "LibAuditSha256": "8632B443369CB51570B78E0BF5B0FA5B1A7B343439B65C21200A27E015AED507"
+  },
+  "ReadOnlyFinalReview": {
+    "Reference": "debian-core-helper-contracts-v5-review.json",
+    "Sha256": "35A039B7F7F0F48848C419AD742AC87AC52F947F35DE10941DBB8640388EDF34",
+    "Rows": 63,
+    "DependencyObjects": 81,
+    "Authority": false
+  },
+  "Canonical": {
+    "AttemptsReserved": 0,
+    "AttemptsDispatched": 0,
+    "AllSteps": "NotStarted",
+    "ConfiguredResult": null,
+    "Teardown": null,
+    "ConfiguredTargetRetained": false
+  },
+  "Tests": [
+    {
+      "Environment": "Windows .NET",
+      "Command": "dotnet test tests/Igloo.Core.Tests/Igloo.Core.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Passed": 390,
+      "Failed": 0,
+      "Skipped": 0,
+      "Log": {
+        "Reference": "Igloo.Core.Tests.log",
+        "Sha256": "9620FDFCFFA8FA2FB4CFAF9C9B95B4EDAB196587786FA82017889B5875F5EB86",
+        "Length": 560
+      }
+    },
+    {
+      "Environment": "Windows .NET",
+      "Command": "dotnet test tests/Igloo.Preflight.Tests/Igloo.Preflight.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Passed": 343,
+      "Failed": 0,
+      "Skipped": 0,
+      "Log": {
+        "Reference": "Igloo.Preflight.Tests.log",
+        "Sha256": "203BFEEE67A1C8B729EF948D9589252DA66D74D4E48C594DC8E754A153C26C75",
+        "Length": 776
+      }
+    },
+    {
+      "Environment": "Windows .NET",
+      "Command": "dotnet test tests/Igloo.Community.App.Tests/Igloo.Community.App.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Passed": 58,
+      "Failed": 0,
+      "Skipped": 0,
+      "Log": {
+        "Reference": "Igloo.Community.App.Tests.log",
+        "Sha256": "A132077C5931620DD2973EE3EA626242CA76A00169D06FB756E2D920007E94DD",
+        "Length": 1311
+      }
+    },
+    {
+      "Environment": "Windows .NET",
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Passed": 437,
+      "Failed": 0,
+      "Skipped": 0,
+      "Log": {
+        "Reference": "final-Migration.log",
+        "Sha256": "239943310DBF083C6F15EEDE6DED181BD7B2FF146362D68F082F69CD66FAAB81",
+        "Length": 975
+      }
+    },
+    {
+      "Environment": "Windows .NET",
+      "Command": "dotnet build Igloo.sln -warnaserror",
+      "ExitCode": 0,
+      "Warnings": 0,
+      "Errors": 0,
+      "Log": {
+        "Reference": "solution-build.log",
+        "Sha256": "07607D4A8AA15BC71C238C8DBB554CC565D4504CE699EFC0E175F67C12413C5A",
+        "Length": 3349
+      }
+    },
+    {
+      "Environment": "Windows .NET",
+      "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+      "ExitCode": 0,
+      "Log": {
+        "Reference": "final-harness-build.log",
+        "Sha256": "D1113A9A6B4C81E6A9FFB44018D977657CE2C405C370D84A0DD92081A2EAC3D0",
+        "Length": 490
+      }
+    },
+    {
+      "Environment": "Windows .NET",
+      "Command": "dotnet test Igloo.sln --no-build --no-restore -m:1",
+      "Passed": 1423,
+      "Failed": 0,
+      "Skipped": 0,
+      "Log": {
+        "Reference": "final-solution-tests.log",
+        "Sha256": "388B56FC51D365F40FBF51F54F3246CEA4EB0E0882A861687709BA3E42E2E590",
+        "Length": 2433
+      },
+      "OverlapsProjectSuites": true
+    },
+    {
+      "Environment": "WSL Ubuntu-24.04 unprivileged",
+      "Command": "python3 -B -m unittest discover -s tests/installer -p 'test_*.py'",
+      "Passed": 330,
+      "Log": {
+        "Reference": "final-python.log",
+        "Sha256": "E876C346207AF08B64DD6AC2F1B6564C32145BC8F613397DB9086042FF861A22",
+        "Length": 532
+      }
+    },
+    {
+      "Environment": "WSL Ubuntu-24.04 unprivileged",
+      "Command": "python3 -B -m unittest discover -s tests/installer -p 'test_configuration*.py'",
+      "Passed": 28,
+      "OverlapsPythonSuite": true,
+      "Log": {
+        "Reference": "final-focused-python-recheck.log",
+        "Sha256": "09D6803113ACAA3CFE1BAF5C55BC5D75F561EBD2B5B20835587BD309E0143C20",
+        "Length": 229
+      }
+    },
+    {
+      "Environment": "Isolated helper VM",
+      "Command": "configuration_broker_rehearsal.run(stage)",
+      "CasesPerRevision": 5,
+      "ExecutedPolicies": [
+        "v3",
+        "v4"
+      ],
+      "CanonicalQualification": false
+    }
+  ],
+  "NewTestFailuresCorrected": [
+    "v5 Python negative fixture omitted newly required UserDefaults before-state",
+    "v4 policy rejection theory row initially omitted its mutation assignment"
+  ],
+  "RemainingBlocker": "Authorized two helper passes exhausted at User; v5 correction and subsequent credential/sudo/whole-profile behavior require fresh explicit fixture authorization before any canonical attempt.",
+  "Limitations": [
+    "No native v5 helper execution",
+    "No complete account/credential/sudo contract result",
+    "No new canonical configuration session or result",
+    "No canonical teardown",
+    "No power-loss or target boot test",
+    "No final power-down console line captured; one poweroff request followed by later process absence"
+  ],
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0,
+  "ProductionEnablement": false,
+  "QualityChecks": {
+    "GitDiffCheck": "Passed",
+    "ChangedTrackedAndUntrackedBomWhitespaceSizePrivateIdentifier": "Passed",
+    "EarlierJsonEvidenceExactBytes": "Unchanged",
+    "FinalWorkingTree": {
+      "ModifiedTracked": 32,
+      "Untracked": 54,
+      "Index": "Empty"
+    },
+    "NoCommitPushOrHistoryMutation": true
+  }
+}

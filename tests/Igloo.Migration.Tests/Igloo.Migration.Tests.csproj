@@ -19,6 +19,8 @@
     <ProjectReference Include="..\..\distros\fedora-kde\Igloo.Distro.FedoraKde.csproj" />
     <ProjectReference Include="..\..\distros\debian\Igloo.Distro.Debian.csproj" />
     <Compile Include="..\Shared\InstallationOwnershipFixture.cs" Link="InstallationOwnershipFixture.cs" />
+    <Compile Include="..\Shared\LabStorageFixture.cs" Link="LabStorageFixture.cs" />
     <Compile Include="..\Shared\TargetRootFixture.cs" Link="TargetRootFixture.cs" />
+    <Compile Include="..\installer\CanonicalImportQualification\UserDataExternalPin.cs" Link="UserDataExternalPin.cs" />
   </ItemGroup>
 </Project>

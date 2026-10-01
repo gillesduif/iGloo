@@ -44,4 +44,5 @@
           SkipUnchangedFiles="true" />
   </Target>
 
+  <ItemGroup><InternalsVisibleTo Include="Igloo.Migration.Tests" /></ItemGroup>
 </Project>

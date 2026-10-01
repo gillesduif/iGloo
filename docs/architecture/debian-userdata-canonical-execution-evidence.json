@@ -1,0 +1,498 @@
+{
+  "SchemaVersion": 1,
+  "RecordedAtUtc": "2026-09-30T22:54:35.698998+00:00",
+  "Scope": "CanonicalLabSelectedDocumentsV1",
+  "Outcome": "NativePreflightFailed_TransferNotStarted",
+  "StartingCheckout": {
+    "Branch": "refactor/community-fleet-foundation",
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "ModifiedTracked": 37,
+    "Untracked": 114,
+    "IndexEmpty": true,
+    "SnapshotSha256": "9C7188FBF80412D1A1D68AB0E5E67C3013B3C8CBB6AD4D3524D0015213314E77"
+  },
+  "ChangesThisContinuation": {
+    "ModifiedStartingFiles": [
+      "docs/architecture/debian-target-root-deployment.md",
+      "tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj",
+      "tests/installer/CanonicalImportQualification/Program.cs",
+      "tests/installer/CanonicalImportQualification/README.md",
+      "distros/debian/Deployment/DebianInitramfsPredecessor.cs",
+      "tests/Igloo.Migration.Tests/DebianInitramfsPredecessorTests.cs",
+      "tests/Igloo.Migration.Tests/DebianUserDataAdmissionTests.cs",
+      "tests/installer/CanonicalImportQualification/LabUserData.cs",
+      "tests/installer/canonical_storage_lab.py"
+    ],
+    "NewFiles": [
+      "docs/architecture/debian-userdata-canonical-execution-evidence.json",
+      "tests/Igloo.Migration.Tests/DebianUserDataPinTests.cs",
+      "tests/installer/CanonicalImportQualification/UserDataExternalPin.cs"
+    ],
+    "UnrelatedConcurrentEditsPreserved": [
+      "Igloo.sln",
+      "src/Igloo.Cli/Igloo.Cli/Igloo.Cli.csproj"
+    ]
+  },
+  "Capacity": {
+    "InitialGateAvailableBytes": 205654458368,
+    "InitialGateRequiredBytes": 193273528320,
+    "ProvisioningGate": {
+      "AvailableBytes": 209943068672,
+      "BackingVolume": "C:\\",
+      "Distribution": "Ubuntu-24.04",
+      "NativeMutationAuthorized": false,
+      "ObservedAtUtc": "2026-09-30T22:22:13.4613126+00:00",
+      "RequiredAdditionalBytes": 193273528320,
+      "SchemaVersion": 1,
+      "Scope": "HostCapacityObservationOnly",
+      "Sufficient": true
+    },
+    "GuestAvailableBytes": 686245433344,
+    "PolicyUnchanged": true
+  },
+  "Trust": {
+    "ProtectedPinSha256": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+    "CurrentValidityChecked": true,
+    "ExpiresUtc": "2026-10-05T09:32:27.464+00:00",
+    "Renewed": false,
+    "CanonicalAuthorityCreated": false,
+    "ClosureReferences": [
+      "staging-evidence/execution-closure.json",
+      "guest-evidence/execution/execution-closure.json",
+      "guest-evidence/execution/positive-execution-closure.json"
+    ]
+  },
+  "Attempt": {
+    "OperationId": "b5c6a85c-b60d-4ead-9985-0c6c4cf0e83c",
+    "AttemptId": "18e2b3e0-dcc9-45e0-bf8f-4a43f442e5dc",
+    "PositiveDispatches": 1,
+    "PositiveBudget": 1,
+    "NegativeDispatches": 1,
+    "NegativeBudget": 1,
+    "RetryAuthorized": false,
+    "ProtectedResources": "/var/lib/igloo/initramfs-helper-labs/18e2b3e0dcc945e0bf8f4a43f442e5dc",
+    "ExternalAuthorization": "/var/lib/igloo/userdata-authorizations/18e2b3e0-dcc9-45e0-bf8f-4a43f442e5dc/authorization.json"
+  },
+  "Predecessor": {
+    "RunId": "c5dc04e9-18f6-4b78-b60a-2346e2d70000",
+    "ResultSha256": "9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8",
+    "CloseSha256": "F0CB1447C24AF09EBC1A178E29E692AAB36C8AED0AAE130CE2A16CD23F8446F3",
+    "CorrectedReadOnlyReopen": "Passed",
+    "TargetAndJournalRehashedUnchanged": true
+  },
+  "IndependentCopies": [
+    {
+      "DestinationDevice": 2096,
+      "DestinationInode": 88911,
+      "Length": 42949672960,
+      "ReopenedSha256": "55B7F3E69A742C1DC5F470D67207F415B847ADFC296D4B93BA619D809A8E942C",
+      "Serial": "IGLOO-LAB-TARGET",
+      "SourceDevice": 2096,
+      "SourceInode": 12660,
+      "SourceSha256": "55B7F3E69A742C1DC5F470D67207F415B847ADFC296D4B93BA619D809A8E942C"
+    },
+    {
+      "DestinationDevice": 2096,
+      "DestinationInode": 88912,
+      "Length": 8589934592,
+      "ReopenedSha256": "ED36D552AD275F96945A7D52870A039C0F1B097E9FA4853212E719DF9399109C",
+      "Serial": "IGLOO-LAB-JOURNAL",
+      "SourceDevice": 2096,
+      "SourceInode": 12666,
+      "SourceSha256": "ED36D552AD275F96945A7D52870A039C0F1B097E9FA4853212E719DF9399109C"
+    }
+  ],
+  "Staging": {
+    "Origin": "LabAuthoredStagedDocumentsV1",
+    "SelectedFiles": 4,
+    "SelectedEntries": 6,
+    "SelectedBytes": 131130,
+    "LargestFileBytes": 131073,
+    "UnselectedSentinel": true,
+    "UnrelatedPayloadObjectsUnchanged": true,
+    "StagedTargetSha256": "4848D19C354FE36018006E8904A3048496D4279FBEF5AA1146DF8D6550A4854D",
+    "OrdinaryPayloadUnmount": "Verified",
+    "SeparateRuntimeShutdown": "Observed"
+  },
+  "NativeAdmissionFixtures": {
+    "Tests": 10,
+    "Failures": 0,
+    "Errors": 0,
+    "Skipped": 0,
+    "Scope": "IsolatedOrdinaryFileFixtureOnly"
+  },
+  "Negative": {
+    "ExitCode": 2,
+    "ObservedResult": {
+      "UserData": "NotStarted",
+      "Code": "UserDataSessionUnavailable",
+      "Boundary": "PredecessorReopen",
+      "ErrorType": "InvalidDataException"
+    },
+    "IntendedWrongOperationBoundaryQualified": false,
+    "Explanation": "Stopped earlier at predecessor observer JSON escaping defect; consumed negative dispatch retained."
+  },
+  "Positive": {
+    "ExitCode": 2,
+    "ObservedResult": {
+      "UserData": "NotStarted",
+      "Code": "UserDataSessionUnavailable",
+      "Boundary": "StorageAndJournalValidation",
+      "ErrorType": "JsonException"
+    },
+    "CanonicalSessionCreated": false,
+    "CanonicalFilesTransferred": 0,
+    "CanonicalBytesTransferred": 0,
+    "CanonicalRootMounts": 0,
+    "Transfer": "NotStarted",
+    "ReceiptAdmission": "NotStarted",
+    "IndependentRootDelta": "NotInvoked",
+    "Handoff": "NotProduced",
+    "CanonicalTeardown": "NotStarted"
+  },
+  "Disposition": {
+    "CanonicalSessionCreated": false,
+    "CanonicalTeardown": "NotStarted",
+    "NegativeDispatches": 1,
+    "PositiveDispatches": 1,
+    "PreservedSha256": "0B1C5550B9FCBE8B9B234D04655BDE475DC0E70168E2F411D01E50740945AE17",
+    "PreservedTestObjectUnchanged": true,
+    "ReplayAuthorized": false,
+    "RootSemanticReadback": "NotInvoked",
+    "Stores": {
+      "effects": [],
+      "session": []
+    },
+    "TargetMountsAbsent": true,
+    "UserData": "NotStarted"
+  },
+  "ProvisioningTeardown": {
+    "JournalOrdinaryUnmount": "VerifiedExactMountDelta",
+    "CanonicalTeardown": false,
+    "NormalRuntimeShutdown": "IndependentlyObserved",
+    "FinalRetention": {
+      "Admission": "NotStarted",
+      "AttemptId": "18e2b3e0-dcc9-45e0-bf8f-4a43f442e5dc",
+      "CanonicalTeardown": "NotStarted",
+      "Copies": [
+        {
+          "Device": 2096,
+          "Inode": 88911,
+          "Length": 42949672960,
+          "Links": 1,
+          "Name": "target.raw",
+          "Sha256": "4848D19C354FE36018006E8904A3048496D4279FBEF5AA1146DF8D6550A4854D"
+        },
+        {
+          "Device": 2096,
+          "Inode": 88912,
+          "Length": 8589934592,
+          "Links": 1,
+          "Name": "journal.raw",
+          "Sha256": "D0E739EF306FEADC4F2AF2339A490B7558AA880A41244639AF53C09516CAA6E1"
+        }
+      ],
+      "NegativeDispatches": 1,
+      "NormalRuntimeShutdown": true,
+      "OperationId": "b5c6a85c-b60d-4ead-9985-0c6c4cf0e83c",
+      "PositiveDispatches": 1,
+      "PredecessorTargetAndJournalHashesUnchanged": true,
+      "RetryAuthorized": false,
+      "Scope": "FailedUserDataPreflightRetention",
+      "TargetUnchangedSinceStaging": true,
+      "Transfer": "NotStarted"
+    }
+  },
+  "Defects": [
+    {
+      "Function": "DebianVerifiedInitramfs.ObservationHashMatches",
+      "Confirmed": "Persisted JSON escapes plus as Unicode escape while native observer hashes original ASCII. Exact historical journal hashes remained valid.",
+      "Correction": "Match native ASCII representation as well as exact raw observation; preserve strict chain bindings.",
+      "ReadOnlyNativeReopenAfterCorrection": "Passed"
+    },
+    {
+      "Function": "LabUserData external pin strict deserialization",
+      "Confirmed": "Actual protected external pin includes ManifestSha256 and ContentSha256 omitted by executed UserData ExternalPin record. Old schema rejection reproduced in regression.",
+      "Correction": "UserDataExternalPin retains complete schema; unknown fields still rejected.",
+      "NativeAfterCorrection": "NotInvoked",
+      "DiagnosticLimit": "Executed positive only records StorageAndJournalValidation JsonException; no narrower traceback retained."
+    }
+  ],
+  "ExecutedIdentities": {
+    "InitialStaged": {
+      "bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+      "collector.py": "66E83B8AA504157E97DEF533D59D3280E244F41583799D8BD2A783F6B4491243",
+      "command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+      "harness/CanonicalImportQualification.dll": "4F24709E8957DEA8E406482776C1C9BBBF0B7EBCD6CE0BA42103F98F0ABDF36D",
+      "harness/Igloo.Core.dll": "61FFBB7D414DB30E936409D8188CDFDE5DE2B2E796A8C7585D32B8A390C837DF",
+      "harness/Igloo.Distro.Debian.dll": "614830AB8C4DA7D5F13D360F1D95A91DC9F6182B8DE0B65AE82A893488AD868B",
+      "native/block_session.py": "38B7A31EFC3AB644B67AE59938DA29AF27FCCB2715B9AE135CA52BD5FB475B29",
+      "native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+      "native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+      "native/configured_successor.py": "0C8B0363267A2FD2CF988460708B97494E4834179BA102ED8653A6A0B733E8D3",
+      "native/debian_first_boot.py": "FB0C5A5BB414F1798FEC664274C15D5C23D07FAC150935BEECFADF88DC4F6C32",
+      "native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "native/initramfs_archive.py": "0F01F2CBE46EB4975A79DAAFCE94BDFFCC3714ED843CC9DC1CA4B4E28CEC6CFC",
+      "native/initramfs_candidate.py": "EB663235CE5CC791C18E13F2904C9C894090E90421E0DB09DE5B3DD5EB2E6BD6",
+      "native/initramfs_generated.py": "0E26510714D6B79A75FF00AF4ACEBA3FDC38F436F16D13435553D2080C7467FC",
+      "native/initramfs_observer.py": "B2617F6EB09E2F8ADF87545A6A4E21782C5E3DBA36541F769EA83418EB30254A",
+      "native/initramfs_publication.py": "D306A9EE7ACF0DF5A6431B78D1E412FC2201E25FDFA85FE9038DC0CE73C4C282",
+      "native/isolation_observer.py": "14182A2A7A42A9C7A76CF6D6712F31366AF96783FF04F1EE7CE57E24EE5295A2",
+      "native/isolation_policy.py": "36DD2CBF01461BE37035D01526E61FF5F69307C6ADA8BE397CBF9B1D18CA6F45",
+      "native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+      "native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+      "native/package_broker.py": "F7DDBAC0E1B22C7FEB9E995D3507404B3B3F020E21DCB7BD9FC8ED1BC87BF354",
+      "native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+      "native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+      "native/session_configuration.py": "EC3E906D437DC220B8AD5774BB1764A546A9E29F0D091B570BD2414D4922C1B2",
+      "native/session_entry.py": "D98816ECFEB5B25A3274C4A24AB72D47DEA2F1025C7E6844934B421EF3A8DA53",
+      "native/session_import.py": "F434CBBDD0E1D945A864121F2A64255B03F67AC3D6D71427AA79F94CB44F9075",
+      "native/session_initramfs.py": "1650D3D664CC725488C4B93703AF2CCF8DDE4F5BB2F1080B134EB65B26ED0A10",
+      "native/session_userdata.py": "DD8CE16F90D0C0334140C8482F1A3144417BD71FC5530C69D85CF74D518B67E8",
+      "native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+      "native/userdata_admission.py": "21E1F3E5AD859D58B2382C60A53135120646AA633E90CD14C1CD9D80F7E94888",
+      "native/userdata_contract.py": "1F4777EC4CEC0F66F43EA228C860F1C881814297ED09F0584733AC26E875B566",
+      "native/userdata_entry.py": "3615F58EA48A2F7EBFE791BA2A8AA10B45E4A774F851B2BCEF54F3F30E373ABB",
+      "native/userdata_producer.py": "E1491A608B00015C63D30B55FCB217C7AD0404800737471FBD652666D23F295F",
+      "native/userdata_source.py": "41FB2CEA7B9B9BA73B9F96A650906FFDF651EBE6A14EF89E1D34112700C43BD3",
+      "native/userdata_successor.py": "2DA0161806AD694FA159E97B33929B6116F962ED0F1D355F9E672238D50111D6"
+    },
+    "PositiveHarnessSha256": "52DBB0D8EA746A09B03F62885B05D33D2423CCB0E19C18834E6E2F10F77CD5B9",
+    "PositiveDebianAssemblySha256": "E1775B9036179A38787DAC589E6ED235FC23280037E69F6C307E44948271650D",
+    "NativeProducerAdmissionModulesChanged": false
+  },
+  "FinalUnexecutedIdentities": {
+    "HarnessSha256": "53221C2F2A870E9CD2CF1082F546A79AAFB6415B6DB8362C311252654E5EE836",
+    "Source": {
+      "docs/architecture/debian-target-root-deployment.md": "015873BA51CF0D2B92A41257EDEAE69592AC246CCB120DC096E365E8A8132ECB",
+      "tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj": "7597E4A221B19D269781048F69F8704F188E49057F17A635FBD6B2C18C65DBBD",
+      "tests/installer/CanonicalImportQualification/Program.cs": "510004C8F11DFD860273760D9106682EB23BBB1D5DA069BC877BD0C34701DD93",
+      "tests/installer/CanonicalImportQualification/README.md": "0FF168D2919174DCCF6E3F281B12C6B6D39E910732C4895C123D11E7867FE2AD",
+      "distros/debian/Deployment/DebianInitramfsPredecessor.cs": "F180C2A3487D0429CD15BDB1BB1AD813A578F8D62B394F09C5FADE5ED41611B6",
+      "tests/Igloo.Migration.Tests/DebianInitramfsPredecessorTests.cs": "38E75B541ABE1821F82F25D2CF291002397008D40CA879702CF13EB13E42ECAC",
+      "tests/Igloo.Migration.Tests/DebianUserDataAdmissionTests.cs": "E0F59BE22796063F86535A14617532E0A8E0D92A9D9B26A95EF14A2A1B0AD90E",
+      "tests/installer/CanonicalImportQualification/LabUserData.cs": "06F7849CFF7AE30BFDA1E7F839FAC44A75FD3D09B232FA73E3D6F2EFBB743E0B",
+      "tests/installer/canonical_storage_lab.py": "490E57E52CC746E7B584C51B9F4726B312AD30EE8DFA608E468458EE85D9B6A1",
+      "tests/Igloo.Migration.Tests/DebianUserDataPinTests.cs": "0FBCA324FCB3B2DA924F59C1AC2F2E513583D6556D6FF90EF88ABCAB2C36FD6B",
+      "tests/installer/CanonicalImportQualification/UserDataExternalPin.cs": "85AA059A3DFFA884A97C191FAA096B1A9144ADE017531378015164CEA91B2F0F"
+    }
+  },
+  "Tests": [
+    {
+      "Platform": "Windows .NET 8",
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror --filter 'FullyQualifiedName~DebianUserData|FullyQualifiedName~DebianConfigurationContinuationTests'",
+      "Result": "41 passed; current rebuilt source, actual retained pin regression input; earlier overlapping 40/11 subsets not added"
+    },
+    {
+      "Platform": "Windows .NET 8",
+      "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+      "Result": "Passed; zero warnings/errors"
+    },
+    {
+      "Platform": "WSL Python 3",
+      "Command": "unittest.defaultTestLoader.loadTestsFromNames(['test_userdata_admission.WireTests','test_canonical_lab_capacity','test_canonical_lab_runtime'])",
+      "Result": "16 passed; ordinary native admission disabled"
+    },
+    {
+      "Platform": "Isolated retained Debian runtime",
+      "Command": "IGLOO_USERDATA_ADMISSION_NATIVE_UNIT=1; unittest.defaultTestLoader.loadTestsFromName('test_userdata_admission.PublicationTests')",
+      "Result": "10 passed; actual protected ordinary-file publication/reopen and failures; fixture-only"
+    },
+    {
+      "Platform": "Windows .NET 8",
+      "Command": "dotnet test (current focused build)",
+      "IntermediateFailure": "CA1869 on new serializer options allocation; corrected cached options, no suppression; final build/tests passed"
+    }
+  ],
+  "ChecksNotExecuted": [
+    "Full solution/Core/Preflight/Community.App suites: unchanged broad scope; focused affected builds/tests only",
+    "Canonical transfer/source-account validation, full root delta, protected admission and handoff: preflight stopped",
+    "Intended wrong-operation native negative: earlier predecessor defect intercepted it",
+    "No repeated copier/initramfs campaign; native implementations unchanged"
+  ],
+  "RawEvidence": {
+    "Archive": "/var/lib/igloo/initramfs-helper-labs/18e2b3e0dcc945e0bf8f4a43f442e5dc/retained-guest-evidence.tar.gz",
+    "Length": 222948,
+    "Sha256": "4D8D74F5E78C3082E2E9FC904A8AE543C87D04BE1DCA7CE75FA206E210C69D93",
+    "Records": {
+      "userdata-copy-intent.json": {
+        "Length": 856,
+        "Sha256": "CA9D7723B89C26DB9F2FF9CF5DD2D904E7BC46683A9EF170666227130C58086D"
+      },
+      "userdata-initial-copy.json": {
+        "Length": 1686,
+        "Sha256": "FBA109FBA55C1D5EE6F9FB45EDDC3BC4A4060B2DA6F3908B4127C97D22DD6E45"
+      },
+      "userdata-delivery.json": {
+        "Length": 2048,
+        "Sha256": "F2E427389ACADCF9EBF18A065C6ED31E2613A25AFF9ACBE5E738F40E32773A83"
+      },
+      "userdata-derivation.json": {
+        "Length": 1866,
+        "Sha256": "16FDB810184F32DD08BBF7CA1612F1984B151E2F850150F8064F58C3B72BEFB0"
+      },
+      "input-identities.json": {
+        "Length": 463349,
+        "Sha256": "D4FBE56D6EF70B1093FE80C33E0EEB72721A5C3418C6F0ADB090BC9FB1A8BDC3"
+      },
+      "userdata-canonical-host-binding.json": {
+        "Length": 2071,
+        "Sha256": "8601549EB96C586A42A62BD5A003F73D4432E0C1140CAD19AF5E68413887EAA7"
+      },
+      "pre-dispatch-host-readback.json": {
+        "Length": 1122,
+        "Sha256": "11D0E455B5C411B082C5E6F8A38425000500B46650AAC9A4C3B74DEA477729FC"
+      },
+      "userdata-normal-shutdown.json": {
+        "Length": 174,
+        "Sha256": "26DF8B8BCDAC074B4CC56B6CDB8473766BE3473F62B03685548BBCA3E9E92746"
+      },
+      "userdata-failed-attempt-retention.json": {
+        "Length": 911,
+        "Sha256": "8B2B3AAA7C183F98FA6779F8B22B9E21A8B673A86E38989A2D5C0668F0AD3655"
+      },
+      "staging-evidence/admission-fixtures.json": {
+        "Length": 1763,
+        "Sha256": "29CF400B4DA963845630DE7FC7B3B3344FC8926104F03CFFF27D842E73BEC4CE"
+      },
+      "staging-evidence/userdata-guest-delivery.json": {
+        "Length": 1538,
+        "Sha256": "4ECA92491D30460C24A55D1738D71879565003E890898E2D76CF5F80C70FAD13"
+      },
+      "staging-evidence/userdata-staging-close.json": {
+        "Length": 49,
+        "Sha256": "21C317130A38851C9C183A8740886DFC8D59E817D0B431D789C5D9293529CD9C"
+      },
+      "guest-evidence/execution/declaration.json": {
+        "Length": 3392,
+        "Sha256": "370E82E38E79403B8D9EB76F91D7247BE4F9EBCD0AA98BB1CC16352BD732C800"
+      },
+      "guest-evidence/execution/execution-closure.json": {
+        "Length": 610694,
+        "Sha256": "E6E6FDACB376DB98BA02A510932EE5DCBD09C9883DEC89FFDCF0CD2DAB6BFA67"
+      },
+      "guest-evidence/execution/host-binding.json": {
+        "Length": 2071,
+        "Sha256": "8601549EB96C586A42A62BD5A003F73D4432E0C1140CAD19AF5E68413887EAA7"
+      },
+      "guest-evidence/execution/inventory.json": {
+        "Length": 2396,
+        "Sha256": "F5FFCB8D6F4D6F5B5CD01D8F2A7CA99B38773EE438CA37703DDAFC7962354C9E"
+      },
+      "guest-evidence/execution/journal-bootstrap-intent.json": {
+        "Length": 206,
+        "Sha256": "5035B9D8FEB1C4B781C46EB4A8914FD858F39299AA7449CEFE81A5F1FC26C802"
+      },
+      "guest-evidence/execution/journals.json": {
+        "Length": 383,
+        "Sha256": "DEC8634CD2AC707129C9E0DA5F21E8E92E4889BAD6B8C3656176BA215AF8DE9B"
+      },
+      "guest-evidence/execution/negative-declaration.json": {
+        "Length": 3392,
+        "Sha256": "92E5C1F3BC273E8D0B6914AE421DACBD0EC13FEFFE90168658800014160AEB6E"
+      },
+      "guest-evidence/execution/negative-dispatch-intent.json": {
+        "Length": 617,
+        "Sha256": "245219A8FB932EA13FD125F1B27ECD9005ADFD5EE6235BF473E03563D35D6E39"
+      },
+      "guest-evidence/execution/negative-exit.json": {
+        "Length": 178,
+        "Sha256": "8E7A18B53B5CDD0E963AE5F2B9A3E995E78DE59961809319906D98B8E5EC3E91"
+      },
+      "guest-evidence/execution/negative.stderr": {
+        "Length": 0,
+        "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+      },
+      "guest-evidence/execution/negative.stdout": {
+        "Length": 128,
+        "Sha256": "9C2E4351A7FAE247FF73F9B8E29C853A03C54CC80ACEC9A98C2D26B52F79EA96"
+      },
+      "guest-evidence/execution/positive-dispatch-reservation.json": {
+        "Length": 135,
+        "Sha256": "E14E33C3ED070264450D7043D2D3C5672843F7E5090004313300475A7A90CC90"
+      },
+      "guest-evidence/execution/positive-execution-closure.json": {
+        "Length": 611043,
+        "Sha256": "BF54A43D3E6754833C2E69F2AD125237FDD055388E9E125748C6A97AA47BDAAA"
+      },
+      "guest-evidence/execution/post-attempt-disposition.json": {
+        "Length": 381,
+        "Sha256": "83184769947E32289979330B3569330B6A405AE6F46A127B1F280FBEC90EE960"
+      },
+      "guest-evidence/execution/preserved-before.json": {
+        "Length": 98,
+        "Sha256": "0EFA35EFF986463B7541AFFDEA28F015B04FAC9E284B0872C1D343F3F22E1E50"
+      },
+      "guest-evidence/execution/provisioning-journal-unmount.json": {
+        "Length": 5022,
+        "Sha256": "10A0856660F4980809EDE31F1880E670698BC7297D0EC4A3C3966AECA3C2D1D3"
+      },
+      "guest-evidence/execution/read-only-predecessor-corrected.json": {
+        "Length": 357,
+        "Sha256": "3BC6B4ADC05E7B4AE2A08A93BBA19BBF32EE2E68E56472DD14D16DADF278EFC6"
+      },
+      "guest-evidence/execution/read-only-predecessor-diagnostic-2.json": {
+        "Length": 178,
+        "Sha256": "78410F949EC134EDB00F2634F83970A334161CF868C24DFD5B30C8D2F64B9DAD"
+      },
+      "guest-evidence/execution/read-only-predecessor-diagnostic.json": {
+        "Length": 27,
+        "Sha256": "96B0A4DA97869D3A151B98A95B1626C3383ED9CB590FBA55FDCAB4CC1E431AA6"
+      },
+      "guest-evidence/execution/readonly-journal-diagnostic-input.json": {
+        "Length": 5494,
+        "Sha256": "0A8910CA4BC4285A8FACBBE84144DD7A75D71B27AB5463A4420C252536C0A580"
+      },
+      "guest-evidence/execution/readonly-journal-diagnostic-result.json": {
+        "Length": 4072,
+        "Sha256": "681064787171EE836BFED3987B44C7349BB6345D317E449900791A772061F01C"
+      },
+      "guest-evidence/execution/runtime.json": {
+        "Length": 4689,
+        "Sha256": "EA97F8255345D55C9E881B0F18489514D561A06E742E7BA5EC174AF57CE9A2EC"
+      },
+      "guest-evidence/execution/userdata-dispatch-intent.json": {
+        "Length": 608,
+        "Sha256": "B24C9F38CDEB50B9456973D0D8E8BBFB241BED586243F41CA80604115989F822"
+      },
+      "guest-evidence/execution/userdata-exit.json": {
+        "Length": 178,
+        "Sha256": "E9E825B421C12AA6F1335D8A7CF3322FDB1A88A6F941DA5B1F073C96E76F61CF"
+      },
+      "guest-evidence/execution/userdata.stderr": {
+        "Length": 0,
+        "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+      },
+      "guest-evidence/execution/userdata.stdout": {
+        "Length": 131,
+        "Sha256": "BD50268C1DB2ECB828405C4B14BC080ADD80421A1F0216549CFEC794A1BF12EA"
+      }
+    }
+  },
+  "RemainingBoundary": "Fresh separately authorized positive and native negative required; final external-pin correction has no native dispatch qualification. Existing failed attempt is not replayable.",
+  "ProductGates": {
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "WindowsRecoveryReadinessChanged": false,
+    "AgentEnrollmentFirstBoot": "NotInvoked"
+  },
+  "FinalCheckout": {
+    "ModifiedTracked": 38,
+    "Untracked": 119,
+    "IndexEmpty": true
+  },
+  "Hygiene": {
+    "HistoricalJsonUnchanged": true,
+    "ChangedAndUntrackedFilesChecked": 157,
+    "NoTaskIntroducedBomOrLargeArtifact": true,
+    "ChangedFilesWhitespace": "Passed",
+    "GitDiffCheck": "Passed with existing line-ending notices",
+    "UnrelatedBomsPreserved": [
+      "Igloo.sln",
+      "src/Igloo.Cli/Igloo.Cli/Igloo.Cli.csproj",
+      "src/Igloo.Cli/Igloo.Cli/Program.cs"
+    ]
+  }
+}

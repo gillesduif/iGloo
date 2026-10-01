@@ -1,0 +1,650 @@
+{
+  "ReportKind": "Sanitized public summary; protected raw evidence remains separately retained",
+  "RecordedAtUtc": "2026-09-29T06:06:22.256996+00:00",
+  "StartingHead": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+  "StartingWorkingTree": {
+    "ModifiedTracked": 27,
+    "Untracked": 28,
+    "Index": "Empty",
+    "InitialSnapshotSha256": "CEFEBF3DAF2AA85E08D9C1DB6813C8B6C5757C3DE1DE1CF93B7CD9BE09C5BD1F",
+    "ExistingPaths": [
+      " M .editorconfig",
+      " M .gitattributes",
+      " M distros/debian/Deployment/DebianConfiguredRootImportPlan.cs",
+      " M distros/debian/Deployment/DebianImportJournalStorage.cs",
+      " M distros/debian/Deployment/DebianMountSession.cs",
+      " M distros/debian/Deployment/DebianNativeMountSession.cs",
+      " M distros/debian/Deployment/DebianRootTransport.cs",
+      " M distros/debian/native/block_session.py",
+      " M distros/debian/native/session_entry.py",
+      " M distros/debian/native/session_import.py",
+      " M docs/architecture/community-installation-ownership.md",
+      " M docs/architecture/debian-configured-root-artifact.md",
+      " M docs/architecture/debian-configured-root-neutralization-evidence.json",
+      " M docs/architecture/debian-root-chunk-transport-manifest.json",
+      " M docs/architecture/debian-session-boundary.md",
+      " M docs/fleet/phase-2.md",
+      " M src/Igloo.Core/Preparation/InstallationOwnership.cs",
+      " M src/Igloo.Core/Preparation/InstallerBlockLeases.cs",
+      " M tests/Igloo.Core.Tests/Igloo.Core.Tests.csproj",
+      " M tests/Igloo.Core.Tests/InstallerBlockLeaseTests.cs",
+      " M tests/Igloo.Migration.Tests/DebianMountSessionTests.cs",
+      " M tests/Igloo.Migration.Tests/DebianRootTransportTests.cs",
+      " M tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj",
+      " M tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj",
+      " M tests/installer/CanonicalImportQualification/Program.cs",
+      " M tests/installer/CanonicalImportQualification/README.md",
+      " M tests/installer/test_session_import.py",
+      "?? distros/debian/Deployment/DebianLabImportPlan.cs",
+      "?? docs/architecture/debian-canonical-gpt-runtime-evidence.json",
+      "?? docs/architecture/debian-canonical-lab-acquisition.md",
+      "?? docs/architecture/debian-canonical-lab-import-evidence.json",
+      "?? docs/architecture/debian-storage-session-smoke-evidence.json",
+      "?? src/Igloo.Core/Preparation/InstallationStorage.cs",
+      "?? src/Igloo.Core/Preparation/InstallerLabAcquisition.cs",
+      "?? tests/Igloo.Core.Tests/InstallationStorageTests.cs",
+      "?? tests/Igloo.Core.Tests/InstallerLabAcquisitionTests.cs",
+      "?? tests/Igloo.Migration.Tests/DebianLabImportTests.cs",
+      "?? tests/Igloo.Migration.Tests/DebianStorageSmokeTests.cs",
+      "?? tests/Shared/LabStorageFixture.cs",
+      "?? tests/installer/CanonicalImportQualification/InventoryProbe.cs",
+      "?? tests/installer/CanonicalImportQualification/LabConfiguredRootImport.cs",
+      "?? tests/installer/CanonicalImportQualification/LabStorageSmoke.cs",
+      "?? tests/installer/CanonicalImportQualification/LabTransitionProbe.cs",
+      "?? tests/installer/canonical_import_guest.py",
+      "?? tests/installer/canonical_import_lab.py",
+      "?? tests/installer/canonical_import_readback.py",
+      "?? tests/installer/canonical_lab_guest_build.py",
+      "?? tests/installer/canonical_lab_guest_storage.py",
+      "?? tests/installer/canonical_lab_runtime.py",
+      "?? tests/installer/canonical_storage_guest.py",
+      "?? tests/installer/canonical_storage_lab.py",
+      "?? tests/installer/test_canonical_import_readback.py",
+      "?? tests/installer/test_canonical_lab_runtime.py",
+      "?? tests/installer/test_exact_evidence.py",
+      "?? tests/installer/test_storage_smoke.py"
+    ]
+  },
+  "Verdict": "BLOCKED: native configuration incomplete",
+  "UserDisposition": "Finish implementation and report blocked native result; no new configuration attempt authorized",
+  "RunId": "eef3675f-8bae-45c7-837e-9100cc1c0f1b",
+  "ProtectedResourceDirectory": "/var/lib/igloo/canonical-labs/eef3675f8bae45c7837e9100cc1c0f1b",
+  "Provider": {
+    "Kind": "IsolatedFileBackedLab",
+    "Version": 3,
+    "Scope": "CoreConfiguration"
+  },
+  "Predecessor": {
+    "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+    "CloseSha256": "F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A",
+    "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+    "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+    "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+    "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+    "Provenance": {
+      "EvidenceSha256": "8FFF55578D29E0229B2012CF01782B30AC9E5B5C1EC752ABAE6CD0B7A10784E6",
+      "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+      "Provider": "IsolatedFileBackedLab",
+      "RunId": "daa72a8f-914a-4574-92ef-4d39ffb0c1e1",
+      "Scope": "ConfiguredRootImport",
+      "Version": 2
+    },
+    "ResultSha256": "A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9",
+    "TransportManifestSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757"
+  },
+  "Checkpoint": {
+    "Directory": "/var/lib/igloo/config-checkpoints/import-daa72a8f-20260929",
+    "ResultSha256": "518AF140A5D7241948FE4C1C5B054BB35E732349524FAA74297863ED7EDA3486",
+    "Result": {
+      "Backings": {
+        "journal.raw": {
+          "Length": 8589934592,
+          "Sha256": "4B501D7FDA872A3E785F077548D40B38FD524B33DBD3062DC172E1A1B57906BB"
+        },
+        "target.raw": {
+          "Length": 42949672960,
+          "Sha256": "1C63ADEECBAE295E87766D02503F7D7704BE28036832D64FA3FA66738549AE4C"
+        }
+      },
+      "CloseResult": {
+        "Reference": "00000017-F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A.json",
+        "Sha256": "F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A"
+      },
+      "ImportResult": {
+        "Reference": "00001822-A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9.json",
+        "Sha256": "A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9"
+      },
+      "IntentSha256": "44E9F5C6F6F27AD7B1C82A72B0E48A624F372869392435BC63560F0EAC8D01D1",
+      "Outcome": "AppliedAndVerified",
+      "RollbackAuthority": false
+    },
+    "CopiesMode": "0400",
+    "Purpose": "Evidence preservation, not rollback or retry authority"
+  },
+  "CurrentBackingLaunchBinding": {
+    "CreatedBackings": [
+      {
+        "CreationSha256": "6E1DDC778A7BEF3445F811F9CB6DACC5043EB1D0CF5287235E81C7F0A872AE4B",
+        "HostDevice": 2096,
+        "HostInode": 77596,
+        "LaunchSha256": "BC533A66F0E9EFB15A1622546816116E45A58C57CBAFC235011EEFE37C456B23",
+        "Length": 25769803776,
+        "Serial": "IGLOO-GPT-RUNTIME"
+      },
+      {
+        "CreationSha256": "6E1DDC778A7BEF3445F811F9CB6DACC5043EB1D0CF5287235E81C7F0A872AE4B",
+        "HostDevice": 2096,
+        "HostInode": 75221,
+        "LaunchSha256": "BC533A66F0E9EFB15A1622546816116E45A58C57CBAFC235011EEFE37C456B23",
+        "Length": 42949672960,
+        "Serial": "IGLOO-LAB-TARGET"
+      },
+      {
+        "CreationSha256": "6E1DDC778A7BEF3445F811F9CB6DACC5043EB1D0CF5287235E81C7F0A872AE4B",
+        "HostDevice": 2096,
+        "HostInode": 75222,
+        "LaunchSha256": "BC533A66F0E9EFB15A1622546816116E45A58C57CBAFC235011EEFE37C456B23",
+        "Length": 8589934592,
+        "Serial": "IGLOO-LAB-JOURNAL"
+      }
+    ],
+    "HostObservationSha256": "9E8AAB649F9693CD5423F8DA0CF8D51157CE31F69D3702141893887EB8B27B54",
+    "ReopenedBackings": [
+      {
+        "CreationSha256": "6E1DDC778A7BEF3445F811F9CB6DACC5043EB1D0CF5287235E81C7F0A872AE4B",
+        "HostDevice": 2096,
+        "HostInode": 77596,
+        "LaunchSha256": "BC533A66F0E9EFB15A1622546816116E45A58C57CBAFC235011EEFE37C456B23",
+        "Length": 25769803776,
+        "Serial": "IGLOO-GPT-RUNTIME"
+      },
+      {
+        "CreationSha256": "6E1DDC778A7BEF3445F811F9CB6DACC5043EB1D0CF5287235E81C7F0A872AE4B",
+        "HostDevice": 2096,
+        "HostInode": 75221,
+        "LaunchSha256": "BC533A66F0E9EFB15A1622546816116E45A58C57CBAFC235011EEFE37C456B23",
+        "Length": 42949672960,
+        "Serial": "IGLOO-LAB-TARGET"
+      },
+      {
+        "CreationSha256": "6E1DDC778A7BEF3445F811F9CB6DACC5043EB1D0CF5287235E81C7F0A872AE4B",
+        "HostDevice": 2096,
+        "HostInode": 75222,
+        "LaunchSha256": "BC533A66F0E9EFB15A1622546816116E45A58C57CBAFC235011EEFE37C456B23",
+        "Length": 8589934592,
+        "Serial": "IGLOO-LAB-JOURNAL"
+      }
+    ],
+    "RunId": "eef3675f-8bae-45c7-837e-9100cc1c0f1b"
+  },
+  "BackingLimitation": "New run target.raw/journal.raw are hardlinks to original target/journal inodes. Historical pathname backing bytes changed through ordinary mount/journal effects; independent checkpoint copies retain successful import bytes.",
+  "Runtime": {
+    "DotnetVersion": "8.0.20",
+    "ProtectedDotnetHost": {
+      "Mode": 493,
+      "Sha256": "37674A9F73C1F531B7DCB26F569692F2C85419C0BA4FB7622D5BFC65BB0F5810",
+      "Uid": 0
+    },
+    "ExecutionClosureReference": "guest-evidence/execution/execution-closure.json",
+    "Isolation": "Disposable no-NIC GPT VM; no host shares, service sockets or physical passthrough; imported target never booted"
+  },
+  "PublicProfile": {
+    "Hostname": "igloo-lab-config",
+    "Mailname": "igloo-lab-config",
+    "Username": "iglootest",
+    "Uid": 1000,
+    "Gid": 1000,
+    "Locale": "en_US.UTF-8",
+    "Timezone": "Etc/UTC",
+    "Keyboard": "us",
+    "MigratedNetworkProfiles": []
+  },
+  "Authentication": {
+    "Kind": "DevelopmentImportOnly",
+    "ProtectedPinSha256": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+    "ValidUntil": "2026-10-05T09:32:27.464Z",
+    "Result": "Accepted for baseline authentication at attempt time; not renewed",
+    "ProductionAuthentication": "Unsupported"
+  },
+  "JournalPlacement": {
+    "Verified": true,
+    "FileSystem": "EXT4",
+    "FileSystemUuid": "b5071fc3-4433-4972-828e-da59eb0c27f6",
+    "Stores": "configuration/<predecessor-import-sha>/session and effects; separate root-owned 0700 directories",
+    "Verifier": "ObserveImportJournalsAsync / DebianImportJournalStorage.Verify",
+    "ImportStoreReused": false
+  },
+  "IndependentAttemptReadback": {
+    "AbsenceIsNotCanonicalTeardown": true,
+    "CompletedSteps": [
+      "Baseline"
+    ],
+    "Configuration": "OutcomeUnknown",
+    "EffectRecords": [
+      {
+        "Reference": "00000000-48A141006D03DDDC145ADF20079D467C020432636FD7720127D381F085A83662.json",
+        "Sha256": "48A141006D03DDDC145ADF20079D467C020432636FD7720127D381F085A83662"
+      },
+      {
+        "Reference": "00000001-767F13E741BAD28A782C3686947D77F63412A0F0968063C6D5CDECE63CC223AB.json",
+        "Sha256": "767F13E741BAD28A782C3686947D77F63412A0F0968063C6D5CDECE63CC223AB"
+      }
+    ],
+    "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+    "LastIndependentObservation": {
+      "FilesystemSha256": "1F842DC9D53C5C57B2CD9D77FE5731C29E777C4599C445CC8A3892222687BF13",
+      "NeutralStateSha256": "751CDEE71BF90671367B5B95F8FB17C660A5595E69F8AD6658EA600288FDD358",
+      "OperationId": "d3d76440-e12c-4cac-b3a4-e43b79e5bb6e",
+      "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+      "PlanSha256": "A5CFE6CACB8A23C37ABF715144FADE7DDCA1D7697DCDEE4F084BAE7BD8ED0B03",
+      "RootWitness": [
+        65044,
+        2,
+        239
+      ]
+    },
+    "OperationId": "d3d76440-e12c-4cac-b3a4-e43b79e5bb6e",
+    "ParentMountinfoAbsent": true,
+    "PlanSha256": "A5CFE6CACB8A23C37ABF715144FADE7DDCA1D7697DCDEE4F084BAE7BD8ED0B03",
+    "Predecessor": {
+      "BuildId": "99695826-82bc-4077-b4cf-a22cebc706da",
+      "CloseSha256": "F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A",
+      "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+      "DerivationId": "6072529e-1484-4fc7-a68c-d05c970bb393",
+      "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+      "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+      "Provenance": {
+        "EvidenceSha256": "8FFF55578D29E0229B2012CF01782B30AC9E5B5C1EC752ABAE6CD0B7A10784E6",
+        "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+        "Provider": "IsolatedFileBackedLab",
+        "RunId": "daa72a8f-914a-4574-92ef-4d39ffb0c1e1",
+        "Scope": "ConfiguredRootImport",
+        "Version": 2
+      },
+      "ResultSha256": "A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9",
+      "TransportManifestSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757"
+    },
+    "PreservedEspSha256": "0B1C5550B9FCBE8B9B234D04655BDE475DC0E70168E2F411D01E50740945AE17",
+    "PreservedMatches": true,
+    "PriorJournalBytesUnchanged": true,
+    "ProtectedStateSha256": "B919F13E82E70CE41A7B9E579027DEE7F49A199A182DE4E52666DFB6178E43A7",
+    "ReplayAuthorized": false,
+    "SessionId": "c75672d2-d08c-49d8-845c-cc313413cadc",
+    "SessionRecords": [
+      {
+        "Reference": "00000000-8FD75AF2FC88BAF99707355D57BF82FF3818A6C7EFAC7DD76D0C5F60FE75D19D.json",
+        "Sha256": "8FD75AF2FC88BAF99707355D57BF82FF3818A6C7EFAC7DD76D0C5F60FE75D19D"
+      },
+      {
+        "Reference": "00000001-970BBBA68FFF22A8AE5FD3AE673ED2A67DD43242763ED20794638658D3EE9FB1.json",
+        "Sha256": "970BBBA68FFF22A8AE5FD3AE673ED2A67DD43242763ED20794638658D3EE9FB1"
+      },
+      {
+        "Reference": "00000002-25A427FC4DEC2DD8016AA806A62E1DD084945A44E9B285525206242F67AA0CF4.json",
+        "Sha256": "25A427FC4DEC2DD8016AA806A62E1DD084945A44E9B285525206242F67AA0CF4"
+      },
+      {
+        "Reference": "00000003-1CBEA820CA4FEFC1CF57161F1A493E64247684EA5A59573256A50656CE3C96FE.json",
+        "Sha256": "1CBEA820CA4FEFC1CF57161F1A493E64247684EA5A59573256A50656CE3C96FE"
+      },
+      {
+        "Reference": "00000004-0B71F92C8E5C3E1168942D9B7FB4B4C3F7C0F6DE299EDE50858E1C640E07906D.json",
+        "Sha256": "0B71F92C8E5C3E1168942D9B7FB4B4C3F7C0F6DE299EDE50858E1C640E07906D"
+      },
+      {
+        "Reference": "00000005-D98D2110CE50B64D6033D850C1ABCEC3C9E61F2AEE73D84165C1BE554B6D4F71.json",
+        "Sha256": "D98D2110CE50B64D6033D850C1ABCEC3C9E61F2AEE73D84165C1BE554B6D4F71"
+      },
+      {
+        "Reference": "00000006-F1873562DE008E24FCFDDBC9D34159F87E42335786F64BE11EC42F1DC0EA93A7.json",
+        "Sha256": "F1873562DE008E24FCFDDBC9D34159F87E42335786F64BE11EC42F1DC0EA93A7"
+      },
+      {
+        "Reference": "00000007-588D8C69721A397B03F0E956336EF4CA62AFD0BD87C47BB985558A0097EB2AC7.json",
+        "Sha256": "588D8C69721A397B03F0E956336EF4CA62AFD0BD87C47BB985558A0097EB2AC7"
+      },
+      {
+        "Reference": "00000008-EAB496FBD881EA9AF53D218526CC341E71075A3EFC68AFA7F8707AA70B92E3C9.json",
+        "Sha256": "EAB496FBD881EA9AF53D218526CC341E71075A3EFC68AFA7F8707AA70B92E3C9"
+      },
+      {
+        "Reference": "00000009-8EEED4716E1E548BA37D6E760B9FD79877C5B49F3FED50EA85C6D0DA6C6D20F9.json",
+        "Sha256": "8EEED4716E1E548BA37D6E760B9FD79877C5B49F3FED50EA85C6D0DA6C6D20F9"
+      },
+      {
+        "Reference": "00000010-9D353F8378278B3FCC050163915A12040DE890F771D723546E74D033F2CFBA4E.json",
+        "Sha256": "9D353F8378278B3FCC050163915A12040DE890F771D723546E74D033F2CFBA4E"
+      }
+    ],
+    "Teardown": "NotVerified",
+    "VerifierSha256": "EE3ED1A01C1A919B557C004A1C1E2570EF52B4ACFDB67B55DF22DE75E52B8325"
+  },
+  "Failure": {
+    "Phase": "After full Baseline verification and ConfigureCore intent; before Files intent",
+    "Cause": "Configuration adapter assumed artifact /boot/efi exists; actual root has no such directory",
+    "ConfigurationFileWriterInvoked": false,
+    "TargetConfigurationHelpersInvoked": false,
+    "IndependentPostFailureWholeTreeObservation": false,
+    "Outcome": "OutcomeUnknown",
+    "CanonicalTeardown": "NotVerified",
+    "AutomaticRetry": false
+  },
+  "NativeNegative": {
+    "BeforeBlockAcquisition": true,
+    "ConfigurationWritesInvoked": false,
+    "Entrypoint": "--configure-lab",
+    "Result": {
+      "Code": "Import or close binding rejected.",
+      "Configuration": "NotStarted",
+      "ErrorType": "InvalidDataException"
+    }
+  },
+  "SeparateNativeViewFixtures": {
+    "Scope": "Ordinary-directory fixtures in isolated VM, real PackageBroker/gate/isolation observer; not Debian target helper execution",
+    "Cases": [
+      {
+        "Case": "success",
+        "IsolationSha256": "24E04F44F751403D5ACED3656C0AB7F6F819A3099A5AA4785E8DD2923C671AED",
+        "NoTargetBootEfiCreated": true,
+        "RuntimeLibraries": {
+          "/lib/x86_64-linux-gnu/libc.so.6": "9792E3CBB541C8F44C7ACF5F14F4022EA62998ECC787D326BED4D8B6547DFD92",
+          "/lib64/ld-linux-x86-64.so.2": "C8438E4FDE1934E61C88311633F00949FF645D5C04CDB8671FA3D78164D2F307"
+        },
+        "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+        "ToolSha256": "74E4CF1F02CDC8E6CEAF00D553CA10440871EE4C3D8258730BF947D53B3D592D"
+      },
+      {
+        "Case": "esp",
+        "IsolationSha256": "D18FEA3F7F8E11FBA5D2ED682C7AB6276EA961C7FC880D09C6FDA5F02B4023ED",
+        "NoTargetBootEfiCreated": true,
+        "RuntimeLibraries": {
+          "/lib/x86_64-linux-gnu/libc.so.6": "9792E3CBB541C8F44C7ACF5F14F4022EA62998ECC787D326BED4D8B6547DFD92",
+          "/lib64/ld-linux-x86-64.so.2": "C8438E4FDE1934E61C88311633F00949FF645D5C04CDB8671FA3D78164D2F307"
+        },
+        "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+        "ToolSha256": "74E4CF1F02CDC8E6CEAF00D553CA10440871EE4C3D8258730BF947D53B3D592D"
+      },
+      {
+        "Case": "payload",
+        "IsolationSha256": "8590028CB73070EE42CB25B515777BF8C1852A47C056CCC769548A2E4687C3F0",
+        "NoTargetBootEfiCreated": true,
+        "RuntimeLibraries": {
+          "/lib/x86_64-linux-gnu/libc.so.6": "9792E3CBB541C8F44C7ACF5F14F4022EA62998ECC787D326BED4D8B6547DFD92",
+          "/lib64/ld-linux-x86-64.so.2": "C8438E4FDE1934E61C88311633F00949FF645D5C04CDB8671FA3D78164D2F307"
+        },
+        "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+        "ToolSha256": "74E4CF1F02CDC8E6CEAF00D553CA10440871EE4C3D8258730BF947D53B3D592D"
+      },
+      {
+        "Case": "network",
+        "IsolationSha256": "26946587F4624DC01C1FCCC08C6075FD8A3C9251D0B0EA3939B3E8163C117E42",
+        "NoTargetBootEfiCreated": true,
+        "RuntimeLibraries": {
+          "/lib/x86_64-linux-gnu/libc.so.6": "9792E3CBB541C8F44C7ACF5F14F4022EA62998ECC787D326BED4D8B6547DFD92",
+          "/lib64/ld-linux-x86-64.so.2": "C8438E4FDE1934E61C88311633F00949FF645D5C04CDB8671FA3D78164D2F307"
+        },
+        "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+        "ToolSha256": "74E4CF1F02CDC8E6CEAF00D553CA10440871EE4C3D8258730BF947D53B3D592D"
+      },
+      {
+        "Case": "write",
+        "IsolationSha256": "6AEE893837BE9B3C9C644E2930522206EEC83A12D46A2BA5B58A47843998B214",
+        "NoTargetBootEfiCreated": true,
+        "RuntimeLibraries": {
+          "/lib/x86_64-linux-gnu/libc.so.6": "9792E3CBB541C8F44C7ACF5F14F4022EA62998ECC787D326BED4D8B6547DFD92",
+          "/lib64/ld-linux-x86-64.so.2": "C8438E4FDE1934E61C88311633F00949FF645D5C04CDB8671FA3D78164D2F307"
+        },
+        "SeccompSha256": "FF00C674E65F5DB2A65B41F9C7F22A0EA043CC2A094A3ACEB6BBE045C7509432",
+        "ToolSha256": "74E4CF1F02CDC8E6CEAF00D553CA10440871EE4C3D8258730BF947D53B3D592D"
+      }
+    ],
+    "ExecutedInputs": {
+      "bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+      "command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+      "native/block_session.py": "580629256AF4C98152CD67D13532199425B4A2FB5245D65B7FC0A70266DEB3B8",
+      "native/command_gate.c": "F732845C3DE247AFDC82A6ECCE0432789EFD34500719165637A7132F43BC119E",
+      "native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+      "native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+      "native/debian_first_boot.py": "F1F1F359F8D8218C7D5FC6C48E4A9DD44D45EC0B21F16C19BB0A48E9CDD04753",
+      "native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+      "native/isolation_policy.py": "2248B386217B51675AA4E1315DF6E2BEABE57518A3FF4DC21F739416770B1437",
+      "native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+      "native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+      "native/package_broker.py": "497E752919858F9067D221659E8B61146B2F34BE750060E9760E51282A307A3F",
+      "native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+      "native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+      "native/session_configuration.py": "119909EB0FB899279C048F5F650290057137C66CF926D06233E115ADF4BEAC5C",
+      "native/session_entry.py": "CA447F2F726C187992EF12453913279F0A079804511737456F244BED5DB473FB",
+      "native/session_import.py": "C6C6BD31E392BE78DD8BE1DA711AFDC4CFD3652A36CA5B534D9B770A518AFF3B",
+      "native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+      "probe": "74E4CF1F02CDC8E6CEAF00D553CA10440871EE4C3D8258730BF947D53B3D592D",
+      "rehearsal.py": "4C634C1553825E77E2F7993732EADDFA8B7CBB7B995AF005BD992E030764E194"
+    },
+    "CanonicalRetry": false
+  },
+  "Shutdown": {
+    "CanonicalTeardown": "NotVerified",
+    "Configuration": "OutcomeUnknown",
+    "ConsolePowerDown": true,
+    "InitialImmediateProcessAbsenceCheck": "Failed; fresh later readback confirmed absence",
+    "ProcessAbsent": true,
+    "RetainedBackings": {
+      "journal.raw": {
+        "Device": 2096,
+        "Inode": 75222,
+        "Length": 8589934592,
+        "Sha256": "A842834C9C638F95756EA6045EA491F3110BB1B7DC9DED64FB4BBBB9641A1965"
+      },
+      "target.raw": {
+        "Device": 2096,
+        "Inode": 75221,
+        "Length": 42949672960,
+        "Sha256": "5E17236BBD595B2BEE0FB3E1454CBB9EAD5F898190B4FCABF9FDF454362A26D6"
+      }
+    }
+  },
+  "ExecutedAttemptInputs": {
+    "bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+    "collector.py": "66E83B8AA504157E97DEF533D59D3280E244F41583799D8BD2A783F6B4491243",
+    "command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+    "harness/CanonicalImportQualification.deps.json": "5A0B3F4F401C01DC380CFEA196665215453BC539604BCAB03077E837AAE64326",
+    "harness/CanonicalImportQualification.dll": "FE204A32C0A0D4D4196ED8ADE2BD5575DCFB5D104D17A0D00314DCDD9D63A024",
+    "harness/CanonicalImportQualification.runtimeconfig.json": "28329CF08F6505E73806B17558B187C02F0C1C516FE47EBFB7A013D082AAA306",
+    "harness/Igloo.Core.dll": "CDE462FC5727FB99F820C26F16829C74940411E4D1A4FAEA5596E5D56827745A",
+    "harness/Igloo.Distro.Debian.dll": "CB27F94A1BBADA1358EF7F0BC11F203EA4512CBF076275D4916CDF449BDE473E",
+    "lab/canonical_configuration_guest.py": "5DBDE1B492A60277F30D80EC05C8BF59CD221E08CC55835D65F58510AA52E211",
+    "lab/canonical_import_guest.py": "AC71D9C105CBC13F3AFF5D2E4193666B971780679134E87F9BC25CD2EF14AF9D",
+    "lab/canonical_storage_guest.py": "FEB359F34397B1E18C40A98900F6F3382AE0792938465339FE3C4342BADF786F",
+    "native/block_session.py": "580629256AF4C98152CD67D13532199425B4A2FB5245D65B7FC0A70266DEB3B8",
+    "native/command_gate.c": "F732845C3DE247AFDC82A6ECCE0432789EFD34500719165637A7132F43BC119E",
+    "native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+    "native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+    "native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+    "native/debian_first_boot.py": "F1F1F359F8D8218C7D5FC6C48E4A9DD44D45EC0B21F16C19BB0A48E9CDD04753",
+    "native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+    "native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+    "native/isolation_policy.py": "0E6564C9D07D075FBF9F3FA65201218C816474C899C6602D0426BBB4DD6C6E50",
+    "native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+    "native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+    "native/package_broker.py": "D47730B4DA5F4BC1DC71F209A142C51DDBC57695582F6C2B0C4167C299739444",
+    "native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+    "native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+    "native/session_configuration.py": "119909EB0FB899279C048F5F650290057137C66CF926D06233E115ADF4BEAC5C",
+    "native/session_entry.py": "CA447F2F726C187992EF12453913279F0A079804511737456F244BED5DB473FB",
+    "native/session_import.py": "C6C6BD31E392BE78DD8BE1DA711AFDC4CFD3652A36CA5B534D9B770A518AFF3B",
+    "native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+    "native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A"
+  },
+  "FinalSourceIdentity": {
+    "src/Igloo.Core/Preparation/InstallationStorage.cs": "A79CEBFA67DCE7C66EF343C01DF9858F2A1ABB97BF029BAB4E2063891667C496",
+    "src/Igloo.Core/Preparation/TargetRootMounts.cs": "94921ADA76168939A835A1F4BC3EE662E5306F0E77604823DA92DB6C017F3436",
+    "distros/debian/Deployment/DebianConfigurationContinuation.cs": "BC2D109C658FCB9497C5E75EC77B818F96FF475AF657D6D9E195FBFF10B28BD6",
+    "distros/debian/Deployment/DebianMountSession.cs": "89D4748A346A4D5693194CFBE69115FC2CEC4CAA61AAE73D105F4350C69F0D13",
+    "distros/debian/Deployment/DebianNativeMountSession.cs": "F953807E2240CAB56F5B001C43C8F695DE3DA391F8C01355EAFD36F42B7CA6B3",
+    "distros/debian/native/block_session.py": "580629256AF4C98152CD67D13532199425B4A2FB5245D65B7FC0A70266DEB3B8",
+    "distros/debian/native/isolation_observer.py": "5951E371D4614362E201E124D3DF0BAB9E2B7A69D3BD763A2C14A491143B7E86",
+    "distros/debian/native/isolation_policy.py": "2248B386217B51675AA4E1315DF6E2BEABE57518A3FF4DC21F739416770B1437",
+    "distros/debian/native/package_broker.py": "497E752919858F9067D221659E8B61146B2F34BE750060E9760E51282A307A3F",
+    "distros/debian/native/session_entry.py": "CA447F2F726C187992EF12453913279F0A079804511737456F244BED5DB473FB",
+    "distros/debian/native/session_import.py": "C6C6BD31E392BE78DD8BE1DA711AFDC4CFD3652A36CA5B534D9B770A518AFF3B",
+    "distros/debian/native/session_configuration.py": "F1872FEDF9A323334E9D895DADD0A7B456F1BAA04ABD64E720DFBD8812C6BD9B",
+    "tests/installer/CanonicalImportQualification/Program.cs": "0436F5923A8E924E5AA5522C366644B03EC4A38168D9CD8E8445784C71276C2E",
+    "tests/installer/CanonicalImportQualification/LabConfiguration.cs": "30B3A8505F122DA1DEAE51707E98DC8A57B94ADEEB5A3C6D6A5AE4717379A990",
+    "tests/installer/canonical_configuration_guest.py": "5DBDE1B492A60277F30D80EC05C8BF59CD221E08CC55835D65F58510AA52E211",
+    "tests/installer/canonical_configuration_lab.py": "607ED96EA1201E4275B1FA57D01ADA47111565E58B4ADC7E2732B3C7A5A7B17F",
+    "tests/installer/canonical_configuration_readback.py": "3CC926CBC72BE14B72B98DDC8B24B35498C2B8167B7BB047D6001E5488C2C3AF",
+    "tests/installer/canonical_storage_lab.py": "74DF2D5082F06CAB3CBC40035C1E61770C95BDEB3FECA0319A9FB7CB3E2B3960",
+    "tests/installer/canonical_storage_guest.py": "FEB359F34397B1E18C40A98900F6F3382AE0792938465339FE3C4342BADF786F",
+    "tests/installer/configuration_broker_rehearsal.py": "4C634C1553825E77E2F7993732EADDFA8B7CBB7B995AF005BD992E030764E194"
+  },
+  "SourceIdentityLimitation": "Final source includes post-failure view/resource cleanup, lineage, observer, credential and diagnostic hardening. It is not the executed canonical attempt or exactly the separate fixture revision.",
+  "ProtectedEvidenceReferences": {
+    "input-identities.json": "D5E86F73FE7FCBAC6AA99F4213AE5BEC490BFBFD791D2344ADFCCCA8A5B7A5E7",
+    "host-binding.json": "B9A1D6B47B38B16804A9F7EB8A8357D34DF356D06C364FECD8949EE079A8BF22",
+    "host-readback.json": "9E8AAB649F9693CD5423F8DA0CF8D51157CE31F69D3702141893887EB8B27B54",
+    "launch-intent.json": "BC533A66F0E9EFB15A1622546816116E45A58C57CBAFC235011EEFE37C456B23",
+    "shutdown-host-readback.json": "8D9037FD777E59B48CE104CA120D2D769CB8AE35D7157F3D0C98E5C6631D4FF7",
+    "guest-evidence/execution/independent-result.json": "0E3F70C00A706CD84C11BB96B4225145076ECE5C53CCDBAD4DA433D1BA0D4FCD",
+    "guest-evidence/execution/independent-configuration-readback.py": "EE3ED1A01C1A919B557C004A1C1E2570EF52B4ACFDB67B55DF22DE75E52B8325",
+    "guest-evidence/execution/configuration-view-fixtures.json": "8D04BEA031ABD4A185864FBE69EB1B45791E0FAA8548EAD1CB7C78A422D36A31",
+    "guest-evidence/execution/native-negative-readback.json": "895BCEED28243FADF19C916EEEC953C8E9CC3197B8EF3448C4F57C174A538FBC",
+    "guest-evidence/execution/configuration-exit.json": "41F8B0E9BC4FD363EF0DB2A5B808B6AE4017062B7E2FE9F868F0E9ADBB6302A1",
+    "guest-evidence/execution/negative-exit.json": "69DC8117C4B535CE2B91529E327E347538333D872B08824B5A82F0E39BAB6B2B",
+    "guest-evidence/execution/execution-closure.json": "6C146F2E18AD7D99A2DDC4911243DA0B12CBCA56C29D132C3D0F58C890483A05",
+    "guest-evidence/execution/runtime.json": "24247AF5B7B246EAAF3A4667AF4F2032E1E9A66C28DF4C8985E90C70282A628E",
+    "guest-evidence/execution/journals.json": "7AC634D1C4CD520A7963B5B10D4FA38F05D3D613A1EFB8963547C1C841EF7180",
+    "guest-evidence/execution/continuation-inventory.json": "654BAB78837C54FFA449275B05308702707660D9D2AFB75179CD3A35C1A69CED",
+    "guest-evidence/execution/view-failure-diagnostic.json": "8C596FED54581DC7520222BDE49BCD29BE40C48E8086DB190620D3D2949FCA0E"
+  },
+  "Validation": [
+    {
+      "Environment": "Windows checkout",
+      "Command": "dotnet test tests/Igloo.Core.Tests/Igloo.Core.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Passed": 381,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "Environment": "Windows checkout",
+      "Command": "dotnet test tests/Igloo.Preflight.Tests/Igloo.Preflight.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Passed": 343,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "Environment": "Windows checkout",
+      "Command": "dotnet test tests/Igloo.Community.App.Tests/Igloo.Community.App.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Passed": 58,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "Environment": "Windows checkout",
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Passed": 434,
+      "Failed": 0,
+      "Skipped": 0
+    },
+    {
+      "Environment": "Windows checkout",
+      "Command": "dotnet build Igloo.sln -warnaserror",
+      "ExitCode": 0,
+      "Warnings": 0,
+      "Errors": 0
+    },
+    {
+      "Environment": "Windows checkout",
+      "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+      "ExitCode": 0,
+      "Warnings": 0,
+      "Errors": 0
+    },
+    {
+      "Environment": "Windows checkout, rebuilt current source",
+      "Command": "dotnet test Igloo.sln --no-build --no-restore -m:1",
+      "Passed": 1411,
+      "Failed": 0,
+      "Skipped": 0,
+      "IncludesParentSuiteCountsAbove": true
+    },
+    {
+      "Environment": "WSL Ubuntu-24.04, unprivileged gillesduif",
+      "Command": "python3 -B -m unittest discover -s tests/installer -p 'test_*.py'",
+      "Passed": 314,
+      "Failed": 0,
+      "Scope": "Fixtures, not canonical target configuration"
+    }
+  ],
+  "NotExecuted": [
+    "Native retry after correction",
+    "Target Exim/TLS/locale/account helpers",
+    "Configured whole-tree delta acceptance",
+    "Successful configuration result publication",
+    "Canonical configuration teardown",
+    "Power-loss test",
+    "Target boot",
+    "Initramfs",
+    "Agent/UserData/Enrollment",
+    "Firmware finalization"
+  ],
+  "Gates": {
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupportedStages": 0,
+    "ProductionPreparation": "Disabled",
+    "Registration": "Disabled",
+    "DownstreamReadiness": "NotPromoted"
+  },
+  "RemainingBoundary": "A separately authorized attempt and truthful backing derivation/continuation authority are required to qualify the full configuration profile. This consumed operation cannot replay; no initramfs-ready handoff exists.",
+  "TaskDiff": {
+    "ModifiedTracked": 31,
+    "Untracked": 41,
+    "InitialPathsModifiedThisTask": [
+      "distros/debian/Deployment/DebianMountSession.cs",
+      "distros/debian/Deployment/DebianNativeMountSession.cs",
+      "distros/debian/native/block_session.py",
+      "distros/debian/native/session_entry.py",
+      "distros/debian/native/session_import.py",
+      "docs/architecture/community-installation-ownership.md",
+      "docs/architecture/debian-configured-root-artifact.md",
+      "docs/architecture/debian-session-boundary.md",
+      "docs/fleet/phase-2.md",
+      "tests/installer/CanonicalImportQualification/Program.cs",
+      "tests/installer/CanonicalImportQualification/README.md",
+      "docs/architecture/debian-canonical-lab-acquisition.md",
+      "src/Igloo.Core/Preparation/InstallationStorage.cs",
+      "tests/installer/canonical_storage_guest.py",
+      "tests/installer/canonical_storage_lab.py"
+    ],
+    "AdditionalPaths": [
+      "distros/debian/native/isolation_observer.py",
+      "distros/debian/native/isolation_policy.py",
+      "distros/debian/native/package_broker.py",
+      "src/Igloo.Core/Preparation/TargetRootMounts.cs",
+      "distros/debian/Deployment/DebianConfigurationContinuation.cs",
+      "distros/debian/native/session_configuration.py",
+      "docs/architecture/debian-post-import-configuration-evidence.json",
+      "docs/architecture/debian-post-import-configuration.md",
+      "tests/Igloo.Core.Tests/InstallationContinuationTests.cs",
+      "tests/Igloo.Migration.Tests/DebianConfigurationContinuationTests.cs",
+      "tests/installer/CanonicalImportQualification/LabConfiguration.cs",
+      "tests/installer/canonical_configuration_guest.py",
+      "tests/installer/canonical_configuration_lab.py",
+      "tests/installer/canonical_configuration_readback.py",
+      "tests/installer/configuration_broker_rehearsal.py",
+      "tests/installer/test_configuration_continuation.py",
+      "tests/installer/test_configuration_readback.py"
+    ]
+  },
+  "QualityChecks": {
+    "git diff --check": "Passed; line-ending warnings only",
+    "SeparateChangedAndUntrackedScan": "Passed: no trailing whitespace, BOM, oversized file or former private machine identifier",
+    "PreviousByteBoundEvidence": "Unchanged from starting snapshot",
+    "Index": "Empty",
+    "Branch": "refactor/community-fleet-foundation",
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "CommitOrPush": false
+  }
+}

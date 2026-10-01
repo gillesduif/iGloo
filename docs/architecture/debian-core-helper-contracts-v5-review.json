@@ -1,0 +1,2430 @@
+{
+  "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+  "TransformationPolicy": "debian-trixie-core-configuration-v5",
+  "Rows": [
+    {
+      "Path": "/etc/default/useradd",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": {
+        "Gid": 0,
+        "Length": 1117,
+        "Mode": 420,
+        "Path": "/etc/default/useradd",
+        "Sha256": "6702E1CB0D7035A0D7A2BEEDED69F69ACD8AC2B2778913B5AFE60595936448F5",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/default"
+      ],
+      "Destination": "/etc/default/useradd",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/hostname",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": null,
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/hostname",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/hosts",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": {
+        "Gid": 0,
+        "Length": 109,
+        "Mode": 420,
+        "Path": "/etc/hosts",
+        "Sha256": "9ADB29B748CAAEEC3F9086E01443E5520E7D9C00EA6A5BACD73249C4C504628A",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/hosts",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/mailname",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": null,
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/mailname",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/exim4/update-exim4.conf.conf",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": {
+        "Gid": 0,
+        "Length": 1023,
+        "Mode": 420,
+        "Path": "/etc/exim4/update-exim4.conf.conf",
+        "Sha256": "1C75176155DFB7D67B2CCE715A0AD6A8ABDD4FAE04F7863F09783E6C092D54A4",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/exim4"
+      ],
+      "Destination": "/etc/exim4/update-exim4.conf.conf",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/locale.gen",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": {
+        "Gid": 0,
+        "Length": 9562,
+        "Mode": 420,
+        "Path": "/etc/locale.gen",
+        "Sha256": "7D239F8D2A45ADAA6E5F19AA80DA5DDF3A8BB22AC7CFEB4D52DF13C9CFF58B44",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/locale.gen",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/locale.conf",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": {
+        "Gid": 0,
+        "Length": 35,
+        "Mode": 420,
+        "Path": "/etc/locale.conf",
+        "Sha256": "EA21C3F039A2E14DBB824B404452A2CC54A1A49EA42366D3348DC48AE4B91125",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/locale.conf",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/timezone",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": null,
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/timezone",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/default/keyboard",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": {
+        "Gid": 0,
+        "Length": 150,
+        "Mode": 420,
+        "Path": "/etc/default/keyboard",
+        "Sha256": "9D2D64B5B738EF55ECC80E236CD00CABA19D3AFE1921C74FA7D73C9477EBE6EB",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/default"
+      ],
+      "Destination": "/etc/default/keyboard",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/network/interfaces",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": {
+        "Gid": 0,
+        "Length": 134,
+        "Mode": 420,
+        "Path": "/etc/network/interfaces",
+        "Sha256": "F2E91212A6929E36D6951EC04365469DB6A06CCD674CF7E55543160F1BA3B74F",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/network"
+      ],
+      "Destination": "/etc/network/interfaces",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/apt/sources.list.d/debian.sources",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": null,
+      "Parents": [
+        "/etc",
+        "/etc/apt",
+        "/etc/apt/sources.list.d"
+      ],
+      "Destination": "/etc/apt/sources.list.d/debian.sources",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/fstab",
+      "Step": "Files",
+      "Operation": "Utf8File",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 420,
+        "Path": "/etc/fstab",
+        "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/fstab",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/localtime",
+      "Step": "Files",
+      "Operation": "SymbolicLink",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 511,
+        "Path": "/etc/localtime",
+        "Sha256": null,
+        "Target": "/usr/share/zoneinfo/Etc/UTC",
+        "Type": "SymbolicLink",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/localtime",
+      "AfterType": "SymbolicLink",
+      "AfterOwnerGroupMode": null,
+      "Target": "/usr/share/zoneinfo/Etc/UTC",
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/resolv.conf",
+      "Step": "Files",
+      "Operation": "SymbolicLink",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 511,
+        "Path": "/etc/resolv.conf",
+        "Sha256": null,
+        "Target": "/run/NetworkManager/resolv.conf",
+        "Type": "SymbolicLink",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/resolv.conf",
+      "AfterType": "SymbolicLink",
+      "AfterOwnerGroupMode": null,
+      "Target": "/run/NetworkManager/resolv.conf",
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/default/locale",
+      "Step": "Files",
+      "Operation": "PreserveLink",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 511,
+        "Path": "/etc/default/locale",
+        "Sha256": null,
+        "Target": "../locale.conf",
+        "Type": "SymbolicLink",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/default"
+      ],
+      "Destination": "/etc/default/locale",
+      "AfterType": "SymbolicLink",
+      "AfterOwnerGroupMode": null,
+      "Target": "../locale.conf",
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/share/locale/locale.alias",
+      "Step": "Locale",
+      "Operation": "PreserveLink",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 511,
+        "Path": "/usr/share/locale/locale.alias",
+        "Sha256": null,
+        "Target": "/etc/locale.alias",
+        "Type": "SymbolicLink",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/share",
+        "/usr/share/locale"
+      ],
+      "Destination": "/usr/share/locale/locale.alias",
+      "AfterType": "SymbolicLink",
+      "AfterOwnerGroupMode": null,
+      "Target": "/etc/locale.alias",
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/bin/debconf-communicate",
+      "Step": "Helper",
+      "Operation": "Executable",
+      "Before": {
+        "Gid": 0,
+        "Length": 623,
+        "Mode": 493,
+        "Path": "/usr/bin/debconf-communicate",
+        "Sha256": "95DD9CC45752692E9288EED9ABF9D0BBD22BB78FFE59A78CBFCBE96CFFEFBBA5",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/bin"
+      ],
+      "Destination": "/usr/bin/debconf-communicate",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/sbin/update-exim4.conf",
+      "Step": "Helper",
+      "Operation": "Executable",
+      "Before": {
+        "Gid": 0,
+        "Length": 15057,
+        "Mode": 493,
+        "Path": "/usr/sbin/update-exim4.conf",
+        "Sha256": "7569A682138BE2786278550FFE06A3776888A2E61B264E45086FBD70DAA61AD9",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/sbin"
+      ],
+      "Destination": "/usr/sbin/update-exim4.conf",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/sbin/make-ssl-cert",
+      "Step": "Helper",
+      "Operation": "Executable",
+      "Before": {
+        "Gid": 0,
+        "Length": 6812,
+        "Mode": 493,
+        "Path": "/usr/sbin/make-ssl-cert",
+        "Sha256": "4E45246E6AA4B93B3A5B4C955573142C6F1FF32041BB9A697B458B09EC25F8A4",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/sbin"
+      ],
+      "Destination": "/usr/sbin/make-ssl-cert",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/sbin/locale-gen",
+      "Step": "Helper",
+      "Operation": "Executable",
+      "Before": {
+        "Gid": 0,
+        "Length": 1554,
+        "Mode": 493,
+        "Path": "/usr/sbin/locale-gen",
+        "Sha256": "14A9B4D337F1637DD57B31086C20222C57D103496902FE5F4A4C9C83A3BC53DD",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/sbin"
+      ],
+      "Destination": "/usr/sbin/locale-gen",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/sbin/useradd",
+      "Step": "Helper",
+      "Operation": "Executable",
+      "Before": {
+        "Gid": 0,
+        "Length": 159640,
+        "Mode": 493,
+        "Path": "/usr/sbin/useradd",
+        "Sha256": "3FD1735EB46D2CC6067C509B11C7E7BF1E9DCA2EA53F0947BF4F3B1FA93B4225",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/sbin"
+      ],
+      "Destination": "/usr/sbin/useradd",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/sbin/chpasswd",
+      "Step": "Helper",
+      "Operation": "Executable",
+      "Before": {
+        "Gid": 0,
+        "Length": 97368,
+        "Mode": 493,
+        "Path": "/usr/sbin/chpasswd",
+        "Sha256": "58131B1A88B30A8AE483661AC3B8DBECD8601C41C9E8355A13E887D53C97B319",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/sbin"
+      ],
+      "Destination": "/usr/sbin/chpasswd",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/sbin/usermod",
+      "Step": "Helper",
+      "Operation": "Executable",
+      "Before": {
+        "Gid": 0,
+        "Length": 147192,
+        "Mode": 493,
+        "Path": "/usr/sbin/usermod",
+        "Sha256": "09991129A30399F7847DFDE884002E3454AD5D66C53C446A7789E94A74534058",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/sbin"
+      ],
+      "Destination": "/usr/sbin/usermod",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/sbin/visudo",
+      "Step": "Helper",
+      "Operation": "Executable",
+      "Before": {
+        "Gid": 0,
+        "Length": 291640,
+        "Mode": 493,
+        "Path": "/usr/sbin/visudo",
+        "Sha256": "1111E0A1AF997DEF000F238F300B5EEB0B42109031A014341B4FD899E17DECD8",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/sbin"
+      ],
+      "Destination": "/usr/sbin/visudo",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/debconf.conf",
+      "Step": "Debconf",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 2967,
+        "Mode": 420,
+        "Path": "/etc/debconf.conf",
+        "Sha256": "0D0E7109DF366B0E963ADD08E218D62AFB516218DEEB3B5AA9259B821EFB569C",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/debconf.conf",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/var/cache/debconf/config.dat",
+      "Step": "Debconf",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 41444,
+        "Mode": 420,
+        "Path": "/var/cache/debconf/config.dat",
+        "Sha256": "C9C82AAEAE01ABAD1E1F7FF008EF04AC350F41007949972128E111B8ACEDDAAB",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/var",
+        "/var/cache",
+        "/var/cache/debconf"
+      ],
+      "Destination": "/var/cache/debconf/config.dat",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/var/cache/debconf/templates.dat",
+      "Step": "Debconf",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 3135854,
+        "Mode": 420,
+        "Path": "/var/cache/debconf/templates.dat",
+        "Sha256": "68553EF4157AF217BFD725840FD165D65E1FED934A5568B6D97B1CE059FAD47B",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/var",
+        "/var/cache",
+        "/var/cache/debconf"
+      ],
+      "Destination": "/var/cache/debconf/templates.dat",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/var/cache/debconf/passwords.dat",
+      "Step": "Debconf",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 180,
+        "Mode": 384,
+        "Path": "/var/cache/debconf/passwords.dat",
+        "Sha256": "C284975F1ED403892DB757C80EF0ED9595E8D1A64ACE8D404737D09E8D9FD60A",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/var",
+        "/var/cache",
+        "/var/cache/debconf"
+      ],
+      "Destination": "/var/cache/debconf/passwords.dat",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/share/debconf/confmodule",
+      "Step": "Debconf",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 3716,
+        "Mode": 420,
+        "Path": "/usr/share/debconf/confmodule",
+        "Sha256": "5B043ED174B714949CFB2097D303147B9F02C5FB9E531E2DFB562B1476E820AF",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/share",
+        "/usr/share/debconf"
+      ],
+      "Destination": "/usr/share/debconf/confmodule",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/share/debconf/frontend",
+      "Step": "Debconf",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 2515,
+        "Mode": 493,
+        "Path": "/usr/share/debconf/frontend",
+        "Sha256": "200C5C0F4C7AD7770E6BB192E14B5D7D668A698D661595F5836E04A365B85293",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/share",
+        "/usr/share/debconf"
+      ],
+      "Destination": "/usr/share/debconf/frontend",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/bin/perl",
+      "Step": "Debconf",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 3935376,
+        "Mode": 493,
+        "Path": "/usr/bin/perl",
+        "Sha256": "B85210F03BAEB859EE20B1324E59497F27F319EDA9E2D3D1ECD163A79D884A7D",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/bin"
+      ],
+      "Destination": "/usr/bin/perl",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/exim4/exim4.conf.template",
+      "Step": "Exim",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 80322,
+        "Mode": 420,
+        "Path": "/etc/exim4/exim4.conf.template",
+        "Sha256": "A2B26F732486EE27E5C4CE7EE8DF872F65D7853FDD14964D5714F0EBDDFBF644",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/exim4"
+      ],
+      "Destination": "/etc/exim4/exim4.conf.template",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/sbin/exim4",
+      "Step": "Exim",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 1533496,
+        "Mode": 2541,
+        "Path": "/usr/sbin/exim4",
+        "Sha256": "3EC4E5214E9E5FE0A13B32D510A4981FA3DE580C1E1A7F55CED95B6A1EA0B9B5",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/sbin"
+      ],
+      "Destination": "/usr/sbin/exim4",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/share/ssl-cert/ssleay.cnf",
+      "Step": "Tls",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 453,
+        "Mode": 420,
+        "Path": "/usr/share/ssl-cert/ssleay.cnf",
+        "Sha256": "AB00E7215C7997F10C19C982C6B79D3308712FC865BBC0B48B472F621BB5B16F",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/share",
+        "/usr/share/ssl-cert"
+      ],
+      "Destination": "/usr/share/ssl-cert/ssleay.cnf",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/ssl/openssl.cnf",
+      "Step": "Tls",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 12411,
+        "Mode": 420,
+        "Path": "/etc/ssl/openssl.cnf",
+        "Sha256": "A65A2CB9F4EE8FFDC7EF4F0AC600C0BDAFB95B7B1AB457188AC610A62F5AD6B3",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/ssl"
+      ],
+      "Destination": "/etc/ssl/openssl.cnf",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/bin/openssl",
+      "Step": "Tls",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 1103304,
+        "Mode": 493,
+        "Path": "/usr/bin/openssl",
+        "Sha256": "F4AA15F2822F670AF7B5C1043D7AA6EBBBC64229FD2FAE382EDFC6A4524749C1",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/bin"
+      ],
+      "Destination": "/usr/bin/openssl",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/bin/bash",
+      "Step": "Tls",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 1298416,
+        "Mode": 493,
+        "Path": "/usr/bin/bash",
+        "Sha256": "223FE8564B60636BC738B6178D3BA9A50EF7D791266B0EFAE6363BB716E4C47F",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/bin"
+      ],
+      "Destination": "/usr/bin/bash",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/share/i18n/locales/en_US",
+      "Step": "Locale",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 3685,
+        "Mode": 420,
+        "Path": "/usr/share/i18n/locales/en_US",
+        "Sha256": "EF412F94D27E3C5BF24E101BFEC3035D9ED2205353914E3F975EA332C9BC5195",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/share",
+        "/usr/share/i18n",
+        "/usr/share/i18n/locales"
+      ],
+      "Destination": "/usr/share/i18n/locales/en_US",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/share/i18n/charmaps/UTF-8.gz",
+      "Step": "Locale",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 489403,
+        "Mode": 420,
+        "Path": "/usr/share/i18n/charmaps/UTF-8.gz",
+        "Sha256": "6D2D43A79235D731F3FDB25BFC516AE5C995761211FEA9545E9F4E72EDCBE260",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/share",
+        "/usr/share/i18n",
+        "/usr/share/i18n/charmaps"
+      ],
+      "Destination": "/usr/share/i18n/charmaps/UTF-8.gz",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/locale.alias",
+      "Step": "Locale",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 2996,
+        "Mode": 420,
+        "Path": "/etc/locale.alias",
+        "Sha256": "AD5655F508141F8117DDC10A080E183E2ED4EE1FD0A80C8EC7BEDF98159B9D8B",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/locale.alias",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/bin/localedef",
+      "Step": "Locale",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 310328,
+        "Mode": 493,
+        "Path": "/usr/bin/localedef",
+        "Sha256": "6F1190173873A9D4864FC90E498EF151DAC61835468A2F96A28BE30170E245B9",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/bin"
+      ],
+      "Destination": "/usr/bin/localedef",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/passwd",
+      "Step": "User",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 2142,
+        "Mode": 420,
+        "Path": "/etc/passwd",
+        "Sha256": "4516C19CDFE3834EE7BC4C22C199B944EA23245369709B51371BB0037132F732",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/passwd",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/shadow",
+      "Step": "User",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 42,
+        "Length": 950,
+        "Mode": 416,
+        "Path": "/etc/shadow",
+        "Sha256": "07FC68122538AEC229006AA486949A1F13E47065DDF726D45744C202C5D64208",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/shadow",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/group",
+      "Step": "User",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 889,
+        "Mode": 420,
+        "Path": "/etc/group",
+        "Sha256": "09F3C742077B8C610304865DC78A95A1DAA3D940D2EC5B70FB2730A3869104C4",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/group",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/gshadow",
+      "Step": "User",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 42,
+        "Length": 748,
+        "Mode": 416,
+        "Path": "/etc/gshadow",
+        "Sha256": "D6B31EDDB036298DB47AC782FE8E6BF60B8D7050D4E6972F3A3A1752D513C998",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/gshadow",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/login.defs",
+      "Step": "User",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 5939,
+        "Mode": 420,
+        "Path": "/etc/login.defs",
+        "Sha256": "FBB7C9B77F020799F40DAD0C6EC27F6B441120447DED71202B7CF79A6D634077",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/login.defs",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/default/useradd",
+      "Step": "User",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 1117,
+        "Mode": 420,
+        "Path": "/etc/default/useradd",
+        "Sha256": "6702E1CB0D7035A0D7A2BEEDED69F69ACD8AC2B2778913B5AFE60595936448F5",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/default"
+      ],
+      "Destination": "/etc/default/useradd",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/.pwd.lock",
+      "Step": "User",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 384,
+        "Path": "/etc/.pwd.lock",
+        "Sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/.pwd.lock",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/sudoers",
+      "Step": "Sudo",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 1714,
+        "Mode": 288,
+        "Path": "/etc/sudoers",
+        "Sha256": "76D0F5775326CEA72600A8D590342CA1173403E5BEE040FBFC9BDED896492C98",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/sudoers",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/share/zoneinfo/Etc/UTC",
+      "Step": "Files",
+      "Operation": "Read",
+      "Before": {
+        "Gid": 0,
+        "Length": 114,
+        "Mode": 420,
+        "Path": "/usr/share/zoneinfo/Etc/UTC",
+        "Sha256": "8B85846791AB2C8A5463C83A5BE3C043E2570D7448434D41398969ED47E3E6F2",
+        "Target": null,
+        "Type": "File",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/share",
+        "/usr/share/zoneinfo",
+        "/usr/share/zoneinfo/Etc"
+      ],
+      "Destination": "/usr/share/zoneinfo/Etc/UTC",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/var/lib/exim4",
+      "Step": "Exim",
+      "Operation": "Directory",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 493,
+        "Path": "/var/lib/exim4",
+        "Sha256": null,
+        "Target": null,
+        "Type": "Directory",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/var",
+        "/var/lib"
+      ],
+      "Destination": "/var/lib/exim4",
+      "AfterType": "Directory",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/ssl/private",
+      "Step": "Tls",
+      "Operation": "Directory",
+      "Before": {
+        "Gid": 105,
+        "Length": 0,
+        "Mode": 456,
+        "Path": "/etc/ssl/private",
+        "Sha256": null,
+        "Target": null,
+        "Type": "Directory",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/ssl"
+      ],
+      "Destination": "/etc/ssl/private",
+      "AfterType": "Directory",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/ssl/certs",
+      "Step": "Tls",
+      "Operation": "Directory",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 493,
+        "Path": "/etc/ssl/certs",
+        "Sha256": null,
+        "Target": null,
+        "Type": "Directory",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc",
+        "/etc/ssl"
+      ],
+      "Destination": "/etc/ssl/certs",
+      "AfterType": "Directory",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/lib/locale",
+      "Step": "Locale",
+      "Operation": "Directory",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 493,
+        "Path": "/usr/lib/locale",
+        "Sha256": null,
+        "Target": null,
+        "Type": "Directory",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/usr",
+        "/usr/lib"
+      ],
+      "Destination": "/usr/lib/locale",
+      "AfterType": "Directory",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/home",
+      "Step": "User",
+      "Operation": "Directory",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 493,
+        "Path": "/home",
+        "Sha256": null,
+        "Target": null,
+        "Type": "Directory",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [],
+      "Destination": "/home",
+      "AfterType": "Directory",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/skel",
+      "Step": "User",
+      "Operation": "Directory",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 493,
+        "Path": "/etc/skel",
+        "Sha256": null,
+        "Target": null,
+        "Type": "Directory",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [
+        "/etc"
+      ],
+      "Destination": "/etc/skel",
+      "AfterType": "Directory",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/mnt",
+      "Step": "View",
+      "Operation": "Directory",
+      "Before": {
+        "Gid": 0,
+        "Length": 0,
+        "Mode": 493,
+        "Path": "/mnt",
+        "Sha256": null,
+        "Target": null,
+        "Type": "Directory",
+        "Uid": 0,
+        "Xattrs": {}
+      },
+      "Parents": [],
+      "Destination": "/mnt",
+      "AfterType": "Directory",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/var/lib/exim4/config.autogenerated",
+      "Step": "Exim",
+      "Operation": "CreateByHelper",
+      "Before": null,
+      "Parents": [
+        "/var",
+        "/var/lib",
+        "/var/lib/exim4"
+      ],
+      "Destination": "/var/lib/exim4/config.autogenerated",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": [
+        0,
+        104,
+        420
+      ],
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/ssl/private/ssl-cert-snakeoil.key",
+      "Step": "Tls",
+      "Operation": "CreateByHelper",
+      "Before": null,
+      "Parents": [
+        "/etc",
+        "/etc/ssl",
+        "/etc/ssl/private"
+      ],
+      "Destination": "/etc/ssl/private/ssl-cert-snakeoil.key",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": [
+        0,
+        105,
+        416
+      ],
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+      "Step": "Tls",
+      "Operation": "CreateByHelper",
+      "Before": null,
+      "Parents": [
+        "/etc",
+        "/etc/ssl",
+        "/etc/ssl/certs"
+      ],
+      "Destination": "/etc/ssl/certs/ssl-cert-snakeoil.pem",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": [
+        0,
+        0,
+        420
+      ],
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/usr/lib/locale/locale-archive",
+      "Step": "Locale",
+      "Operation": "CreateByHelper",
+      "Before": null,
+      "Parents": [
+        "/usr",
+        "/usr/lib",
+        "/usr/lib/locale"
+      ],
+      "Destination": "/usr/lib/locale/locale-archive",
+      "AfterType": "File",
+      "AfterOwnerGroupMode": [
+        0,
+        0,
+        420
+      ],
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/home/iglootest",
+      "Step": "User",
+      "Operation": "CreateByHelper",
+      "Before": null,
+      "Parents": [
+        "/home"
+      ],
+      "Destination": "/home/iglootest",
+      "AfterType": "Directory",
+      "AfterOwnerGroupMode": [
+        1000,
+        1000,
+        448
+      ],
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    },
+    {
+      "Path": "/etc/exim4/exim4.conf",
+      "Step": "Exim",
+      "Operation": "MustStayAbsent",
+      "Before": null,
+      "Parents": [
+        "/etc",
+        "/etc/exim4"
+      ],
+      "Destination": "/etc/exim4/exim4.conf",
+      "AfterType": "Absent",
+      "AfterOwnerGroupMode": null,
+      "Target": null,
+      "Failures": [],
+      "Status": "Supported"
+    }
+  ],
+  "ExecutableClosure": {
+    "Objects": {
+      "/usr/bin/gzip": {
+        "Sha256": "748E292CDAAE29C1DBD3B6407086A27D5062331DEB48D2DA613D3912347CEA5B",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libc.so.6": {
+        "Sha256": "9792E3CBB541C8F44C7ACF5F14F4022EA62998ECC787D326BED4D8B6547DFD92",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2": {
+        "Sha256": "C8438E4FDE1934E61C88311633F00949FF645D5C04CDB8671FA3D78164D2F307",
+        "Dependencies": []
+      },
+      "/usr/bin/ls": {
+        "Sha256": "833D6F9CF3EDE2225D80EAA159EF78A141C92842A691179AEC37D182CC808A5C",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+          "/usr/lib/x86_64-linux-gnu/libcap.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libcap.so.2.75": {
+        "Sha256": "41217B0AF128444F66DEE8ADDA52B2CEAF19DA00E5B0B155E2B87B857671286B",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libselinux.so.1": {
+        "Sha256": "5CB5293B4E7590463B94F7B23152D54807A6A2CCAF8CAC9E343908C6692C086C",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.14.0": {
+        "Sha256": "8DDE125B341ABFDF4A596D2974CD3048E350CBC8D2D77ACD54EA044F7815CA77",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/expr": {
+        "Sha256": "B3A702318C52F2B29984E289CAC19C4966E0DCA953D7107AA73E3593FEAE739F",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libgmp.so.10",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libgmp.so.10.5.0": {
+        "Sha256": "D15E1585C6C267296459570C8AC217CA9123044BCD4E896D2F686B32333445D2",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/fold": {
+        "Sha256": "B5EA228497769A25492C62813394996B67279011D9DE08DC0DB1F707D0FE212A",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/touch": {
+        "Sha256": "B6936EFADCD64198CB2F62578BDC4DAD5699FD5AF8129B7606367C98767A3C4D",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/id": {
+        "Sha256": "50629FA0AB5C003B538D4CCF7DE34E85D2DF4E799A79EB2DD4C2F7B1E0D7CA59",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/dirname": {
+        "Sha256": "088E052097E35176C2714238A7CEA6240C82AE3873F02AB77234B30263566768",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/basename": {
+        "Sha256": "B4F6FA4B123E1C2E77964D803E5D80837C41B03C6CC870D1619CD3560193F7E1",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/rm": {
+        "Sha256": "C959A237E7B95D229EEA44764B2246FCB61A95DC679A10AD0CC97AD84C2316C1",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/readlink": {
+        "Sha256": "1DCAF494F4DEC175292B1684B3E978D18A4C3C703C52F81606D9E8EEA30EB6DB",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/ln": {
+        "Sha256": "75BEF899117ADF42C64C2F15FEE640755D18D4632AE0794578D268A74CC7AF8B",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/mktemp": {
+        "Sha256": "61F09AF83B1CCBD744D424BA5AD19B2AF4EDB5AD67C367CC092F58422B7BBB7C",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/chown": {
+        "Sha256": "22538EDE9A6532D7C5DB3C67C73BBCD68ADC44A1AC99E09A2D739282AEBFF1CA",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/chmod": {
+        "Sha256": "7E37F672DB75AE783260E7565D26218D25CEBBC5A6D61118284C9719D246A90E",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/mv": {
+        "Sha256": "7DB4661C6397FE5FD5BA6837692AA5ADB7DCE1EFC656369D7B08DFD6ECE525A0",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+          "/usr/lib/x86_64-linux-gnu/libacl.so.1",
+          "/usr/lib/x86_64-linux-gnu/libattr.so.1",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libattr.so.1.1.2502": {
+        "Sha256": "126E29F16F4A6DA5CAD9A0D9CF1CC817089EE41645A8581D19691A1B9A581172",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libacl.so.1.1.2302": {
+        "Sha256": "3C03774961231D8485A4DBA36EC359A95939A84719799C58CD26173E44BBDE90",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/cat": {
+        "Sha256": "8A5C20C3400A4058A487CD806111CC5138EF4D0FBC6714FF67C9432E38C2705A",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/tr": {
+        "Sha256": "38AE5272952EAE85558CB902D1B6B3ECA5F8106AEA901CD9AEE3FE2DFF1E2B43",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/grep": {
+        "Sha256": "BD6686BF7A650A9717FD7E73FDB07DC63B70547A1DA41BCE093C56DF937A66EB",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/sed": {
+        "Sha256": "69FF7292C0D081BDF5866BC84DDE96D5A14F4A7DEAFEB9483739BE68C48AC2B3",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libacl.so.1",
+          "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/getopt": {
+        "Sha256": "162B44A8C80EBB1215D0FE7E3C231E1B7E32AC1BCAF8E5A5032726EB310EF59D",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/hostname": {
+        "Sha256": "A9F8D0B870F2184AC9F51FC21D7951A8543349CFFDC8CD6904C23D2485682220",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/localedef": {
+        "Sha256": "6F1190173873A9D4864FC90E498EF151DAC61835468A2F96A28BE30170E245B9",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/bin/openssl": {
+        "Sha256": "F4AA15F2822F670AF7B5C1043D7AA6EBBBC64229FD2FAE382EDFC6A4524749C1",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libssl.so.3",
+          "/usr/lib/x86_64-linux-gnu/libcrypto.so.3",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libcrypto.so.3": {
+        "Sha256": "8BB5F3FDFFE280D4453EB79A4663C2C47AF70B7C247FE2E94E2DA703CEE1FD3D",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libz.so.1",
+          "/usr/lib/x86_64-linux-gnu/libzstd.so.1",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libzstd.so.1.5.7": {
+        "Sha256": "27F07C9A49C2C956BCFB64CD4712976586A66FACBF15FC7F09BC37413B5F2B21",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libz.so.1.3.1": {
+        "Sha256": "85590DD58EDF5445E18BC7193E5EBC01AC5841F1AE187E97705A662E90C6421E",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libssl.so.3": {
+        "Sha256": "4B34859318555BF96D518131BED5FC4D5E35FEFA4E1729F49EAA26BD05263850",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libcrypto.so.3",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/sbin/exim4": {
+        "Sha256": "3EC4E5214E9E5FE0A13B32D510A4981FA3DE580C1E1A7F55CED95B6A1EA0B9B5",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libcrypt.so.1",
+          "/usr/lib/x86_64-linux-gnu/libm.so.6",
+          "/usr/lib/x86_64-linux-gnu/libnsl.so.2",
+          "/usr/lib/x86_64-linux-gnu/libdb-5.3.so",
+          "/usr/lib/x86_64-linux-gnu/libgnutls.so.30",
+          "/usr/lib/x86_64-linux-gnu/libgnutls-dane.so.0",
+          "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+          "/usr/lib/x86_64-linux-gnu/libidn.so.12",
+          "/usr/lib/x86_64-linux-gnu/libidn2.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libidn2.so.0.4.0": {
+        "Sha256": "299CDC741F1DD0834A49D5CB44F3DA26B1960BB110C1F521A084400D9B603CBF",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libunistring.so.5",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libunistring.so.5.2.0": {
+        "Sha256": "9C200EC975FF24C0A259D4F6CF0D0FC1736D0C86DA30FFF3D499AD3D9A368B65",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libidn.so.12.6.6": {
+        "Sha256": "62E5B51AB2D5B915F35EEE517F6C2BCE9A5CF1EF9E6E6B009ED21E775CB4EF69",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libgnutls-dane.so.0.4.1": {
+        "Sha256": "70095A8D1EEDAA61B785A843463DF754AFC2FC358A0A245BFB46514DB345BDF5",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libgnutls.so.30",
+          "/usr/lib/x86_64-linux-gnu/libunbound.so.8",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libunbound.so.8.1.40": {
+        "Sha256": "27AE830D0F3BF0E92045404B0F51FCE1D3173D812A76E1C63328008160BB6397",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libssl.so.3",
+          "/usr/lib/x86_64-linux-gnu/libevent-2.1.so.7",
+          "/usr/lib/x86_64-linux-gnu/libcrypto.so.3",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libevent-2.1.so.7.0.2": {
+        "Sha256": "8B117BB65798429AA946CDED5ED20207BADAE239715D5E7328C3B62D23D41DB6",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libgnutls.so.30.40.3": {
+        "Sha256": "4B14EDDE42E7CBEEFD8A6D88D035E096F2E6412A535388BB1D073A1C196E2822",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libp11-kit.so.0",
+          "/usr/lib/x86_64-linux-gnu/libidn2.so.0",
+          "/usr/lib/x86_64-linux-gnu/libunistring.so.5",
+          "/usr/lib/x86_64-linux-gnu/libtasn1.so.6",
+          "/usr/lib/x86_64-linux-gnu/libhogweed.so.6",
+          "/usr/lib/x86_64-linux-gnu/libnettle.so.8",
+          "/usr/lib/x86_64-linux-gnu/libgmp.so.10",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libnettle.so.8.10": {
+        "Sha256": "34AC695C167A593D3587BD88592D33D53E5DC4035984F84446100962F57376FD",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libhogweed.so.6.10": {
+        "Sha256": "2663D9BDCA20BA67D2D72F1D4C24B6FD0A3E97D5EE23E7B739788176CF904380",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libnettle.so.8",
+          "/usr/lib/x86_64-linux-gnu/libgmp.so.10",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libtasn1.so.6.6.4": {
+        "Sha256": "CEA637336B0855F91260714181894BCEA9F345A3A97CE68D6447F6031728CABD",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libp11-kit.so.0.4.1": {
+        "Sha256": "E4AE39BE74740511CF8E49E80FDFC16AEEE7B822EE313793DA1B78CE148BA05F",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libffi.so.8",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libffi.so.8.1.4": {
+        "Sha256": "922024EC5A23F7DE1095B1CFF2F6CBFB377B5D58CD51FD0EC2E8FE35427653E2",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libdb-5.3.so": {
+        "Sha256": "CD87DDCF60A6E62AB0DEDEE64A4292C783E0E991DE3329D959FAC1EF2DC389AF",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libnsl.so.2.0.1": {
+        "Sha256": "46A8BE6F873BD2166A1EA314097CD12DF4BC345AC7765A0534C3E71618345952",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libtirpc.so.3",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libtirpc.so.3.0.0": {
+        "Sha256": "FB1BEA42AC131A4DA3B085D7D51F2D329B9F61B100338918D7415D9A94E0BC1F",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libgssapi_krb5.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libgssapi_krb5.so.2.2": {
+        "Sha256": "C290F761873EBEAC539911010526E1C5DB86218BFCB29672760DA46841741DE0",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libkrb5.so.3",
+          "/usr/lib/x86_64-linux-gnu/libk5crypto.so.3",
+          "/usr/lib/x86_64-linux-gnu/libcom_err.so.2",
+          "/usr/lib/x86_64-linux-gnu/libkrb5support.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libkrb5support.so.0.1": {
+        "Sha256": "F559F051EE5D39F151A57D79F2CDE475C484030098B0C73F9F7035B421B187C4",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libcom_err.so.2.1": {
+        "Sha256": "DC4828400674492839B630C001DB424CD38E5CECFCF46DBF705A637647E04BEA",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libk5crypto.so.3.1": {
+        "Sha256": "C4C3221D0350F882CEE0430B58D5FB289A5776C684D3156964864C8A9719DFF1",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libkrb5support.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libkrb5.so.3.3": {
+        "Sha256": "C4AB64E6BC2874A83E649E4439BE752465DA027A0041E2BB5343F81C80F0882D",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libk5crypto.so.3",
+          "/usr/lib/x86_64-linux-gnu/libcom_err.so.2",
+          "/usr/lib/x86_64-linux-gnu/libkrb5support.so.0",
+          "/usr/lib/x86_64-linux-gnu/libkeyutils.so.1",
+          "/usr/lib/x86_64-linux-gnu/libresolv.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libresolv.so.2": {
+        "Sha256": "D41DD4ADACF5A35DF426461DD8A92D7BDD5BA29BB61A1C3531BEC0ADA386F8DD",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libkeyutils.so.1.10": {
+        "Sha256": "E5D5A7450D08EFF7D4BBCAAC75EF2B94D3447C81A1B2DDF3AB85D2DE4709A9A8",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libm.so.6": {
+        "Sha256": "6D567D53E895273CA14A1F9DC164FC6C8D39AED2F60AA46A733C2784228915F3",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libcrypt.so.1.1.0": {
+        "Sha256": "436788729AB71D794A66954D62E930C723E624587F39BEB2F4F86FF1000B1D29",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/sbin/visudo": {
+        "Sha256": "1111E0A1AF997DEF000F238F300B5EEB0B42109031A014341B4FD899E17DECD8",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/libexec/sudo/libsudo_util.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/libexec/sudo/libsudo_util.so.0.0.0": {
+        "Sha256": "46B81C0B6A3A9252A6A92AF0B9002C0DDBF9442E287B885FDE4EE1275C14E7A2",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libcrypto.so.3",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/sbin/usermod": {
+        "Sha256": "09991129A30399F7847DFDE884002E3454AD5D66C53C446A7789E94A74534058",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libaudit.so.1",
+          "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+          "/usr/lib/x86_64-linux-gnu/libsemanage.so.2",
+          "/usr/lib/x86_64-linux-gnu/libacl.so.1",
+          "/usr/lib/x86_64-linux-gnu/libattr.so.1",
+          "/usr/lib/x86_64-linux-gnu/libbsd.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libbsd.so.0.12.2": {
+        "Sha256": "167E3FA2B6320CE61534A48002E6D0921F61D61EAE88A669C117E23ED3DE9F37",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libmd.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libmd.so.0.1.0": {
+        "Sha256": "1C8C51474C0EB67DABD9F1605097EB58195CDABEF64427AE17CFCD2053C37479",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libsemanage.so.2": {
+        "Sha256": "1F0723499BF719B57845B67679F95E79F7A0C799D69601E40E166DCC11FFF376",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libsepol.so.2",
+          "/usr/lib/x86_64-linux-gnu/libaudit.so.1",
+          "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+          "/usr/lib/x86_64-linux-gnu/libbz2.so.1.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libbz2.so.1.0.4": {
+        "Sha256": "C630F057EFEDC12F848710D71F40283895591E5B4608539F387895C64E0553DA",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libaudit.so.1.0.0": {
+        "Sha256": "8632B443369CB51570B78E0BF5B0FA5B1A7B343439B65C21200A27E015AED507",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libcap-ng.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libcap-ng.so.0.0.0": {
+        "Sha256": "6B5BE42DF1BED00B8EA1F52E9412DCE5ED500C29A6DD22B31E72F5DAB5A3A575",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libsepol.so.2": {
+        "Sha256": "E7D3980298E4C1375F17B987D98006D6969C1A439D4E3EAD74AC3C1276493B9C",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/sbin/chpasswd": {
+        "Sha256": "58131B1A88B30A8AE483661AC3B8DBECD8601C41C9E8355A13E887D53C97B319",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libpam.so.0",
+          "/usr/lib/x86_64-linux-gnu/libaudit.so.1",
+          "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+          "/usr/lib/x86_64-linux-gnu/libcrypt.so.1",
+          "/usr/lib/x86_64-linux-gnu/libbsd.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libpam.so.0.85.1": {
+        "Sha256": "7E61037C89B06382C9D22518174914FEF77B9E473962F49AB1C90C55C9B5BCA2",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libaudit.so.1",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/sbin/useradd": {
+        "Sha256": "3FD1735EB46D2CC6067C509B11C7E7BF1E9DCA2EA53F0947BF4F3B1FA93B4225",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libaudit.so.1",
+          "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
+          "/usr/lib/x86_64-linux-gnu/libsemanage.so.2",
+          "/usr/lib/x86_64-linux-gnu/libacl.so.1",
+          "/usr/lib/x86_64-linux-gnu/libattr.so.1",
+          "/usr/lib/x86_64-linux-gnu/libbsd.so.0",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/sbin/locale-gen": {
+        "Sha256": "14A9B4D337F1637DD57B31086C20222C57D103496902FE5F4A4C9C83A3BC53DD",
+        "Dependencies": [
+          "/bin/sh"
+        ]
+      },
+      "/usr/bin/dash": {
+        "Sha256": "A6F559E00B69A4AA4D8CB607BE18D9386C5AEE55C509E2C075549DCF00E00FC7",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/sbin/make-ssl-cert": {
+        "Sha256": "4E45246E6AA4B93B3A5B4C955573142C6F1FF32041BB9A697B458B09EC25F8A4",
+        "Dependencies": [
+          "/bin/bash"
+        ]
+      },
+      "/usr/bin/bash": {
+        "Sha256": "223FE8564B60636BC738B6178D3BA9A50EF7D791266B0EFAE6363BB716E4C47F",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libtinfo.so.6",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/lib/x86_64-linux-gnu/libtinfo.so.6.5": {
+        "Sha256": "4013E7651AC68F547D8333517DEF25B2366C97EEC7DE7F06E105DBF3444FFEBF",
+        "Dependencies": [
+          "/usr/lib/x86_64-linux-gnu/libc.so.6"
+        ]
+      },
+      "/usr/sbin/update-exim4.conf": {
+        "Sha256": "7569A682138BE2786278550FFE06A3776888A2E61B264E45086FBD70DAA61AD9",
+        "Dependencies": [
+          "/bin/sh"
+        ]
+      },
+      "/usr/bin/debconf-communicate": {
+        "Sha256": "95DD9CC45752692E9288EED9ABF9D0BBD22BB78FFE59A78CBFCBE96CFFEFBBA5",
+        "Dependencies": [
+          "/usr/bin/perl"
+        ]
+      },
+      "/usr/bin/perl": {
+        "Sha256": "B85210F03BAEB859EE20B1324E59497F27F319EDA9E2D3D1ECD163A79D884A7D",
+        "Dependencies": [
+          "/lib64/ld-linux-x86-64.so.2",
+          "/usr/lib/x86_64-linux-gnu/libm.so.6",
+          "/usr/lib/x86_64-linux-gnu/libc.so.6",
+          "/usr/lib/x86_64-linux-gnu/libcrypt.so.1"
+        ]
+      }
+    },
+    "Unresolved": [],
+    "Limit": "ELF DT_NEEDED/interpreters only; Perl, NSS, OpenSSL modules and shell data are separately reviewed and covered by full baseline/complement checks."
+  },
+  "ReadInputHashes": {
+    "/etc/exim4/update-exim4.conf.conf": "1C75176155DFB7D67B2CCE715A0AD6A8ABDD4FAE04F7863F09783E6C092D54A4",
+    "/etc/default/useradd": "6702E1CB0D7035A0D7A2BEEDED69F69ACD8AC2B2778913B5AFE60595936448F5",
+    "/etc/passwd": "4516C19CDFE3834EE7BC4C22C199B944EA23245369709B51371BB0037132F732",
+    "/etc/shadow": "07FC68122538AEC229006AA486949A1F13E47065DDF726D45744C202C5D64208",
+    "/etc/group": "09F3C742077B8C610304865DC78A95A1DAA3D940D2EC5B70FB2730A3869104C4",
+    "/etc/gshadow": "D6B31EDDB036298DB47AC782FE8E6BF60B8D7050D4E6972F3A3A1752D513C998",
+    "/etc/hosts": "9ADB29B748CAAEEC3F9086E01443E5520E7D9C00EA6A5BACD73249C4C504628A",
+    "/etc/locale.gen": "7D239F8D2A45ADAA6E5F19AA80DA5DDF3A8BB22AC7CFEB4D52DF13C9CFF58B44",
+    "/etc/locale.conf": "EA21C3F039A2E14DBB824B404452A2CC54A1A49EA42366D3348DC48AE4B91125",
+    "/etc/default/keyboard": "9D2D64B5B738EF55ECC80E236CD00CABA19D3AFE1921C74FA7D73C9477EBE6EB",
+    "/etc/network/interfaces": "F2E91212A6929E36D6951EC04365469DB6A06CCD674CF7E55543160F1BA3B74F",
+    "/etc/fstab": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "/usr/bin/debconf-communicate": "95DD9CC45752692E9288EED9ABF9D0BBD22BB78FFE59A78CBFCBE96CFFEFBBA5",
+    "/usr/sbin/update-exim4.conf": "7569A682138BE2786278550FFE06A3776888A2E61B264E45086FBD70DAA61AD9",
+    "/usr/sbin/make-ssl-cert": "4E45246E6AA4B93B3A5B4C955573142C6F1FF32041BB9A697B458B09EC25F8A4",
+    "/usr/sbin/locale-gen": "14A9B4D337F1637DD57B31086C20222C57D103496902FE5F4A4C9C83A3BC53DD",
+    "/usr/sbin/useradd": "3FD1735EB46D2CC6067C509B11C7E7BF1E9DCA2EA53F0947BF4F3B1FA93B4225",
+    "/usr/sbin/chpasswd": "58131B1A88B30A8AE483661AC3B8DBECD8601C41C9E8355A13E887D53C97B319",
+    "/usr/sbin/usermod": "09991129A30399F7847DFDE884002E3454AD5D66C53C446A7789E94A74534058",
+    "/usr/sbin/visudo": "1111E0A1AF997DEF000F238F300B5EEB0B42109031A014341B4FD899E17DECD8",
+    "/etc/debconf.conf": "0D0E7109DF366B0E963ADD08E218D62AFB516218DEEB3B5AA9259B821EFB569C",
+    "/var/cache/debconf/config.dat": "C9C82AAEAE01ABAD1E1F7FF008EF04AC350F41007949972128E111B8ACEDDAAB",
+    "/var/cache/debconf/templates.dat": "68553EF4157AF217BFD725840FD165D65E1FED934A5568B6D97B1CE059FAD47B",
+    "/var/cache/debconf/passwords.dat": "C284975F1ED403892DB757C80EF0ED9595E8D1A64ACE8D404737D09E8D9FD60A",
+    "/usr/share/debconf/confmodule": "5B043ED174B714949CFB2097D303147B9F02C5FB9E531E2DFB562B1476E820AF",
+    "/usr/share/debconf/frontend": "200C5C0F4C7AD7770E6BB192E14B5D7D668A698D661595F5836E04A365B85293",
+    "/usr/bin/perl": "B85210F03BAEB859EE20B1324E59497F27F319EDA9E2D3D1ECD163A79D884A7D",
+    "/etc/exim4/exim4.conf.template": "A2B26F732486EE27E5C4CE7EE8DF872F65D7853FDD14964D5714F0EBDDFBF644",
+    "/usr/sbin/exim4": "3EC4E5214E9E5FE0A13B32D510A4981FA3DE580C1E1A7F55CED95B6A1EA0B9B5",
+    "/usr/share/ssl-cert/ssleay.cnf": "AB00E7215C7997F10C19C982C6B79D3308712FC865BBC0B48B472F621BB5B16F",
+    "/etc/ssl/openssl.cnf": "A65A2CB9F4EE8FFDC7EF4F0AC600C0BDAFB95B7B1AB457188AC610A62F5AD6B3",
+    "/usr/bin/openssl": "F4AA15F2822F670AF7B5C1043D7AA6EBBBC64229FD2FAE382EDFC6A4524749C1",
+    "/usr/bin/bash": "223FE8564B60636BC738B6178D3BA9A50EF7D791266B0EFAE6363BB716E4C47F",
+    "/usr/share/i18n/locales/en_US": "EF412F94D27E3C5BF24E101BFEC3035D9ED2205353914E3F975EA332C9BC5195",
+    "/usr/share/i18n/charmaps/UTF-8.gz": "6D2D43A79235D731F3FDB25BFC516AE5C995761211FEA9545E9F4E72EDCBE260",
+    "/etc/locale.alias": "AD5655F508141F8117DDC10A080E183E2ED4EE1FD0A80C8EC7BEDF98159B9D8B",
+    "/usr/bin/localedef": "6F1190173873A9D4864FC90E498EF151DAC61835468A2F96A28BE30170E245B9",
+    "/etc/login.defs": "FBB7C9B77F020799F40DAD0C6EC27F6B441120447DED71202B7CF79A6D634077",
+    "/etc/.pwd.lock": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "/etc/sudoers": "76D0F5775326CEA72600A8D590342CA1173403E5BEE040FBFC9BDED896492C98",
+    "/usr/share/zoneinfo/Etc/UTC": "8B85846791AB2C8A5463C83A5BE3C043E2570D7448434D41398969ED47E3E6F2",
+    "/usr/bin/gzip": "748E292CDAAE29C1DBD3B6407086A27D5062331DEB48D2DA613D3912347CEA5B",
+    "/usr/lib/x86_64-linux-gnu/libc.so.6": "9792E3CBB541C8F44C7ACF5F14F4022EA62998ECC787D326BED4D8B6547DFD92",
+    "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2": "C8438E4FDE1934E61C88311633F00949FF645D5C04CDB8671FA3D78164D2F307",
+    "/usr/bin/ls": "833D6F9CF3EDE2225D80EAA159EF78A141C92842A691179AEC37D182CC808A5C",
+    "/usr/lib/x86_64-linux-gnu/libcap.so.2.75": "41217B0AF128444F66DEE8ADDA52B2CEAF19DA00E5B0B155E2B87B857671286B",
+    "/usr/lib/x86_64-linux-gnu/libselinux.so.1": "5CB5293B4E7590463B94F7B23152D54807A6A2CCAF8CAC9E343908C6692C086C",
+    "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.14.0": "8DDE125B341ABFDF4A596D2974CD3048E350CBC8D2D77ACD54EA044F7815CA77",
+    "/usr/bin/expr": "B3A702318C52F2B29984E289CAC19C4966E0DCA953D7107AA73E3593FEAE739F",
+    "/usr/lib/x86_64-linux-gnu/libgmp.so.10.5.0": "D15E1585C6C267296459570C8AC217CA9123044BCD4E896D2F686B32333445D2",
+    "/usr/bin/fold": "B5EA228497769A25492C62813394996B67279011D9DE08DC0DB1F707D0FE212A",
+    "/usr/bin/touch": "B6936EFADCD64198CB2F62578BDC4DAD5699FD5AF8129B7606367C98767A3C4D",
+    "/usr/bin/id": "50629FA0AB5C003B538D4CCF7DE34E85D2DF4E799A79EB2DD4C2F7B1E0D7CA59",
+    "/usr/bin/dirname": "088E052097E35176C2714238A7CEA6240C82AE3873F02AB77234B30263566768",
+    "/usr/bin/basename": "B4F6FA4B123E1C2E77964D803E5D80837C41B03C6CC870D1619CD3560193F7E1",
+    "/usr/bin/rm": "C959A237E7B95D229EEA44764B2246FCB61A95DC679A10AD0CC97AD84C2316C1",
+    "/usr/bin/readlink": "1DCAF494F4DEC175292B1684B3E978D18A4C3C703C52F81606D9E8EEA30EB6DB",
+    "/usr/bin/ln": "75BEF899117ADF42C64C2F15FEE640755D18D4632AE0794578D268A74CC7AF8B",
+    "/usr/bin/mktemp": "61F09AF83B1CCBD744D424BA5AD19B2AF4EDB5AD67C367CC092F58422B7BBB7C",
+    "/usr/bin/chown": "22538EDE9A6532D7C5DB3C67C73BBCD68ADC44A1AC99E09A2D739282AEBFF1CA",
+    "/usr/bin/chmod": "7E37F672DB75AE783260E7565D26218D25CEBBC5A6D61118284C9719D246A90E",
+    "/usr/bin/mv": "7DB4661C6397FE5FD5BA6837692AA5ADB7DCE1EFC656369D7B08DFD6ECE525A0",
+    "/usr/lib/x86_64-linux-gnu/libattr.so.1.1.2502": "126E29F16F4A6DA5CAD9A0D9CF1CC817089EE41645A8581D19691A1B9A581172",
+    "/usr/lib/x86_64-linux-gnu/libacl.so.1.1.2302": "3C03774961231D8485A4DBA36EC359A95939A84719799C58CD26173E44BBDE90",
+    "/usr/bin/cat": "8A5C20C3400A4058A487CD806111CC5138EF4D0FBC6714FF67C9432E38C2705A",
+    "/usr/bin/tr": "38AE5272952EAE85558CB902D1B6B3ECA5F8106AEA901CD9AEE3FE2DFF1E2B43",
+    "/usr/bin/grep": "BD6686BF7A650A9717FD7E73FDB07DC63B70547A1DA41BCE093C56DF937A66EB",
+    "/usr/bin/sed": "69FF7292C0D081BDF5866BC84DDE96D5A14F4A7DEAFEB9483739BE68C48AC2B3",
+    "/usr/bin/getopt": "162B44A8C80EBB1215D0FE7E3C231E1B7E32AC1BCAF8E5A5032726EB310EF59D",
+    "/usr/bin/hostname": "A9F8D0B870F2184AC9F51FC21D7951A8543349CFFDC8CD6904C23D2485682220",
+    "/usr/lib/x86_64-linux-gnu/libcrypto.so.3": "8BB5F3FDFFE280D4453EB79A4663C2C47AF70B7C247FE2E94E2DA703CEE1FD3D",
+    "/usr/lib/x86_64-linux-gnu/libzstd.so.1.5.7": "27F07C9A49C2C956BCFB64CD4712976586A66FACBF15FC7F09BC37413B5F2B21",
+    "/usr/lib/x86_64-linux-gnu/libz.so.1.3.1": "85590DD58EDF5445E18BC7193E5EBC01AC5841F1AE187E97705A662E90C6421E",
+    "/usr/lib/x86_64-linux-gnu/libssl.so.3": "4B34859318555BF96D518131BED5FC4D5E35FEFA4E1729F49EAA26BD05263850",
+    "/usr/lib/x86_64-linux-gnu/libidn2.so.0.4.0": "299CDC741F1DD0834A49D5CB44F3DA26B1960BB110C1F521A084400D9B603CBF",
+    "/usr/lib/x86_64-linux-gnu/libunistring.so.5.2.0": "9C200EC975FF24C0A259D4F6CF0D0FC1736D0C86DA30FFF3D499AD3D9A368B65",
+    "/usr/lib/x86_64-linux-gnu/libidn.so.12.6.6": "62E5B51AB2D5B915F35EEE517F6C2BCE9A5CF1EF9E6E6B009ED21E775CB4EF69",
+    "/usr/lib/x86_64-linux-gnu/libgnutls-dane.so.0.4.1": "70095A8D1EEDAA61B785A843463DF754AFC2FC358A0A245BFB46514DB345BDF5",
+    "/usr/lib/x86_64-linux-gnu/libunbound.so.8.1.40": "27AE830D0F3BF0E92045404B0F51FCE1D3173D812A76E1C63328008160BB6397",
+    "/usr/lib/x86_64-linux-gnu/libevent-2.1.so.7.0.2": "8B117BB65798429AA946CDED5ED20207BADAE239715D5E7328C3B62D23D41DB6",
+    "/usr/lib/x86_64-linux-gnu/libgnutls.so.30.40.3": "4B14EDDE42E7CBEEFD8A6D88D035E096F2E6412A535388BB1D073A1C196E2822",
+    "/usr/lib/x86_64-linux-gnu/libnettle.so.8.10": "34AC695C167A593D3587BD88592D33D53E5DC4035984F84446100962F57376FD",
+    "/usr/lib/x86_64-linux-gnu/libhogweed.so.6.10": "2663D9BDCA20BA67D2D72F1D4C24B6FD0A3E97D5EE23E7B739788176CF904380",
+    "/usr/lib/x86_64-linux-gnu/libtasn1.so.6.6.4": "CEA637336B0855F91260714181894BCEA9F345A3A97CE68D6447F6031728CABD",
+    "/usr/lib/x86_64-linux-gnu/libp11-kit.so.0.4.1": "E4AE39BE74740511CF8E49E80FDFC16AEEE7B822EE313793DA1B78CE148BA05F",
+    "/usr/lib/x86_64-linux-gnu/libffi.so.8.1.4": "922024EC5A23F7DE1095B1CFF2F6CBFB377B5D58CD51FD0EC2E8FE35427653E2",
+    "/usr/lib/x86_64-linux-gnu/libdb-5.3.so": "CD87DDCF60A6E62AB0DEDEE64A4292C783E0E991DE3329D959FAC1EF2DC389AF",
+    "/usr/lib/x86_64-linux-gnu/libnsl.so.2.0.1": "46A8BE6F873BD2166A1EA314097CD12DF4BC345AC7765A0534C3E71618345952",
+    "/usr/lib/x86_64-linux-gnu/libtirpc.so.3.0.0": "FB1BEA42AC131A4DA3B085D7D51F2D329B9F61B100338918D7415D9A94E0BC1F",
+    "/usr/lib/x86_64-linux-gnu/libgssapi_krb5.so.2.2": "C290F761873EBEAC539911010526E1C5DB86218BFCB29672760DA46841741DE0",
+    "/usr/lib/x86_64-linux-gnu/libkrb5support.so.0.1": "F559F051EE5D39F151A57D79F2CDE475C484030098B0C73F9F7035B421B187C4",
+    "/usr/lib/x86_64-linux-gnu/libcom_err.so.2.1": "DC4828400674492839B630C001DB424CD38E5CECFCF46DBF705A637647E04BEA",
+    "/usr/lib/x86_64-linux-gnu/libk5crypto.so.3.1": "C4C3221D0350F882CEE0430B58D5FB289A5776C684D3156964864C8A9719DFF1",
+    "/usr/lib/x86_64-linux-gnu/libkrb5.so.3.3": "C4AB64E6BC2874A83E649E4439BE752465DA027A0041E2BB5343F81C80F0882D",
+    "/usr/lib/x86_64-linux-gnu/libresolv.so.2": "D41DD4ADACF5A35DF426461DD8A92D7BDD5BA29BB61A1C3531BEC0ADA386F8DD",
+    "/usr/lib/x86_64-linux-gnu/libkeyutils.so.1.10": "E5D5A7450D08EFF7D4BBCAAC75EF2B94D3447C81A1B2DDF3AB85D2DE4709A9A8",
+    "/usr/lib/x86_64-linux-gnu/libm.so.6": "6D567D53E895273CA14A1F9DC164FC6C8D39AED2F60AA46A733C2784228915F3",
+    "/usr/lib/x86_64-linux-gnu/libcrypt.so.1.1.0": "436788729AB71D794A66954D62E930C723E624587F39BEB2F4F86FF1000B1D29",
+    "/usr/libexec/sudo/libsudo_util.so.0.0.0": "46B81C0B6A3A9252A6A92AF0B9002C0DDBF9442E287B885FDE4EE1275C14E7A2",
+    "/usr/lib/x86_64-linux-gnu/libbsd.so.0.12.2": "167E3FA2B6320CE61534A48002E6D0921F61D61EAE88A669C117E23ED3DE9F37",
+    "/usr/lib/x86_64-linux-gnu/libmd.so.0.1.0": "1C8C51474C0EB67DABD9F1605097EB58195CDABEF64427AE17CFCD2053C37479",
+    "/usr/lib/x86_64-linux-gnu/libsemanage.so.2": "1F0723499BF719B57845B67679F95E79F7A0C799D69601E40E166DCC11FFF376",
+    "/usr/lib/x86_64-linux-gnu/libbz2.so.1.0.4": "C630F057EFEDC12F848710D71F40283895591E5B4608539F387895C64E0553DA",
+    "/usr/lib/x86_64-linux-gnu/libaudit.so.1.0.0": "8632B443369CB51570B78E0BF5B0FA5B1A7B343439B65C21200A27E015AED507",
+    "/usr/lib/x86_64-linux-gnu/libcap-ng.so.0.0.0": "6B5BE42DF1BED00B8EA1F52E9412DCE5ED500C29A6DD22B31E72F5DAB5A3A575",
+    "/usr/lib/x86_64-linux-gnu/libsepol.so.2": "E7D3980298E4C1375F17B987D98006D6969C1A439D4E3EAD74AC3C1276493B9C",
+    "/usr/lib/x86_64-linux-gnu/libpam.so.0.85.1": "7E61037C89B06382C9D22518174914FEF77B9E473962F49AB1C90C55C9B5BCA2",
+    "/usr/bin/dash": "A6F559E00B69A4AA4D8CB607BE18D9386C5AEE55C509E2C075549DCF00E00FC7",
+    "/usr/lib/x86_64-linux-gnu/libtinfo.so.6.5": "4013E7651AC68F547D8333517DEF25B2366C97EEC7DE7F06E105DBF3444FFEBF"
+  },
+  "Packages": [
+    {
+      "Architecture": "all",
+      "DpkgStatus": "install ok installed",
+      "Name": "debconf",
+      "Version": "1.5.91"
+    },
+    {
+      "Architecture": "amd64",
+      "DpkgStatus": "install ok installed",
+      "Name": "exim4-base",
+      "Version": "4.98.2-1+deb13u5"
+    },
+    {
+      "Architecture": "all",
+      "DpkgStatus": "install ok installed",
+      "Name": "exim4-config",
+      "Version": "4.98.2-1+deb13u5"
+    },
+    {
+      "Architecture": "amd64",
+      "DpkgStatus": "install ok installed",
+      "Name": "libc6",
+      "Version": "2.41-12+deb13u4"
+    },
+    {
+      "Architecture": "all",
+      "DpkgStatus": "install ok installed",
+      "Name": "locales",
+      "Version": "2.41-12+deb13u4"
+    },
+    {
+      "Architecture": "amd64",
+      "DpkgStatus": "install ok installed",
+      "Name": "openssl",
+      "Version": "3.5.7-1~deb13u2"
+    },
+    {
+      "Architecture": "amd64",
+      "DpkgStatus": "install ok installed",
+      "Name": "passwd",
+      "Version": "1:4.17.4-2"
+    },
+    {
+      "Architecture": "amd64",
+      "DpkgStatus": "install ok installed",
+      "Name": "perl",
+      "Version": "5.40.1-6+deb13u1"
+    },
+    {
+      "Architecture": "all",
+      "DpkgStatus": "install ok installed",
+      "Name": "ssl-cert",
+      "Version": "1.1.3"
+    },
+    {
+      "Architecture": "amd64",
+      "DpkgStatus": "install ok installed",
+      "Name": "sudo",
+      "Version": "1.9.16p2-3+deb13u2"
+    }
+  ],
+  "AccountBeforeState": "Existing closed account validator passed; UID/GID 1000 unused; sudo empty; root locked; ssl-cert GID 105",
+  "Skeleton": [
+    {
+      "Gid": 0,
+      "Length": 220,
+      "Mode": 420,
+      "Path": "/etc/skel/.bash_logout",
+      "Sha256": "26882B79471C25F945C970F8233D8CE29D54E9D5EEDCD2884F88AFFA84A18F56",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 0,
+      "Length": 3526,
+      "Mode": 420,
+      "Path": "/etc/skel/.bashrc",
+      "Sha256": "AFAE8986F549C6403410E029F9CCE7983311512D04B1F02AF02E4CE0AF0DD2BF",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 0,
+      "Length": 5290,
+      "Mode": 420,
+      "Path": "/etc/skel/.face",
+      "Sha256": "EB20EA99085C371ED0F0260545FEDE93DD56C29DDEBFA76B068210E5B4694AB3",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 0,
+      "Length": 0,
+      "Mode": 511,
+      "Path": "/etc/skel/.face.icon",
+      "Sha256": null,
+      "Target": ".face",
+      "Type": "SymbolicLink",
+      "Uid": 0,
+      "Xattrs": {}
+    },
+    {
+      "Gid": 0,
+      "Length": 807,
+      "Mode": 420,
+      "Path": "/etc/skel/.profile",
+      "Sha256": "28B4A453B68DDE64F814E94BAB14EE651F4F162E15DD9920490AA1D49F05D2A4",
+      "Target": null,
+      "Type": "File",
+      "Uid": 0,
+      "Xattrs": {}
+    }
+  ],
+  "DynamicHelperBehavior": "Not yet verified: must execute under the broker and pass independent semantics and the exact whole-tree complement.",
+  "ExecutionAuthority": false,
+  "ExternalPinSha256": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+  "Utc": "2026-09-29T11:42:45.386622+00:00",
+  "ExpectedOutputs": {
+    "Exim": {
+      "Uid": 0,
+      "Gid": 104,
+      "Group": "Debian-exim",
+      "Mode": "0644",
+      "TemporaryMustBeAbsent": "/var/lib/exim4/config.autogenerated.tmp"
+    },
+    "Tls": {
+      "KeyUid": 0,
+      "KeyGid": 105,
+      "Group": "ssl-cert",
+      "KeyMode": "0640",
+      "CertMode": "0644",
+      "HashLink": "Verified certificate hash + .0 -> ssl-cert-snakeoil.pem"
+    },
+    "Locale": {
+      "Archive": "/usr/lib/locale/locale-archive",
+      "Uid": 0,
+      "Gid": 0,
+      "Mode": "0644",
+      "Query": [
+        "en_US.utf8"
+      ]
+    },
+    "Accounts": "Existing verify_accounts state-dependent principal/system/backup semantics, exact skel manifest, real credential digest and authenticated sudo policy"
+  }
+}

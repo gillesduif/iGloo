@@ -1,0 +1,454 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "CanonicalSelectedDocumentAttempt",
+  "RecordedAtUtc": "2026-10-01T01:58:08.540000+00:00",
+  "Outcome": "OutcomeUnknown",
+  "Qualified": false,
+  "StartingCheckout": {
+    "Branch": "refactor/community-fleet-foundation",
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "ModifiedTrackedFiles": 39,
+    "UntrackedFiles": 119,
+    "IndexEmpty": true,
+    "Inventory": {
+      "Path": "/mnt/c/igloo-lab-runtime/canonical-userdata-qualified-20261001/initial-files.json",
+      "Sha256": "F0D4A40B85477CCADC650A53EC4BA95CEE5C1784E5B38C07F7F12DFE440092AD",
+      "Length": 28462
+    },
+    "Status": {
+      "Path": "/mnt/c/igloo-lab-runtime/canonical-userdata-qualified-20261001/initial-status.txt",
+      "Sha256": "FA70DE9D83286CE24E2BA9A2699B798B38F77EFF33384C07711A4C226B745509",
+      "Length": 8484
+    },
+    "UnrelatedConcurrentEditsPreserved": true
+  },
+  "Capacity": {
+    "InitialWindowsAvailableBytes": 277691215872,
+    "RequiredBytes": 193273528320,
+    "InitialGuestAvailableBytes": 663776370688,
+    "ProvisioningGate": {
+      "AvailableBytes": 277378560000,
+      "BackingVolume": "C:\\",
+      "Distribution": "Ubuntu-24.04",
+      "NativeMutationAuthorized": false,
+      "ObservedAtUtc": "2026-10-01T01:34:37.4777889+00:00",
+      "RequiredAdditionalBytes": 193273528320,
+      "SchemaVersion": 1,
+      "Scope": "HostCapacityObservationOnly",
+      "Sufficient": true
+    },
+    "ReserveChanged": false
+  },
+  "Toolchain": {
+    "Dotnet": "C:/Program Files/dotnet/dotnet.exe",
+    "Sdk": "10.0.401",
+    "HarnessTarget": "net8.0",
+    "GuestRuntime": "8.0.20",
+    "BuildWarnings": 0,
+    "BuildErrors": 0,
+    "PackagesOrWorkloadsInstalled": false,
+    "PinnedVersionsChanged": false,
+    "VisualStudioCommunity": {
+      "Version": "18.10.12210.168",
+      "Path": "C:/Program Files/Microsoft Visual Studio/18/Community",
+      "Complete": true,
+      "Launchable": true,
+      "EnterpriseRegistered": false,
+      "Existing2022BuildToolsAlsoRegistered": true,
+      "HarnessUsedDotnetSdkNotVsMsbuild": true
+    }
+  },
+  "InputReadiness": {
+    "ProtectedReadiness": {
+      "Path": "/var/lib/igloo/userdata-readiness/20261001/readiness.json",
+      "Sha256": "F399765B77245A9979B97D9911708FE4CB10142A99451CAB18B0C1333E1DF55C",
+      "Length": 1082
+    },
+    "ReadOnlyRegressions": {
+      "Path": "/var/lib/igloo/userdata-readiness/20261001/readiness-regressions.json",
+      "Sha256": "F1C96FF37D29BA41F6D103CBF8929D02078A44AF0364747E683E94950D877854",
+      "Length": 3577
+    },
+    "CasesPassed": 11,
+    "OriginalJournalBytesPreserved": true,
+    "ManifestAndContentPinBindingsChecked": true,
+    "PinExpiryUtc": "2026-10-05T09:32:27.464Z",
+    "PinRenewed": false,
+    "EffectAuthorityGranted": false,
+    "ParserCopyLimitation": "Old exported operation declaration parent is UID1000. Original path was rejected; byte-identical protected copies were used only for parser regression. Actual new native protected inputs passed readiness separately."
+  },
+  "Allocation": {
+    "OperationId": "634294f1-7ad9-4fb1-99b2-faec481cad92",
+    "AttemptId": "3d520fa6-876d-4f47-881c-beb089d90aea",
+    "NegativeUsed": 1,
+    "PositiveUsed": 1,
+    "Remaining": 0,
+    "RetryAuthorized": false
+  },
+  "Predecessor": {
+    "RunId": "c5dc04e9-18f6-4b78-b60a-2346e2d70000",
+    "ResultSha256": "9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8",
+    "CloseSha256": "F0CB1447C24AF09EBC1A178E29E692AAB36C8AED0AAE130CE2A16CD23F8446F3",
+    "TargetAndJournalRehashedUnchanged": true,
+    "HistoricalFailuresAndReservationsNotModified": true
+  },
+  "ExecutionRevision": {
+    "HarnessSha256": "B9D3C1D773936802B9C73D3EBD59C242CF4C42E5769308A72E352C53BF08A5AF",
+    "InputIdentitiesSha256": "E099E90AD82D5DCA97D76F86DAFC604506D35957C0822F72F026FD7831A4374A",
+    "FilesComparedToFrozenRevision": 88,
+    "SessionUserDataSha256": "DD8CE16F90D0C0334140C8482F1A3144417BD71FC5530C69D85CF74D518B67E8",
+    "FrozenFiles": {
+      "Path": "/mnt/c/igloo-lab-runtime/canonical-userdata-qualified-20261001/frozen-execution-files.json",
+      "Sha256": "9A10D19F03BB8042A4C69D48AFA9C797EF05F9885D892DFFF5A26B3F7871B3DA",
+      "Length": 18350
+    },
+    "ProtectedGuestClosure": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/guest-evidence/execution/positive-execution-closure.json",
+      "Sha256": "EA7C642597807CA8BCCF3D66139722355660A7786309A8F7936F28453E5DDDA1",
+      "Length": 612085
+    }
+  },
+  "Resources": {
+    "RunDirectory": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea",
+    "Authorization": {
+      "Path": "/var/lib/igloo/userdata-authorizations/3d520fa6-876d-4f47-881c-beb089d90aea/authorization.json",
+      "Sha256": "281F640CF761084EA06FF04015836A25E06624BE216BD455B4AF27E032CDDE85",
+      "Length": 766
+    },
+    "Reservation": {
+      "Path": "/var/lib/igloo/userdata-authorizations/3d520fa6-876d-4f47-881c-beb089d90aea/reservation.json",
+      "Sha256": "B229A918744550EF727DC9E68022BF3A886C950CD11C8046DB2B5DCEE0B51AC5",
+      "Length": 350
+    },
+    "Copies": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/userdata-initial-copy.json",
+      "Sha256": "03C83824826602410FE95989DF8A63E926099506F283F01C6B30ADCF962DA096",
+      "Length": 1686
+    },
+    "Delivery": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/userdata-delivery.json",
+      "Sha256": "8ECBB0D7349CBD75C8139749198F3ABAD1300C2005391AE4871EC863DC29EA60",
+      "Length": 2048
+    },
+    "Derivation": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/userdata-derivation.json",
+      "Sha256": "8044D5A9A7D1EB51601F248D4E8D39CBC25A87D751E41AD0C9E0D9077A1DBFEF",
+      "Length": 1866
+    },
+    "Launch": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/userdata-canonical-launch-intent.json",
+      "Sha256": "912316EB2B1559AF70A9DC34C78F68F5BA7ACFF17A8030BA28AE40CB87800909",
+      "Length": 2595
+    },
+    "FreshHostReadback": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/pre-dispatch-host-readback.json",
+      "Sha256": "6F3D663ACC0AF20B5CE6F2513CB358BD1BDE631479ADF246DF2AB8BA48848464",
+      "Length": 1122
+    }
+  },
+  "Staging": {
+    "Origin": "LabAuthoredStagedDocumentsV1",
+    "Files": 4,
+    "Entries": 6,
+    "SelectedBytes": 131130,
+    "LargestFileBytes": 131073,
+    "UnrelatedPayloadPreserved": true,
+    "OrdinaryStagingUnmount": true,
+    "SeparateFromTransfer": true,
+    "GuestResult": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/staging-evidence/userdata-guest-delivery.json",
+      "Sha256": "301084CE857D0426283F58D751D3DC51C49526B6784F0488A8004C0E9F65FF6E",
+      "Length": 1538
+    }
+  },
+  "NativeNegative": {
+    "AdmissionWrites": false,
+    "Boundary": "OperationBinding",
+    "CanonicalSessionCreated": false,
+    "Code": "UserDataOperationBindingRejected",
+    "IntendedGuardReached": true,
+    "NegativeDispatches": 1,
+    "PositiveDispatches": 0,
+    "TransferWrites": false,
+    "Readiness": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/guest-evidence/execution/readiness-before-negative.json",
+      "Sha256": "DA42EA7C78BF44AD249653B0F29C700DC2E0CA235D9E0EA0E272CFB09000B4CE",
+      "Length": 319
+    },
+    "Outcome": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/guest-evidence/execution/negative-exit.json",
+      "Sha256": "55C1FD5920AE7036D9DD1224620E475D06F63955CB37704F29188DC85F1831DA",
+      "Length": 178
+    }
+  },
+  "Canonical": {
+    "SessionId": "bf0ed51f-02fc-4676-97b1-54f23f75fd98",
+    "PlanSha256": "6F5F14C0D093131BF37253192D52240E6640FFC3FD9E7FCE475E3A77735936BC",
+    "SessionCreated": true,
+    "OwnershipAndJournalPlacement": "Verified",
+    "RootAndPayloadMounts": "AppliedAndVerified",
+    "Baseline": "AppliedAndVerified",
+    "TransferIntent": false,
+    "ProducerReservation": false,
+    "TransferWriterInvoked": false,
+    "TransferredFiles": 0,
+    "TransferredBytes": 0,
+    "Admission": "NotInvoked",
+    "FinalDelta": "NotInvoked",
+    "DurableSuccessfulHandoff": false,
+    "LastOutput": {
+      "UserData": "OutcomeUnknown",
+      "Code": "UserDataSessionUnavailable",
+      "Boundary": "TransferUserData",
+      "ErrorType": "IOException"
+    },
+    "PartialChainsAndDisposition": {
+      "Admission": "NotInvoked",
+      "CanonicalSessionCreated": true,
+      "CanonicalTeardown": "NotVerified",
+      "Chains": {
+        "effects": {
+          "LastSha256": "7C84ED58BB8AFB84D1C6D7B5D0F914C8FA403DAE18C4E4B6804E0A4767B21743",
+          "Records": 2
+        },
+        "session": {
+          "LastSha256": "575756B8A937C0045D71E8377B35755E36F9FF7553093263E3751C34F8ABBE47",
+          "Records": 10
+        }
+      },
+      "LastVerifiedStep": "Baseline",
+      "NegativeDispatches": 1,
+      "PositiveDispatches": 1,
+      "PostFailureRootSemanticReadback": "NotInvoked",
+      "PreservedSha256": "0B1C5550B9FCBE8B9B234D04655BDE475DC0E70168E2F411D01E50740945AE17",
+      "PreservedTestObjectUnchanged": true,
+      "ProducerReservation": false,
+      "ReadbackRejected": "UserDataIncompleteChains",
+      "ReplayAuthorized": false,
+      "RootPayloadMountsAbsentInRuntimeNamespace": true,
+      "TransferIntent": false,
+      "UserData": "OutcomeUnknown"
+    },
+    "CanonicalTeardown": "NotVerified",
+    "CloseRecord": false
+  },
+  "ConfirmedDefects": [
+    {
+      "Contract": "CanonicalContext exact session type",
+      "ExecutedCode": "Imports nonexistent block_session.CanonicalSession; actual export is MountSession",
+      "Evidence": {
+        "Path": "/mnt/c/igloo-lab-runtime/canonical-userdata-qualified-20261001/confirm-source-defect.console",
+        "Sha256": "E65921A277FF559C0E20DD3D8F2D6C621242FE4D05D74A1CDF22273EC236BDBB",
+        "Length": 739
+      },
+      "Reproduction": "Read-only constructor call reproduced ImportError on executed staged module. Historical stderr was discarded, not recovered."
+    },
+    {
+      "Contract": "Journal identity across namespaces",
+      "ParentMountId": 67,
+      "IndependentlyObservedSupervisorMountId": 209,
+      "ExecutedCheck": "Incorrectly required identical namespace-local mount IDs",
+      "Evidence": {
+        "Path": "/mnt/c/igloo-lab-runtime/canonical-userdata-qualified-20261001/confirm-source-defect.console",
+        "Sha256": "E65921A277FF559C0E20DD3D8F2D6C621242FE4D05D74A1CDF22273EC236BDBB",
+        "Length": 739
+      }
+    }
+  ],
+  "PostFailureCorrections": {
+    "NativeQualified": false,
+    "SessionUserDataSha256": "A45F65250C4634B1E4D3E69429DE01972F94A4670350584902CF6DFBB1521E3F",
+    "Changes": [
+      "Require exact real MountSession type",
+      "Bind original journal device/inode to fresh independent private EXT4 path and cloned-mount observation; retain noexec/nodev/nosuid and alias/child rejection",
+      "Route ImportError/AttributeError through existing stopped-record path"
+    ],
+    "CopierAdmissionAndProductScopesUnchanged": true
+  },
+  "Retention": {
+    "PoweredOffFailedDerivative": true,
+    "NormalShutdown": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/userdata-normal-shutdown.json",
+      "Sha256": "31A659765E839C8762ED3F166BDBAB84C211502251A369A25640B7A04D11F89E",
+      "Length": 175
+    },
+    "RetentionRecord": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/userdata-failed-attempt-retention.json",
+      "Sha256": "76F92394F5074A1A56C91C389480934B7020D4CC893936A3DC36B52E703759D2",
+      "Length": 997
+    },
+    "Details": {
+      "Admission": "NotInvoked",
+      "AttemptId": "3d520fa6-876d-4f47-881c-beb089d90aea",
+      "Baseline": "AppliedAndVerified",
+      "CanonicalTeardown": "NotVerified",
+      "Copies": [
+        {
+          "Device": 2096,
+          "Inode": 93197,
+          "Length": 42949672960,
+          "Links": 1,
+          "Name": "target.raw",
+          "Sha256": "F9B141C3000FB2FC872C564C597016EEE84E5838867D448E61FFA3BBCFA68809"
+        },
+        {
+          "Device": 2096,
+          "Inode": 93202,
+          "Length": 8589934592,
+          "Links": 1,
+          "Name": "journal.raw",
+          "Sha256": "76A67B67060BEDD6FB63D622DDD161F4BE96D9FF74FC20B600D619C7410DF705"
+        }
+      ],
+      "NegativeDispatches": 1,
+      "NormalRuntimeShutdown": true,
+      "OperationId": "634294f1-7ad9-4fb1-99b2-faec481cad92",
+      "PositiveDispatches": 1,
+      "PostFailureRootSemanticReadback": "NotInvoked",
+      "PredecessorTargetAndJournalHashesUnchanged": true,
+      "RetryAuthorized": false,
+      "Scope": "FailedUserDataCanonicalRetention",
+      "Session": "OutcomeUnknown",
+      "TransferWriter": "NotInvoked"
+    },
+    "RawArchive": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/3d520fa6876d4f47881cbeb089d90aea/retained-guest-evidence.tar.gz",
+      "Sha256": "01FA1B424F4A9585ACBC94885D3BC9151DF2D06E9C7E6B1DE659FD3BFC334D75",
+      "Length": 337998
+    },
+    "PostFailureRootSemanticReadback": "NotInvoked",
+    "TargetBackingEqualsStaging": false,
+    "CanonicalTeardownMustNotBeInferredFromShutdown": true
+  },
+  "Tests": [
+    {
+      "Environment": "Windows SDK10.0.401",
+      "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+      "Result": "Passed; initial and post-source-change rebuild, zero warnings/errors"
+    },
+    {
+      "Environment": "Windows",
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror --filter 'FullyQualifiedName~DebianUserData|FullyQualifiedName~DebianConfigurationContinuationTests'",
+      "Result": "41 passed; repeated --no-build for actual serialization exports, not added to total"
+    },
+    {
+      "Environment": "WSL Python3.12",
+      "Command": "unittest: test_userdata_session, test_userdata_admission.WireTests, test_userdata_producer.WireTests, test_configured_successor with actual .NET wire exports",
+      "Result": "20 passed before dispatch; 23 passed after focused failure corrections; overlapping sets not summed"
+    },
+    {
+      "Environment": "Windows current build",
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-build --no-restore -m:1 -warnaserror --filter FullyQualifiedName~PythonTerminalAndAdmissionReturnToRealDotNetConsumer",
+      "Result": "1 passed; synthetic .NET/Python/.NET effect-return boundary"
+    },
+    {
+      "Environment": "Protected WSL read-only .NET runtime",
+      "Command": "--userdata-readiness protected predecessor/pin and optional declaration/authorization",
+      "Result": "Actual persisted chain/pin passed; 11 read-only negative/input cases passed"
+    },
+    {
+      "Environment": "Isolated VM",
+      "Command": "same readiness then canonical_userdata_guest.execute(negative=True), execute(negative=False)",
+      "Result": "Negative passed exact guard; positive OutcomeUnknown after Baseline; no retry"
+    }
+  ],
+  "ChecksNotRepeated": [
+    "Unchanged ten native admission fixtures",
+    "Qualified copier/initramfs/configuration campaigns",
+    "Full solution/Core/Preflight/Community.App suites; focused changes only",
+    "Target boot/power-loss testing",
+    "Native execution of post-failure adapter corrections"
+  ],
+  "RemainingBoundary": "A separately authorized fresh run must qualify corrected constructor/journal namespace binding, then perform actual transfer/admission/final whole-root delta/durable handoff/exact teardown. No current success receipt exists.",
+  "Limits": {
+    "Scope": "SelectedDocumentTreesV1",
+    "MaximumBytes": 33554432,
+    "MaximumSelectedEntries": 1024,
+    "RealWindowsOrNTFSAcquisitionQualified": false,
+    "FirstBootSucceeded": false,
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "ProductionAndWindowsRecoveryGatesUnchanged": true
+  },
+  "EvidenceExportNote": "Initial uncompressed staging export exceeded console transport; compressed read-only retransmission checked length/hash. Staging was not replayed.",
+  "ChangesThisContinuation": [
+    {
+      "Path": "docs/architecture/debian-target-root-deployment.md",
+      "InitialSha256": "015873BA51CF0D2B92A41257EDEAE69592AC246CCB120DC096E365E8A8132ECB",
+      "FinalSha256": "9A337B8DD5D6EA1AA03140CB1F32922C7026EE22B335F8DFA95A7BB43F7D74C6"
+    },
+    {
+      "Path": "tests/installer/CanonicalImportQualification/Program.cs",
+      "InitialSha256": "510004C8F11DFD860273760D9106682EB23BBB1D5DA069BC877BD0C34701DD93",
+      "FinalSha256": "D31BB9A167928010E88E3D262C1A14F0D0AAFB2E7123671830CB3277969B38D5"
+    },
+    {
+      "Path": "tests/installer/CanonicalImportQualification/README.md",
+      "InitialSha256": "0FF168D2919174DCCF6E3F281B12C6B6D39E910732C4895C123D11E7867FE2AD",
+      "FinalSha256": "F83139F6FE8B48E6D0FC85C7DCCC73BCD2D62EE388F3D53B1FF84B5DE2C3C5C3"
+    },
+    {
+      "Path": "distros/debian/native/session_userdata.py",
+      "InitialSha256": "DD8CE16F90D0C0334140C8482F1A3144417BD71FC5530C69D85CF74D518B67E8",
+      "FinalSha256": "A45F65250C4634B1E4D3E69429DE01972F94A4670350584902CF6DFBB1521E3F"
+    },
+    {
+      "Path": "tests/Igloo.Migration.Tests/DebianUserDataPinTests.cs",
+      "InitialSha256": "0FBCA324FCB3B2DA924F59C1AC2F2E513583D6556D6FF90EF88ABCAB2C36FD6B",
+      "FinalSha256": "3E8A7E246E68E8BA8C48945C6E1B0834C09AC8EA9332323A7472032FA59F184B"
+    },
+    {
+      "Path": "tests/installer/CanonicalImportQualification/LabConfiguration.cs",
+      "InitialSha256": "3BE570319A12C5B12A486CA160118E965FF23DCCAA2B1F13867520C9338EEC62",
+      "FinalSha256": "07F38B5A0E11C1401098D346452F112232A6B7652B412D70C6D8B6F71ACD57F6"
+    },
+    {
+      "Path": "tests/installer/CanonicalImportQualification/LabInitramfs.cs",
+      "InitialSha256": "66CE546C7377E00159762BFF83271EB3F2F442324D598EE60F400248C966A457",
+      "FinalSha256": "2E968A0724AC05E7590C2612D51288AAEF1DA2131A5E2577ECDD36BC32AAE181"
+    },
+    {
+      "Path": "tests/installer/CanonicalImportQualification/LabStorageSmoke.cs",
+      "InitialSha256": "75A61FEEE385D04218CBCEB841C567232514E5F8C317C86A9A0BF02A95FFC809",
+      "FinalSha256": "E6E88C66090FEBD87253288BC5F05E8ECED6305A84FBFC8A44FFF678792A1432"
+    },
+    {
+      "Path": "tests/installer/CanonicalImportQualification/LabUserData.cs",
+      "InitialSha256": "06F7849CFF7AE30BFDA1E7F839FAC44A75FD3D09B232FA73E3D6F2EFBB743E0B",
+      "FinalSha256": "1FA82CF1190EE7AA5A6394170F6E314B91086F9B0787B1B7A4FED3823CCFBE1F"
+    },
+    {
+      "Path": "tests/installer/CanonicalImportQualification/UserDataExternalPin.cs",
+      "InitialSha256": "85AA059A3DFFA884A97C191FAA096B1A9144ADE017531378015164CEA91B2F0F",
+      "FinalSha256": "BE20F0636EE821B06EB191CC474231B4E1336DDACAD379F9CD85E66FFD5C3CF3"
+    },
+    {
+      "Path": "tests/installer/test_userdata_session.py",
+      "InitialSha256": "1495DB5B1EABDB9A89416C6B138BA4D914D669555989F3242395482376CFA3AF",
+      "FinalSha256": "A2BF9396C46F56377C3D29CD8FA2148F3AE6165F928EBA4FF7021A00729E60C3"
+    }
+  ],
+  "FinalHygiene": {
+    "Reference": "/mnt/c/igloo-lab-runtime/canonical-userdata-qualified-20261001/final-hygiene.json",
+    "Sha256": "A34DAB6700225158263FC4F6B722F010CF31F91661BCF5AC079DD76C66DA71AE",
+    "TrackedDiffCheck": "Passed",
+    "ChangedUntrackedWhitespaceChecks": [
+      "distros/debian/native/session_userdata.py",
+      "tests/Igloo.Migration.Tests/DebianUserDataPinTests.cs",
+      "tests/installer/CanonicalImportQualification/LabConfiguration.cs",
+      "tests/installer/CanonicalImportQualification/LabInitramfs.cs",
+      "tests/installer/CanonicalImportQualification/LabStorageSmoke.cs",
+      "tests/installer/CanonicalImportQualification/LabUserData.cs",
+      "tests/installer/CanonicalImportQualification/UserDataExternalPin.cs",
+      "tests/installer/test_userdata_session.py",
+      "docs/architecture/debian-userdata-canonical-corrected-attempt-evidence.json"
+    ],
+    "PythonSyntax": "Passed",
+    "NewEvidenceJson": "Passed",
+    "IndexEmpty": true,
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "Branch": "refactor/community-fleet-foundation",
+    "FinalModifiedTracked": 39,
+    "FinalUntracked": 120
+  }
+}

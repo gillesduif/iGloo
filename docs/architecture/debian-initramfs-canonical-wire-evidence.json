@@ -1,0 +1,820 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "DevelopmentLabCanonicalInitramfsCorrectedWireQualification",
+  "Qualification": "AppliedAndVerified",
+  "Branch": "refactor/community-fleet-foundation",
+  "BaselineCommit": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+  "InitialWorkingTree": {
+    "ModifiedTracked": 32,
+    "Untracked": 84,
+    "IndexEmpty": true,
+    "FileSnapshotSha256": "6C76D503E44E02F8A54AC7F88580F2B2985457594A585E94F6F82A4247C9B2C2"
+  },
+  "AttemptBudget": {
+    "PositiveCanonicalUsed": 1,
+    "NativePreconditionNegativeUsed": 1,
+    "AdditionalHelperPassesUsed": 0,
+    "FurtherDispatchAuthorized": false
+  },
+  "ChangesThisContinuation": [
+    {
+      "Path": "distros/debian/Deployment/DebianMountSession.cs",
+      "PreexistingDirtyFile": true,
+      "Sha256": "B9729FCCD1A5ABD317C87E436379E3152FE86232CECADF826AB7C5316F34870E"
+    },
+    {
+      "Path": "distros/debian/Deployment/DebianNativeMountSession.cs",
+      "PreexistingDirtyFile": true,
+      "Sha256": "0700034FFBC946F3E5523FCE63454A654D8BFB48D53408C7B016B666682E20D5"
+    },
+    {
+      "Path": "distros/debian/Igloo.Distro.Debian.csproj",
+      "PreexistingDirtyFile": false,
+      "Sha256": "82D135276B9C461F7C5AF81399B718C8F12426596B1A426E26715DD39521ED08"
+    },
+    {
+      "Path": "tests/installer/CanonicalImportQualification/README.md",
+      "PreexistingDirtyFile": true,
+      "Sha256": "9A3D157178A04216B96E8B4FAA8EDBBCCED803A4523B2BCE67B27E17872C0C60"
+    },
+    {
+      "Path": "distros/debian/native/session_initramfs.py",
+      "PreexistingDirtyFile": true,
+      "Sha256": "1650D3D664CC725488C4B93703AF2CCF8DDE4F5BB2F1080B134EB65B26ED0A10"
+    },
+    {
+      "Path": "docs/architecture/debian-initramfs-continuation.md",
+      "PreexistingDirtyFile": true,
+      "Sha256": "B980F3770DFD985CD5EFEEE0F7EAAB99FB363416022F6C8C3F821C3AECDF2CAE"
+    },
+    {
+      "Path": "tests/Igloo.Migration.Tests/DebianConfigurationContinuationTests.cs",
+      "PreexistingDirtyFile": true,
+      "Sha256": "8F207FD2582C0A323CBE6737E8CD13FD8A27E601C48AA1A3F692B94906A1CE8D"
+    },
+    {
+      "Path": "tests/installer/canonical_initramfs_readback.py",
+      "PreexistingDirtyFile": true,
+      "Sha256": "1BF2A7E00C5DB7DB5D0B3751363F34D26F2388DCDFDBE7D343AEF38E207687BE"
+    },
+    {
+      "Path": "tests/installer/test_initramfs_publication.py",
+      "PreexistingDirtyFile": true,
+      "Sha256": "76E8C1A744A6BF89605607534185EB464B49A37D84705E02B1AB03FB597D1E24"
+    },
+    {
+      "Path": "tests/installer/test_initramfs_readback.py",
+      "PreexistingDirtyFile": false,
+      "Sha256": "FE45D895EA9AD683D6CE41AC0D7C951345C40F92F6AF10912906FF3DCEAE09CA"
+    },
+    {
+      "Path": "tests/installer/test_initramfs_wire.py",
+      "PreexistingDirtyFile": false,
+      "Sha256": "F41D38610CDB425FAD4CA776A416845BBF74C2249097BB851611C91EF098ED3F"
+    }
+  ],
+  "WireContract": {
+    "Producer": "DebianNativeMountSession.SerializeRequest / DebianMountSessionAuthority.LeaseResponse",
+    "Consumer": "session_initramfs.perform / bound_root_uuid / initramfs_candidate.launch",
+    "Roles": [
+      0,
+      1,
+      2
+    ],
+    "Access": [
+      1,
+      0,
+      0
+    ],
+    "FileSystems": [
+      "EXT4",
+      "FAT32",
+      "FAT32"
+    ],
+    "ExistingNumericCorrectionConfirmed": true,
+    "AdditionalConfirmedMismatch": "Uppercase canonical .NET UUID versus lowercase candidate UUID; same identity now compared canonically",
+    "RoleOrAccessCoercionAllowed": false,
+    "WindowsEncodingChanged": false,
+    "RequestFixtureSha256": "D72A2DDDA510CA916BCC331E74ED6BC86C2E7A65387670B55F23BCDA2625953D",
+    "LeaseFixtureSha256": "DA5EBE539B32B08B9FA7FDB9CFF3D306E04368F15ECC26AC7797AC86C00130F0",
+    "HistoricalReadOnlyRegression": {
+      "Scope": "HistoricalReadOnlyRegression",
+      "Record": "/var/lib/igloo/initramfs-helper-labs/1ed3a65c15a04cc9afd2a5308eba8f1c/guest-evidence/journals/effects/ff104c9d-505c-4d88-8620-19b1153bd91e/00000000-3B25AA2A6216C5EE16686914E85D03CA1CC31E1E906897F33691D6623A4B10A3.json",
+      "Sha256": "3B25AA2A6216C5EE16686914E85D03CA1CC31E1E906897F33691D6623A4B10A3",
+      "RootUuid": "398f0d87-e17c-46d6-866f-24d10d747006",
+      "Roles": [
+        0,
+        1,
+        2
+      ],
+      "Access": [
+        1,
+        0,
+        0
+      ],
+      "ExecutionAuthority": false
+    },
+    "IntegratedSyntheticTests": 18,
+    "SyntheticEffectsAreNativeEvidence": false,
+    "FailureRecording": "Closed stage location and completed-step count; no exception/private data; no recovery authority"
+  },
+  "Execution": {
+    "Plan": {
+      "Candidate": {
+        "BootloaderIntegration": "Deferred",
+        "Compression": "gzip",
+        "ConfigurationResultSha256": "54EC121627C7D45BCCB47621CFD6C05F1C22C91E0C17241ED2329F9D0DD6443D",
+        "CpuVendor": "AuthenticAMD",
+        "HookSetSha256": "C30369EC7973694C8D7604FBB321C396B6B18030BB4AC8032924A8AA197D7ECE",
+        "InputClosureSha256": "CEF1D5A1B15BF1F39FD684B6A4D5DDC7985851E110F6B717ABED38B3B871D1F0",
+        "KernelPackageVersion": "6.12.107-1",
+        "KernelRelease": "6.12.107+deb13-amd64",
+        "ManagedUpdateState": "Deferred",
+        "Modules": "most",
+        "Output": "/boot/initrd.img-6.12.107+deb13-amd64",
+        "Policy": "debian-trixie-lab-initramfs-candidate-v1",
+        "Resume": "none",
+        "RootUuid": "398f0d87-e17c-46d6-866f-24d10d747006",
+        "StorageTopology": "VirtioBlockExt4"
+      },
+      "ConfigurationCloseSha256": "D21FE8A94119D47270A91CED0962F6CF6637ADAE0C0825F453CC9AFAEF964001",
+      "ConfigurationSha256": "54EC121627C7D45BCCB47621CFD6C05F1C22C91E0C17241ED2329F9D0DD6443D",
+      "ConfiguredEntriesSha256": "4C8CFA39471BA1202D9329BE0CC8897928C60DC1B428458A4BB699112D5FAADC",
+      "DerivationSha256": "A2347CB5E9ABA495FDC6148388773146177AE1DD911D9BE8942197BDFB2F2496",
+      "ExecutionSha256": "084441C3A73B5B4F7325700C3DE3A455BB097D13718196D0D8F6F8F9BD7BEDE2",
+      "OperationId": "5263e27d-3903-4221-a2a9-c169766a3f32",
+      "Provenance": {
+        "EvidenceSha256": "6E4F71279E271586621C78B3AB45C1BD17C41162E242D8FD7D462514F6E4B977",
+        "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+        "Provider": "IsolatedFileBackedLab",
+        "RunId": "c5dc04e9-18f6-4b78-b60a-2346e2d70000",
+        "Scope": "InitramfsImage",
+        "Version": 4
+      },
+      "RetentionSha256": "E0501EC9A4192777AAF579121A7D13873B665602AB83068D947DB7BB5C8264D4",
+      "SchemaVersion": 1,
+      "Workspace": "/var/lib/igloo/initramfs-workspaces/c5dc04e9-18f6-4b78-b60a-2346e2d70000"
+    },
+    "PlanSha256": "C546D863681EF39487E0FF958F1932DA34DF7D57967E3E2FB002AA92EA498CC1",
+    "SessionId": "883ff871-f9bb-4c2f-a300-21d82dc8df79",
+    "SourceIndexSha256": "778C371108B180D3EDCC8633651C70AC457299612C2813A09EB28E4466A783ED",
+    "SourceFiles": {
+      "distros/debian/Deployment/DebianAgentProfile.cs": "5732E5235612E66ACEF19CF791B879494F5DF1E57C774FE926B192CF9A9BD8E8",
+      "distros/debian/Deployment/DebianBootFinalizationHandoff.cs": "1F7504F62166F3DDDD2314A829904BD90CECC7985D220C8FAB0446738CD65256",
+      "distros/debian/Deployment/DebianConfigurationContinuation.cs": "C22865964857ED0FBEE44A2A0D55952E6AAD92999D7349CA0614B7531E3CE8B7",
+      "distros/debian/Deployment/DebianConfiguredPredecessor.cs": "AEA7B91E7685001C4F5625A5907D7F7A0993447FE60B3B3275BD209A67FFD5BD",
+      "distros/debian/Deployment/DebianConfiguredRootArtifact.cs": "1C0C3079931E6A6157CCE4FD1C844D0E4372C63F434E35648AEEB26C194B4CCE",
+      "distros/debian/Deployment/DebianConfiguredRootImportPlan.cs": "A9E2A5DB31EDD88FD9DB1B71B2DEC3C8E4CE4D20CAA1B617C0B46E808C3F5190",
+      "distros/debian/Deployment/DebianConfiguredRootStages.cs": "EA704C38F03E67C8ABFE9724DC978248F7DCD2B1B813E6A558A7B2090295CA6E",
+      "distros/debian/Deployment/DebianDeploymentEngine.cs": "BC35464BADB9CFD4DD49FA3E39E6C81F0F837D4274118FA2CA9A45C42634048A",
+      "distros/debian/Deployment/DebianDeploymentPlan.cs": "7C7598DBC310F01C1D0993DE608863DEFCAED2E678FD9740138EE4C901BF2E56",
+      "distros/debian/Deployment/DebianDeploymentStages.cs": "81466CB3923D2A8ACC2C6A2932F9BBE10D72B429B52BD10A6C9839732D9FB060",
+      "distros/debian/Deployment/DebianFirstBootEvidence.cs": "5EF22A4471A4856EEBD481DCB2F9734639F607DFB0197B2223D119B712837EC8",
+      "distros/debian/Deployment/DebianImportJournalStorage.cs": "2323406E5E206685811A0A05A5D8E050A0D7D7B0B9958299F14EC334119B84F4",
+      "distros/debian/Deployment/DebianInitramfsContinuation.cs": "018048FAB38AB4E11CE49F62B6434BF441068B49B582F2CEDF6A6AF7EBD2B63F",
+      "distros/debian/Deployment/DebianInstallationReceipt.cs": "B22EFBDFBA9EC11553791DBCBB098D858D20AA668F738AC6E3C4975215390F41",
+      "distros/debian/Deployment/DebianIsolatedLaunch.cs": "60FE54AF46E26070252F89CCD846B115B7D136567EB9D9317B7BCD483F02E9E7",
+      "distros/debian/Deployment/DebianKernelEvidence.cs": "C3BB5DFFBB43E39006E162E7E02ECCE533176B8B98B515D145D80B615D249ADE",
+      "distros/debian/Deployment/DebianLabImportPlan.cs": "B131558E61666F47B373AF94BAC061C7C345021851773EE2DD58EA14933B018C",
+      "distros/debian/Deployment/DebianLinuxDeploymentJournal.cs": "42BC045222EDD9AEC85759B4E8B92F90EA7B51A32FD67B24B74C8EE8613C9589",
+      "distros/debian/Deployment/DebianMountSession.cs": "B9729FCCD1A5ABD317C87E436379E3152FE86232CECADF826AB7C5316F34870E",
+      "distros/debian/Deployment/DebianNativeExecution.cs": "10A0E2C0265A2D04FAC65AEB43ED6DFE817AD002464EDF2E8BB8E787B771E7F8",
+      "distros/debian/Deployment/DebianNativeMountSession.cs": "0700034FFBC946F3E5523FCE63454A654D8BFB48D53408C7B016B666682E20D5",
+      "distros/debian/Deployment/DebianReadbackRules.cs": "34D0F1081A6169AE5D8E13847A8418700F660AB2C7C6FAC58D7EDEDAF473C211",
+      "distros/debian/Deployment/DebianRecommendationPolicy.cs": "FC1F016BE3F8AB257204F25BA4451F5BCBB61837EAA2C3B8222489F722C26DFE",
+      "distros/debian/Deployment/DebianRootTransport.cs": "72689D25B8663E5E87F5EA14F2B2388FEC58A3546A7FD2C47AF5F88A511F804F",
+      "distros/debian/Deployment/DebianSealedCredentialInput.cs": "5566F86D08DAB9626C621C78642E59209CEA77D3260D74D82866EE0C0648F576",
+      "distros/debian/Deployment/DebianSessionToolProtection.cs": "711B6D4FBC3DA171D9D7020C7B15B3DC0CD4B3B455ADFA66AF318C282C0052E6",
+      "distros/debian/Deployment/DebianTargetBoundary.cs": "C4757ED07005D036B423A1CD03D71E614CBAC0CC17830BBE28E5732E1D62F83A",
+      "distros/debian/Deployment/DebianTargetConfiguration.cs": "0503D60500E0B12132DE2F1261E313F2E4C5E703286C6CC626391049418A4815",
+      "distros/debian/Deployment/DebianWorkstationPolicy.cs": "238B8BD087C0F56F7959CEA6FF478E059F6A15507A8566E219853390ADCDFED4",
+      "distros/debian/Deployment/OfflineDebianPackageSet.cs": "D03550BD4E900DA636795F7A2BD4684844B02AC18B41F7FF7316D3D48369482A",
+      "distros/debian/native/block_session.py": "2C0AB902CCF1ACF2FBC9F3D5C67F8A9938E264E2A4E9D894C168D85EBA8BD544",
+      "distros/debian/native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "distros/debian/native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+      "distros/debian/native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+      "distros/debian/native/configured_successor.py": "5FDE49F7F8032629E1D8E1BF9F1B97FA24D82E91B493D684E3044868315B4CA1",
+      "distros/debian/native/debian_first_boot.py": "F1F1F359F8D8218C7D5FC6C48E4A9DD44D45EC0B21F16C19BB0A48E9CDD04753",
+      "distros/debian/native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "distros/debian/native/initramfs_archive.py": "0F01F2CBE46EB4975A79DAAFCE94BDFFCC3714ED843CC9DC1CA4B4E28CEC6CFC",
+      "distros/debian/native/initramfs_candidate.py": "EB663235CE5CC791C18E13F2904C9C894090E90421E0DB09DE5B3DD5EB2E6BD6",
+      "distros/debian/native/initramfs_generated.py": "0E26510714D6B79A75FF00AF4ACEBA3FDC38F436F16D13435553D2080C7467FC",
+      "distros/debian/native/initramfs_observer.py": "B2617F6EB09E2F8ADF87545A6A4E21782C5E3DBA36541F769EA83418EB30254A",
+      "distros/debian/native/initramfs_publication.py": "D306A9EE7ACF0DF5A6431B78D1E412FC2201E25FDFA85FE9038DC0CE73C4C282",
+      "distros/debian/native/isolation_observer.py": "14182A2A7A42A9C7A76CF6D6712F31366AF96783FF04F1EE7CE57E24EE5295A2",
+      "distros/debian/native/isolation_policy.py": "36DD2CBF01461BE37035D01526E61FF5F69307C6ADA8BE397CBF9B1D18CA6F45",
+      "distros/debian/native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+      "distros/debian/native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+      "distros/debian/native/package_broker.py": "F7DDBAC0E1B22C7FEB9E995D3507404B3B3F020E21DCB7BD9FC8ED1BC87BF354",
+      "distros/debian/native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+      "distros/debian/native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+      "distros/debian/native/session_configuration.py": "EC3E906D437DC220B8AD5774BB1764A546A9E29F0D091B570BD2414D4922C1B2",
+      "distros/debian/native/session_entry.py": "BE93B9909C20647E642709353183F9427117131016E5081CE0D0C36E6FD297D4",
+      "distros/debian/native/session_import.py": "F704F292602292CFD3FB547E2C984129E487227FCB4C8022030F115C0172681D",
+      "distros/debian/native/session_initramfs.py": "1650D3D664CC725488C4B93703AF2CCF8DDE4F5BB2F1080B134EB65B26ED0A10",
+      "distros/debian/native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "distros/debian/native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+      "tests/installer/canonical_initramfs_readback.py": "1BF2A7E00C5DB7DB5D0B3751363F34D26F2388DCDFDBE7D343AEF38E207687BE",
+      "tests/installer/CanonicalImportQualification/InventoryProbe.cs": "1E54B7D1239FDDC2A0178690D8B791770E434EF0056F6D58901E517E4D9D1BB1",
+      "tests/installer/CanonicalImportQualification/LabConfiguration.cs": "3BE570319A12C5B12A486CA160118E965FF23DCCAA2B1F13867520C9338EEC62",
+      "tests/installer/CanonicalImportQualification/LabConfiguredRootImport.cs": "B21FC8EACDAD859B31BB4B93A46271E1966D83FC235F83CB9D6651C9D153B335",
+      "tests/installer/CanonicalImportQualification/LabInitramfs.cs": "66CE546C7377E00159762BFF83271EB3F2F442324D598EE60F400248C966A457",
+      "tests/installer/CanonicalImportQualification/LabStorageSmoke.cs": "75A61FEEE385D04218CBCEB841C567232514E5F8C317C86A9A0BF02A95FFC809",
+      "tests/installer/CanonicalImportQualification/LabTransitionProbe.cs": "1B25A1F36B265C0BAD676D2487AE6A36A47C77F2CFBE8D5EDB4E757D8AE78629",
+      "tests/installer/CanonicalImportQualification/Program.cs": "8DCF77485D77F584C1F8FFF66B9180F1059704A760D94CE88CA723A3A384F771"
+    },
+    "ProtectedToolClosureSha256": "135FA70D76B871B8685EDF84AFE8119D398291CEBE9E1B8E5C49F3570C6A3F40",
+    "SelectedProtectedExecutables": {
+      "/opt/igloo-canonical-initramfs-wire/bwrap": {
+        "Mode": 493,
+        "Sha256": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/command-gate": {
+        "Mode": 493,
+        "Sha256": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/harness/CanonicalImportQualification.dll": {
+        "Mode": 420,
+        "Sha256": "9AF7B944EB74A4E4C8B7E15A1BA03BD4286BBBA96FAB22681C23CA96D16461D7",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/harness/Igloo.Core.dll": {
+        "Mode": 420,
+        "Sha256": "3FA7AF40F22190A71ADD3FA17C2D6E65ACABFFC4CAD870F33E290DF16EF63447",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/harness/Igloo.Distro.Debian.dll": {
+        "Mode": 420,
+        "Sha256": "0D8E00B92FBECDA61CB1897FC4897EF36744EF86D36A38D7D1980267368353C8",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_archive.py": {
+        "Mode": 420,
+        "Sha256": "0F01F2CBE46EB4975A79DAAFCE94BDFFCC3714ED843CC9DC1CA4B4E28CEC6CFC",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_candidate.py": {
+        "Mode": 420,
+        "Sha256": "EB663235CE5CC791C18E13F2904C9C894090E90421E0DB09DE5B3DD5EB2E6BD6",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_generated.py": {
+        "Mode": 420,
+        "Sha256": "0E26510714D6B79A75FF00AF4ACEBA3FDC38F436F16D13435553D2080C7467FC",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_observer.py": {
+        "Mode": 420,
+        "Sha256": "B2617F6EB09E2F8ADF87545A6A4E21782C5E3DBA36541F769EA83418EB30254A",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_publication.py": {
+        "Mode": 420,
+        "Sha256": "D306A9EE7ACF0DF5A6431B78D1E412FC2201E25FDFA85FE9038DC0CE73C4C282",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/native/isolation_observer.py": {
+        "Mode": 420,
+        "Sha256": "14182A2A7A42A9C7A76CF6D6712F31366AF96783FF04F1EE7CE57E24EE5295A2",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/native/isolation_policy.py": {
+        "Mode": 420,
+        "Sha256": "36DD2CBF01461BE37035D01526E61FF5F69307C6ADA8BE397CBF9B1D18CA6F45",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/native/package_broker.py": {
+        "Mode": 420,
+        "Sha256": "F7DDBAC0E1B22C7FEB9E995D3507404B3B3F020E21DCB7BD9FC8ED1BC87BF354",
+        "Uid": 0
+      },
+      "/opt/igloo-canonical-initramfs-wire/native/session_initramfs.py": {
+        "Mode": 420,
+        "Sha256": "1650D3D664CC725488C4B93703AF2CCF8DDE4F5BB2F1080B134EB65B26ED0A10",
+        "Uid": 0
+      }
+    },
+    "RuntimeModules": {
+      "/opt/igloo-canonical-initramfs-wire/bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+      "/opt/igloo-canonical-initramfs-wire/collector.py": "66E83B8AA504157E97DEF533D59D3280E244F41583799D8BD2A783F6B4491243",
+      "/opt/igloo-canonical-initramfs-wire/command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+      "/opt/igloo-canonical-initramfs-wire/native/block_session.py": "2C0AB902CCF1ACF2FBC9F3D5C67F8A9938E264E2A4E9D894C168D85EBA8BD544",
+      "/opt/igloo-canonical-initramfs-wire/native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "/opt/igloo-canonical-initramfs-wire/native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+      "/opt/igloo-canonical-initramfs-wire/native/configured_successor.py": "5FDE49F7F8032629E1D8E1BF9F1B97FA24D82E91B493D684E3044868315B4CA1",
+      "/opt/igloo-canonical-initramfs-wire/native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_archive.py": "0F01F2CBE46EB4975A79DAAFCE94BDFFCC3714ED843CC9DC1CA4B4E28CEC6CFC",
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_candidate.py": "EB663235CE5CC791C18E13F2904C9C894090E90421E0DB09DE5B3DD5EB2E6BD6",
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_generated.py": "0E26510714D6B79A75FF00AF4ACEBA3FDC38F436F16D13435553D2080C7467FC",
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_observer.py": "B2617F6EB09E2F8ADF87545A6A4E21782C5E3DBA36541F769EA83418EB30254A",
+      "/opt/igloo-canonical-initramfs-wire/native/initramfs_publication.py": "D306A9EE7ACF0DF5A6431B78D1E412FC2201E25FDFA85FE9038DC0CE73C4C282",
+      "/opt/igloo-canonical-initramfs-wire/native/isolation_observer.py": "14182A2A7A42A9C7A76CF6D6712F31366AF96783FF04F1EE7CE57E24EE5295A2",
+      "/opt/igloo-canonical-initramfs-wire/native/isolation_policy.py": "36DD2CBF01461BE37035D01526E61FF5F69307C6ADA8BE397CBF9B1D18CA6F45",
+      "/opt/igloo-canonical-initramfs-wire/native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+      "/opt/igloo-canonical-initramfs-wire/native/package_broker.py": "F7DDBAC0E1B22C7FEB9E995D3507404B3B3F020E21DCB7BD9FC8ED1BC87BF354",
+      "/opt/igloo-canonical-initramfs-wire/native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+      "/opt/igloo-canonical-initramfs-wire/native/session_configuration.py": "EC3E906D437DC220B8AD5774BB1764A546A9E29F0D091B570BD2414D4922C1B2",
+      "/opt/igloo-canonical-initramfs-wire/native/session_entry.py": "BE93B9909C20647E642709353183F9427117131016E5081CE0D0C36E6FD297D4",
+      "/opt/igloo-canonical-initramfs-wire/native/session_import.py": "F704F292602292CFD3FB547E2C984129E487227FCB4C8022030F115C0172681D",
+      "/opt/igloo-canonical-initramfs-wire/native/session_initramfs.py": "1650D3D664CC725488C4B93703AF2CCF8DDE4F5BB2F1080B134EB65B26ED0A10",
+      "/opt/igloo-canonical-initramfs-wire/native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "/opt/igloo-canonical-initramfs-wire/native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+      "/usr/bin/dpkg-query": "095817337215129933918CACAE5FD62E86202FE238591BEA207A75B73561E8C5",
+      "/usr/bin/localedef": "6F1190173873A9D4864FC90E498EF151DAC61835468A2F96A28BE30170E245B9",
+      "/usr/bin/openssl": "F4AA15F2822F670AF7B5C1043D7AA6EBBBC64229FD2FAE382EDFC6A4524749C1",
+      "/usr/bin/python3.13": "889C603F0D17CB54060951BCF4C4F9B8C9EBD9E52B392C70209BBB9755D797D9",
+      "/usr/lib/x86_64-linux-gnu/libcrypt.so.1.1.0": "436788729AB71D794A66954D62E930C723E624587F39BEB2F4F86FF1000B1D29"
+    },
+    "StagedAdapterContainsTestedNumericUuidAndFailureCorrection": true,
+    "GeneratorIsolationImageObserverContractsChanged": false,
+    "QualifiedObserverReuse": {
+      "AstIdenticalToQualifiedRevision": true,
+      "Function": "observe_generated",
+      "GeneratorChanged": false,
+      "IsolationChanged": false
+    }
+  },
+  "Resources": "/var/lib/igloo/initramfs-helper-labs/c5dc04e918f64b78b60a2346e2d70000",
+  "AuthorizationSha256": "02342CB6A38C93ED5A6A08C6B487088FA889EDF597A73E62269C16F051E405D2",
+  "DerivationSha256": "97446690532B418A566AC7A49FCFC2D58A61408CA864ABA114EAAB60140C5708",
+  "LaunchSha256": "AE2AAB357CA5D23B5B92C8D28D51CBDDDCC0BC8364A3B1EE4E6CBAD8F3581888",
+  "HostBindingSha256": "FA4E75A2CF6BFBDECBF472940E45E52EB509D5F798367C75CDCD44CF3F153F41",
+  "Capacity": {
+    "AvailableBytes": 202453131264,
+    "BackingVolume": "C:\\",
+    "Distribution": "Ubuntu-24.04",
+    "NativeMutationAuthorized": false,
+    "ObservedAtUtc": "2026-09-30T05:01:38.8183607+00:00",
+    "RequiredAdditionalBytes": 193273528320,
+    "SchemaVersion": 1,
+    "Scope": "HostCapacityObservationOnly",
+    "Sufficient": true
+  },
+  "PredecessorReopen": {
+    "ExitCode": 0,
+    "StderrSha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "Stdout": "{\"Scope\":\"ReadOnlyConfiguredPredecessor\",\"ResultSha256\":\"54EC121627C7D45BCCB47621CFD6C05F1C22C91E0C17241ED2329F9D0DD6443D\",\"CloseSha256\":\"D21FE8A94119D47270A91CED0962F6CF6637ADAE0C0825F453CC9AFAEF964001\",\"PlanSha256\":\"EAE587970C148977E8A32BC16CB611D118E92759D32DBB5EA3407F5D8064F18F\",\"EffectAuthorization\":false}\n"
+  },
+  "JournalPlacement": [
+    {
+      "Path": "/lab-journal/initramfs/c5dc04e9-18f6-4b78-b60a-2346e2d70000/session",
+      "Device": 65057,
+      "Inode": 262168,
+      "MountId": 57,
+      "Major": 254,
+      "Minor": 33,
+      "FileSystem": "EXT4"
+    },
+    {
+      "Path": "/lab-journal/initramfs/c5dc04e9-18f6-4b78-b60a-2346e2d70000/effects",
+      "Device": 65057,
+      "Inode": 262169,
+      "MountId": 57,
+      "Major": 254,
+      "Minor": 33,
+      "FileSystem": "EXT4"
+    }
+  ],
+  "WholeInventorySha256": "49C4D0EC0F868AA2ED3043C49F57185A1AEE5789704DEF2B2D706509ABB387F0",
+  "Negative": {
+    "EarlierEffects": "New copied runtime and journal bootstrap only",
+    "EffectsStoreEmpty": true,
+    "GenerationInvoked": false,
+    "Outcome": "RejectedBeforeSessionReservationAndTargetAcquisition",
+    "SessionStoreEmpty": true,
+    "TargetPublicationInvoked": false
+  },
+  "StagingTransfer": {
+    "InitialOversizeSerialTransfer": "TimedOutBeforeConfirmedBootstrap",
+    "IndependentReadback": "Stage, host input, new stores and provisioning mounts absent",
+    "Correction": "Bounded aggregate input-file identity instead of transferring the full identity map; no executor change or canonical retry"
+  },
+  "NativeStages": [
+    {
+      "Step": "Baseline",
+      "Outcome": "AppliedAndVerified",
+      "Reference": "00000001-2FEDC5035FB0E8C1A20066D42DC52CF45F8E6BF2C8C23A8EFA3D548F23A3AA8F.json",
+      "Sha256": "2FEDC5035FB0E8C1A20066D42DC52CF45F8E6BF2C8C23A8EFA3D548F23A3AA8F",
+      "IndependentObservationSha256": "05571539A9B26C7E81E34E99E6AC14327F39DC7137AB132B9AE7F6E8DEF7AD40"
+    },
+    {
+      "Step": "Generation",
+      "Outcome": "AppliedAndVerified",
+      "Reference": "00000003-D52317BE1E0F66A2E872AFE95FEC8A4968BA399790C6E48E12254736BB64928D.json",
+      "Sha256": "D52317BE1E0F66A2E872AFE95FEC8A4968BA399790C6E48E12254736BB64928D",
+      "IndependentObservationSha256": "BC277CF2F202B03225FC69F6070DEDBDFD354D2EC3BDD2C01208DFEBAA6B5961"
+    },
+    {
+      "Step": "Candidate",
+      "Outcome": "AppliedAndVerified",
+      "Reference": "00000005-72EF113B6C0E955ED0CB1993FD3A93319F47E853F27B1807B6D9467F2192CDDC.json",
+      "Sha256": "72EF113B6C0E955ED0CB1993FD3A93319F47E853F27B1807B6D9467F2192CDDC",
+      "IndependentObservationSha256": "319FC6FC21D7AECAD761979DAEAD793484AF0F121B96447678E34D75704408C6"
+    },
+    {
+      "Step": "Publication",
+      "Outcome": "AppliedAndVerified",
+      "Reference": "00000007-E398B2D22D039E8ECB72CAF6EB27B8FE190EAD2EC9A3FE9DD9DE795C7D7F3E22.json",
+      "Sha256": "E398B2D22D039E8ECB72CAF6EB27B8FE190EAD2EC9A3FE9DD9DE795C7D7F3E22",
+      "IndependentObservationSha256": "14DFEB91BEEE1E366022769FCBD83F391D790F2B9A45967B42B3E7B1AD852428"
+    },
+    {
+      "Step": "Verify",
+      "Outcome": "AppliedAndVerified",
+      "Reference": "00000009-9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8.json",
+      "Sha256": "9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8",
+      "IndependentObservationSha256": "61B931A16EA4708C094658A2A04FCF3DADE4D76B857000A1644CF63E4A43924C"
+    }
+  ],
+  "InstalledImage": {
+    "Gid": 0,
+    "Length": 150835389,
+    "Mode": 384,
+    "Path": "/boot/initrd.img-6.12.107+deb13-amd64",
+    "Sha256": "E99B6539000237AB7779628FE1B2E17723ACF0F2256780822B5A7FB3A96423F2",
+    "Uid": 0
+  },
+  "FinalIndependentObservation": {
+    "CompleteImageQualification": true,
+    "ConfiguredEntriesSha256": "4C8CFA39471BA1202D9329BE0CC8897928C60DC1B428458A4BB699112D5FAADC",
+    "Image": {
+      "Identity": [
+        65044,
+        262158,
+        150835389,
+        1790744745524000000,
+        1790744745612000000,
+        220
+      ],
+      "Length": 150835389,
+      "Sha256": "E99B6539000237AB7779628FE1B2E17723ACF0F2256780822B5A7FB3A96423F2"
+    },
+    "ImageSemantics": {
+      "Entries": 3310,
+      "GeneratedContent": {
+        "DependencyIndices": "Verified",
+        "FontCaches": "VerifiedRetainedQueries",
+        "GeneratedPaths": [
+          "etc/ld.so.cache",
+          "kernel/x86/microcode/.enuineIntel.align.0123456789abc",
+          "kernel/x86/microcode/AuthenticAMD.bin",
+          "kernel/x86/microcode/GenuineIntel.bin",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.alias",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.alias.bin",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.builtin.alias.bin",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.builtin.bin",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.dep",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.dep.bin",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.devname",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.softdep",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.symbols",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.symbols.bin",
+          "usr/lib/modules/6.12.107+deb13-amd64/modules.weakdep",
+          "var/cache/fontconfig/3830d5c3ddfd5cd38a049b759396e72e-le64.cache-9",
+          "var/cache/fontconfig/4c599c202bc5c08e2d34565a40eac3b2-le64.cache-9",
+          "var/cache/fontconfig/7ef2298fde41cc6eeb7af42e48b7d293-le64.cache-9",
+          "var/cache/fontconfig/d589a48862398ed80a3d6066f4f56f4c-le64.cache-9"
+        ],
+        "LibraryCache": "Verified",
+        "Microcode": "VerifiedAuthenticAMDMost",
+        "RequiredModuleLookups": {
+          "ext4": "DependencyClosureVerified",
+          "virtio": "BuiltIn",
+          "virtio_blk": "DependencyClosureVerified",
+          "virtio_pci": "BuiltIn"
+        }
+      },
+      "ImageLength": 150835389,
+      "ImageSha256": "E99B6539000237AB7779628FE1B2E17723ACF0F2256780822B5A7FB3A96423F2",
+      "KernelRelease": "6.12.107+deb13-amd64",
+      "Modules": 874,
+      "Policy": "debian-trixie-lab-initramfs-candidate-v1",
+      "RootUuid": "398f0d87-e17c-46d6-866f-24d10d747006",
+      "TargetBooted": false
+    },
+    "OperationId": "5263e27d-3903-4221-a2a9-c169766a3f32",
+    "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+    "PlanSha256": "C546D863681EF39487E0FF958F1932DA34DF7D57967E3E2FB002AA92EA498CC1",
+    "RootIdentity": [
+      65044,
+      2,
+      220
+    ],
+    "Step": "Verify"
+  },
+  "Handoff": {
+    "Reference": "/var/lib/igloo/initramfs-helper-labs/c5dc04e918f64b78b60a2346e2d70000/canonical-initramfs-handoff.json",
+    "Sha256": "FE6F41BF76BF65D2B06FD97E8E638B4C53E2CF239B19734D991A17BB57930BAF",
+    "IndependentReopen": "Passed",
+    "EffectRecords": [
+      {
+        "Reference": "00000000-6C8CFA701F6FC8208793C31C505E4EA10759DFC8A20FC660456166300E4739AB.json",
+        "Sha256": "6C8CFA701F6FC8208793C31C505E4EA10759DFC8A20FC660456166300E4739AB"
+      },
+      {
+        "Reference": "00000001-2FEDC5035FB0E8C1A20066D42DC52CF45F8E6BF2C8C23A8EFA3D548F23A3AA8F.json",
+        "Sha256": "2FEDC5035FB0E8C1A20066D42DC52CF45F8E6BF2C8C23A8EFA3D548F23A3AA8F"
+      },
+      {
+        "Reference": "00000002-589D7A6DFE9F97E503A92A08F329B9E0121EC68B3437D65948F431835F37F68F.json",
+        "Sha256": "589D7A6DFE9F97E503A92A08F329B9E0121EC68B3437D65948F431835F37F68F"
+      },
+      {
+        "Reference": "00000003-D52317BE1E0F66A2E872AFE95FEC8A4968BA399790C6E48E12254736BB64928D.json",
+        "Sha256": "D52317BE1E0F66A2E872AFE95FEC8A4968BA399790C6E48E12254736BB64928D"
+      },
+      {
+        "Reference": "00000004-8F54459B23CD81B4AFEA85B25828C0E7BF4C30B08EADD632C1FA2729F75D75D7.json",
+        "Sha256": "8F54459B23CD81B4AFEA85B25828C0E7BF4C30B08EADD632C1FA2729F75D75D7"
+      },
+      {
+        "Reference": "00000005-72EF113B6C0E955ED0CB1993FD3A93319F47E853F27B1807B6D9467F2192CDDC.json",
+        "Sha256": "72EF113B6C0E955ED0CB1993FD3A93319F47E853F27B1807B6D9467F2192CDDC"
+      },
+      {
+        "Reference": "00000006-86B2E428FDBE377D9B9D1CA557D8B15CDA3719B26DA09BBAE665363A20CB1604.json",
+        "Sha256": "86B2E428FDBE377D9B9D1CA557D8B15CDA3719B26DA09BBAE665363A20CB1604"
+      },
+      {
+        "Reference": "00000007-E398B2D22D039E8ECB72CAF6EB27B8FE190EAD2EC9A3FE9DD9DE795C7D7F3E22.json",
+        "Sha256": "E398B2D22D039E8ECB72CAF6EB27B8FE190EAD2EC9A3FE9DD9DE795C7D7F3E22"
+      },
+      {
+        "Reference": "00000008-7B7F925CB323EC5C20B95E8736347D97DE00FEB2DB5AB6AE143A1E60AFFE52E0.json",
+        "Sha256": "7B7F925CB323EC5C20B95E8736347D97DE00FEB2DB5AB6AE143A1E60AFFE52E0"
+      },
+      {
+        "Reference": "00000009-9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8.json",
+        "Sha256": "9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8"
+      }
+    ],
+    "SessionRecords": [
+      {
+        "Reference": "00000000-CB2F5E3130C8A6B0407AE519E01446AC6EB96F76F147DD4FC685D83EC7360179.json",
+        "Sha256": "CB2F5E3130C8A6B0407AE519E01446AC6EB96F76F147DD4FC685D83EC7360179"
+      },
+      {
+        "Reference": "00000001-3B84FB79B78B6E7A5DE4207BA6C293B939B73633ADBCEBAF1D219C0FAB203C5A.json",
+        "Sha256": "3B84FB79B78B6E7A5DE4207BA6C293B939B73633ADBCEBAF1D219C0FAB203C5A"
+      },
+      {
+        "Reference": "00000002-09B5E7033784ED5A5927291148D4A2801A230E1C85040BD5347B4F814DDA7E87.json",
+        "Sha256": "09B5E7033784ED5A5927291148D4A2801A230E1C85040BD5347B4F814DDA7E87"
+      },
+      {
+        "Reference": "00000003-776BC91057F92C8E7C8C08CEC10B571FABE260DB245AEF433C58ACB2BC9393BF.json",
+        "Sha256": "776BC91057F92C8E7C8C08CEC10B571FABE260DB245AEF433C58ACB2BC9393BF"
+      },
+      {
+        "Reference": "00000004-55A70C0B6DC583CE3BEBEF460A8E02AE350365BB2CE79E876C87AA41EBA0DB4E.json",
+        "Sha256": "55A70C0B6DC583CE3BEBEF460A8E02AE350365BB2CE79E876C87AA41EBA0DB4E"
+      },
+      {
+        "Reference": "00000005-C0466C746EE9591B6DF7574C7D9CBC56512E06C4FDE7C490750BDEDFAE4F6D43.json",
+        "Sha256": "C0466C746EE9591B6DF7574C7D9CBC56512E06C4FDE7C490750BDEDFAE4F6D43"
+      },
+      {
+        "Reference": "00000006-4C389E7FC30AFD93AD5A624070687901C69486573C14021106873D338DA0383F.json",
+        "Sha256": "4C389E7FC30AFD93AD5A624070687901C69486573C14021106873D338DA0383F"
+      },
+      {
+        "Reference": "00000007-868C70D4CCAE25C0FCFC71D883AB80E1144E90BB0329303CF571968C03C4C046.json",
+        "Sha256": "868C70D4CCAE25C0FCFC71D883AB80E1144E90BB0329303CF571968C03C4C046"
+      },
+      {
+        "Reference": "00000008-D808B9DCF1B660638C7C042D63AD8A815EC429F64FD80118FC2420420044D3DF.json",
+        "Sha256": "D808B9DCF1B660638C7C042D63AD8A815EC429F64FD80118FC2420420044D3DF"
+      },
+      {
+        "Reference": "00000009-F236741C0E58D4074F70DFF7BA2D7CB79702FC7812BC540ACFC8E65FA683CA81.json",
+        "Sha256": "F236741C0E58D4074F70DFF7BA2D7CB79702FC7812BC540ACFC8E65FA683CA81"
+      },
+      {
+        "Reference": "00000010-87BA95BEC38776837BCAF7F494A6D7D5A7AE6BCD30DB69C5B6F308810F604F96.json",
+        "Sha256": "87BA95BEC38776837BCAF7F494A6D7D5A7AE6BCD30DB69C5B6F308810F604F96"
+      },
+      {
+        "Reference": "00000011-FEAB9F4930F04872A5A7DB1BEE0FD00EA254E9B007CB07D725F30B6E36942CB2.json",
+        "Sha256": "FEAB9F4930F04872A5A7DB1BEE0FD00EA254E9B007CB07D725F30B6E36942CB2"
+      },
+      {
+        "Reference": "00000012-577B5E15D897D31CECBF2E4FFB1E8A25F6107B8633EEB8EC80B60942266EDB99.json",
+        "Sha256": "577B5E15D897D31CECBF2E4FFB1E8A25F6107B8633EEB8EC80B60942266EDB99"
+      },
+      {
+        "Reference": "00000013-1CF7402AC9468B83DCBBC5B4EF77E6B0663FB5575B684AA893225C0D5B7B6853.json",
+        "Sha256": "1CF7402AC9468B83DCBBC5B4EF77E6B0663FB5575B684AA893225C0D5B7B6853"
+      },
+      {
+        "Reference": "00000014-735BB3B36CFBEA76C1498CF09D45A16E7D5249F4730983216A75442E89BE4881.json",
+        "Sha256": "735BB3B36CFBEA76C1498CF09D45A16E7D5249F4730983216A75442E89BE4881"
+      },
+      {
+        "Reference": "00000015-16B42240A7AF13D3C5149121A5348039F14D0020051C3CD1220A6DE2E23667F8.json",
+        "Sha256": "16B42240A7AF13D3C5149121A5348039F14D0020051C3CD1220A6DE2E23667F8"
+      },
+      {
+        "Reference": "00000016-2FF475F0C18EF5CC25B9592FA4C8E2E932E0D9660843A896EE9AB771795BEEBC.json",
+        "Sha256": "2FF475F0C18EF5CC25B9592FA4C8E2E932E0D9660843A896EE9AB771795BEEBC"
+      },
+      {
+        "Reference": "00000017-F0CB1447C24AF09EBC1A178E29E692AAB36C8AED0AAE130CE2A16CD23F8446F3.json",
+        "Sha256": "F0CB1447C24AF09EBC1A178E29E692AAB36C8AED0AAE130CE2A16CD23F8446F3"
+      }
+    ],
+    "InitramfsResult": {
+      "Reference": "00000009-9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8.json",
+      "Sha256": "9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8"
+    },
+    "CloseResult": {
+      "Reference": "00000017-F0CB1447C24AF09EBC1A178E29E692AAB36C8AED0AAE130CE2A16CD23F8446F3.json",
+      "Sha256": "F0CB1447C24AF09EBC1A178E29E692AAB36C8AED0AAE130CE2A16CD23F8446F3"
+    }
+  },
+  "CanonicalTeardown": "AppliedAndVerified",
+  "NormalRuntimeShutdown": {
+    "CanonicalTeardownVerifiedSeparately": true,
+    "ConsolePowerDown": true,
+    "HandoffSha256": "FE6F41BF76BF65D2B06FD97E8E638B4C53E2CF239B19734D991A17BB57930BAF",
+    "ProcessAbsent": true
+  },
+  "Retention": {
+    "Reference": "/var/lib/igloo/initramfs-helper-labs/c5dc04e918f64b78b60a2346e2d70000/initramfs-retention.json",
+    "Sha256": "5A8BCA5036C54A0D6FB0E9108B8B089016D4CB647B652A172F94AF4D340A0AFB",
+    "Backings": {
+      "journal.raw": {
+        "Device": 2096,
+        "Inode": 12666,
+        "Length": 8589934592,
+        "Links": 1,
+        "Sha256": "ED36D552AD275F96945A7D52870A039C0F1B097E9FA4853212E719DF9399109C"
+      },
+      "runtime.raw": {
+        "Device": 2096,
+        "Inode": 12256,
+        "Length": 25769803776,
+        "Links": 1,
+        "Sha256": "DB2F8E3103312C9BED1FDEAFFA4EDCA71A7CC68184CEEDA491E7B6BAE80597BC"
+      },
+      "target.raw": {
+        "Device": 2096,
+        "Inode": 12660,
+        "Length": 42949672960,
+        "Links": 1,
+        "Sha256": "55B7F3E69A742C1DC5F470D67207F415B847ADFC296D4B93BA619D809A8E942C"
+      }
+    }
+  },
+  "PreservedLabPartition": "0B1C5550B9FCBE8B9B234D04655BDE475DC0E70168E2F411D01E50740945AE17",
+  "ProtectedPredecessorAndFailureRecheck": {
+    "ConfiguredBackings": {
+      "journal.raw": {
+        "IdentityUnchanged": true,
+        "Sha256": "9FDF4059917954C424DD2081D88D71BC817774AF425746D941FEB735BCE8AA04"
+      },
+      "runtime.raw": {
+        "IdentityUnchanged": true,
+        "Sha256": "C7B4A480850A9F9F4E82E72C29AB7DD1F47B409995BA1E254E938A7D881C6A60"
+      },
+      "target.raw": {
+        "IdentityUnchanged": true,
+        "Sha256": "FB3005ACC26A229E95C1B17B069C90D7459689004EA5A06D2E6A4A34B1EEF51F"
+      }
+    },
+    "OtherHistoricalFailures": "Not attached or written; no additional full-byte audit",
+    "PriorFailedCanonicalBackingsUnchanged": {
+      "journal.raw": {
+        "Device": 2096,
+        "Inode": 84602,
+        "Length": 8589934592,
+        "Links": 1,
+        "Sha256": "E220D079929177D48775D9F150006886A832E84806A974304140D148FCAFA5B0"
+      },
+      "runtime.raw": {
+        "Device": 2096,
+        "Inode": 84597,
+        "Length": 25769803776,
+        "Links": 1,
+        "Sha256": "F3F8F21C01C8AD3ECF2E3B8AD97E91301AB1CDDB864314D4D2FDF01C9D9D5E71"
+      },
+      "target.raw": {
+        "Device": 2096,
+        "Inode": 84600,
+        "Length": 42949672960,
+        "Links": 1,
+        "Sha256": "56188DC44E73FCA57DB3EF1339C463AF72FD311BBE17CCD3FC86550468C0D28B"
+      }
+    },
+    "PriorFailedRecordAndIdentitySnapshotSha256": "C3D3D3C31E862A4BD7B5D49AD18027B5F13BB2A38D88CC0A12F71646A45F144A",
+    "QualifiedHelperRuntimeUnchanged": true
+  },
+  "RawEvidenceArchiveSha256": "B615E3701A09F0A8428B8515AF4D09FDB986DE425731D7D5E717BFC97B7E2EBB",
+  "Validation": [
+    {
+      "Platform": "Windows .NET",
+      "Command": "dotnet build Igloo.sln --no-restore -m:1 -warnaserror",
+      "Result": "Passed; zero warnings/errors"
+    },
+    {
+      "Platform": "Windows .NET",
+      "Command": "dotnet test Igloo.sln --no-build --no-restore -m:1",
+      "Result": "Passed",
+      "Tests": 1442,
+      "Projects": {
+        "Core": 398,
+        "Migration": 448,
+        "Iso": 19,
+        "Community.App": 58,
+        "Preflight": 343,
+        "UsbWriter": 23,
+        "Fleet": 153
+      }
+    },
+    {
+      "Platform": "Windows .NET",
+      "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+      "Result": "Passed; zero warnings/errors"
+    },
+    {
+      "Platform": "Windows .NET",
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror --filter FullyQualifiedName~DebianConfigurationContinuationTests",
+      "Result": "26 passed before four additional failure-location cases; all 30 included in final Migration suite"
+    },
+    {
+      "Platform": "WSL Ubuntu-24.04 root; ordinary-file and synthetic boundaries",
+      "Command": "python3 -B -m unittest discover -s tests/installer -p 'test_*.py'",
+      "Environment": "IGLOO_INITRAMFS_WIRE_FIXTURE points to current .NET serializer export",
+      "Result": "375 passed; zero skipped"
+    },
+    {
+      "Platform": "Isolated GPT runtime Linux .NET",
+      "Command": "--reopen-configured-predecessor /opt/igloo-canonical-initramfs-wire/configured-predecessor",
+      "Result": "Passed; no effects"
+    },
+    {
+      "Platform": "Isolated GPT runtime Linux .NET",
+      "Command": [
+        "/opt/dotnet/dotnet",
+        "/opt/igloo-canonical-initramfs-wire/harness/CanonicalImportQualification.dll",
+        "--initramfs-derived-lab",
+        "/opt/igloo-canonical-initramfs-wire/configured-predecessor",
+        "/root/initramfs-c5dc04e9-18f6-4b78-b60a-2346e2d70000/negative-declaration.json",
+        "/opt/igloo-canonical-initramfs-wire/initramfs-authorization.json",
+        "/root/initramfs-c5dc04e9-18f6-4b78-b60a-2346e2d70000/runtime.json",
+        "/root/initramfs-c5dc04e9-18f6-4b78-b60a-2346e2d70000/journals.json",
+        "/opt/igloo-canonical-initramfs-wire/external-pin.json",
+        "/root/initramfs-c5dc04e9-18f6-4b78-b60a-2346e2d70000/candidate-plan.json"
+      ],
+      "Result": "Rejected before session reservation/acquisition"
+    },
+    {
+      "Platform": "Isolated GPT runtime Linux .NET",
+      "Command": [
+        "/opt/dotnet/dotnet",
+        "/opt/igloo-canonical-initramfs-wire/harness/CanonicalImportQualification.dll",
+        "--initramfs-derived-lab",
+        "/opt/igloo-canonical-initramfs-wire/configured-predecessor",
+        "/root/initramfs-c5dc04e9-18f6-4b78-b60a-2346e2d70000/declaration.json",
+        "/opt/igloo-canonical-initramfs-wire/initramfs-authorization.json",
+        "/root/initramfs-c5dc04e9-18f6-4b78-b60a-2346e2d70000/runtime.json",
+        "/root/initramfs-c5dc04e9-18f6-4b78-b60a-2346e2d70000/journals.json",
+        "/opt/igloo-canonical-initramfs-wire/external-pin.json",
+        "/root/initramfs-c5dc04e9-18f6-4b78-b60a-2346e2d70000/candidate-plan.json"
+      ],
+      "Result": "Exit 0; complete independent chains separately verified"
+    },
+    {
+      "Platform": "Host independent raw-record reader",
+      "Command": "canonical_initramfs_readback.verify(execution, journals)",
+      "Result": "10 effect and 18 session records passed"
+    },
+    {
+      "Command": "git diff --check; separate changed/untracked UTF-8, BOM, whitespace, size and private-key-marker checks",
+      "Result": "Passed after correcting a newly introduced documentation quote encoding; historical JSON bytes unchanged"
+    }
+  ],
+  "OmittedChecks": [
+    "No additional retained-helper campaign: unchanged qualified generator/isolation/image observer",
+    "No power-loss or target-boot test",
+    "No real Windows physical-storage qualification"
+  ],
+  "HistoricalEvidenceUnchanged": true,
+  "Limitations": [
+    "AuthenticAMD / virtio-block / EXT4 lab scope only",
+    "Earlier poisoned-session teardown gaps remain unresolved",
+    "Kernel, modules, hooks or relevant early-boot input changes require separately authorized revalidation/regeneration",
+    "No managed update-initramfs state, bootloader aliases, GRUB/ESP/NVRAM, agent/UserData/Enrollment or target boot"
+  ],
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0,
+  "ProductionEnablement": false,
+  "TargetBooted": false,
+  "FinalWorkingTree": {
+    "ModifiedTracked": 33,
+    "Untracked": 87,
+    "IndexEmpty": true,
+    "BranchAndHeadUnchanged": true
+  }
+}

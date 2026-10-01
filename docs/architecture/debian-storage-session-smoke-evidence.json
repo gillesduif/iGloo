@@ -1,0 +1,1663 @@
+{
+  "SchemaVersion": 1,
+  "AtUtc": "2026-09-28T20:11:58.796286+00:00",
+  "BaselineCommit": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+  "Branch": "refactor/community-fleet-foundation",
+  "StartingWorkingTree": {
+    "ModifiedTracked": 12,
+    "Untracked": 10,
+    "Files": [
+      {
+        "Path": ".editorconfig",
+        "Length": 8178,
+        "SHA256": "A99DD9BA50D0C281F0B8A407FCE4D73A4D796C9C49500A6C7829504FCA9411B3"
+      },
+      {
+        "Path": ".gitattributes",
+        "Length": 607,
+        "SHA256": "740A51CD562AB942FCB023A41C1A5E2C65CDCEF6647895B70AB8C029C7558F1E"
+      },
+      {
+        "Path": "docs/architecture/community-installation-ownership.md",
+        "Length": 24318,
+        "SHA256": "1A2358D8040C8A59B381FE2A768065B09486B42AA5C6D9FB7DAE4804753C485A"
+      },
+      {
+        "Path": "docs/architecture/debian-configured-root-artifact.md",
+        "Length": 39533,
+        "SHA256": "9BA2E7DBC5888C23CC4DC7194431BFAD80385B0D5050317B261B782B94AFED8B"
+      },
+      {
+        "Path": "docs/architecture/debian-configured-root-neutralization-evidence.json",
+        "Length": 55916,
+        "SHA256": "D38FAE0A29E58190EB00D7F163478D35CB5711E42C1A7105F480408E1AC23FD3"
+      },
+      {
+        "Path": "docs/architecture/debian-root-chunk-transport-manifest.json",
+        "Length": 1121,
+        "SHA256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757"
+      },
+      {
+        "Path": "docs/architecture/debian-session-boundary.md",
+        "Length": 26824,
+        "SHA256": "1FB543594A38943C965C656AD590DD4F7FD4C12917186EF78042EC12D9415DFC"
+      },
+      {
+        "Path": "docs/fleet/phase-2.md",
+        "Length": 165548,
+        "SHA256": "79C731E74819F12ED0DEE60E99998E6BEA52587CE30B207AEE2C29167EED743F"
+      },
+      {
+        "Path": "tests/Igloo.Migration.Tests/DebianRootTransportTests.cs",
+        "Length": 6914,
+        "SHA256": "BAB0B9DF5EE2CFFAFC15656182577E6A054C5BC174E356250261333AF0615C08"
+      },
+      {
+        "Path": "tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj",
+        "Length": 559,
+        "SHA256": "B7F79FFCF1083C0A391E9E5196F107BB45AD30967DCB9408D3B19B181FE33DA0"
+      },
+      {
+        "Path": "tests/installer/CanonicalImportQualification/Program.cs",
+        "Length": 5471,
+        "SHA256": "6EE403D1A3B5B1ED28C9F610B9009D72392DD00FA98D9D5E17BD34EDC45530BF"
+      },
+      {
+        "Path": "tests/installer/CanonicalImportQualification/README.md",
+        "Length": 10156,
+        "SHA256": "DB970E5865032F73D814DCE9AC6A5CC4CE21079DA1367266168DF0AF9D092758"
+      },
+      {
+        "Path": "docs/architecture/debian-canonical-gpt-runtime-evidence.json",
+        "Length": 22135,
+        "SHA256": "2CF30BA00C317A199298D5556FB5DA32F0B478BF93788DD884FCDA6363A57751"
+      },
+      {
+        "Path": "docs/architecture/debian-canonical-lab-acquisition.md",
+        "Length": 12734,
+        "SHA256": "DF91C7DCB0B520D0ADD3A33425D796269D0025F4464093A0953CB9AD3BB61242"
+      },
+      {
+        "Path": "src/Igloo.Core/Preparation/InstallerLabAcquisition.cs",
+        "Length": 10236,
+        "SHA256": "310B87E80F5D4A968C832A5FC49F9A0C30BDD6AE59226981276756EC156EC7C4"
+      },
+      {
+        "Path": "tests/Igloo.Core.Tests/InstallerLabAcquisitionTests.cs",
+        "Length": 7291,
+        "SHA256": "814DB5CE9A5C4238884FDD9BAC36239204081933FEB31E7AF74F5D3D6D37D7D0"
+      },
+      {
+        "Path": "tests/installer/CanonicalImportQualification/InventoryProbe.cs",
+        "Length": 5584,
+        "SHA256": "1E54B7D1239FDDC2A0178690D8B791770E434EF0056F6D58901E517E4D9D1BB1"
+      },
+      {
+        "Path": "tests/installer/canonical_lab_guest_build.py",
+        "Length": 6243,
+        "SHA256": "D680CEE4D61A51C38416316D41F962D4C96236BFC2EFC6553F414E37622011AD"
+      },
+      {
+        "Path": "tests/installer/canonical_lab_guest_storage.py",
+        "Length": 4902,
+        "SHA256": "D113A0B860F9C348F604E3678BB2B035E19AABF264AE03D847DE17D0ACC37BAB"
+      },
+      {
+        "Path": "tests/installer/canonical_lab_runtime.py",
+        "Length": 13295,
+        "SHA256": "36C1F2BC4DBAC602817542458F26541AB100C502470A0628602E0481708455A9"
+      },
+      {
+        "Path": "tests/installer/test_canonical_lab_runtime.py",
+        "Length": 2269,
+        "SHA256": "E456FD118B713E119AD4459D42910EDDFC3153D2A9F2136C7D8727A565E43096"
+      },
+      {
+        "Path": "tests/installer/test_exact_evidence.py",
+        "Length": 1083,
+        "SHA256": "391B9741C5C8606D6732F417C3ABD8852D14E72A5E8DE5F53A35E1874B46F3B2"
+      }
+    ]
+  },
+  "Scope": "Canonical storage smoke only; full artifact import NOT IN SCOPE / NOT INVOKED",
+  "LabRunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+  "PreparationGeneration": "143faa07-7012-4e54-b5c4-04e349552248",
+  "Provenance": {
+    "Provider": "IsolatedFileBackedLab",
+    "Version": 1,
+    "Scope": "StorageSmoke",
+    "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+    "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+    "EvidenceSha256": "C8F357A4ACC89CBD75820ACB72FDABDE7812C10B375D686B713773B1B17785EE"
+  },
+  "Runtime": {
+    "Framework": ".NET 8.0.20 linux-x64",
+    "Hypervisor": "QEMU 8.2.2 / KVM",
+    "Kernel": "6.12.107+deb13-amd64",
+    "Boot": "Direct kernel/initrd; BIOS/no EFI",
+    "DiskTopology": "24 GiB GPT runtime copy; new 40 GiB GPT target; new 8 GiB GPT journal; read-only ISO9660 tools CD",
+    "Nic": false,
+    "PhysicalPassthrough": false,
+    "HostShares": false,
+    "ExecutedBinaries": {
+      "/opt/dotnet/dotnet": {
+        "Mode": 493,
+        "Sha256": "37674A9F73C1F531B7DCB26F569692F2C85419C0BA4FB7622D5BFC65BB0F5810",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/Microsoft.CSharp.dll": {
+        "Mode": 420,
+        "Sha256": "D51A47C02BAB0940D323C3A6DD30A9F564845058A07ECB7D50170BF2AEA8B51D",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/Microsoft.NETCore.App.deps.json": {
+        "Mode": 420,
+        "Sha256": "EC70FA094FB94D78CAAC54F91050139D675468B37CE9D757D0B78EBFAECC0ABA",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/Microsoft.NETCore.App.runtimeconfig.json": {
+        "Mode": 420,
+        "Sha256": "4A798DA45BC138AE224341FEEBF984C9E330A4BEE2EBB7A821505D95D17124FB",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/Microsoft.VisualBasic.Core.dll": {
+        "Mode": 420,
+        "Sha256": "A860B2A0247D66B9D233555420802E413DD9C37CED3A4E5C60FC13A3D39E3C3A",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/Microsoft.VisualBasic.dll": {
+        "Mode": 420,
+        "Sha256": "EF116D9300942DBA4FBDC4458597137DDACBD0DCCD9F06699A7D453926A64A99",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/Microsoft.Win32.Primitives.dll": {
+        "Mode": 420,
+        "Sha256": "45AD0E6A139BFA0D144C9626E59EEA046BAE4696104D1CB340EC7016D70A88BB",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/Microsoft.Win32.Registry.dll": {
+        "Mode": 420,
+        "Sha256": "C24B07687961F2675A147FACFC54CA8FBB2E5E9038D79600CC0BF32D64CC4612",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.AppContext.dll": {
+        "Mode": 420,
+        "Sha256": "DE676E5366D75F3D56BCA30244AAD918C3F3E115532AFA2FCFD458098BDB294B",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Buffers.dll": {
+        "Mode": 420,
+        "Sha256": "AB7F944133D6624E8B82B2AEA193BAA62FD063F57579B37622059E4B72BE3398",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Collections.Concurrent.dll": {
+        "Mode": 420,
+        "Sha256": "0B8B8EFC65DCA54A754CD70EF6C71C570432F6E46433CF322F82FD3EE1AF0D28",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Collections.Immutable.dll": {
+        "Mode": 420,
+        "Sha256": "5BEA096743D73A1B07655F8F4BA606EB152FB3CE4CE574451598C77DF8282884",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Collections.NonGeneric.dll": {
+        "Mode": 420,
+        "Sha256": "EBBF47C82654842BE4BA9024530278FABB344CB32628E85FAADC24CC72E9A0AD",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Collections.Specialized.dll": {
+        "Mode": 420,
+        "Sha256": "968C38297A48860BF29AABB220C174D27762A69F191C9E9101E3CD66730C075F",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Collections.dll": {
+        "Mode": 420,
+        "Sha256": "85936F4310CF567D3DFF9048944867D4C8EF9A502807CED77A645B4246997036",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ComponentModel.Annotations.dll": {
+        "Mode": 420,
+        "Sha256": "811DB08F84421623E16D49F895ADD854580E80E8F162CB8C9E63820B51827743",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ComponentModel.DataAnnotations.dll": {
+        "Mode": 420,
+        "Sha256": "1AD212A8FAE6D353046D9096AA89418E777F82D9FFDE4B5970AD43C79DE88623",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ComponentModel.EventBasedAsync.dll": {
+        "Mode": 420,
+        "Sha256": "8328B9DD25A326FCA58AFA3873BC5105E2A48128A7FACD7FF4D31B0BEFC6BB90",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ComponentModel.Primitives.dll": {
+        "Mode": 420,
+        "Sha256": "94525E5B40DF0C6D76831B5DDAA7553E88F3350373EC4227095501A03274C6F4",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ComponentModel.TypeConverter.dll": {
+        "Mode": 420,
+        "Sha256": "A9AF6B9E2BEE97E8E35BB3FCE19E121F3946583B390720D6B7C33B5B0F1DEB78",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ComponentModel.dll": {
+        "Mode": 420,
+        "Sha256": "709CE0F6D8357568126537089A7CA52AC0DAD5D83998FC187AFD6833359E97A7",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Configuration.dll": {
+        "Mode": 420,
+        "Sha256": "A99B25428CC6D5AD59D967A0A197FA314A1D2EF82CB2BB14E714E79862C4EBD7",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Console.dll": {
+        "Mode": 420,
+        "Sha256": "041EEB8BD589D3586C7495347C52972FF904C5DB6BAC07754F9FAB80E9D059CB",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Core.dll": {
+        "Mode": 420,
+        "Sha256": "8070F6B3C22CB1CC6F04BC0DBC87FB0EA14C081CF70C57552EAAC413D9324098",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Data.Common.dll": {
+        "Mode": 420,
+        "Sha256": "C81A495446523D56E44ABC87927BADABD3FFBF99CEF80E6C2693487546F53B80",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Data.DataSetExtensions.dll": {
+        "Mode": 420,
+        "Sha256": "EC7258D922F3C799731DD3CD44D17C9728ED8E480854B8A98C32B771859B6E4C",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Data.dll": {
+        "Mode": 420,
+        "Sha256": "EECDA99BB8380606418970E403ED29F73CA0CBD464BEBCAF8C22EF4C6AEE37DB",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.Contracts.dll": {
+        "Mode": 420,
+        "Sha256": "1EE6F5B5D9C431E66FD668A0A2EDBECBF3026D570E5871EB0ADCF8ACDEAF44F8",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.Debug.dll": {
+        "Mode": 420,
+        "Sha256": "747938410920909CA1A775FACB7E23F95116CE173B4FA4D8BB42BB4F10111032",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.DiagnosticSource.dll": {
+        "Mode": 420,
+        "Sha256": "76FEC6741AEA90CE45760A1BE4EF416F8530E816F42B5F62E3A0C25A9E3F7FC3",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.FileVersionInfo.dll": {
+        "Mode": 420,
+        "Sha256": "299F6301F308B5255E3601BFE87C92EF507CF6E4F3B6CBDF11C211E050B72428",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.Process.dll": {
+        "Mode": 420,
+        "Sha256": "30541CDFB61D7DC8CB5C5829913E9641391EC19FF3AA91F7040D7336C1A6BE51",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.StackTrace.dll": {
+        "Mode": 420,
+        "Sha256": "701AD92E9C824D5227B6E385AA9EEC53888BD58AE50C500B1C4FB8197FC661C4",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.TextWriterTraceListener.dll": {
+        "Mode": 420,
+        "Sha256": "66EC047D94F7841767F5C5E3DD7EAFC32BDD0411C63BB30414BB5539FA00A1FA",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.Tools.dll": {
+        "Mode": 420,
+        "Sha256": "7A26666A568F2874558DCA1B755A4E3A108E56422DEFD3D3F66140C6C2B93EDF",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.TraceSource.dll": {
+        "Mode": 420,
+        "Sha256": "8DF48E33E91EBF36CE5FE0F49C76B6D963AE5E15163B6B3C2C8631F25761592B",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Diagnostics.Tracing.dll": {
+        "Mode": 420,
+        "Sha256": "65D963E8F10645AF77A4E4BD3AC7DE151100CB82E8DB36EC2444646213819623",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Drawing.Primitives.dll": {
+        "Mode": 420,
+        "Sha256": "C773E3AC92AA19A68D49427CFE703B0B6C63FD32C7F0056C633E37D563D9936F",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Drawing.dll": {
+        "Mode": 420,
+        "Sha256": "D59B42BDF1780B80FEC6BF5DE47CC89361AC270631C407EBA5183E42500640B3",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Dynamic.Runtime.dll": {
+        "Mode": 420,
+        "Sha256": "F5838E24850F7A89022F7D72A11195C189CD5F2B7E8F2018465D2F29CDE95DB9",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Formats.Asn1.dll": {
+        "Mode": 420,
+        "Sha256": "EA97BFD51D485120F4987A16E70C854B6BA2629FAD5468F7116A8DDFB3F34048",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Formats.Tar.dll": {
+        "Mode": 420,
+        "Sha256": "5B8DAA9B9EAC7A0D7C3059425A66B9B79E2F5E712B9884221DD89D99FF4DBE7B",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Globalization.Calendars.dll": {
+        "Mode": 420,
+        "Sha256": "5D20AA2A43406AB12025A2805E2057699BFC6F04ACE8C396367A8D1C3BDB5800",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Globalization.Extensions.dll": {
+        "Mode": 420,
+        "Sha256": "4BB76F3278119536971CFA3DC3C3563AC565FD18FB4054385E2077889868BA69",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Globalization.dll": {
+        "Mode": 420,
+        "Sha256": "6816D7B23F8B3041EB45ED8E621D4E99AB0FBABBBA531DD79BED59166B819EF7",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.Compression.Brotli.dll": {
+        "Mode": 420,
+        "Sha256": "997B6F315B33D627B188273CB688A06480240309FD9616EFDA958A447B66E3CB",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.Compression.FileSystem.dll": {
+        "Mode": 420,
+        "Sha256": "CC40995A15B33B7B05D24CC987233736F145B33E74F5665BB7BBBF806DB6D409",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.Compression.ZipFile.dll": {
+        "Mode": 420,
+        "Sha256": "F9C1D66D42C9A3EDFBD58BDD8824BCEC77453066B38AF9225D92C63C39B1C5A5",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.Compression.dll": {
+        "Mode": 420,
+        "Sha256": "30B0064A944DEBDBB4A38788C775675E2F8072F68E57998221CA9CD1B5B1614D",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.FileSystem.AccessControl.dll": {
+        "Mode": 420,
+        "Sha256": "5C6E3DDA2B760E25A6D4528C4495C6293739BB8D43A9FE7260B835CE8A5723BE",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.FileSystem.DriveInfo.dll": {
+        "Mode": 420,
+        "Sha256": "6ED251E41967EB460A4AA98341A9E004930FFAD66D72E21908486912C334087C",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.FileSystem.Primitives.dll": {
+        "Mode": 420,
+        "Sha256": "E946085F3B5D04D0C836BD2F84237315D19C435493F9599492403F5000BB826E",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.FileSystem.Watcher.dll": {
+        "Mode": 420,
+        "Sha256": "C4643FE272AFC5962604F3FEB092CDD7CE123FA98310601D10297F6CD7829E8D",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.FileSystem.dll": {
+        "Mode": 420,
+        "Sha256": "A210CD55ED265DFAF2DFC017ACADF469A573DE83E0A0F95CB1553C7D55E15318",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.IsolatedStorage.dll": {
+        "Mode": 420,
+        "Sha256": "A9609C35E1EB6366ADBBA40D5FB83071FBB6758CBA970A93492A72AAD9783F4E",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.MemoryMappedFiles.dll": {
+        "Mode": 420,
+        "Sha256": "C4C05DC333DD3AD129CB57C432652CBE1F234FFCBF5CB3C3E14EF1C37BF3D3C9",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.Pipes.AccessControl.dll": {
+        "Mode": 420,
+        "Sha256": "AA5C81B7C3DCBE8860937A3FA7695CE7BB5396723CBBE75943D54F2EA3794C4E",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.Pipes.dll": {
+        "Mode": 420,
+        "Sha256": "D1C40AC5283EA2F58F33AEDE9B3A2B90B5BB52D590DD29F8481467FEA6F42852",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.UnmanagedMemoryStream.dll": {
+        "Mode": 420,
+        "Sha256": "D4FF6631B6D347AB178A28170514FBF1D06DF05DDDD080D15BDF88AAF9AAF851",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.IO.dll": {
+        "Mode": 420,
+        "Sha256": "47EAD51BA900D2A147AB6FFD680506D592C17A50DDCAF999DCF85A2DBF82554C",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Linq.Expressions.dll": {
+        "Mode": 420,
+        "Sha256": "C06354E7C4EF4E7AF1466DC65CBB1C024E7DB9E3623D4714C023F1F8571FE6DE",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Linq.Parallel.dll": {
+        "Mode": 420,
+        "Sha256": "5D2A581B1A320410BFEADBDBE8C900E5FA087D9ACDF3C86C79AB336E32919C1B",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Linq.Queryable.dll": {
+        "Mode": 420,
+        "Sha256": "A286D992A227895394D8C84D8F7191D6A28AB2D4D002050230A053D418DFB057",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Linq.dll": {
+        "Mode": 420,
+        "Sha256": "C62D94C3A681E43A6E7100077B2561B80E1C5616334672F4734DEFC1B2BC4131",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Memory.dll": {
+        "Mode": 420,
+        "Sha256": "ADD610C5FA72FDD8FEAB90106AAB5353F4239B3AAE8C874FBD00750C4657BBE1",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.Http.Json.dll": {
+        "Mode": 420,
+        "Sha256": "7B7AA58E4E4E37BEE35DA86480B90A1F7187AE26CE193D5FF772226D8681A00D",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.Http.dll": {
+        "Mode": 420,
+        "Sha256": "B0BFD5963E1E42275DE7F6900E4324F703E3BC7A87C800558F549C432F1322D9",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.HttpListener.dll": {
+        "Mode": 420,
+        "Sha256": "06C859DBD782D00EAF979717C00770CA04BD9E17E6FF24ADEBFBFA352D9C73F7",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.Mail.dll": {
+        "Mode": 420,
+        "Sha256": "DBE9235A4B31DD93B182E937E39C1D6DEAD8E1499390BCFBFA3894E14F0000FF",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.NameResolution.dll": {
+        "Mode": 420,
+        "Sha256": "773E9536015E122A9E300AB0F6415A875B465D8326E12711B4563D9B1F5A66EB",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.NetworkInformation.dll": {
+        "Mode": 420,
+        "Sha256": "5F3A92AB4112DB5FDA0727CD3A48208CB0C47830D132BB863D670C038F37B4C5",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.Ping.dll": {
+        "Mode": 420,
+        "Sha256": "79E8E8AE56DD58A595384A3A2B00933382AE2279E9FDA2A3F9819608A0B5EF0B",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.Primitives.dll": {
+        "Mode": 420,
+        "Sha256": "70C84D4CE6EC7638A0E98184473005711F69A510D3EB2A5A29CBC4F4C00B2726",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.Quic.dll": {
+        "Mode": 420,
+        "Sha256": "208A6D1AA21CF90F233100FA51B83A199F1D9A672FF130721C2E438C2B7A9040",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.Requests.dll": {
+        "Mode": 420,
+        "Sha256": "AF9230894D47C39E39846B83F77DCEBD815DC2C71610052BD3DF8107B9EF4B32",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.Security.dll": {
+        "Mode": 420,
+        "Sha256": "FE886B9AE36AD3671403069A5B36D711D2FDECECC231D01301BD80CB6C39F69C",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.ServicePoint.dll": {
+        "Mode": 420,
+        "Sha256": "D569B1E0BE7797A6343AC2CFC20565C5ECA4A2DEEDE2C2C7B22075CA1FA37E45",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.Sockets.dll": {
+        "Mode": 420,
+        "Sha256": "FCFE64C770CC03960783369055AF32C3719102D397BA2C2313F31B7F81BEDB7E",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.WebClient.dll": {
+        "Mode": 420,
+        "Sha256": "C8FC89E7C1618A96505534358F5930B659E79841A57236DC639DB98812177C27",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.WebHeaderCollection.dll": {
+        "Mode": 420,
+        "Sha256": "BA2EA90FCA3C47A81AF7E350B47AF27E8929C7AFB850A08660EAF2A3E4276907",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.WebProxy.dll": {
+        "Mode": 420,
+        "Sha256": "4BD2AF5485B2BD64BDD0D0131D9A8C6901E52631196D074A97BAF77299EE4BC6",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.WebSockets.Client.dll": {
+        "Mode": 420,
+        "Sha256": "0733DBA44D004E85E5EF6D535511F33A2DFB8FB9E623158EEA9553725583E76A",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.WebSockets.dll": {
+        "Mode": 420,
+        "Sha256": "D6BE5A13A7E8B2088897B4C6FB5CD800FD63CFCD4FD7DCB744455EF34CF9EA75",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Net.dll": {
+        "Mode": 420,
+        "Sha256": "4F8D36DA0050B05603B0AE7D2EE0118E106275352E7E3C8736CD01036FD21FB4",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Numerics.Vectors.dll": {
+        "Mode": 420,
+        "Sha256": "F6ED847670CD3098A1B0D6C116685C97D4202EA112936538A77D189D28A010C1",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Numerics.dll": {
+        "Mode": 420,
+        "Sha256": "3112040FC3129114E13CF309F4CD034A87CB5FABDAD81A40A7F7EF532006BE8B",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ObjectModel.dll": {
+        "Mode": 420,
+        "Sha256": "A1EF32518F571E50F616A9D78AB0611B214E8C80749DC114BC054CE04BB61078",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Private.CoreLib.dll": {
+        "Mode": 420,
+        "Sha256": "D567DC15FE696E604049E7D2D049F34770233F672F470D654D8BD5CE3D65E01D",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Private.DataContractSerialization.dll": {
+        "Mode": 420,
+        "Sha256": "96AAB3DB3FF891229CD7FF363B9C910F6A5B51B41EC49E73E463F2091738A496",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Private.Uri.dll": {
+        "Mode": 420,
+        "Sha256": "632AEFC97D783EB34F4CCA0D632DBDF68E0DB974C7D3782D7BC8C1A8CE9A09AD",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Private.Xml.Linq.dll": {
+        "Mode": 420,
+        "Sha256": "5DD1ACFA6303065F07964343D21ECFDEDFA1E349AA79BEFF04F775C532FDCDE3",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Private.Xml.dll": {
+        "Mode": 420,
+        "Sha256": "679ACA6447E4AA8F64259C50C03A61D1514AC25D31C891F320D7DB65E592454F",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Reflection.DispatchProxy.dll": {
+        "Mode": 420,
+        "Sha256": "1FA7649DE30A763BDDCD53DF35D12B479CEA8AAD1E0A2B3627661241A5FA5A6A",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Reflection.Emit.ILGeneration.dll": {
+        "Mode": 420,
+        "Sha256": "2DD33CF9A0FD267AEF674BE30D71ACEABE0F89976F17FD68EEF41624464309B5",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Reflection.Emit.Lightweight.dll": {
+        "Mode": 420,
+        "Sha256": "8F7DEE07C33D9BBC610D8BB816D2E51221B2C793FF16188B86D7F5458420601C",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Reflection.Emit.dll": {
+        "Mode": 420,
+        "Sha256": "9FC41256CADD44FF236B2514083D6819B52FB762A2F3EDE566EC0EAD72B64CEF",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Reflection.Extensions.dll": {
+        "Mode": 420,
+        "Sha256": "2A8ADAE6FF1BB13483B9F8F1C01103F59EA4529CA0DA2C4DD8CCEDF7866A7FB7",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Reflection.Metadata.dll": {
+        "Mode": 420,
+        "Sha256": "F6FBD78F80D305B8F875EB1399ECD0C96A06DC061A63F68986F598FB1A4A9213",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Reflection.Primitives.dll": {
+        "Mode": 420,
+        "Sha256": "970C3B67CF6906E23D8E172937C40EBFB50006681F9484942E5AB6EE2EE9CEAF",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Reflection.TypeExtensions.dll": {
+        "Mode": 420,
+        "Sha256": "C5B84F84D106E5BEC6622196049198C812187F78A350923CF98B9388DDFDFD9B",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Reflection.dll": {
+        "Mode": 420,
+        "Sha256": "F9D03B74A0190C98A475B94668E366FF226CD8A46677C7196B86F3CBCDF05EEC",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Resources.Reader.dll": {
+        "Mode": 420,
+        "Sha256": "59D8E42E215F834992B7B971BD3E75510E50DB773C724AF493678C97625FB501",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Resources.ResourceManager.dll": {
+        "Mode": 420,
+        "Sha256": "F33F8770506E5A69486120115D22B900984A8C58242C4DA428425455F45425E4",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Resources.Writer.dll": {
+        "Mode": 420,
+        "Sha256": "606E3D4526A651DBF522A5D187E8FF104524F66715534856B3E9B9721702CA9B",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.CompilerServices.Unsafe.dll": {
+        "Mode": 420,
+        "Sha256": "6BD6870FA92A4E31EE729B811040B3B357FFFDA63814BDDE4F2F28142EFA72B3",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.CompilerServices.VisualC.dll": {
+        "Mode": 420,
+        "Sha256": "27200426DC024D1864457AD0F9D00DA9B2F0087685B3AD0F2A249F66896F94AD",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Extensions.dll": {
+        "Mode": 420,
+        "Sha256": "8425F58D18D84EF67FADFD521EF1787164408681386A5DC6B74830E5FCE8F43D",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Handles.dll": {
+        "Mode": 420,
+        "Sha256": "D733F2D4050C09B7EF0ED2519ED113AF9E8FBAC21D94FE59E391612DDB22C849",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.InteropServices.JavaScript.dll": {
+        "Mode": 420,
+        "Sha256": "B742795886FE33643048E25A8D419195164EEFAE91E29CC34EC69BC1F31A7C1A",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.InteropServices.RuntimeInformation.dll": {
+        "Mode": 420,
+        "Sha256": "18EA9C0C73B661034702F00A7F08CF0664562021D69C8FD4E019428E1556F175",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.InteropServices.dll": {
+        "Mode": 420,
+        "Sha256": "4B0644EDD962F282F907B672FA26C100F846542F871EC89DE86A3899535F5043",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Intrinsics.dll": {
+        "Mode": 420,
+        "Sha256": "2ABA42695A9D6384E578A6A70B4A4D660BC609D3D72D4374F98F283514702754",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Loader.dll": {
+        "Mode": 420,
+        "Sha256": "BCD5A8DC2F75879659D85B67298916BBB7B4F8A5341B79561EA65A990AE980D2",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Numerics.dll": {
+        "Mode": 420,
+        "Sha256": "80BF2D430D6C84D6DDA31DBC60FD6288E6BD0729D26DF181F5B35F3B9C404D5B",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Serialization.Formatters.dll": {
+        "Mode": 420,
+        "Sha256": "0C01FCE6789D03564D94ED030342F350BC6D140C476ED08C08642DD1725D0441",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Serialization.Json.dll": {
+        "Mode": 420,
+        "Sha256": "E0FE878E555979F23334CAB337A857865100ACA8E0838CFF7F3C7FE2C00FC892",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Serialization.Primitives.dll": {
+        "Mode": 420,
+        "Sha256": "E8F63259A2C92127E987E83715E73855732665A77B7D0A2A838F86AE81EE44D4",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Serialization.Xml.dll": {
+        "Mode": 420,
+        "Sha256": "BBFFD244012072FDD2190FA10EE867070C2FFD8713406384E10A8E7CD66FACA5",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.Serialization.dll": {
+        "Mode": 420,
+        "Sha256": "63E3A6DED849716A6795B9F0D3782744E43E59EAFC4BF88347DD1E7EB4AFF945",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Runtime.dll": {
+        "Mode": 420,
+        "Sha256": "6D8F03D2FCD73D4E07D354DDEC26F4F65A275E1F018A2ADE59CB9FA65818475E",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.AccessControl.dll": {
+        "Mode": 420,
+        "Sha256": "70957AF03F54632684CBBE82EDCF4CD81641E0CDA09ECF0B151C50CF7363620C",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Claims.dll": {
+        "Mode": 420,
+        "Sha256": "FF7B954AA9A75F68810C88E99B14C40F9F2D700906648D36788F48E6FF0C95D8",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Cryptography.Algorithms.dll": {
+        "Mode": 420,
+        "Sha256": "463E7219B564F386D724E9D7039AEE9E5E146C2BE8444E3749220F326FFA4C5D",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Cryptography.Cng.dll": {
+        "Mode": 420,
+        "Sha256": "55D4ED9BA9079DA663F48A5B3103216DDF2628A3300249A4692EC23A8124C125",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Cryptography.Csp.dll": {
+        "Mode": 420,
+        "Sha256": "4360F712F786C88993B90BB9EB2E911B6847398F9BCF524A54720EAA737FFE2A",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Cryptography.Encoding.dll": {
+        "Mode": 420,
+        "Sha256": "9CCC374FF34B41FD49DA701D413E4AD9319BE0D805A33F2B1F2D9B0F9DF6A378",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Cryptography.OpenSsl.dll": {
+        "Mode": 420,
+        "Sha256": "CCC888EAA653E27CE4B23F85A4B55A1C61CF8AE35F0BDA7B03346941E24A28AA",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Cryptography.Primitives.dll": {
+        "Mode": 420,
+        "Sha256": "91C2B078D4BB645862ABB9368F034D6DED1592C0C0615433B43390232B76A1E1",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Cryptography.X509Certificates.dll": {
+        "Mode": 420,
+        "Sha256": "34A4071D41B4FDC6A0E144A1C26D401A392A6ED0437A6B871D3816840CA26767",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Cryptography.dll": {
+        "Mode": 420,
+        "Sha256": "7BAF033A02FE3B912818AE3579621E75105E22B7B4A2202BE396D5D2A46773E4",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Principal.Windows.dll": {
+        "Mode": 420,
+        "Sha256": "F90A84E0165EA17E2C1BA04BDD0572F4A8FEF49DF771080DCECF38F80D123949",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.Principal.dll": {
+        "Mode": 420,
+        "Sha256": "2C5BB0217D67C5C101C5C539E7112CB7EF3B29C3ED729F7E885E6410CBE5D525",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.SecureString.dll": {
+        "Mode": 420,
+        "Sha256": "C560DC8B74B1991324D0EB3F2C91C1EED0F92097F91B47AAAAE346C7FEDD1EC7",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Security.dll": {
+        "Mode": 420,
+        "Sha256": "C75A34367FE41A873B49566942BE62C7E5DF01998291231059C6C2810C872491",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ServiceModel.Web.dll": {
+        "Mode": 420,
+        "Sha256": "8705755323E9DBD63347A7AFBBABE617CE2716D3D63A85E50C4EB8E17AE24002",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ServiceProcess.dll": {
+        "Mode": 420,
+        "Sha256": "E4A377A4CCC5B67DE4BADA82E0F4E778FF583187AF45E0FB275F6DE63852DA50",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Text.Encoding.CodePages.dll": {
+        "Mode": 420,
+        "Sha256": "6EB0C36B150397D3EF4A2137ACA347A6F9659C79CACB646523B41D3AE3159730",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Text.Encoding.Extensions.dll": {
+        "Mode": 420,
+        "Sha256": "13C85FD460D69499611949BB58FD25647DBBFBE1C2472A6D491E679D535F878C",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Text.Encoding.dll": {
+        "Mode": 420,
+        "Sha256": "84ED71426D62C5746767A8F0E4B77345F188D0A58F9B29374E7354AC7DC85CA7",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Text.Encodings.Web.dll": {
+        "Mode": 420,
+        "Sha256": "299538292DA26478094713665F0E8B7996EBD891D9FBBCE78D89147B574C1B18",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Text.Json.dll": {
+        "Mode": 420,
+        "Sha256": "0E4507F66253DFB92F5C05432BC1BE8C35F4DEA81D5E00EA2971BDA7F7C78B96",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Text.RegularExpressions.dll": {
+        "Mode": 420,
+        "Sha256": "0A1F5749FEDA1CD42EF0FAED95105B65BA86957AA40B20195649D56F894B3AB0",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.Channels.dll": {
+        "Mode": 420,
+        "Sha256": "F0BA9FF3E3C027DE13C342C705B53D0F0A8EC50F8A04484FDCE7DD49225624D8",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.Overlapped.dll": {
+        "Mode": 420,
+        "Sha256": "62988849C182D47A37EF3870AF9FFE18CF27BC65C12DAC748E23F38681DDB37C",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.Tasks.Dataflow.dll": {
+        "Mode": 420,
+        "Sha256": "505476CD63FCA01734F8DF7C3DCDC7361A07052EBCE64C47B0AEE516EF2267E7",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.Tasks.Extensions.dll": {
+        "Mode": 420,
+        "Sha256": "C633DB8E2D4C5E0C5F411E9999BC7A9994C4C325E92C8AFDD61C978DA64B66A1",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.Tasks.Parallel.dll": {
+        "Mode": 420,
+        "Sha256": "7D2E533B9C5D94DFC777E598EEB289AD0B2F52D2E334463AAF78E02458170DA6",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.Tasks.dll": {
+        "Mode": 420,
+        "Sha256": "AB4836D69A40F402502B990EA2A76BB313B23F165A629A56BF9EA926AA5F4999",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.Thread.dll": {
+        "Mode": 420,
+        "Sha256": "22094A4CA2FC39952A1537851BD1D9C963F7739E77870A94D033DB0B2F360279",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.ThreadPool.dll": {
+        "Mode": 420,
+        "Sha256": "F4967DCE972F35C273835D77E1BE3E54CF134ED586EE3074F953EDD3A3D80860",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.Timer.dll": {
+        "Mode": 420,
+        "Sha256": "202DBE5890DF8BD3B09D979503EC0FB61A37717CD32EFB29792E92EA3E3FAEC8",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Threading.dll": {
+        "Mode": 420,
+        "Sha256": "62B2FF6A39DE571C9AB0B45B48E3ACA094744E1157F8FE5F173C35A0E80DF76C",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Transactions.Local.dll": {
+        "Mode": 420,
+        "Sha256": "DA480A079AD6A6EE253FDC85B9DC7704D014AE9FD0BDEDDF53AB90D5965F6E23",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Transactions.dll": {
+        "Mode": 420,
+        "Sha256": "6FFEBA26394CA768A69D094E13EEE054D97DA0B2A7251EEDC11F9C9FE38CE1E5",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.ValueTuple.dll": {
+        "Mode": 420,
+        "Sha256": "3121767961C5238ECEC32542FC614D579869D2340C7F6728C2ABA12F8981735E",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Web.HttpUtility.dll": {
+        "Mode": 420,
+        "Sha256": "AA9B5508B442506838445F3A901F4E504D6F02B30604AFB1C3C1FAAB1099736E",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Web.dll": {
+        "Mode": 420,
+        "Sha256": "7C9367D452A32FA3B75816C6B7F1DEF8293770432B67286D6EE989FB229B7FF8",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Windows.dll": {
+        "Mode": 420,
+        "Sha256": "226132DDE1517BE7A27526AF784C01FC9AB8D5017E17530A58114D61F5839096",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Xml.Linq.dll": {
+        "Mode": 420,
+        "Sha256": "6621BC3E88B16A0C380D77FE84216359CB0A1AEBCE5F2754759F4653DBE66082",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Xml.ReaderWriter.dll": {
+        "Mode": 420,
+        "Sha256": "8BD4DE1B33FF14FCBC79A8C06E91B2A3C5684A713247C12B46905DA3031F95EE",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Xml.Serialization.dll": {
+        "Mode": 420,
+        "Sha256": "41A90B6EE67B8FBC0492651B7CF313F44AC74895EE65EE2DEB8570FC7CCD62FB",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Xml.XDocument.dll": {
+        "Mode": 420,
+        "Sha256": "B5953E00F7FDD7194DFC7C6139AF050A1A6A66988C518B2A66985F499CBA4C70",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Xml.XPath.XDocument.dll": {
+        "Mode": 420,
+        "Sha256": "2046F99EB01D92C877C9514BAD9038D82CB4F07DF68CCA5B49741AE96643018A",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Xml.XPath.dll": {
+        "Mode": 420,
+        "Sha256": "D1B62F608545D88A7C6EA4DA0BADA6F3CAB9F80A2A724B6583BF5A8A927301B5",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Xml.XmlDocument.dll": {
+        "Mode": 420,
+        "Sha256": "CDA787080C8F9D274F09B4DD70BA0E179E560262F143C657DC5CB8AB8023EB5A",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Xml.XmlSerializer.dll": {
+        "Mode": 420,
+        "Sha256": "A362AC259AA411013E9026D579CF9D15173871BDEA06ED6843E57B534336FC75",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.Xml.dll": {
+        "Mode": 420,
+        "Sha256": "58914890E81C9E40BC031911146FA4EFED5023A129A939884CB2E2EB76522801",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/System.dll": {
+        "Mode": 420,
+        "Sha256": "3CAD391F95880A15023866715FBC0EC47484FB454E6B92B684036CFDFF76E7D4",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/WindowsBase.dll": {
+        "Mode": 420,
+        "Sha256": "67E19832541773C04A87C04FA039FCEB2995F85A28166D664B4016480851C997",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/mscorlib.dll": {
+        "Mode": 420,
+        "Sha256": "141085513854595343A1B8A6A897DF717BF3EB2F40E861B1C4D2B93B75353018",
+        "Uid": 0
+      },
+      "/opt/dotnet/shared/Microsoft.NETCore.App/8.0.20/netstandard.dll": {
+        "Mode": 420,
+        "Sha256": "B8ADFEF2FEC63BC9F8894BF6DB33B6E983A76125CF2F0D07DC81FA625BCD27FB",
+        "Uid": 0
+      },
+      "/opt/igloo-storage-49ae7708-v4/harness/CanonicalImportQualification.deps.json": {
+        "Mode": 420,
+        "Sha256": "5A0B3F4F401C01DC380CFEA196665215453BC539604BCAB03077E837AAE64326",
+        "Uid": 0
+      },
+      "/opt/igloo-storage-49ae7708-v4/harness/CanonicalImportQualification.dll": {
+        "Mode": 420,
+        "Sha256": "3BB1211B329610355E411A7F2BEAFA3DA3FC02F8A9F551051FA8638F36DCA09E",
+        "Uid": 0
+      },
+      "/opt/igloo-storage-49ae7708-v4/harness/CanonicalImportQualification.runtimeconfig.json": {
+        "Mode": 420,
+        "Sha256": "28329CF08F6505E73806B17558B187C02F0C1C516FE47EBFB7A013D082AAA306",
+        "Uid": 0
+      },
+      "/opt/igloo-storage-49ae7708-v4/harness/CryptSharp.dll": {
+        "Mode": 420,
+        "Sha256": "F14E2E528B56F88106E7DF0D40DB9C4FCDE3DCDB7F7182873B6997CB8D5D0610",
+        "Uid": 0
+      },
+      "/opt/igloo-storage-49ae7708-v4/harness/Igloo.Core.dll": {
+        "Mode": 420,
+        "Sha256": "CF4768B8368F57CE166C7D9199F10F8766F54E10CDD194275B640B89A39B703C",
+        "Uid": 0
+      },
+      "/opt/igloo-storage-49ae7708-v4/harness/Igloo.Distro.Debian.dll": {
+        "Mode": 420,
+        "Sha256": "570DB81927BE8059C33D5B3916ACC3CE91A4318221DE60C05EEC17DD6CFFBD33",
+        "Uid": 0
+      },
+      "/opt/igloo-storage-49ae7708-v4/harness/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
+        "Mode": 420,
+        "Sha256": "A0106A638FACAE621F870EDA720CB6C980C1D5D49C2F4351134E3FE043B9291B",
+        "Uid": 0
+      },
+      "/opt/igloo-storage-49ae7708-v4/harness/Microsoft.Extensions.Logging.Abstractions.dll": {
+        "Mode": 420,
+        "Sha256": "29E6BFAF5CE079AD4D70DC547D966038992A7428DF6E726084EB9010EC837715",
+        "Uid": 0
+      }
+    },
+    "ToolHashes": {
+      "/opt/igloo-storage-49ae7708-v4/bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+      "/opt/igloo-storage-49ae7708-v4/collector.py": "66E83B8AA504157E97DEF533D59D3280E244F41583799D8BD2A783F6B4491243",
+      "/opt/igloo-storage-49ae7708-v4/command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+      "/opt/igloo-storage-49ae7708-v4/native/block_session.py": "82D3C5EB68B6E1CFA49BB5379CC4952E0218B4B9A95BB43C503F9B68609D6664",
+      "/opt/igloo-storage-49ae7708-v4/native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "/opt/igloo-storage-49ae7708-v4/native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+      "/opt/igloo-storage-49ae7708-v4/native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "/opt/igloo-storage-49ae7708-v4/native/isolation_observer.py": "A46131AC65BBDA0FB95A0514C3FEA0A568165201D4621B10DCF6A56EE4DBFC31",
+      "/opt/igloo-storage-49ae7708-v4/native/isolation_policy.py": "261E38CE74FE412EA84E45BE99AF6D92266B47B8CBCB18912C43E70694A80CFC",
+      "/opt/igloo-storage-49ae7708-v4/native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+      "/opt/igloo-storage-49ae7708-v4/native/package_broker.py": "3860A00522EE38C2BF9E0936623AC9A489DA1C67A1F52835DA3A3E6FC4A07E10",
+      "/opt/igloo-storage-49ae7708-v4/native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+      "/opt/igloo-storage-49ae7708-v4/native/session_entry.py": "3B09DBCDFF1084128451353E0189B54236F31FE5FD91AE5A0DC0C0099D15C072",
+      "/opt/igloo-storage-49ae7708-v4/native/session_import.py": "2D2047F6833FEF2D1DD4E33D38D5C2CD1E22AD5E0D7A9117498DCB9B5718ED89",
+      "/opt/igloo-storage-49ae7708-v4/native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "/opt/igloo-storage-49ae7708-v4/native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+      "/usr/bin/dpkg-query": "095817337215129933918CACAE5FD62E86202FE238591BEA207A75B73561E8C5",
+      "/usr/bin/python3.13": "889C603F0D17CB54060951BCF4C4F9B8C9EBD9E52B392C70209BBB9755D797D9"
+    },
+    "Protection": "Root-owned protected dotnet/runtime/assembly/native placement; fresh system-tool, dependency and Python-library ownership checks before session execution. Explicit cleared environment.",
+    "HostToolReadback": {
+      "Qemu": "QEMU emulator version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)",
+      "GateCompiler": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "kernel": "2B2358B37674D2505350528875BB17AFAE2A36522A9E8A9417EACA65A7DA0E08",
+      "initrd": "C0105164A3398CE7A1CDEA19F21B7BE938493EBC170E277B8531875E3C12200D"
+    }
+  },
+  "HostBinding": {
+    "CreatedBackings": [
+      {
+        "CreationSha256": "A7CF7FAC26E810C26044EDB303DAF41D440D219C908EC4EB5BE966ECA5379B6C",
+        "HostDevice": 2096,
+        "HostInode": 74807,
+        "LaunchSha256": "23C65F86E29B2A78DA2A537223025C24F40FBAAD1A6E28569A4E267AF4980238",
+        "Length": 25769803776,
+        "Serial": "IGLOO-GPT-RUNTIME"
+      },
+      {
+        "CreationSha256": "A7CF7FAC26E810C26044EDB303DAF41D440D219C908EC4EB5BE966ECA5379B6C",
+        "HostDevice": 2096,
+        "HostInode": 74808,
+        "LaunchSha256": "23C65F86E29B2A78DA2A537223025C24F40FBAAD1A6E28569A4E267AF4980238",
+        "Length": 42949672960,
+        "Serial": "IGLOO-LAB-TARGET"
+      },
+      {
+        "CreationSha256": "A7CF7FAC26E810C26044EDB303DAF41D440D219C908EC4EB5BE966ECA5379B6C",
+        "HostDevice": 2096,
+        "HostInode": 74809,
+        "LaunchSha256": "23C65F86E29B2A78DA2A537223025C24F40FBAAD1A6E28569A4E267AF4980238",
+        "Length": 8589934592,
+        "Serial": "IGLOO-LAB-JOURNAL"
+      }
+    ],
+    "HostObservationSha256": "F43E2DFE81663EFD520B711DE9C6E40326D28550E09A2CEBEA76CCFF372F6F57",
+    "ReopenedBackings": [
+      {
+        "CreationSha256": "A7CF7FAC26E810C26044EDB303DAF41D440D219C908EC4EB5BE966ECA5379B6C",
+        "HostDevice": 2096,
+        "HostInode": 74807,
+        "LaunchSha256": "23C65F86E29B2A78DA2A537223025C24F40FBAAD1A6E28569A4E267AF4980238",
+        "Length": 25769803776,
+        "Serial": "IGLOO-GPT-RUNTIME"
+      },
+      {
+        "CreationSha256": "A7CF7FAC26E810C26044EDB303DAF41D440D219C908EC4EB5BE966ECA5379B6C",
+        "HostDevice": 2096,
+        "HostInode": 74808,
+        "LaunchSha256": "23C65F86E29B2A78DA2A537223025C24F40FBAAD1A6E28569A4E267AF4980238",
+        "Length": 42949672960,
+        "Serial": "IGLOO-LAB-TARGET"
+      },
+      {
+        "CreationSha256": "A7CF7FAC26E810C26044EDB303DAF41D440D219C908EC4EB5BE966ECA5379B6C",
+        "HostDevice": 2096,
+        "HostInode": 74809,
+        "LaunchSha256": "23C65F86E29B2A78DA2A537223025C24F40FBAAD1A6E28569A4E267AF4980238",
+        "Length": 8589934592,
+        "Serial": "IGLOO-LAB-JOURNAL"
+      }
+    ],
+    "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81"
+  },
+  "Transitions": [
+    {
+      "Role": 0,
+      "Partition": {
+        "DevicePath": "/dev/vdb2",
+        "DiskDevicePath": "/dev/vdb",
+        "OffsetBytes": 269484032,
+        "PartitionGuid": "9e243c2e-1f15-4220-9ab9-053a297559a4",
+        "PartitionType": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+        "SizeBytes": 1073741824
+      },
+      "FileSystem": {
+        "Type": "FAT32",
+        "Uuid": "7277-84EC"
+      },
+      "BeforeSha256": "06BE00F2DE568F033D1F7AB480F5C9533FC65C100FDF52582131F831489214CF",
+      "CreatedSha256": "AA6C59FB6204AF92CDA89836D7517F30CE85BE00F05F5A0E18FE2ED3C541F23D",
+      "FormattedSha256": "FB72BDCDCA784D7BA1117C3383B20FECE94B78D9F882796FDEC13A93C2CE5FA7",
+      "CreationReceipt": {
+        "Provider": "IsolatedFileBackedLab",
+        "Scope": "StorageSmoke",
+        "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+        "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+        "Stage": "Create",
+        "Role": 0,
+        "Intended": {
+          "DevicePath": "/dev/vdb2",
+          "DiskDevicePath": "/dev/vdb",
+          "PartitionGuid": "9e243c2e-1f15-4220-9ab9-053a297559a4",
+          "PartitionType": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+          "OffsetBytes": 269484032,
+          "SizeBytes": 1073741824
+        },
+        "BeforeSha256": "06BE00F2DE568F033D1F7AB480F5C9533FC65C100FDF52582131F831489214CF",
+        "CreatedSha256": "AA6C59FB6204AF92CDA89836D7517F30CE85BE00F05F5A0E18FE2ED3C541F23D",
+        "ReadbackSha256": "AA6C59FB6204AF92CDA89836D7517F30CE85BE00F05F5A0E18FE2ED3C541F23D",
+        "RequestSha256": "91A113E1A71DB2864A7F09F877C2D1E167680BE290018559E81974B7A1662076",
+        "Availability": "Available"
+      },
+      "FormatReceipt": {
+        "Provider": "IsolatedFileBackedLab",
+        "Scope": "StorageSmoke",
+        "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+        "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+        "Stage": "Format",
+        "Role": 0,
+        "Intended": {
+          "DevicePath": "/dev/vdb2",
+          "DiskDevicePath": "/dev/vdb",
+          "PartitionGuid": "9e243c2e-1f15-4220-9ab9-053a297559a4",
+          "PartitionType": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+          "OffsetBytes": 269484032,
+          "SizeBytes": 1073741824
+        },
+        "BeforeSha256": "06BE00F2DE568F033D1F7AB480F5C9533FC65C100FDF52582131F831489214CF",
+        "CreatedSha256": "AA6C59FB6204AF92CDA89836D7517F30CE85BE00F05F5A0E18FE2ED3C541F23D",
+        "ReadbackSha256": "FB72BDCDCA784D7BA1117C3383B20FECE94B78D9F882796FDEC13A93C2CE5FA7",
+        "RequestSha256": "0D92665EE0F2938CA27CDA1346FDE94B149884BE5EFB1CC454FCA13F9FFA5C53",
+        "Availability": "Available"
+      }
+    },
+    {
+      "Role": 1,
+      "Partition": {
+        "DevicePath": "/dev/vdb3",
+        "DiskDevicePath": "/dev/vdb",
+        "OffsetBytes": 1343225856,
+        "PartitionGuid": "118ff6c1-f716-4cd7-9703-6346dfb5942c",
+        "PartitionType": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "SizeBytes": 8589934592
+      },
+      "FileSystem": {
+        "Type": "FAT32",
+        "Uuid": "BEF9-B766"
+      },
+      "BeforeSha256": "FB72BDCDCA784D7BA1117C3383B20FECE94B78D9F882796FDEC13A93C2CE5FA7",
+      "CreatedSha256": "A27274CAC2E4662DE6814F87F5DBDF8AAAD15EF486EC289B14D4725ABBC3EB53",
+      "FormattedSha256": "6651A35E277166D438A0686284F4CE20BDBE61C4F75396B5BCA0F6504F2D5738",
+      "CreationReceipt": {
+        "Provider": "IsolatedFileBackedLab",
+        "Scope": "StorageSmoke",
+        "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+        "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+        "Stage": "Create",
+        "Role": 1,
+        "Intended": {
+          "DevicePath": "/dev/vdb3",
+          "DiskDevicePath": "/dev/vdb",
+          "PartitionGuid": "118ff6c1-f716-4cd7-9703-6346dfb5942c",
+          "PartitionType": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+          "OffsetBytes": 1343225856,
+          "SizeBytes": 8589934592
+        },
+        "BeforeSha256": "FB72BDCDCA784D7BA1117C3383B20FECE94B78D9F882796FDEC13A93C2CE5FA7",
+        "CreatedSha256": "A27274CAC2E4662DE6814F87F5DBDF8AAAD15EF486EC289B14D4725ABBC3EB53",
+        "ReadbackSha256": "A27274CAC2E4662DE6814F87F5DBDF8AAAD15EF486EC289B14D4725ABBC3EB53",
+        "RequestSha256": "37D8D29F39731113545C56144AA670AEE41FD0BA90802F6D5F61E0087766027A",
+        "Availability": "Available"
+      },
+      "FormatReceipt": {
+        "Provider": "IsolatedFileBackedLab",
+        "Scope": "StorageSmoke",
+        "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+        "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+        "Stage": "Format",
+        "Role": 1,
+        "Intended": {
+          "DevicePath": "/dev/vdb3",
+          "DiskDevicePath": "/dev/vdb",
+          "PartitionGuid": "118ff6c1-f716-4cd7-9703-6346dfb5942c",
+          "PartitionType": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+          "OffsetBytes": 1343225856,
+          "SizeBytes": 8589934592
+        },
+        "BeforeSha256": "FB72BDCDCA784D7BA1117C3383B20FECE94B78D9F882796FDEC13A93C2CE5FA7",
+        "CreatedSha256": "A27274CAC2E4662DE6814F87F5DBDF8AAAD15EF486EC289B14D4725ABBC3EB53",
+        "ReadbackSha256": "6651A35E277166D438A0686284F4CE20BDBE61C4F75396B5BCA0F6504F2D5738",
+        "RequestSha256": "79831732549D5242C404DE863E3195467CE5A480C56996F1A09B4F1161BCD3B0",
+        "Availability": "Available"
+      }
+    },
+    {
+      "Role": 3,
+      "Partition": {
+        "DevicePath": "/dev/vdb4",
+        "DiskDevicePath": "/dev/vdb",
+        "OffsetBytes": 9933160448,
+        "PartitionGuid": "593655e0-46ef-49be-b98c-dea66d59b947",
+        "PartitionType": "0fc63daf-8483-4772-8e79-3d69d8477de4",
+        "SizeBytes": 21474836480
+      },
+      "FileSystem": {
+        "Type": "EXT4",
+        "Uuid": "bf061e1d-c9d4-4c29-b621-a5a479681757"
+      },
+      "BeforeSha256": "6651A35E277166D438A0686284F4CE20BDBE61C4F75396B5BCA0F6504F2D5738",
+      "CreatedSha256": "9981975D613CFCFE4E024E0838FAE5DF6EE21FFCB1BC62C4E37EFC3F044082D7",
+      "FormattedSha256": "8C3EBBC86544C13454FCE268353EF668C6748912F467B752FC9D689C2D29B005",
+      "CreationReceipt": {
+        "Provider": "IsolatedFileBackedLab",
+        "Scope": "StorageSmoke",
+        "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+        "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+        "Stage": "Create",
+        "Role": 3,
+        "Intended": {
+          "DevicePath": "/dev/vdb4",
+          "DiskDevicePath": "/dev/vdb",
+          "PartitionGuid": "593655e0-46ef-49be-b98c-dea66d59b947",
+          "PartitionType": "0fc63daf-8483-4772-8e79-3d69d8477de4",
+          "OffsetBytes": 9933160448,
+          "SizeBytes": 21474836480
+        },
+        "BeforeSha256": "6651A35E277166D438A0686284F4CE20BDBE61C4F75396B5BCA0F6504F2D5738",
+        "CreatedSha256": "9981975D613CFCFE4E024E0838FAE5DF6EE21FFCB1BC62C4E37EFC3F044082D7",
+        "ReadbackSha256": "9981975D613CFCFE4E024E0838FAE5DF6EE21FFCB1BC62C4E37EFC3F044082D7",
+        "RequestSha256": "402F77CBC743B04FAED34873F340B06A73BCEF5ECFA27552EB8F3CD076B5950D",
+        "Availability": "Available"
+      },
+      "FormatReceipt": {
+        "Provider": "IsolatedFileBackedLab",
+        "Scope": "StorageSmoke",
+        "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+        "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+        "Stage": "Format",
+        "Role": 3,
+        "Intended": {
+          "DevicePath": "/dev/vdb4",
+          "DiskDevicePath": "/dev/vdb",
+          "PartitionGuid": "593655e0-46ef-49be-b98c-dea66d59b947",
+          "PartitionType": "0fc63daf-8483-4772-8e79-3d69d8477de4",
+          "OffsetBytes": 9933160448,
+          "SizeBytes": 21474836480
+        },
+        "BeforeSha256": "6651A35E277166D438A0686284F4CE20BDBE61C4F75396B5BCA0F6504F2D5738",
+        "CreatedSha256": "9981975D613CFCFE4E024E0838FAE5DF6EE21FFCB1BC62C4E37EFC3F044082D7",
+        "ReadbackSha256": "8C3EBBC86544C13454FCE268353EF668C6748912F467B752FC9D689C2D29B005",
+        "RequestSha256": "601BEB649BE965E8C925B759086F37B66B538E44F6B20FB3FF0E64C9634D0033",
+        "Availability": "Available"
+      }
+    }
+  ],
+  "JournalPlacement": {
+    "Phase": "JournalPlacement",
+    "Provenance": {
+      "Provider": "IsolatedFileBackedLab",
+      "Version": 1,
+      "Scope": "StorageSmoke",
+      "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+      "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+      "EvidenceSha256": "C8F357A4ACC89CBD75820ACB72FDABDE7812C10B375D686B713773B1B17785EE"
+    },
+    "Stores": [
+      {
+        "Path": "/lab-journal/session",
+        "Device": 65057,
+        "Inode": 262145,
+        "MountId": 58,
+        "Major": 254,
+        "Minor": 33,
+        "FileSystem": "EXT4"
+      },
+      {
+        "Path": "/lab-journal/import",
+        "Device": 65057,
+        "Inode": 393217,
+        "MountId": 58,
+        "Major": 254,
+        "Minor": 33,
+        "FileSystem": "EXT4"
+      }
+    ]
+  },
+  "SessionHandoff": {
+    "Scope": "StorageSmoke",
+    "SessionId": "9ddbe1d4-98d4-4d35-be23-c271dff2f8fa",
+    "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+    "PlanSha256": "4DDB7D9A0A2C904199E8702918DF221B868C11C1FC25C4FE58CDB0E2F17CD2B4",
+    "Provenance": {
+      "Provider": "IsolatedFileBackedLab",
+      "Version": 1,
+      "Scope": "StorageSmoke",
+      "RunId": "49ae7708-8113-4d53-9dea-7fdcb3bf7b81",
+      "GenerationId": "143faa07-7012-4e54-b5c4-04e349552248",
+      "EvidenceSha256": "C8F357A4ACC89CBD75820ACB72FDABDE7812C10B375D686B713773B1B17785EE"
+    },
+    "LastResultReference": "00000016-A8B10F697BDD4BECEE7CA6760A6725B57BD18142AF8B6C890B1E93DD7384B7C4.json",
+    "LastResultSha256": "A8B10F697BDD4BECEE7CA6760A6725B57BD18142AF8B6C890B1E93DD7384B7C4",
+    "Session": "AppliedAndVerified",
+    "Teardown": "AppliedAndVerified",
+    "Import": "NotInvoked",
+    "NativeSupported": 0
+  },
+  "SessionRecords": [
+    {
+      "Reference": "00000000-933EE7F4535CADFCE5B751B0DF708626323E2E63D076616B2E0E24F194E3A53F.json",
+      "Sha256": "933EE7F4535CADFCE5B751B0DF708626323E2E63D076616B2E0E24F194E3A53F",
+      "Action": "CreatePrivateSupervisor",
+      "State": "IntentDurable"
+    },
+    {
+      "Reference": "00000001-E9E21A4DC62247DF14B35D9C8EB2F20334E5F595DF2449B4A5F86809EE0D9A36.json",
+      "Sha256": "E9E21A4DC62247DF14B35D9C8EB2F20334E5F595DF2449B4A5F86809EE0D9A36",
+      "Action": "CreatePrivateSupervisor",
+      "State": "AppliedAndVerified"
+    },
+    {
+      "Reference": "00000002-819BA5D99ABD5926A8B6D6B1D45EF8C91375199DA4EF1BF08136838EB226CFEA.json",
+      "Sha256": "819BA5D99ABD5926A8B6D6B1D45EF8C91375199DA4EF1BF08136838EB226CFEA",
+      "Action": "AcquireLeases",
+      "State": "IntentDurable"
+    },
+    {
+      "Reference": "00000003-353E8551383BC2768EE8F07553358F32F7AD8DC04E9F85E763A69A2B4FF41103.json",
+      "Sha256": "353E8551383BC2768EE8F07553358F32F7AD8DC04E9F85E763A69A2B4FF41103",
+      "Action": "AcquireLeases",
+      "State": "AppliedAndVerified"
+    },
+    {
+      "Reference": "00000004-F2CA62640F13C89256C33A593BC1AA460C10F0BAB5B6FB605B45AF724ECE452E.json",
+      "Sha256": "F2CA62640F13C89256C33A593BC1AA460C10F0BAB5B6FB605B45AF724ECE452E",
+      "Action": "PrepareImportMountpoints",
+      "State": "IntentDurable"
+    },
+    {
+      "Reference": "00000005-3E2614032384D9F5063BB38E00B380F6B97753D08C92166140377CF0DCEA7E4F.json",
+      "Sha256": "3E2614032384D9F5063BB38E00B380F6B97753D08C92166140377CF0DCEA7E4F",
+      "Action": "PrepareImportMountpoints",
+      "State": "AppliedAndVerified"
+    },
+    {
+      "Reference": "00000006-75A4607773A391D99C16A8B07938D24212F7A32A7E962D86DE724AF14307A2AF.json",
+      "Sha256": "75A4607773A391D99C16A8B07938D24212F7A32A7E962D86DE724AF14307A2AF",
+      "Action": "MountRoot",
+      "State": "IntentDurable"
+    },
+    {
+      "Reference": "00000007-241B1F2086346AEE6BE0C13F2212E985D6AC1518E2C527B6A5558B4F1C93FA47.json",
+      "Sha256": "241B1F2086346AEE6BE0C13F2212E985D6AC1518E2C527B6A5558B4F1C93FA47",
+      "Action": "MountRoot",
+      "State": "AppliedAndVerified"
+    },
+    {
+      "Reference": "00000008-3FAB9700AD502B2EB1461815206417FA07652961D8D3F51E8D57B0A4FC6275A6.json",
+      "Sha256": "3FAB9700AD502B2EB1461815206417FA07652961D8D3F51E8D57B0A4FC6275A6",
+      "Action": "MountPayload",
+      "State": "IntentDurable"
+    },
+    {
+      "Reference": "00000009-CAA6E347BBF075058D70E65B0C0FEEA297BF9FD57EB9484B678C8AD1755493FD.json",
+      "Sha256": "CAA6E347BBF075058D70E65B0C0FEEA297BF9FD57EB9484B678C8AD1755493FD",
+      "Action": "MountPayload",
+      "State": "AppliedAndVerified"
+    },
+    {
+      "Reference": "00000010-05F735160B7E15DAD41AA82D83761563496ADDE7173D14CFF6DB61A1D6A94713.json",
+      "Sha256": "05F735160B7E15DAD41AA82D83761563496ADDE7173D14CFF6DB61A1D6A94713",
+      "Action": "Inspect",
+      "State": "AppliedAndVerified"
+    },
+    {
+      "Reference": "00000011-657508ADE11808BCCE12A51FAED3A739BA4A866CC97B1FC1F9263EC5979249DC.json",
+      "Sha256": "657508ADE11808BCCE12A51FAED3A739BA4A866CC97B1FC1F9263EC5979249DC",
+      "Action": "UnmountPayload",
+      "State": "IntentDurable"
+    },
+    {
+      "Reference": "00000012-8C11C8A3FA45545AE0DD359773F1CA7DD7426859643ACFD82F0D784AA3526B54.json",
+      "Sha256": "8C11C8A3FA45545AE0DD359773F1CA7DD7426859643ACFD82F0D784AA3526B54",
+      "Action": "UnmountPayload",
+      "State": "AppliedAndVerified"
+    },
+    {
+      "Reference": "00000013-BD4E094E784F8AB88C0B6744F9CA472F557A0A629F1D771D40F7772FEE66733F.json",
+      "Sha256": "BD4E094E784F8AB88C0B6744F9CA472F557A0A629F1D771D40F7772FEE66733F",
+      "Action": "UnmountRoot",
+      "State": "IntentDurable"
+    },
+    {
+      "Reference": "00000014-FF1E2BC0DF3DEC3357C67D964DF9D49312BF502B6A442ED7AAF1983B12BF3122.json",
+      "Sha256": "FF1E2BC0DF3DEC3357C67D964DF9D49312BF502B6A442ED7AAF1983B12BF3122",
+      "Action": "UnmountRoot",
+      "State": "AppliedAndVerified"
+    },
+    {
+      "Reference": "00000015-6482B3A7973DC8467D7A51830EB252C9B011252420B1CEF3E94E72AC0C65C4BD.json",
+      "Sha256": "6482B3A7973DC8467D7A51830EB252C9B011252420B1CEF3E94E72AC0C65C4BD",
+      "Action": "Close",
+      "State": "IntentDurable"
+    },
+    {
+      "Reference": "00000016-A8B10F697BDD4BECEE7CA6760A6725B57BD18142AF8B6C890B1E93DD7384B7C4.json",
+      "Sha256": "A8B10F697BDD4BECEE7CA6760A6725B57BD18142AF8B6C890B1E93DD7384B7C4",
+      "Action": "Close",
+      "State": "AppliedAndVerified"
+    }
+  ],
+  "IndependentJournalReopen": {
+    "Count": 17,
+    "ChainVerified": true,
+    "FinalReadbackSha256": "4350BA137F3A5A51A0AC19AE49DF98D1E8BE47828B2F35591BA8A2845130EBBC"
+  },
+  "Preservation": {
+    "Object": "Preserved FAT32 lab ESP; not Windows boot evidence",
+    "BeforeSha256": "7FD44E194D3DBB9F465F855D77B00A4044E9E66EA64DA53650866286C1893C1F",
+    "AfterSha256": "7FD44E194D3DBB9F465F855D77B00A4044E9E66EA64DA53650866286C1893C1F",
+    "RootDirectoryReadback": "      2   40755 (2)      0      0    4096 28-Sep-2026 20:00 .\n      2   40755 (2)      0      0    4096 28-Sep-2026 20:00 ..\n     11   40700 (2)      0      0   16384 28-Sep-2026 20:00 lost+found\n\n",
+    "ImportStoreEntries": []
+  },
+  "NativeNegative": {
+    "Entrypoint": "--smoke-development",
+    "Mutation": "Different declaration generation and substituted reopened backing inode",
+    "Result": {
+      "Phase": "Ownership",
+      "Availability": "Ambiguous",
+      "Code": "LabBackingOrLaunchChanged",
+      "Execution": "NotStarted",
+      "Import": "NotInvoked"
+    },
+    "ExitCode": 2,
+    "TargetAcquisition": "NotStarted",
+    "SessionReservation": "NotStarted"
+  },
+  "EarlierFailures": [
+    {
+      "Phase": "Runtime staging",
+      "Result": "Oversized serial command did not execute; independently observed no stage/evidence directory and blank target; corrected by transferring only changed code in bounded pieces"
+    },
+    {
+      "Phase": "Pre-session runtime verification",
+      "Result": {
+        "Scope": "StorageSmoke",
+        "Outcome": "NotStarted",
+        "ErrorType": "InvalidDataException",
+        "Code": "Incomplete session tool manifest.",
+        "Import": "NotInvoked"
+      },
+      "Repair": "Compare exact tool-manifest key set in ordinal order, independent of ImmutableSortedDictionary culture comparer; no reservation existed"
+    }
+  ],
+  "NormalShutdown": {
+    "Pid": 51692,
+    "ProcessAbsent": true,
+    "PowerDownObserved": true,
+    "AtUtc": "2026-09-28T20:08:26.418069+00:00",
+    "ConsoleSha256": "EE6680CFBB813AF7C84168D83A77F3461500BD0A89B2763531A556D9B6743031"
+  },
+  "ProtectedRawEvidenceLocation": "/var/lib/igloo/canonical-labs/49ae770881134d539dea7fdcb3bf7b81",
+  "RawEvidenceReferences": {
+    "2-create-intent.json": "DA2DBD9D346963E239D41CF5229DD85724785F4B9EDCB2507545CA9092941C82",
+    "2-create-provider.txt": "30955869C10B00D1B0C92F9940E70EB03B78D7AB589C80DB123F39489A35B6B9",
+    "2-created.json": "AA6C59FB6204AF92CDA89836D7517F30CE85BE00F05F5A0E18FE2ED3C541F23D",
+    "2-creation-receipt.json": "D44B8D528A02F25B23061584DC17ABABB244538A49BA275A46CDCB0782A1783C",
+    "2-creation-validation.json": "91A113E1A71DB2864A7F09F877C2D1E167680BE290018559E81974B7A1662076",
+    "2-format-intent.json": "B2D3000C6BC19D91C9457E172B63F1F2E6D7CC410B01B768F772AA40825F4A4C",
+    "2-format-provider.txt": "F522BF46CC2CFA3BF6C540DB3D8EF9B4BC325392DDD52ADF477F54EAA13906E6",
+    "2-format-receipt.json": "EB1918A0F0DBE6CE8A23862A34AAF4682D6A14F211D7B370960394F987885CB6",
+    "2-format-validation.json": "0D92665EE0F2938CA27CDA1346FDE94B149884BE5EFB1CC454FCA13F9FFA5C53",
+    "2-formatted.json": "FB72BDCDCA784D7BA1117C3383B20FECE94B78D9F882796FDEC13A93C2CE5FA7",
+    "3-create-intent.json": "6823706409EE87CCCC65312FBA668A8642E79A4B35C3520F629EB84D702D6A1E",
+    "3-create-provider.txt": "A662FEAA6E32D73461766173510F84CBDD426F8482076C875C582453B2479419",
+    "3-created.json": "A27274CAC2E4662DE6814F87F5DBDF8AAAD15EF486EC289B14D4725ABBC3EB53",
+    "3-creation-receipt.json": "C32FC8858EB983C093668EC99439135B3980E111678AEE1237EB927B7ECF3B51",
+    "3-creation-validation.json": "37D8D29F39731113545C56144AA670AEE41FD0BA90802F6D5F61E0087766027A",
+    "3-format-intent.json": "6D9F64A5458915C407E14D96BC9BCD007F4121AE5F4BA426429311BDB35EB4AB",
+    "3-format-provider.txt": "F522BF46CC2CFA3BF6C540DB3D8EF9B4BC325392DDD52ADF477F54EAA13906E6",
+    "3-format-receipt.json": "60BED01210D81A0A8F23FFC3332F6AD9D7DE31090AEB8924C32C5CC1C84DBAAE",
+    "3-format-validation.json": "79831732549D5242C404DE863E3195467CE5A480C56996F1A09B4F1161BCD3B0",
+    "3-formatted.json": "6651A35E277166D438A0686284F4CE20BDBE61C4F75396B5BCA0F6504F2D5738",
+    "4-create-intent.json": "071F6952AEA76585DFBDD0CC6D9DE3FDC28F70AA805133E53CE13EB588E4B286",
+    "4-create-provider.txt": "45B51BC643CC37969B26099F0DB8CC97CE950D9C1DBCC0278DF06F2AEDB10D63",
+    "4-created.json": "9981975D613CFCFE4E024E0838FAE5DF6EE21FFCB1BC62C4E37EFC3F044082D7",
+    "4-creation-receipt.json": "E633F1517C2891F6DE2E156AF0C70445E66D6F199EF744443717DBC3FA1E8DD3",
+    "4-creation-validation.json": "402F77CBC743B04FAED34873F340B06A73BCEF5ECFA27552EB8F3CD076B5950D",
+    "4-format-intent.json": "11893DEE96382ED94C30C35755B5F102A2F0743467904759853490F0BC1C87A8",
+    "4-format-provider.txt": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "4-format-receipt.json": "9138A4DD1A3759C72B7D1CF224E63FB7756866FCE8834D2139750B01672CC590",
+    "4-format-validation.json": "601BEB649BE965E8C925B759086F37B66B538E44F6B20FB3FF0E64C9634D0033",
+    "4-formatted.json": "8C3EBBC86544C13454FCE268353EF668C6748912F467B752FC9D689C2D29B005",
+    "dotnet-info.txt": "BB2C904E019E23D67E1B9DC5A23B83DEB3440ABAA356A8AA2814DC594314F88C",
+    "execution-closure-v4.json": "8BAF690811A4A801AFB3C0312CDB960CC801C59FEFFB0035CAA1BA7E0FC5960C",
+    "execution-closure.json": "0DE325D40C80D6267263643BA05A4F8DC8BD9CF0B6EDCACF3DDA9E764762A4C6",
+    "final-independent-readback.json": "4350BA137F3A5A51A0AC19AE49DF98D1E8BE47828B2F35591BA8A2845130EBBC",
+    "generation.json": "B51880DD7C1A258C234B83F0AE448B9DF07FBB66CECACA982A4CFF3387FF197F",
+    "host-binding.json": "38D634D34DB396229C018703E968F86A1EC36A3074DB26F58A7C8BA6725CECB4",
+    "journal-bootstrap-intent.json": "6DE583C5E4A67F68D059CE8011F43A63EAD4CC241EE0E6DA45C0D5EE97369A15",
+    "journals-v4.json": "6D7B3311E0A2600B6B740D24F867CA834AFB52D814C22A29DB6FC78594E7957E",
+    "journals.json": "8D14B98D85D5FD504DA263A3EEDB8D2BC4C68904A93588C9B7F7F2D5199DF878",
+    "negative-storage-execution.stderr": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "negative-storage-execution.stdout": "78E77CF402B3956EB0B04642524D76960D06116A8D5F2DD7FA67F2B3BD4C4171",
+    "negative-storage-exit.json": "08B30C2576923AA18243E7F1862B9E77B08C195C138581598EBBFA58159471B0",
+    "negative-storage-v4-exit.json": "20C53D77F0772628BB4E8D8A4A3AEC517AB4D0B1B11EAA44404360070AABBBB6",
+    "negative-storage-v4.stderr": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "negative-storage-v4.stdout": "78E77CF402B3956EB0B04642524D76960D06116A8D5F2DD7FA67F2B3BD4C4171",
+    "negative-storage.json": "09A7DAF7F5B7C4F8ECE564F7DD1C4EACB936691C1386BD36FACD6F71E06274C4",
+    "preparation-before.json": "06BE00F2DE568F033D1F7AB480F5C9533FC65C100FDF52582131F831489214CF",
+    "preserved-before.json": "722CBA44FDF5A8E1F8E252C1A020303B0E8505E5E94068FA3D35A65E3A0907D1",
+    "runtime-v4.json": "3543D778D477523936B3E5186ED32F5969319B2F5A7FF0000BD91A823DE33F57",
+    "runtime.json": "B91A15236B744A994F05CB4F7382B8AC9A55E52BFB6A84B285173FAC3D068C83",
+    "storage-execution.stderr": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "storage-execution.stdout": "B4A41AFAD4F59DB5A99E2E24B0E6DAB2DA0313E3427FB2C4A772AC611315713F",
+    "storage-exit.json": "08B30C2576923AA18243E7F1862B9E77B08C195C138581598EBBFA58159471B0",
+    "storage-v4-exit.json": "003AC01351E8205521618BABD9DCD650AF90FECDB7554050A9744CD2D8BF7BDF",
+    "storage-v4.stderr": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "storage-v4.stdout": "AEE41021583E6FF696AD976F741CAE98009791F3DF555D2FE6128E4230109CD1",
+    "storage.json": "1241B26CACC1DC3CD12485ADBC318744F75D8DF2FD57B8F6EBBA0B1E616D4923",
+    "system-execution-closure-v4.json": "BD923BE0C0F26BC892F5D3D72445689C69B859B36A957DD168FA705E2DA2128D",
+    "vdb-blank.json": "B020A3528D540C63F8DADC9EDA63710815EC5079315437E10F40804AA5FF3D9D",
+    "vdb-platform-intent.json": "D33E721A4D5823D819B79C36F4940C4073CA740B6F41C4BA60559E68A1C3B647",
+    "vdb-platform-readback.json": "2F18E3E415648B8497C1FA4CE549E45F1E254EAEC91A6524E6C42571635BDB22",
+    "vdb1-platform-format-intent.json": "51358770C822A3CA28F07C45E6B725CF6D5A96C503E037E414CA11AD5D293CDC",
+    "vdb1-platform-format-readback.txt": "BA1F9E6073B1AB87C82655F20981BD6188AC7F7B63816CF13FBD695C93BE963F",
+    "vdc-blank.json": "44A574AEA3488FC29017FE7885A3A0E0786840081AC7D67B114D3B28CBBB7B6B",
+    "vdc-platform-intent.json": "41E778FBE41EB7835CBFDD390A399AE09C910D82CCA636410B671A7343828B77",
+    "vdc-platform-readback.json": "B9D0717DC069479DF77429B67F522AD7BB78C0D4C9871F6F09189DEC19CCC47A",
+    "vdc1-platform-format-intent.json": "9727110176DF9721246DDF91122C37DD70EE7C892BFEA1D9A972643CC03C70AD",
+    "vdc1-platform-format-readback.txt": "BC95746174776D85EDCFBA3EAF37FA40207561FC4B85A5626342CDE9053B8722"
+  },
+  "HostEvidenceReferences": {
+    "input-identities.json": "4FA1FB4A9B69230E3F843DFE217844D545DA64050938CCA91DEA2B17AA238954",
+    "derivation-intent.json": "A7CF7FAC26E810C26044EDB303DAF41D440D219C908EC4EB5BE966ECA5379B6C",
+    "retained-runtime-final-readback.json": "8C6474AF71786F2A2746FEE27973F35B709D69A8F5FEE719BF9D563CFF999C4F",
+    "host-binding.json": "38D634D34DB396229C018703E968F86A1EC36A3074DB26F58A7C8BA6725CECB4",
+    "process.json": "8F82EFE8A63D393B5EEB228BF335469F4E8BB0848B72E7B2E3EAAB23232738D1",
+    "shutdown-host-readback.json": "3564231930B6F2AF195C693ABAAE1C090DB2077AE0F0E71DE9B1F1D5EFB6311D",
+    "host-readback.json": "F43E2DFE81663EFD520B711DE9C6E40326D28550E09A2CEBEA76CCFF372F6F57",
+    "launch-intent.json": "23C65F86E29B2A78DA2A537223025C24F40FBAAD1A6E28569A4E267AF4980238"
+  },
+  "CurrentTaskSourceSha256": {
+    "src/Igloo.Core/Preparation/InstallationStorage.cs": "4DA2F803D9F0C146F8E594FA769DDB3BACE73262B4B1B42CB9F8C80015901158",
+    "src/Igloo.Core/Preparation/InstallerLabAcquisition.cs": "310B87E80F5D4A968C832A5FC49F9A0C30BDD6AE59226981276756EC156EC7C4",
+    "src/Igloo.Core/Preparation/InstallationOwnership.cs": "DBA24F31F5ACF6FE91F36C157E1D880B3D98BD77E58D2D2B72D3CCDC39BC9C4D",
+    "src/Igloo.Core/Preparation/InstallerBlockLeases.cs": "D85898A7CA007774410716D4959D4ABFD50F311FEB4B8FB94735727F11480B1C",
+    "distros/debian/Deployment/DebianMountSession.cs": "BB732E06403ABE58501C15268CC5F926A42A28705478030B8705363003D5F2F6",
+    "distros/debian/Deployment/DebianNativeMountSession.cs": "BC3F4E552C628FCE19E51C411770FE3DE7A6BC200637D369F0CAF0BD200DE234",
+    "distros/debian/Deployment/DebianImportJournalStorage.cs": "2323406E5E206685811A0A05A5D8E050A0D7D7B0B9958299F14EC334119B84F4",
+    "tests/installer/CanonicalImportQualification/Program.cs": "2DD9625E9B401D9323EDE3CAA64763833FE9E747B0E3BC3A5540188C8FD27FBD",
+    "tests/installer/CanonicalImportQualification/LabStorageSmoke.cs": "75A61FEEE385D04218CBCEB841C567232514E5F8C317C86A9A0BF02A95FFC809",
+    "tests/installer/CanonicalImportQualification/LabTransitionProbe.cs": "EDD020D43F5801B07DF1942BB85B457A670CE7C68017E463BCE357BEB6D37C5F",
+    "tests/installer/canonical_storage_lab.py": "A781F71285F9C65DBC4BB1A1A02B088F355E7BF6CAC9104CDD81ED422AB4C894",
+    "tests/installer/canonical_storage_guest.py": "F56C240C49C672837DBEC0BBF393619F9DFCE5E6532EBADA0E674219E4DDB808",
+    "distros/debian/native/block_session.py": "82D3C5EB68B6E1CFA49BB5379CC4952E0218B4B9A95BB43C503F9B68609D6664",
+    "distros/debian/native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+    "distros/debian/native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+    "distros/debian/native/configured_root_neutralization.py": "A1A0D86581DBB12198CAE3BF37249C200BB3CB7E791DA071F348B44408C13812",
+    "distros/debian/native/debian_first_boot.py": "F1F1F359F8D8218C7D5FC6C48E4A9DD44D45EC0B21F16C19BB0A48E9CDD04753",
+    "distros/debian/native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+    "distros/debian/native/isolation_observer.py": "A46131AC65BBDA0FB95A0514C3FEA0A568165201D4621B10DCF6A56EE4DBFC31",
+    "distros/debian/native/isolation_policy.py": "261E38CE74FE412EA84E45BE99AF6D92266B47B8CBCB18912C43E70694A80CFC",
+    "distros/debian/native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+    "distros/debian/native/offline_bundle.py": "99263C1503BF934A941690BD83977AAEA8A2E77A15D3E658A74E297D3070359E",
+    "distros/debian/native/package_broker.py": "3860A00522EE38C2BF9E0936623AC9A489DA1C67A1F52835DA3A3E6FC4A07E10",
+    "distros/debian/native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+    "distros/debian/native/runtime_profile.py": "A269AF5EA2D6BF4740E52E753ECBD273DB45D14BE142ED68D23F205207933695",
+    "distros/debian/native/session_entry.py": "3B09DBCDFF1084128451353E0189B54236F31FE5FD91AE5A0DC0C0099D15C072",
+    "distros/debian/native/session_import.py": "2D2047F6833FEF2D1DD4E33D38D5C2CD1E22AD5E0D7A9117498DCB9B5718ED89",
+    "distros/debian/native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+    "distros/debian/native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A"
+  },
+  "Validation": {
+    "Core": 375,
+    "Preflight": 343,
+    "CommunityApp": 58,
+    "Migration": 406,
+    "Fleet": 153,
+    "Iso": 19,
+    "Usb": 23,
+    "SerializedSolutionTotal": 1377,
+    "LinuxFixtures": 297,
+    "Failures": 0,
+    "Skipped": 0,
+    "BuildWarnings": 0,
+    "BuildErrors": 0,
+    "Whitespace": "git diff --check passed; changed/untracked files also checked for UTF-8, BOM, trailing whitespace, private machine marker and accidental large artifacts"
+  },
+  "Limits": [
+    "Trusted exclusive host/hypervisor lab provider only; serial is a correlation input, not Windows identity",
+    "No power-loss or reboot-durability test",
+    "No production journal placement or physical-hardware equivalence",
+    "No artifact read/import, target code/configuration, boot/firmware operation"
+  ],
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0,
+  "ProvisionerFinalReview": {
+    "Scope": "Read-only revalidation of independently retained blank-state evidence; not a new native provisioning run",
+    "RoleChecks": {
+      "vdb": true,
+      "vdc": true
+    },
+    "ExecutedProvisionerTextSha256": "2869057557C3D013F2FDD814CBE1C7EAAD56D02F3239F455CF688841861D605E",
+    "CurrentProvisionerSha256": "F56C240C49C672837DBEC0BBF393619F9DFCE5E6532EBADA0E674219E4DDB808",
+    "RoleChecksNativeRerun": false
+  },
+  "RetainedOriginalRuntime": {
+    "SourceUnchanged": true,
+    "Sha256": "AEA60285A9362B01C11E9BC110F8CF30CC38F1083EB936482D6DE5787DD13519",
+    "Length": 25769803776,
+    "Inode": 74725,
+    "AtUtc": "2026-09-28T20:10:43.074822+00:00"
+  }
+}

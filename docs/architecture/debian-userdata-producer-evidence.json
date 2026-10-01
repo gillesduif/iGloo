@@ -1,0 +1,499 @@
+{
+  "SchemaVersion": 1,
+  "RecordedAtUtc": "2026-09-30T07:12:54.216324+00:00",
+  "Scope": "FixtureOnlySelectedDocuments",
+  "Outcome": "AppliedAndVerifiedForDeclaredFixtureScope",
+  "StartingCheckout": {
+    "Branch": "refactor/community-fleet-foundation",
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "ModifiedTracked": 33,
+    "Untracked": 87,
+    "IndexEmpty": true,
+    "InitialFileSnapshotSha256": "A9FE4A3F3DE920F6B7F941B4178C9CFC4058ABD4B935504CC15E1DD33297AD34"
+  },
+  "ChangesThisContinuation": {
+    "ModifiedPreviouslyDirty": [
+      "tests/installer/CanonicalImportQualification/README.md"
+    ],
+    "ModifiedPreviouslyClean": [
+      "distros/debian/Deployment/DebianFirstBootEvidence.cs",
+      "distros/debian/native/debian_first_boot.py",
+      "docs/architecture/debian-target-root-deployment.md"
+    ],
+    "NewFiles": [
+      "distros/debian/Deployment/DebianUserData.cs",
+      "distros/debian/native/userdata_entry.py",
+      "distros/debian/native/userdata_producer.py",
+      "tests/Igloo.Migration.Tests/DebianUserDataTests.cs",
+      "tests/installer/test_userdata_producer.py",
+      "tests/installer/userdata_rehearsal.py",
+      "docs/architecture/debian-userdata-producer-evidence.json"
+    ],
+    "HistoricalDirtyFilesPreservedExceptNamedDocumentationAppend": true,
+    "HistoricalJsonFilesUnchanged": 18
+  },
+  "CallChain": [
+    "MigrationManifest.Files / MigrationFolder",
+    "DebianUserData.Plan / Serialize",
+    "userdata_producer.FixtureContext / validate / DirectoryLease",
+    "deployment_journal.perform reserve / intent / reopen",
+    "userdata_producer.perform / target_files.beneath",
+    "userdata_entry --observe / userdata_producer.observe",
+    "userdata_entry --reopen / userdata_producer.reopen",
+    "validate_completion_receipt / DebianUserData.ValidateFixtureResult"
+  ],
+  "Contract": {
+    "TransferScope": "SelectedDocumentTreesV1",
+    "CollisionPolicy": "CreateNewSelectedTrees",
+    "MaximumEntries": 1024,
+    "MaximumSelectedBytes": 33554432,
+    "NamePolicy": "NFC-normalizable Latin-1; simple invariant uppercase collision keys; 16 components / 512 characters",
+    "FileMode": "0600",
+    "DirectoryMode": "0700",
+    "Uid": 1000,
+    "Gid": 1000,
+    "Home": "/home/iglootest",
+    "SelectedFolder": "Documents",
+    "SourceRelativePath": "OneDrive/Documents",
+    "Unsupported": [
+      "browser profiles",
+      "wallpaper/account pictures",
+      "outside-policy names",
+      "links/reparse points",
+      "hardlinks",
+      "alternate streams",
+      "special files",
+      "ACLs/xattrs/capabilities",
+      "set-ID metadata",
+      "account databases/private-key paths or PEM private-key contents",
+      "Windows/NTFS/EFS acquisition"
+    ],
+    "NoSourceCleanupOrDestinationOverwrite": true,
+    "WindowsEvidenceFabricated": false,
+    "FailureSemantics": "NotStarted describes transfer-content effects only; reservation/intent may exist. Possible target effects followed by observation/persistence failure remain OutcomeUnknown. A nonterminal success-looking record is rejected.",
+    "ProducerRecordVersion": 2,
+    "CompletionEnvelopeVersion": 1,
+    "IntentContextBinding": "Observation and terminal result hash-link the exact intent reference and its source/root/home, account, and before-state evidence; independent reopen rejects rehashed substitution."
+  },
+  "AttemptBudget": {
+    "AuthorizedNativeAcceptancePasses": 2,
+    "Used": 2,
+    "CanonicalReservations": 0,
+    "FaultInjectionFixtures": "Separate 24-test isolated unit suite on the final native revision; prior 23-test suite retained. No totals combined."
+  },
+  "NativeExecution": {
+    "LabRunId": "12196b5b-e1c0-4ca3-be23-7bdad45a2f75",
+    "ProtectedResources": "/var/lib/igloo/userdata-labs/12196b5be1c04ca3be237bdad45a2f75",
+    "FixtureRoot": "/var/lib/igloo/userdata-fixtures/0bbc73f8-ea01-479e-965b-2c0b60cb0372",
+    "ExecutionIdentitySha256": "0FB4EBC33B2B28EC33A912E923DBFBC8B1B1937787CE66EA9A04C2DDB467491E",
+    "ExecutedInputHashes": {
+      "debian_first_boot.py": "FB0C5A5BB414F1798FEC664274C15D5C23D07FAC150935BEECFADF88DC4F6C32",
+      "deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "isolation_observer.py": "14182A2A7A42A9C7A76CF6D6712F31366AF96783FF04F1EE7CE57E24EE5295A2",
+      "isolation_policy.py": "36DD2CBF01461BE37035D01526E61FF5F69307C6ADA8BE397CBF9B1D18CA6F45",
+      "package_broker.py": "F7DDBAC0E1B22C7FEB9E995D3507404B3B3F020E21DCB7BD9FC8ED1BC87BF354",
+      "target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "test_userdata_producer.py": "5E0838E878194D1DB47DE0E019CCC7E3190A0AA5F96C97A62A9C2370A0A4FDBD",
+      "userdata_entry.py": "3615F58EA48A2F7EBFE791BA2A8AA10B45E4A774F851B2BCEF54F3F30E373ABB",
+      "userdata_producer.py": "40CF1E43BF943C6D901B7619F39FD0B4E0B2E674D54FA27120A4AB420C0A58F1",
+      "userdata_rehearsal.py": "7AE013CEFB800B5F660431EC7233614A3468AE2CCB3F1D067057838EE380E7C7",
+      "wire/data.json": "79E5F2042F12AED684FEBADF92268D589678FCFF74E6301B5DC7FE51C4EFE55C",
+      "wire/plan.json": "F6CA7CFF9610864069C316EE7C7FA723A03816EEC15E008154CD6F12115A81D5"
+    },
+    "Python": "3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0]",
+    "ProtectedExecutionFiles": 93,
+    "RuntimeBackingOnly": true,
+    "TargetOrJournalBackingsAttached": false,
+    "NetworkInterfaces": [
+      "lo"
+    ],
+    "HostSharesOrPhysicalPassthrough": false,
+    "Capacity": {
+      "AvailableBytes": 176046268416,
+      "BackingVolume": "C:\\",
+      "Distribution": "Ubuntu-24.04",
+      "NativeMutationAuthorized": false,
+      "ObservedAtUtc": "2026-09-30T07:08:34.0768414+00:00",
+      "RequiredAdditionalBytes": 30064771072,
+      "SchemaVersion": 1,
+      "Scope": "HostCapacityObservationOnly",
+      "Sufficient": true
+    },
+    "RuntimeCopyAndReserveBytes": 30064771072,
+    "GuestFreeBeforeAcceptance": 12308713472
+  },
+  "Result": {
+    "BindingSha256": "FFAA942E6F81AB415588BDB16DB3E26946AB35B12FA72FC9A32BC2886C23D5CD",
+    "Bytes": 313,
+    "CanonicalOwnership": false,
+    "ContentAndOwnershipVerified": true,
+    "DestinationSha256": "222570146058417B1ADD9345DED061D453A1CE3BCFA86FD85AF6A32C4F73DC5C",
+    "DirectoryLeasesClosed": true,
+    "Files": 4,
+    "FirstBootSucceeded": false,
+    "FixtureDirectory": "/var/lib/igloo/userdata-fixtures/0bbc73f8-ea01-479e-965b-2c0b60cb0372",
+    "GenerationId": "3ea4aa3e-3336-4574-a7fb-963bd649df27",
+    "OperationId": "0bbc73f8-ea01-479e-965b-2c0b60cb0372",
+    "PlanSha256": "F6CA7CFF9610864069C316EE7C7FA723A03816EEC15E008154CD6F12115A81D5",
+    "ProductionQualified": false,
+    "ReceiptSha256": "D36F6F7FF13ED33376BB7167BFD1363A78F77FC3D4BF7E6313B06BD69E8F0208",
+    "ReopenedRecords": 3,
+    "ResultReference": "00000002-0CAA52A0EFAFE04B64EE28D2FD2E2A943DA32AEFE9D1D038E69D0AABBF5C0E11.json",
+    "ResultSha256": "0CAA52A0EFAFE04B64EE28D2FD2E2A943DA32AEFE9D1D038E69D0AABBF5C0E11",
+    "Scope": "FixtureOnlySelectedDocuments",
+    "SourceUnchanged": true,
+    "UnrelatedDestinationUnchanged": true
+  },
+  "Durability": {
+    "IntentReopenedBeforeEffect": true,
+    "FreshProcessDestinationObserver": true,
+    "FreshProcessTerminalChainReopen": true,
+    "ThreeOrderedHashNamedProducerRecords": true,
+    "ReceiptReferencesExactResultBytes": true,
+    "FixtureConsumerAcceptedActualNativeReceipt": true,
+    "MissingOtherMandatoryReceiptsStillBlockFirstBoot": true,
+    "NoPowerLossTest": true,
+    "ExactIntentAndContextHashLinksReopened": true
+  },
+  "FixtureClosure": {
+    "CanonicalTeardown": false,
+    "DirectoryLeasesClosed": true,
+    "FreshToolsMountAbsence": true,
+    "OrdinaryToolsUnmount": true,
+    "RemainingFixtureDescriptors": [],
+    "Reopened": {
+      "ReceiptSha256": "D36F6F7FF13ED33376BB7167BFD1363A78F77FC3D4BF7E6313B06BD69E8F0208",
+      "ReopenedRecords": 3,
+      "ResultReference": "00000002-0CAA52A0EFAFE04B64EE28D2FD2E2A943DA32AEFE9D1D038E69D0AABBF5C0E11.json",
+      "ResultSha256": "0CAA52A0EFAFE04B64EE28D2FD2E2A943DA32AEFE9D1D038E69D0AABBF5C0E11"
+    }
+  },
+  "NormalRuntimeShutdown": {
+    "BackingDescriptorsClosed": true,
+    "CanonicalTeardownClaimed": false,
+    "ConsolePowerDown": true,
+    "ProcessAbsent": true,
+    "ProcessNoLongerExecuting": true
+  },
+  "Retention": {
+    "CanonicalReservations": 0,
+    "ExistingTargetsAttached": false,
+    "FixtureResultSha256": "035AC8D50B97DB8CEA806333B81C7D65377733A0C07AD4575758E80C5F7E17D3",
+    "NativeAcceptancePassesUsed": 2,
+    "Scope": "UserDataFixtureOnly",
+    "SourceRuntimeSha256": "0F7EB5EA2DC77A33841DAFED6DCD26BDC9F386CCFC3A13962E4FBD9535583EEB",
+    "SourceRuntimeUnchanged": true,
+    "WorkingRuntime": {
+      "Identity": [
+        2096,
+        88827,
+        25769803776
+      ],
+      "Sha256": "3B8F93ABF9EC21B68EC5BEB9B5A9A6DAF1275492382B2CE1239A42429A52C9C6"
+    }
+  },
+  "Preservation": {
+    "SelectedSourceAndUnselectedSourceObservedUnchanged": true,
+    "UnrelatedHomeSentinelObservedUnchanged": true,
+    "SourceObservationScope": "content/type/link count/owner/mode/xattrs and regular-file inode/mtime/ctime; no atime-preservation claim",
+    "OriginalRuntimeFullHashReverified": true,
+    "ConfiguredInitramfsAndHistoricalTargetsNeverAttachedOrWritten": true,
+    "NoNewFullByteAuditOfAllHistoricalTargetsClaimed": true,
+    "PriorPassRuntimeFullHashReverified": true
+  },
+  "RawReferences": {
+    "budget.json": {
+      "Sha256": "6F229074A3BA2F89418ABCCD589B6F35CA5A2A05B530ED59DAED6AB1C488C0F5",
+      "Length": 621
+    },
+    "runtime-copy-intent.json": {
+      "Sha256": "2F4D32712CE9CE5013AA8412A60CD1F1D2DA5E87F72C127D80D582C661B7A2B5",
+      "Length": 245
+    },
+    "runtime-copy-readback.json": {
+      "Sha256": "98027CE73B3EBCFBD1D987E3587CB8601ED4F611634922E5A8EF0F60DB3F3D7B",
+      "Length": 219
+    },
+    "launch-intent.json": {
+      "Sha256": "84A25798A53FE2EB90045C5B25FA7BB5745F13222CA8A916DADD0CBA1896E753",
+      "Length": 1368
+    },
+    "fixture-pass-2-reservation.json": {
+      "Sha256": "9EFFFE48CAB3B5BCB17E59F18A78C77DF72DCD00424191DD8B73F090EFCB8FD9",
+      "Length": 1477
+    },
+    "staged-inputs.json": {
+      "Sha256": "0FB4EBC33B2B28EC33A912E923DBFBC8B1B1937787CE66EA9A04C2DDB467491E",
+      "Length": 1114
+    },
+    "guest-evidence/execution/protection.json": {
+      "Sha256": "079EDC941D6F4853DE4F5617761310F83B23E4F2283F5BE038CE8C39FDB23699",
+      "Length": 15462
+    },
+    "guest-evidence/execution/pass-2-intent.json": {
+      "Sha256": "809D45FECD976C7605D24C7509AC99185751847E065D818A6EA3802410991C28",
+      "Length": 285
+    },
+    "guest-evidence/execution/fixture-close.json": {
+      "Sha256": "829D955CA6EAE63481438ACA3F992B2E4DE9D154D379F0725BEF3DE5EB0C0F6C",
+      "Length": 444
+    },
+    "guest-evidence/fixture/fixture-result.json": {
+      "Sha256": "035AC8D50B97DB8CEA806333B81C7D65377733A0C07AD4575758E80C5F7E17D3",
+      "Length": 1000
+    },
+    "shutdown-observation.json": {
+      "Sha256": "854B3CB940D490CC22EB40266930B88A5250826361CAC6EF3528D90D935C65FD",
+      "Length": 164
+    },
+    "retention.json": {
+      "Sha256": "96714D302E6557EC91039CE60519C600A2EED13F112262D1CA0A77E28D80AC93",
+      "Length": 533
+    },
+    "guest-evidence/fixture/journal/userdata-receipt.json": {
+      "Sha256": "D36F6F7FF13ED33376BB7167BFD1363A78F77FC3D4BF7E6313B06BD69E8F0208",
+      "Length": 204
+    },
+    "guest-evidence/fixture/journal/0bbc73f8-ea01-479e-965b-2c0b60cb0372/00000000-E676D416AE522F1F23DF134551139E0809F1859F3D1EE635E78E6D35C070EB1B.json": {
+      "Sha256": "E676D416AE522F1F23DF134551139E0809F1859F3D1EE635E78E6D35C070EB1B",
+      "Length": 871
+    },
+    "guest-evidence/fixture/journal/0bbc73f8-ea01-479e-965b-2c0b60cb0372/00000001-C73E8C7EC6A5595454E27EF92E80807FE0F40A247FCDEEB794ACCD82DBDF9C68.json": {
+      "Sha256": "C73E8C7EC6A5595454E27EF92E80807FE0F40A247FCDEEB794ACCD82DBDF9C68",
+      "Length": 949
+    },
+    "guest-evidence/fixture/journal/0bbc73f8-ea01-479e-965b-2c0b60cb0372/00000002-0CAA52A0EFAFE04B64EE28D2FD2E2A943DA32AEFE9D1D038E69D0AABBF5C0E11.json": {
+      "Sha256": "0CAA52A0EFAFE04B64EE28D2FD2E2A943DA32AEFE9D1D038E69D0AABBF5C0E11",
+      "Length": 751
+    },
+    "prior-pass-preserved.json": {
+      "Sha256": "12395E8EB212FC6A15FC4D04169874579D4315359DC4099AF31FF733D5896430",
+      "Length": 3898
+    }
+  },
+  "CurrentSourceHashes": {
+    "distros/debian/Deployment/DebianUserData.cs": "F70E1A7A7BC8366459F27AA0C08E3C1EDC9F03A051081FFFA9940D0E1249889B",
+    "distros/debian/Deployment/DebianFirstBootEvidence.cs": "60525C5612E809DD0E4AF92A5AC5B4D142BEF5FB046716AA4E149EC0F154C98B",
+    "distros/debian/native/userdata_producer.py": "40CF1E43BF943C6D901B7619F39FD0B4E0B2E674D54FA27120A4AB420C0A58F1",
+    "distros/debian/native/userdata_entry.py": "3615F58EA48A2F7EBFE791BA2A8AA10B45E4A774F851B2BCEF54F3F30E373ABB",
+    "distros/debian/native/debian_first_boot.py": "FB0C5A5BB414F1798FEC664274C15D5C23D07FAC150935BEECFADF88DC4F6C32",
+    "tests/Igloo.Migration.Tests/DebianUserDataTests.cs": "E427F9AFD8DE3FDA344F8E68799E381CC35656AD8A742A472D2DB2E9D733F68F",
+    "tests/installer/test_userdata_producer.py": "5E0838E878194D1DB47DE0E019CCC7E3190A0AA5F96C97A62A9C2370A0A4FDBD",
+    "tests/installer/userdata_rehearsal.py": "7AE013CEFB800B5F660431EC7233614A3468AE2CCB3F1D067057838EE380E7C7"
+  },
+  "FinalWindowsValidationBinaries": {
+    "distros/debian/bin/Debug/net8.0/Igloo.Distro.Debian.dll": "B41A0011A02C6620936E2F8AC43C74EED7C6A8381D10AA77687CBA2D69ECD24A",
+    "src/Igloo.Core/bin/Debug/net8.0/Igloo.Core.dll": "3FA7AF40F22190A71ADD3FA17C2D6E65ACABFFC4CAD870F33E290DF16EF63447",
+    "tests/Igloo.Migration.Tests/bin/Debug/net8.0/Igloo.Migration.Tests.dll": "74EB5481D7EE969B4173243C77C62716C77769F7221C979F966BA01C57DFF0BB"
+  },
+  "SerializerIdentityNote": "Final qualified pass consumed actual .NET serialized bytes from the recorded exporter binaries. A later test-only assertion rejects v1 producer records; final rebuilt tests reproduced the exact executed plan bytes and accepted the v2 native result. Native producer/observer bytes did not change after staging.",
+  "Validation": [
+    {
+      "Environment": "Windows .NET SDK 10.0.401, net8.0 target",
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror",
+      "AdditionalInput": "IGLOO_USERDATA_FIXTURE_OPERATION=0bbc73f8-ea01-479e-965b-2c0b60cb0372; IGLOO_USERDATA_NATIVE_RESULT exact pass-2 receipt/result; IGLOO_USERDATA_WIRE_FIXTURE re-exports plan for byte equality",
+      "Passed": 456,
+      "Failed": 0
+    },
+    {
+      "Environment": "Windows, rebuilt v2 producer and affected tests before native staging",
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror --filter FullyQualifiedName~DebianUserDataTests",
+      "AdditionalInput": "IGLOO_USERDATA_WIRE_FIXTURE exports actual bytes; IGLOO_USERDATA_NATIVE_RESULT enables native decoding",
+      "Passed": 8,
+      "OverlapsMigrationSuite": true
+    },
+    {
+      "Environment": "Isolated disposable GPT runtime",
+      "Command": "IGLOO_USERDATA_WIRE=/opt/igloo-userdata-tools/wire IGLOO_USERDATA_TOOLS=/opt/igloo-userdata-tools IGLOO_USERDATA_NATIVE_UNIT=1 python3 -B /opt/igloo-userdata-tools/test_userdata_producer.py -v",
+      "Passed": 24,
+      "Failed": 0
+    },
+    {
+      "Environment": "Same isolated runtime; distinct fresh acceptance root",
+      "Command": "python3 -B /opt/igloo-userdata-tools/userdata_rehearsal.py --fixture",
+      "ExitCode": 0,
+      "Files": 4,
+      "Bytes": 313,
+      "Pass": 2
+    },
+    {
+      "Environment": "WSL Ubuntu-24.04, repository test directory on sys.path",
+      "Passed": 113,
+      "Failed": 0,
+      "Earlier31TestNonfirmwareRunOverlaps": true,
+      "ReproductionCommand": "python3 -B -m unittest test_debian_nonfirmware test_debian_native test_debian_isolation test_exact_evidence",
+      "Invocation": "python3 -B via WSL; unittest.defaultTestLoader.loadTestsFromNames([test_debian_nonfirmware, test_debian_native, test_debian_isolation, test_exact_evidence]); unittest.TextTestRunner(verbosity=1).run(suite)"
+    },
+    {
+      "Environment": "Windows",
+      "Command": "dotnet format whitespace Igloo.sln --no-restore --include distros/debian/Deployment/DebianUserData.cs distros/debian/Deployment/DebianFirstBootEvidence.cs tests/Igloo.Migration.Tests/DebianUserDataTests.cs --verbosity quiet",
+      "ExitCode": 0,
+      "ScopeNote": "Formatting preceded receipt-binding correction; subsequent edits were rebuilt/tested, with whitespace checked separately."
+    },
+    {
+      "Command": "git diff --check; separate changed/untracked UTF-8/BOM/whitespace/size inspection",
+      "Result": "Passed; all 11 task-touched/new files UTF-8 without BOM, terminal newline, no trailing whitespace, under 1 MiB; tracked diff check passed"
+    }
+  ],
+  "OmittedChecks": [
+    "Full solution, standalone Core/Preflight/Community.App suites and canonical harness: no relevant source change; Debian/Core dependencies rebuilt by Migration tests",
+    "Unrelated complete Linux discovery and historical qualification campaigns",
+    "Canonical UserData transfer / Windows source acquisition / real user migration",
+    "Agent installation/start, Enrollment and first-boot execution"
+  ],
+  "RemainingIntegrationBoundary": "Supply validated canonical selected-source acquisition and destination-account/home authority, reuse bounded transfer/observer logic through that closed composition, and admit exact completed producer scope into protected first-boot receipt inputs. Fixture evidence cannot authorize that operation.",
+  "ProductGates": {
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "ProductionMigrationQualified": false,
+    "FirstBootSucceeded": false,
+    "WindowsAndRecoverySemanticsChanged": false,
+    "AgentOrEnrollmentInstalled": false,
+    "CanonicalOperationInvoked": false
+  },
+  "FinalCheckout": {
+    "Branch": "refactor/community-fleet-foundation",
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "ModifiedTracked": 36,
+    "Untracked": 94,
+    "IndexEmpty": true
+  },
+  "NativePassHistory": [
+    {
+      "Pass": 1,
+      "ProtectedResources": "/var/lib/igloo/userdata-labs/558b50036c0146eb8c8fd1ea8c3eb0e5",
+      "ExecutionIdentitySha256": "AEC15AED968BA6C49343EEA15421EA7EE15786F8E12CA6056BB6CE892B290C80",
+      "ExecutedInputHashes": {
+        "debian_first_boot.py": "FB0C5A5BB414F1798FEC664274C15D5C23D07FAC150935BEECFADF88DC4F6C32",
+        "deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+        "isolation_observer.py": "14182A2A7A42A9C7A76CF6D6712F31366AF96783FF04F1EE7CE57E24EE5295A2",
+        "isolation_policy.py": "36DD2CBF01461BE37035D01526E61FF5F69307C6ADA8BE397CBF9B1D18CA6F45",
+        "package_broker.py": "F7DDBAC0E1B22C7FEB9E995D3507404B3B3F020E21DCB7BD9FC8ED1BC87BF354",
+        "target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+        "test_userdata_producer.py": "F7CDF04B015E830288E3A103FD6E04B40AC1C8FF32F131B67C839EC1EC939A9F",
+        "userdata_entry.py": "3615F58EA48A2F7EBFE791BA2A8AA10B45E4A774F851B2BCEF54F3F30E373ABB",
+        "userdata_producer.py": "05EEE8C46E2E5FFC06B65D228641D1A1F9F970EC077F8D8F26000ADC660F5DDA",
+        "userdata_rehearsal.py": "7AE013CEFB800B5F660431EC7233614A3468AE2CCB3F1D067057838EE380E7C7",
+        "wire/data.json": "79E5F2042F12AED684FEBADF92268D589678FCFF74E6301B5DC7FE51C4EFE55C",
+        "wire/plan.json": "6D5151C1CAB3A1C6623F9E720E1E92032AB2ECB9AC2B5EB5BA595CEDFDF58EE1"
+      },
+      "ObservedResult": {
+        "Bytes": 313,
+        "CanonicalOwnership": false,
+        "ContentAndOwnershipVerified": true,
+        "DestinationSha256": "3F0EB8CF52D783A455E2FB395410628CE73F6F08A119B003A7C630C1D07A49BA",
+        "DirectoryLeasesClosed": true,
+        "Files": 4,
+        "FirstBootSucceeded": false,
+        "FixtureDirectory": "/var/lib/igloo/userdata-fixtures/0f6ddccd-0277-4403-8ac9-401470607ace",
+        "GenerationId": "3ea4aa3e-3336-4574-a7fb-963bd649df27",
+        "OperationId": "0f6ddccd-0277-4403-8ac9-401470607ace",
+        "PlanSha256": "6D5151C1CAB3A1C6623F9E720E1E92032AB2ECB9AC2B5EB5BA595CEDFDF58EE1",
+        "ProductionQualified": false,
+        "ReceiptSha256": "1FCB958C7E387A0547598EB1CB435B34109F242C28BB3B9047B38C4B32E731F9",
+        "ReopenedRecords": 3,
+        "ResultReference": "00000002-14CE1D2CFA27694DA524998D1F6D0734A913917D7EF703ABCC20ADF41DA159F6.json",
+        "ResultSha256": "14CE1D2CFA27694DA524998D1F6D0734A913917D7EF703ABCC20ADF41DA159F6",
+        "Scope": "FixtureOnlySelectedDocuments",
+        "SourceUnchanged": true,
+        "UnrelatedDestinationUnchanged": true
+      },
+      "RawReferences": {
+        "budget.json": {
+          "Sha256": "690B76A8C5DAFC47B8E8AF9C919FE0226AD21921D7E773BB2BB9CECDC5DA5C7F",
+          "Length": 599
+        },
+        "runtime-copy-intent.json": {
+          "Sha256": "2F4D32712CE9CE5013AA8412A60CD1F1D2DA5E87F72C127D80D582C661B7A2B5",
+          "Length": 245
+        },
+        "runtime-copy-readback.json": {
+          "Sha256": "21D66A25B2FB8D2EB1C9AD1D7D5443B2C6A45DE857C4874322577839DE38B289",
+          "Length": 219
+        },
+        "launch-intent.json": {
+          "Sha256": "86A531D13A28299512845C66A2BD19EA08AE2193A9494C70A95963D129F319D4",
+          "Length": 1368
+        },
+        "fixture-pass-1-reservation.json": {
+          "Sha256": "BF5B13ED89C734ED052C021A829DA44E1C02D81CE7719AD2369D15F2C9E137F9",
+          "Length": 1260
+        },
+        "staged-inputs.json": {
+          "Sha256": "AEC15AED968BA6C49343EEA15421EA7EE15786F8E12CA6056BB6CE892B290C80",
+          "Length": 1114
+        },
+        "guest-evidence/execution/protection.json": {
+          "Sha256": "1ABD18911022F9B2AD6C77B716D1576B83F5F3E5707938D58101ABAC671E25B6",
+          "Length": 15461
+        },
+        "guest-evidence/execution/pass-1-intent.json": {
+          "Sha256": "8999CB451A89A53ED5C06C7F89996F2A0C2CFC00653058D34BFDE6E3DAAA4ECA",
+          "Length": 285
+        },
+        "guest-evidence/execution/fixture-close.json": {
+          "Sha256": "45C31F28336A51A8BD4534A39AC5AFF659C9AE02F9028EBE5817342B8FF87903",
+          "Length": 444
+        },
+        "guest-evidence/fixture/fixture-result.json": {
+          "Sha256": "54A2FB9DD81CD23B800879011C66C1A609C36DBE4BBC5452F51565859B8E6A37",
+          "Length": 917
+        },
+        "shutdown-observation.json": {
+          "Sha256": "854B3CB940D490CC22EB40266930B88A5250826361CAC6EF3528D90D935C65FD",
+          "Length": 164
+        },
+        "retention.json": {
+          "Sha256": "F5BA2A22565F4C2869293464324DB2D0B9C3A4F974519D568E5C5C83E0D04410",
+          "Length": 533
+        },
+        "guest-evidence/fixture/journal/userdata-receipt.json": {
+          "Sha256": "1FCB958C7E387A0547598EB1CB435B34109F242C28BB3B9047B38C4B32E731F9",
+          "Length": 204
+        },
+        "guest-evidence/fixture/journal/0f6ddccd-0277-4403-8ac9-401470607ace/00000000-8CF63DBBAAF6D2D51CD2FE8E29B3457B7748A025371A0F86C9EDD6204372FDC7.json": {
+          "Sha256": "8CF63DBBAAF6D2D51CD2FE8E29B3457B7748A025371A0F86C9EDD6204372FDC7",
+          "Length": 871
+        },
+        "guest-evidence/fixture/journal/0f6ddccd-0277-4403-8ac9-401470607ace/00000001-9F2DB1B33C12086E24041A58995052280861D7D72A2CACAFD73E56F55D7DB3DE.json": {
+          "Sha256": "9F2DB1B33C12086E24041A58995052280861D7D72A2CACAFD73E56F55D7DB3DE",
+          "Length": 685
+        },
+        "guest-evidence/fixture/journal/0f6ddccd-0277-4403-8ac9-401470607ace/00000002-14CE1D2CFA27694DA524998D1F6D0734A913917D7EF703ABCC20ADF41DA159F6.json": {
+          "Sha256": "14CE1D2CFA27694DA524998D1F6D0734A913917D7EF703ABCC20ADF41DA159F6",
+          "Length": 487
+        }
+      },
+      "Retention": {
+        "CanonicalReservations": 0,
+        "ExistingTargetsAttached": false,
+        "FixtureResultSha256": "54A2FB9DD81CD23B800879011C66C1A609C36DBE4BBC5452F51565859B8E6A37",
+        "NativeAcceptancePassesUsed": 1,
+        "Scope": "UserDataFixtureOnly",
+        "SourceRuntimeSha256": "0F7EB5EA2DC77A33841DAFED6DCD26BDC9F386CCFC3A13962E4FBD9535583EEB",
+        "SourceRuntimeUnchanged": true,
+        "WorkingRuntime": {
+          "Identity": [
+            2096,
+            88750,
+            25769803776
+          ],
+          "Sha256": "764765969C4DFDA76949443555A46271CEDC1DFE204D0207215EF6A24438E608"
+        }
+      },
+      "FinalQualification": "Rejected: missing explicit intent hash-link discovered in final review; source/content observation passed. Raw v1 records preserved unchanged; no replay."
+    },
+    {
+      "Pass": 2,
+      "ProtectedResources": "/var/lib/igloo/userdata-labs/12196b5be1c04ca3be237bdad45a2f75",
+      "ExecutionIdentitySha256": "0FB4EBC33B2B28EC33A912E923DBFBC8B1B1937787CE66EA9A04C2DDB467491E",
+      "ProducerRecordVersion": 2,
+      "FinalQualification": "Passed",
+      "Correction": "Explicit intent/reference/context hash binding and independently rejected rehashed-intent substitution; affected tests passed before fresh acceptance."
+    }
+  ],
+  "ExecutedWindowsExporterBinaries": {
+    "Igloo.Distro.Debian.dll": "B41A0011A02C6620936E2F8AC43C74EED7C6A8381D10AA77687CBA2D69ECD24A",
+    "Igloo.Migration.Tests.dll": "2775FB9EFFBC6A94793D7EEDF3581DE28A08AF99000699A89EA3FFD15E650D1A"
+  }
+}

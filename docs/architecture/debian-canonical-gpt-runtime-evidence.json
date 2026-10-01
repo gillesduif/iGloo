@@ -1,0 +1,569 @@
+{
+  "SchemaVersion": 1,
+  "BaselineCommit": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+  "AtUtc": "2026-09-28T18:45:50.193616+00:00",
+  "LabRunId": "28df6134-bff5-4f94-a07e-3ed442caac64",
+  "Scope": "GPT runtime and read-only lab correlation only; canonical qualification incomplete",
+  "Integrity": {
+    "TransportLength": 1121,
+    "TransportSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757",
+    "NeutralizationExportLength": 55916,
+    "NeutralizationExportSha256": "D38FAE0A29E58190EB00D7F163478D35CB5711E42C1A7105F480408E1AC23FD3",
+    "RebuiltTransportTests": {
+      "Passed": 16,
+      "Failed": 0
+    }
+  },
+  "RuntimeAcquisition": {
+    "ExpectedSha512": "4b801177e009ec710d5e2511500aa60bec95811add50fdc59b00a5c486840c66f00c48f272cf7a2f8129ed158ec5b887d1dd60594e612f749ba48fcf48af9cd2",
+    "MetadataOrigin": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/8.0/releases.json",
+    "ObservedSha512": "4b801177e009ec710d5e2511500aa60bec95811add50fdc59b00a5c486840c66f00c48f272cf7a2f8129ed158ec5b887d1dd60594e612f749ba48fcf48af9cd2",
+    "Origin": "https://builds.dotnet.microsoft.com/dotnet/Runtime/8.0.20/dotnet-runtime-8.0.20-linux-x64.tar.gz",
+    "Version": "8.0.20"
+  },
+  "Construction": {
+    "runtime-copy.json": {
+      "DiskGuid": "0fb27ab1-78af-421c-bce1-94e3ce5c8a98",
+      "DotnetSha512": "4b801177e009ec710d5e2511500aa60bec95811add50fdc59b00a5c486840c66f00c48f272cf7a2f8129ed158ec5b887d1dd60594e612f749ba48fcf48af9cd2",
+      "RootPartitionGuid": "86480d67-661c-4a36-8648-9659bce14063",
+      "TargetImport": "NotStarted"
+    },
+    "intent.json": {
+      "Before": {
+        "signatures": []
+      },
+      "DiskGuid": "0fb27ab1-78af-421c-bce1-94e3ce5c8a98",
+      "PartitionGuid": "86480d67-661c-4a36-8648-9659bce14063",
+      "PreparationReceipt": false,
+      "Scope": "NewDisposableRuntimeOnly",
+      "Table": "label: gpt\nlabel-id: 0fb27ab1-78af-421c-bce1-94e3ce5c8a98\nunit: sectors\nstart=2048, size=50327552, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=86480d67-661c-4a36-8648-9659bce14063\n"
+    },
+    "created.json": {
+      "partitiontable": {
+        "device": "/dev/vdb",
+        "firstlba": 2048,
+        "id": "0FB27AB1-78AF-421C-BCE1-94E3CE5C8A98",
+        "label": "gpt",
+        "lastlba": 50331614,
+        "partitions": [
+          {
+            "node": "/dev/vdb1",
+            "size": 50327552,
+            "start": 2048,
+            "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4",
+            "uuid": "86480D67-661C-4A36-8648-9659BCE14063"
+          }
+        ],
+        "sectorsize": 512,
+        "unit": "sectors"
+      }
+    },
+    "formatted.json": {
+      "Blkid": "DEVNAME=/dev/vdb1\nUUID=0eca5337-0d18-4264-82af-cb5417a24f2f\nVERSION=1.0\nFSBLOCKSIZE=4096\nBLOCK_SIZE=4096\nFSLASTBLOCK=6290944\nFSSIZE=25767706624\nTYPE=ext4\nUSAGE=filesystem\nPART_ENTRY_SCHEME=gpt\nPART_ENTRY_UUID=86480d67-661c-4a36-8648-9659bce14063\nPART_ENTRY_TYPE=0fc63daf-8483-4772-8e79-3d69d8477de4\nPART_ENTRY_NUMBER=1\nPART_ENTRY_OFFSET=2048\nPART_ENTRY_SIZE=50327552\nPART_ENTRY_DISK=254:16\n"
+    },
+    "format-intent.json": {
+      "Filesystem": "EXT4",
+      "PartitionGuid": "86480d67-661c-4a36-8648-9659bce14063"
+    },
+    "unmounted.json": {
+      "MountinfoSha256": "9d5fd700d909105ae7f5622bdcc56b00bb18a2d9d3c7fba14a1bf2cfe4b4d5cc",
+      "NormalUnmount": true
+    }
+  },
+  "ConstructionHostReadback": {
+    "Fds": {
+      "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/builder.qcow2": {
+        "Device": 2096,
+        "Inode": 74724,
+        "Length": 7602176,
+        "Mode": 2
+      },
+      "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/runtime.raw": {
+        "Device": 2096,
+        "Inode": 74725,
+        "Length": 25769803776,
+        "Mode": 2
+      },
+      "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/tools.iso": {
+        "Device": 2096,
+        "Inode": 74723,
+        "Length": 37224448,
+        "Mode": 0
+      },
+      "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/factory/factory.raw": {
+        "Device": 2096,
+        "Inode": 73898,
+        "Length": 85899345920,
+        "Mode": 0
+      },
+      "/var/lib/igloo/factory-evidence/99695826-82bc-4077-b4cf-a22cebc706da/neutralization-9f5101de-4b25-44d5-8ade-a18c4e371408/derived.qcow2": {
+        "Device": 2096,
+        "Inode": 74618,
+        "Length": 35847798784,
+        "Mode": 0
+      }
+    },
+    "LaunchSha256": "1C7BC3EA10DB00CBBD0EF81BDB9FD176EFA411CAC12F9F707F591E5D9B24EA3B",
+    "PhysicalBlockFds": [],
+    "Pid": 48558
+  },
+  "RuntimeHostReadback": {
+    "CreationSha256": "1C7BC3EA10DB00CBBD0EF81BDB9FD176EFA411CAC12F9F707F591E5D9B24EA3B",
+    "Disks": {
+      "journal.raw": {
+        "Access": "ReadWrite",
+        "HostDevice": 2096,
+        "HostInode": 74727,
+        "Length": 8589934592
+      },
+      "runtime.raw": {
+        "Access": "ReadWrite",
+        "HostDevice": 2096,
+        "HostInode": 74725,
+        "Length": 25769803776
+      },
+      "target.raw": {
+        "Access": "ReadWrite",
+        "HostDevice": 2096,
+        "HostInode": 74726,
+        "Length": 42949672960
+      }
+    },
+    "LabRunId": "28df6134bff54f94a07e3ed442caac64",
+    "LaunchSha256": "E1B8E501D1E669E30656B6C2B5B9BD3C359454ABE45994D4AE6E269E0D8A5A9C",
+    "PhysicalBlockFds": [],
+    "Pid": 49893,
+    "SourceDisksAttached": false
+  },
+  "Inventory": {
+    "availability": "Available",
+    "disks": [
+      {
+        "devicePath": "/dev/vda",
+        "gptDiskGuid": "0fb27ab1-78af-421c-bce1-94e3ce5c8a98",
+        "logicalSectorSize": 512,
+        "sizeBytes": 25769803776
+      },
+      {
+        "devicePath": "/dev/vdb",
+        "gptDiskGuid": "3d49f3a8-2322-4991-a855-d2895624721a",
+        "logicalSectorSize": 512,
+        "sizeBytes": 42949672960
+      },
+      {
+        "devicePath": "/dev/vdc",
+        "gptDiskGuid": "42b300ea-fb76-43d2-b1d4-a9f1e69c5d64",
+        "logicalSectorSize": 512,
+        "sizeBytes": 8589934592
+      }
+    ],
+    "externalFileSystems": [
+      {
+        "devicePath": "/dev/sr0",
+        "fileSystem": {
+          "availability": "Available",
+          "type": "ISO9660",
+          "uuid": "2026-09-28-18-31-24-00"
+        }
+      }
+    ],
+    "partitions": [
+      {
+        "devicePath": "/dev/vdb3",
+        "diskDevicePath": "/dev/vdb",
+        "fileSystem": {
+          "availability": "Available",
+          "type": "FAT32",
+          "uuid": "0C20-40C8"
+        },
+        "offsetBytes": 1343225856,
+        "partitionGuid": "41a1e8de-1ebd-40c5-ae40-188df2253e44",
+        "partitionType": "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "sizeBytes": 8589934592
+      },
+      {
+        "devicePath": "/dev/vdb4",
+        "diskDevicePath": "/dev/vdb",
+        "fileSystem": {
+          "availability": "Available",
+          "type": "EXT4",
+          "uuid": "a6c058a4-ab73-496d-8f2a-e8858281a269"
+        },
+        "offsetBytes": 9933160448,
+        "partitionGuid": "4ca7ba77-34a8-4dc1-b9f1-26e7f83f0e80",
+        "partitionType": "0fc63daf-8483-4772-8e79-3d69d8477de4",
+        "sizeBytes": 21474836480
+      },
+      {
+        "devicePath": "/dev/vda1",
+        "diskDevicePath": "/dev/vda",
+        "fileSystem": {
+          "availability": "Available",
+          "type": "EXT4",
+          "uuid": "0eca5337-0d18-4264-82af-cb5417a24f2f"
+        },
+        "offsetBytes": 1048576,
+        "partitionGuid": "86480d67-661c-4a36-8648-9659bce14063",
+        "partitionType": "0fc63daf-8483-4772-8e79-3d69d8477de4",
+        "sizeBytes": 25767706624
+      },
+      {
+        "devicePath": "/dev/vdb2",
+        "diskDevicePath": "/dev/vdb",
+        "fileSystem": {
+          "availability": "Available",
+          "type": "FAT32",
+          "uuid": "0C1D-F3B1"
+        },
+        "offsetBytes": 269484032,
+        "partitionGuid": "95f25125-17a3-4210-b74b-a2ca07de46ff",
+        "partitionType": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+        "sizeBytes": 1073741824
+      },
+      {
+        "devicePath": "/dev/vdb1",
+        "diskDevicePath": "/dev/vdb",
+        "fileSystem": {
+          "availability": "Available",
+          "type": "FAT32",
+          "uuid": "0C1B-349B"
+        },
+        "offsetBytes": 1048576,
+        "partitionGuid": "c04f2032-aef6-499b-817e-f55e41e3a3dd",
+        "partitionType": "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+        "sizeBytes": 268435456
+      },
+      {
+        "devicePath": "/dev/vdc1",
+        "diskDevicePath": "/dev/vdc",
+        "fileSystem": {
+          "availability": "Available",
+          "type": "EXT4",
+          "uuid": "0bcb4b45-2da6-4e33-8c12-8e6d524ee006"
+        },
+        "offsetBytes": 1048576,
+        "partitionGuid": "f39496ec-6dca-4145-a0ec-fa3bf486336b",
+        "partitionType": "0fc63daf-8483-4772-8e79-3d69d8477de4",
+        "sizeBytes": 8587837440
+      }
+    ],
+    "schemaVersion": 1
+  },
+  "LabCorrelation": {
+    "Availability": "Available",
+    "Code": null,
+    "Value": {
+      "SchemaVersion": 1,
+      "LabRunId": "28df6134-bff5-4f94-a07e-3ed442caac64",
+      "HostObservationSha256": "97B7B1A9718234428A0FC641F4BBBB0EF153F9E2439198E9BE538D5BA351C314",
+      "Disks": [
+        {
+          "Backing": {
+            "Serial": "IGLOO-GPT-RUNTIME",
+            "Length": 25769803776,
+            "HostDevice": 2096,
+            "HostInode": 74725,
+            "CreationSha256": "1C7BC3EA10DB00CBBD0EF81BDB9FD176EFA411CAC12F9F707F591E5D9B24EA3B",
+            "LaunchSha256": "E1B8E501D1E669E30656B6C2B5B9BD3C359454ABE45994D4AE6E269E0D8A5A9C"
+          },
+          "Disk": {
+            "DevicePath": "/dev/vda",
+            "GptDiskGuid": "0fb27ab1-78af-421c-bce1-94e3ce5c8a98",
+            "SizeBytes": 25769803776,
+            "LogicalSectorSize": 512
+          },
+          "PhysicalSectorSize": 512
+        },
+        {
+          "Backing": {
+            "Serial": "IGLOO-LAB-TARGET",
+            "Length": 42949672960,
+            "HostDevice": 2096,
+            "HostInode": 74726,
+            "CreationSha256": "1C7BC3EA10DB00CBBD0EF81BDB9FD176EFA411CAC12F9F707F591E5D9B24EA3B",
+            "LaunchSha256": "E1B8E501D1E669E30656B6C2B5B9BD3C359454ABE45994D4AE6E269E0D8A5A9C"
+          },
+          "Disk": {
+            "DevicePath": "/dev/vdb",
+            "GptDiskGuid": "3d49f3a8-2322-4991-a855-d2895624721a",
+            "SizeBytes": 42949672960,
+            "LogicalSectorSize": 512
+          },
+          "PhysicalSectorSize": 512
+        },
+        {
+          "Backing": {
+            "Serial": "IGLOO-LAB-JOURNAL",
+            "Length": 8589934592,
+            "HostDevice": 2096,
+            "HostInode": 74727,
+            "CreationSha256": "1C7BC3EA10DB00CBBD0EF81BDB9FD176EFA411CAC12F9F707F591E5D9B24EA3B",
+            "LaunchSha256": "E1B8E501D1E669E30656B6C2B5B9BD3C359454ABE45994D4AE6E269E0D8A5A9C"
+          },
+          "Disk": {
+            "DevicePath": "/dev/vdc",
+            "GptDiskGuid": "42b300ea-fb76-43d2-b1d4-a9f1e69c5d64",
+            "SizeBytes": 8589934592,
+            "LogicalSectorSize": 512
+          },
+          "PhysicalSectorSize": 512
+        }
+      ]
+    }
+  },
+  "NativeProbes": [
+    {
+      "Case": "good-v5",
+      "ExitCode": 0,
+      "Availability": "Available",
+      "Code": null
+    },
+    {
+      "Case": "negative-v5",
+      "ExitCode": 2,
+      "Availability": "Ambiguous",
+      "Code": "LabBackingOrLaunchChanged"
+    }
+  ],
+  "RuntimeTools": {
+    "/opt/dotnet/dotnet": {
+      "Sha256": "37674A9F73C1F531B7DCB26F569692F2C85419C0BA4FB7622D5BFC65BB0F5810",
+      "Mode": "0o100755",
+      "Uid": 1000
+    },
+    "/opt/igloo-lab/harness-v4/CanonicalImportQualification.dll": {
+      "Sha256": "353762B3ABC0801CCD839B90E461E88EFAD7C2928147AEE7528CA5723FDE6400",
+      "Mode": "0o100644",
+      "Uid": 0
+    },
+    "/opt/igloo-lab/harness-v4/Igloo.Core.dll": {
+      "Sha256": "663BB093F2D61FA58AEFF555188E4E2FC87AFF19F339ACBCE080D22B75B26223",
+      "Mode": "0o100644",
+      "Uid": 0
+    },
+    "/opt/igloo-lab/harness-v4/Igloo.Distro.Debian.dll": {
+      "Sha256": "D9704B3DD2C8DDEE0310D212F6F3D91510FF2C25FE345CC0EB161CB0B07A4963",
+      "Mode": "0o100644",
+      "Uid": 0
+    },
+    "/opt/igloo-lab/collector.py": {
+      "Sha256": "66E83B8AA504157E97DEF533D59D3280E244F41583799D8BD2A783F6B4491243",
+      "Mode": "0o100644",
+      "Uid": 0
+    },
+    "/usr/bin/python3.13": {
+      "Sha256": "889C603F0D17CB54060951BCF4C4F9B8C9EBD9E52B392C70209BBB9755D797D9",
+      "Mode": "0o100755",
+      "Uid": 0
+    },
+    "/usr/sbin/sfdisk": {
+      "Sha256": "D0CFEF56B8BD47F19E2EC6B73836F89B0D3D4956233EEFF4F32AE03DFA4E8919",
+      "Mode": "0o100755",
+      "Uid": 0
+    },
+    "/usr/sbin/blkid": {
+      "Sha256": "E684D45F2908AB58D2F3257E5FD3F49B8E71F15B3887DEEC9BBF0D3F80C3A26B",
+      "Mode": "0o100755",
+      "Uid": 0
+    },
+    "/usr/bin/dpkg-query": {
+      "Sha256": "095817337215129933918CACAE5FD62E86202FE238591BEA207A75B73561E8C5",
+      "Mode": "0o100755",
+      "Uid": 0
+    },
+    "/usr/bin/mount": {
+      "Sha256": "2F36342BD2FEF42343C4FA4A2A396A7F56C7C8F4DDCBD31C43205C62E152E6D4",
+      "Mode": "0o104755",
+      "Uid": 0
+    },
+    "/usr/lib/x86_64-linux-gnu/libicuuc.so.76.1": {
+      "Sha256": "A8E433E81075732FAF255B17D4A25CE28632E41FEF1A75E727EE7F4ED73AB151",
+      "Mode": "0o100644",
+      "Uid": 0
+    }
+  },
+  "ExecutedHarnessSha256": "DE40D1A0DC4102D4C30AAA15F7EA4209B5E98AF75ADD5F1F95EE6BBFA8CA8740",
+  "ExecutedCoreSha256": "663BB093F2D61FA58AEFF555188E4E2FC87AFF19F339ACBCE080D22B75B26223",
+  "RuntimeDpkgAudit": "",
+  "RetainedSourceReadback": {
+    "AtUtc": "2026-09-28T18:29:45.775738+00:00",
+    "Scope": "ReadOnlyRetainedFat32BytesNotCanonicalImport",
+    "ContentLength": 4641457180,
+    "ContentSha256": "EDE9ADCC24597B82389CE7C73D38A02A3AB077DA53C132EE9704FEC71BC705F5",
+    "Chunks": [
+      {
+        "Name": "root.content.0000",
+        "Length": 1073741824,
+        "Sha256": "4A12222BB8993E2A687CCC8721837CD80D307B9DCB022FCEBE443A5560AC5C41"
+      },
+      {
+        "Name": "root.content.0001",
+        "Length": 1073741824,
+        "Sha256": "B2851BBB5A55E3179A1647FEFD9D26F6F0F12518D3B29D0ED8148C0C4F9A04F0"
+      },
+      {
+        "Name": "root.content.0002",
+        "Length": 1073741824,
+        "Sha256": "D7C53DBFCE5788C2930BA2E07D3B4AE8465DE09E13920909A3FC0847C1CC713B"
+      },
+      {
+        "Name": "root.content.0003",
+        "Length": 1073741824,
+        "Sha256": "B046F45ED9DD2BF7D7B09A8433C22115F265BFC57C7EB3E1EDB29D7EB458329E"
+      },
+      {
+        "Name": "root.content.0004",
+        "Length": 346489884,
+        "Sha256": "B8DA049C3E6ABE4DA9361B64CDF55818DD76B682672D90E931DE805FBE917D03"
+      }
+    ],
+    "TransportSha256": "A093432AE281F4620959B56E35774DC0E5D01C74443DCD33F248DA723B364757",
+    "SourceUnchanged": true,
+    "ImportInvoked": false
+  },
+  "NegativeReadOnlyPreservation": {
+    "Scope": "ReadOnlyLabAcquisitionNegativeNotCanonicalImport",
+    "ExitCode": 2,
+    "PreservedLabEspBeforeSha256": "B44FDBFD470E9BF69051D8541F4C50B8BF4B14C575F394B7EDD7B465A571929C",
+    "PreservedLabEspAfterSha256": "B44FDBFD470E9BF69051D8541F4C50B8BF4B14C575F394B7EDD7B465A571929C",
+    "RootListingBefore": "/2/040755/0/0/.//\n/2/040755/0/0/..//\n/11/040700/0/0/lost+found//\n\n",
+    "RootListingAfter": "/2/040755/0/0/.//\n/2/040755/0/0/..//\n/11/040700/0/0/lost+found//\n\n",
+    "Handoff": "NotProduced",
+    "Import": "NotStarted"
+  },
+  "PreparationGeneration": "eee69ac3-52eb-4054-ba4a-292193ac8bd2",
+  "Checkpoints": {
+    "GptRuntimeStarted": true,
+    "LinuxDotnetHarnessExecuted": true,
+    "WholeInventoryAvailable": true,
+    "LabCorrelationVerified": true,
+    "CanonicalPreparationFormatReceiptsVerified": false,
+    "PersistentDirectoriesProvisioned": true,
+    "CanonicalJournalPlacementVerified": false,
+    "SessionSmokeInvoked": false,
+    "ImportInvoked": false,
+    "ImportedRootReadback": "NotInvoked",
+    "ImportResult": "NotProduced",
+    "CanonicalTeardown": "NotInvoked",
+    "NormalGuestShutdown": true
+  },
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0,
+  "CurrentSourceHashesNotRetroactiveRunIdentity": {
+    "src/Igloo.Core/Preparation/InstallerLabAcquisition.cs": "310B87E80F5D4A968C832A5FC49F9A0C30BDD6AE59226981276756EC156EC7C4",
+    "tests/installer/CanonicalImportQualification/InventoryProbe.cs": "1E54B7D1239FDDC2A0178690D8B791770E434EF0056F6D58901E517E4D9D1BB1",
+    "tests/installer/CanonicalImportQualification/Program.cs": "6EE403D1A3B5B1ED28C9F610B9009D72392DD00FA98D9D5E17BD34EDC45530BF",
+    "tests/installer/canonical_lab_guest_build.py": "D680CEE4D61A51C38416316D41F962D4C96236BFC2EFC6553F414E37622011AD",
+    "tests/installer/canonical_lab_guest_storage.py": "D113A0B860F9C348F604E3678BB2B035E19AABF264AE03D847DE17D0ACC37BAB",
+    "tests/installer/canonical_lab_runtime.py": "36C1F2BC4DBAC602817542458F26541AB100C502470A0628602E0481708455A9",
+    "tests/Igloo.Migration.Tests/DebianRootTransportTests.cs": "BAB0B9DF5EE2CFFAFC15656182577E6A054C5BC174E356250261333AF0615C08",
+    "tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj": "B7F79FFCF1083C0A391E9E5196F107BB45AD30967DCB9408D3B19B181FE33DA0",
+    "tests/Igloo.Core.Tests/InstallerLabAcquisitionTests.cs": "814DB5CE9A5C4238884FDD9BAC36239204081933FEB31E7AF74F5D3D6D37D7D0",
+    "tests/installer/test_canonical_lab_runtime.py": "E456FD118B713E119AD4459D42910EDDFC3153D2A9F2136C7D8727A565E43096",
+    "tests/installer/test_exact_evidence.py": "391B9741C5C8606D6732F417C3ABD8852D14E72A5E8DE5F53A35E1874B46F3B2"
+  },
+  "EvidenceReferences": {
+    "construction-intent.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/construction-intent.json",
+      "Length": 1583,
+      "Sha256": "1C7BC3EA10DB00CBBD0EF81BDB9FD176EFA411CAC12F9F707F591E5D9B24EA3B"
+    },
+    "construction-fd-readback.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/construction-fd-readback.json",
+      "Length": 1112,
+      "Sha256": "673B742FD97BAD370E60A4F5640A10A5CA1F4666D8410B560DC6A77187C6C775"
+    },
+    "guest-construction-readback.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/guest-construction-readback.json",
+      "Length": 1779,
+      "Sha256": "F706309929548B1F62CEEF2925CDB470EB288FFC5113D36D7571E94048C131BB"
+    },
+    "gpt-launch-intent.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/gpt-launch-intent.json",
+      "Length": 1709,
+      "Sha256": "43D49657FA3ACB0F9745193CC6CFE47414F2E19420FBD176B28B6F221BD90DB3"
+    },
+    "gpt-host-readback.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/gpt-host-readback.json",
+      "Length": 726,
+      "Sha256": "824E29C71024B26749FDAB9303AE30E035E2A0599109D0C0F5887C69DE54271D"
+    },
+    "dependency-launch-intent.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/dependency-launch-intent.json",
+      "Length": 1734,
+      "Sha256": "E1B8E501D1E669E30656B6C2B5B9BD3C359454ABE45994D4AE6E269E0D8A5A9C"
+    },
+    "dependency-host-readback.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/dependency-host-readback.json",
+      "Length": 726,
+      "Sha256": "97B7B1A9718234428A0FC641F4BBBB0EF153F9E2439198E9BE538D5BA351C314"
+    },
+    "native-runtime-readback.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/native-runtime-readback.json",
+      "Length": 28283,
+      "Sha256": "E47AC4A981D0811AF2AC5F1AE920E4E640DFA180A19875419A4B00BA9081D675"
+    },
+    "native-probe-v5-results.jsonl": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/native-probe-v5-results.jsonl",
+      "Length": 7930,
+      "Sha256": "5260223997970082224601E06EB3C9678FA0B77DDC65491E232CFD46D42D5760"
+    },
+    "negative-preservation-result.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/negative-preservation-result.json",
+      "Length": 3683,
+      "Sha256": "282A73AB7990C2FEF7897D70BE01712B9304ADF90F40C1CA0AC5AD86D8F68E6E"
+    },
+    "retained-source-readback.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/retained-source-readback.json",
+      "Length": 1180,
+      "Sha256": "A93F2314F0AEA955671D74766AB7F41BA51523A044433950A7AB17F7A9178979"
+    },
+    "before-normal-shutdown.json": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/before-normal-shutdown.json",
+      "Length": 2697,
+      "Sha256": "48BF929CCBEF6DBD4D61F4FD6B8A8E16E4D88F7D831C0A924A0C1BC1BB023834"
+    },
+    "normal-shutdown-console.bin": {
+      "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/normal-shutdown-console.bin",
+      "Length": 8421,
+      "Sha256": "BF09DC5C5ECFC52729955BCD7C38118A9E04796D5866C4A60D61195675D02226"
+    }
+  },
+  "Limitations": [
+    "Tagged lab transition validators are fixture-tested; no complete native receipt chain or ownership/lease bridge exists.",
+    "Current source includes post-run provisioning corrections; it was not rerun as one complete factory sequence.",
+    "Runtime CD carries tools only; no artifact source was attached to this VM.",
+    "Read-only acquisition negative is not canonical import rejection.",
+    "Normal runtime shutdown is not canonical teardown."
+  ],
+  "Validation": {
+    "Core": 363,
+    "Preflight": 343,
+    "CommunityApp": 58,
+    "Migration": 399,
+    "Fleet": 153,
+    "Iso": 19,
+    "Usb": 23,
+    "SolutionTotal": 1358,
+    "PythonFixtures": 293,
+    "Failed": 0,
+    "Skipped": 0,
+    "BuildWarnings": 0,
+    "BuildErrors": 0,
+    "TransportSubset": 16,
+    "LabAcquisitionSubset": 10,
+    "NativeScope": "Read-only GPT inventory and lab correlation; no canonical session/import"
+  },
+  "RetainedMetadataReadback": [
+    {
+      "Name": "descriptor.json",
+      "Length": 672873,
+      "Sha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20"
+    },
+    {
+      "Name": "root.manifest.json",
+      "Length": 30779391,
+      "Sha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2"
+    }
+  ]
+}

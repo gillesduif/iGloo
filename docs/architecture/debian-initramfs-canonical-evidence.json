@@ -1,0 +1,587 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "DevelopmentLabCanonicalInitramfsAttempt",
+  "Qualification": "Incomplete",
+  "BaselineCommit": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+  "Branch": "refactor/community-fleet-foundation",
+  "InitialWorkingTree": {
+    "ModifiedTracked": 32,
+    "Untracked": 74,
+    "IndexEmpty": true,
+    "SnapshotSha256": "E91E17729DF63B5C1FEF610BEAE0BF00E26322A9910FDFC58D6C32B66DDFBBDA"
+  },
+  "AttemptBudget": {
+    "PositiveCanonicalUsed": 1,
+    "NativePreconditionRejectionUsed": 1,
+    "AdditionalHelperPassesUsed": 0,
+    "RetryAuthorized": false
+  },
+  "QualifiedHelper": {
+    "ExecutionSha256": "F16BA7CD6B9A97B3F2BF50A8AF88D24C3F0AB009B30C410A0688ACCA1A8D1DDF",
+    "Evidence": "debian-initramfs-candidate-evidence.json",
+    "GeneratorAndIsolationContractChanged": false,
+    "GeneratedObserverFunctionAstIdentical": true,
+    "ReuseObservationSha256": "B6CB7D7B8FDFE57D625507013C4C8983FD95F79A7891B1080F9F548612AA3E1E"
+  },
+  "Predecessor": {
+    "RunId": "60068939-1509-4b7c-99da-560446fbbc53",
+    "ConfigurationSha256": "54EC121627C7D45BCCB47621CFD6C05F1C22C91E0C17241ED2329F9D0DD6443D",
+    "CloseSha256": "D21FE8A94119D47270A91CED0962F6CF6637ADAE0C0825F453CC9AFAEF964001",
+    "ConfiguredEntriesSha256": "4C8CFA39471BA1202D9329BE0CC8897928C60DC1B428458A4BB699112D5FAADC",
+    "RetentionSha256": "E0501EC9A4192777AAF579121A7D13873B665602AB83068D947DB7BB5C8264D4",
+    "DotnetReopenSha256": "6B6638076411307A36D1E552EED9662993BD116EBE9D17284B28AE095DBDE537",
+    "BackingsPostRunRecheck": {
+      "ConfiguredBackings": {
+        "journal.raw": {
+          "IdentityUnchanged": true,
+          "Sha256": "9FDF4059917954C424DD2081D88D71BC817774AF425746D941FEB735BCE8AA04"
+        },
+        "runtime.raw": {
+          "IdentityUnchanged": true,
+          "Sha256": "C7B4A480850A9F9F4E82E72C29AB7DD1F47B409995BA1E254E938A7D881C6A60"
+        },
+        "target.raw": {
+          "IdentityUnchanged": true,
+          "Sha256": "FB3005ACC26A229E95C1B17B069C90D7459689004EA5A06D2E6A4A34B1EEF51F"
+        }
+      },
+      "HistoricalFailures": "Not attached or written; no new full-byte audit of all historical failures",
+      "QualifiedHelperRuntimeUnchanged": true
+    }
+  },
+  "Attempt": {
+    "RunId": "1ed3a65c-15a0-4cc9-afd2-a5308eba8f1c",
+    "OperationId": "3d38bbf6-7e31-4934-bb76-11196a36b6fb",
+    "SessionId": "e9c1d5ba-79e3-4f2e-971e-3ee29fe7b4ae",
+    "PreparationLineage": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+    "Resources": "/var/lib/igloo/initramfs-helper-labs/1ed3a65c15a04cc9afd2a5308eba8f1c",
+    "PlanSha256": "AD75E9BD57B9E67707306D77F06CB3AB1482CDB542499A4209ED029E7BBDD82D",
+    "Plan": {
+      "SchemaVersion": 1,
+      "OperationId": "3d38bbf6-7e31-4934-bb76-11196a36b6fb",
+      "Provenance": {
+        "Provider": "IsolatedFileBackedLab",
+        "Version": 4,
+        "Scope": "InitramfsImage",
+        "RunId": "1ed3a65c-15a0-4cc9-afd2-a5308eba8f1c",
+        "GenerationId": "ff104c9d-505c-4d88-8620-19b1153bd91e",
+        "EvidenceSha256": "7FBAD4985B5E6F53C88B015BCB9B48F545D45039E3511AFF1284A80FE97A1F6A"
+      },
+      "ConfigurationSha256": "54EC121627C7D45BCCB47621CFD6C05F1C22C91E0C17241ED2329F9D0DD6443D",
+      "ConfigurationCloseSha256": "D21FE8A94119D47270A91CED0962F6CF6637ADAE0C0825F453CC9AFAEF964001",
+      "RetentionSha256": "E0501EC9A4192777AAF579121A7D13873B665602AB83068D947DB7BB5C8264D4",
+      "DerivationSha256": "9CAE5AB97375060A3F79E564960E731F03AD4FD553A0CAD35D3A093E6479C556",
+      "ConfiguredEntriesSha256": "4C8CFA39471BA1202D9329BE0CC8897928C60DC1B428458A4BB699112D5FAADC",
+      "Candidate": {
+        "BootloaderIntegration": "Deferred",
+        "Compression": "gzip",
+        "ConfigurationResultSha256": "54EC121627C7D45BCCB47621CFD6C05F1C22C91E0C17241ED2329F9D0DD6443D",
+        "CpuVendor": "AuthenticAMD",
+        "HookSetSha256": "C30369EC7973694C8D7604FBB321C396B6B18030BB4AC8032924A8AA197D7ECE",
+        "InputClosureSha256": "CEF1D5A1B15BF1F39FD684B6A4D5DDC7985851E110F6B717ABED38B3B871D1F0",
+        "KernelPackageVersion": "6.12.107-1",
+        "KernelRelease": "6.12.107+deb13-amd64",
+        "ManagedUpdateState": "Deferred",
+        "Modules": "most",
+        "Output": "/boot/initrd.img-6.12.107+deb13-amd64",
+        "Policy": "debian-trixie-lab-initramfs-candidate-v1",
+        "Resume": "none",
+        "RootUuid": "398f0d87-e17c-46d6-866f-24d10d747006",
+        "StorageTopology": "VirtioBlockExt4"
+      },
+      "ExecutionSha256": "B0B1DB6F2821FE94317FD90650F4D393DF874819C3B031DA2F55CF7CEC467EA6",
+      "Workspace": "/var/lib/igloo/initramfs-workspaces/1ed3a65c-15a0-4cc9-afd2-a5308eba8f1c"
+    },
+    "AuthorizationSha256": "1E2A50A9BE47E96397AD44A6704F490AB74EECA22F16F254F760D90D0FDE8E13",
+    "DerivationSha256": "37551FE350A1089C56A381DB79CD749E28EE022B9F9B85D62A3A7750E254CD59",
+    "LaunchSha256": "40206528A632BE17D59B568C3A7920BD4F8F4A00DDE7B1267D4CEB11AB3ACEED",
+    "FreshHostReadbackSha256": "5D82FC7E36715ECE85B67C5C8158FC2CEF6CD9B0A7BDA9BCF0BA6D98AF4D867F",
+    "Capacity": {
+      "AvailableBytes": 225472192512,
+      "BackingVolume": "C:\\",
+      "Distribution": "Ubuntu-24.04",
+      "NativeMutationAuthorized": false,
+      "ObservedAtUtc": "2026-09-30T03:47:42.0314570+00:00",
+      "RequiredAdditionalBytes": 193273528320,
+      "SchemaVersion": 1,
+      "Scope": "HostCapacityObservationOnly",
+      "Sufficient": true
+    },
+    "InitialLaunchObservation": "BackingFdChanged; later fresh exact FD observation passed; original cause not independently established",
+    "ExecutionClosureSha256": "BF0C4C427E0DC7D9D2C19C88329190B0D5ABCDF69B6E2099EBFFB1569E72A70B",
+    "ExecutedStage": "/opt/igloo-canonical-initramfs-2",
+    "ExecutedToolHashes": {
+      "/opt/igloo-canonical-initramfs-2/bwrap": "573236E5328AC2EBB08F59AE3A9805B4F8D12BDEF14BE8AF4450D5463294985F",
+      "/opt/igloo-canonical-initramfs-2/collector.py": "66E83B8AA504157E97DEF533D59D3280E244F41583799D8BD2A783F6B4491243",
+      "/opt/igloo-canonical-initramfs-2/command-gate": "5F88440B1D1B52E40ACE85E63348F654D93E08401F2EB63A226360F44079F0C2",
+      "/opt/igloo-canonical-initramfs-2/native/block_session.py": "2C0AB902CCF1ACF2FBC9F3D5C67F8A9938E264E2A4E9D894C168D85EBA8BD544",
+      "/opt/igloo-canonical-initramfs-2/native/configured_root.py": "C81CABC0C25ADF4FBFC5E67E2C3F451E4A4F88B8A49C6AD289AD55FA60732B43",
+      "/opt/igloo-canonical-initramfs-2/native/configured_root_metadata.py": "CFD33103A87940985D983B45B3275A9D1BE03132F24F5B052DC710D827AA4426",
+      "/opt/igloo-canonical-initramfs-2/native/configured_successor.py": "5FDE49F7F8032629E1D8E1BF9F1B97FA24D82E91B493D684E3044868315B4CA1",
+      "/opt/igloo-canonical-initramfs-2/native/deployment_journal.py": "E49E35A9833320EB5CBCB1A70ECBD5537BF46FACD65B76CCE2A1EECBB1FFB8DD",
+      "/opt/igloo-canonical-initramfs-2/native/initramfs_archive.py": "0F01F2CBE46EB4975A79DAAFCE94BDFFCC3714ED843CC9DC1CA4B4E28CEC6CFC",
+      "/opt/igloo-canonical-initramfs-2/native/initramfs_candidate.py": "EB663235CE5CC791C18E13F2904C9C894090E90421E0DB09DE5B3DD5EB2E6BD6",
+      "/opt/igloo-canonical-initramfs-2/native/initramfs_generated.py": "0E26510714D6B79A75FF00AF4ACEBA3FDC38F436F16D13435553D2080C7467FC",
+      "/opt/igloo-canonical-initramfs-2/native/initramfs_observer.py": "B2617F6EB09E2F8ADF87545A6A4E21782C5E3DBA36541F769EA83418EB30254A",
+      "/opt/igloo-canonical-initramfs-2/native/initramfs_publication.py": "D306A9EE7ACF0DF5A6431B78D1E412FC2201E25FDFA85FE9038DC0CE73C4C282",
+      "/opt/igloo-canonical-initramfs-2/native/isolation_observer.py": "14182A2A7A42A9C7A76CF6D6712F31366AF96783FF04F1EE7CE57E24EE5295A2",
+      "/opt/igloo-canonical-initramfs-2/native/isolation_policy.py": "36DD2CBF01461BE37035D01526E61FF5F69307C6ADA8BE397CBF9B1D18CA6F45",
+      "/opt/igloo-canonical-initramfs-2/native/mount_supervisor.py": "1189B866B4BA8C759826E5963B8C0D5F9E3CA6D46E460C3364CDE25A967031C6",
+      "/opt/igloo-canonical-initramfs-2/native/package_broker.py": "F7DDBAC0E1B22C7FEB9E995D3507404B3B3F020E21DCB7BD9FC8ED1BC87BF354",
+      "/opt/igloo-canonical-initramfs-2/native/root_transport.py": "7B4B49CEE30487707138AB958351D281924F7881AD89DAA17EEF6B7FF899A993",
+      "/opt/igloo-canonical-initramfs-2/native/session_configuration.py": "EC3E906D437DC220B8AD5774BB1764A546A9E29F0D091B570BD2414D4922C1B2",
+      "/opt/igloo-canonical-initramfs-2/native/session_entry.py": "BE93B9909C20647E642709353183F9427117131016E5081CE0D0C36E6FD297D4",
+      "/opt/igloo-canonical-initramfs-2/native/session_import.py": "F704F292602292CFD3FB547E2C984129E487227FCB4C8022030F115C0172681D",
+      "/opt/igloo-canonical-initramfs-2/native/session_initramfs.py": "C939F856A586A65DDDEEBB3D7691480BD4054F38F2C4524753F399030905537D",
+      "/opt/igloo-canonical-initramfs-2/native/target_files.py": "6C31F46AE0BE5D9812616E47CC98815C77807E59D462C021DA01DD592179F053",
+      "/opt/igloo-canonical-initramfs-2/native/target_observer.py": "5FD6BA40F5D5E607F77322F927A25827FB14572A7A088414453F4E8C41198D0A",
+      "/usr/bin/dpkg-query": "095817337215129933918CACAE5FD62E86202FE238591BEA207A75B73561E8C5",
+      "/usr/bin/localedef": "6F1190173873A9D4864FC90E498EF151DAC61835468A2F96A28BE30170E245B9",
+      "/usr/bin/openssl": "F4AA15F2822F670AF7B5C1043D7AA6EBBBC64229FD2FAE382EDFC6A4524749C1",
+      "/usr/bin/python3.13": "889C603F0D17CB54060951BCF4C4F9B8C9EBD9E52B392C70209BBB9755D797D9",
+      "/usr/lib/x86_64-linux-gnu/libcrypt.so.1.1.0": "436788729AB71D794A66954D62E930C723E624587F39BEB2F4F86FF1000B1D29"
+    },
+    "ExecutedAssemblies": {
+      "harness/CanonicalImportQualification.dll": "D359FAF45F43D78A7A9916F033EC3DCE02757D7C337FCE30D7F1976412447CF9",
+      "harness/CryptSharp.dll": "F14E2E528B56F88106E7DF0D40DB9C4FCDE3DCDB7F7182873B6997CB8D5D0610",
+      "harness/Igloo.Core.dll": "3FA7AF40F22190A71ADD3FA17C2D6E65ACABFFC4CAD870F33E290DF16EF63447",
+      "harness/Igloo.Distro.Debian.dll": "762B01B49BDDFA2886DC078DE6D8A2CBB4D5582882F1DC4B236B02A1B6F4CA32",
+      "harness/Microsoft.Extensions.DependencyInjection.Abstractions.dll": "A0106A638FACAE621F870EDA720CB6C980C1D5D49C2F4351134E3FE043B9291B",
+      "harness/Microsoft.Extensions.Logging.Abstractions.dll": "29E6BFAF5CE079AD4D70DC547D966038992A7428DF6E726084EB9010EC837715"
+    }
+  },
+  "Outcomes": {
+    "ConfiguredPredecessorReopen": "Verified",
+    "SharedOwnershipAndCanonicalLeases": "AppliedAndVerified",
+    "PersistentJournalPlacement": "Verified",
+    "RootAndPayloadMount": "AppliedAndVerified",
+    "Baseline": "AppliedAndVerified",
+    "Generation": "NotStarted",
+    "CandidateVerification": "NotStarted",
+    "Publication": "NotStarted",
+    "InstalledImageVerification": "NotStarted",
+    "ConfiguredRootPlusImageDelta": "NotStarted",
+    "DurableInitramfsResult": "NotProduced",
+    "CanonicalSession": "OutcomeUnknown",
+    "CanonicalTeardown": "NotVerified",
+    "CanonicalClose": "NotStarted",
+    "ConfiguredTargetWithInitramfsRetained": false,
+    "FailedDerivativeRetainedPoweredOff": true,
+    "PostFailureWholeRootVerification": "NotPerformed"
+  },
+  "Failure": {
+    "Terminal": {
+      "Initramfs": "OutcomeUnknown",
+      "Code": "Supervisor ended with unresolved intent.",
+      "ErrorType": "IOException"
+    },
+    "ConfirmedDefect": "Executed adapter searches for string Root in numeric canonical lease Role values 0,1,2; exact expression raises StopIteration.",
+    "CauseConfidence": "Deterministically reproduced on retained bindings, consistent with stop boundary; original Python traceback was not retained.",
+    "DiagnosticSha256": "125F6E1DC5F61D481CECA69E82DF4E47AB8786EE5AF1DC6D7041614AD989834C",
+    "PostFailureCorrection": "bound_root_uuid validates numeric wire role/order/filesystem/access; stopped-operation event records inter-step failures; no replay or restaging into the failed run.",
+    "CorrectedSourceNativeExecuted": false
+  },
+  "NativeRejection": {
+    "EarlierEffects": "New copied runtime and journal bootstrap only",
+    "EffectsStoreEmpty": true,
+    "GenerationInvoked": false,
+    "Outcome": "RejectedBeforeSessionReservationAndTargetAcquisition",
+    "SessionStoreEmpty": true,
+    "TargetPublicationInvoked": false,
+    "ExecutedStage": "/opt/igloo-canonical-initramfs-1",
+    "ExecutedHarnessSha256": "F453AFEA766B1DCF689DB49DB1D0A1F70EDA37E164E43769D2AA0C15FF8CDE0E",
+    "ExecutionClosureSha256": "A0973A960EF90B007E3B5C760B6DE7AF679453EAE8C840AAB313C80EBBD1109C",
+    "RevisionNote": "Before workspace placement correction; rejected at the unchanged operation/predecessor comparison before runtime collection and effects."
+  },
+  "NativePublicationFixtures": {
+    "Kind": "OrdinaryFileFixturesNoGenerator",
+    "Passed": true,
+    "Tests": 9
+  },
+  "PreservedLabObjects": {
+    "Baseline": "AppliedAndVerified",
+    "CandidateVerification": "NotStarted",
+    "CanonicalClose": "NotStarted",
+    "CanonicalTeardown": "NotVerified",
+    "CurrentHostNamespaceHasTargetMounts": false,
+    "FurtherNativeDispatchAuthorized": false,
+    "Generation": "NotStarted",
+    "InstalledReadback": "NotStarted",
+    "MountAbsenceIsNotCanonicalTeardown": true,
+    "Outcome": "OutcomeUnknown",
+    "PostFailureWholeRootVerification": "NotPerformed",
+    "PreservedLabPartitionSha256": "0B1C5550B9FCBE8B9B234D04655BDE475DC0E70168E2F411D01E50740945AE17",
+    "PreservedLabPartitionUnchanged": true,
+    "Publication": "NotStarted"
+  },
+  "Journals": {
+    "session": [
+      {
+        "Reference": "00000000-1EDFEED3DDFB68BE96077C93D8CD89C95CC6532D5847A6932274D9ADFF9B741B.json",
+        "Sha256": "1EDFEED3DDFB68BE96077C93D8CD89C95CC6532D5847A6932274D9ADFF9B741B",
+        "Action": "CreatePrivateSupervisor",
+        "State": "IntentDurable",
+        "Step": null,
+        "Outcome": null
+      },
+      {
+        "Reference": "00000001-CAC0B920C7D4F5C3F6D82F1E4C5A424D0BF1D38A374152A29F87FADF6544127C.json",
+        "Sha256": "CAC0B920C7D4F5C3F6D82F1E4C5A424D0BF1D38A374152A29F87FADF6544127C",
+        "Action": "CreatePrivateSupervisor",
+        "State": "AppliedAndVerified",
+        "Step": null,
+        "Outcome": null
+      },
+      {
+        "Reference": "00000002-DBEAC7BF6C4309E181B14B9EF88EDBB2CAF22853A73D9829D9855AC97575E517.json",
+        "Sha256": "DBEAC7BF6C4309E181B14B9EF88EDBB2CAF22853A73D9829D9855AC97575E517",
+        "Action": "AcquireLeases",
+        "State": "IntentDurable",
+        "Step": null,
+        "Outcome": null
+      },
+      {
+        "Reference": "00000003-68E0BEF29D71AA309652B7703E8649E17BF46851D5D071EB81678137AE1AE5F3.json",
+        "Sha256": "68E0BEF29D71AA309652B7703E8649E17BF46851D5D071EB81678137AE1AE5F3",
+        "Action": "AcquireLeases",
+        "State": "AppliedAndVerified",
+        "Step": null,
+        "Outcome": null
+      },
+      {
+        "Reference": "00000004-A1F2811CFECD95D4BEC9441A6A939BBB1775383456960EE61CBEDB61AF27E031.json",
+        "Sha256": "A1F2811CFECD95D4BEC9441A6A939BBB1775383456960EE61CBEDB61AF27E031",
+        "Action": "PrepareImportMountpoints",
+        "State": "IntentDurable",
+        "Step": null,
+        "Outcome": null
+      },
+      {
+        "Reference": "00000005-D6189D28BAF659785646BD19A36DDFFAD3B143B7FBD13E6C549EEA6686E79C96.json",
+        "Sha256": "D6189D28BAF659785646BD19A36DDFFAD3B143B7FBD13E6C549EEA6686E79C96",
+        "Action": "PrepareImportMountpoints",
+        "State": "AppliedAndVerified",
+        "Step": null,
+        "Outcome": null
+      },
+      {
+        "Reference": "00000006-AF650886ABF6038699BC78C5B988E18D7C3E1553A47CBBCAA485B17281BCF3FD.json",
+        "Sha256": "AF650886ABF6038699BC78C5B988E18D7C3E1553A47CBBCAA485B17281BCF3FD",
+        "Action": "MountRoot",
+        "State": "IntentDurable",
+        "Step": null,
+        "Outcome": null
+      },
+      {
+        "Reference": "00000007-BDEF95AF5D7D63FCDA822657B12F83155723F21162100B0B914DD81D95C1EEE4.json",
+        "Sha256": "BDEF95AF5D7D63FCDA822657B12F83155723F21162100B0B914DD81D95C1EEE4",
+        "Action": "MountRoot",
+        "State": "AppliedAndVerified",
+        "Step": null,
+        "Outcome": null
+      },
+      {
+        "Reference": "00000008-313AB8B943FA63CC5337C7F3C4B253581BCACC64C09E72E2749A90903AB59370.json",
+        "Sha256": "313AB8B943FA63CC5337C7F3C4B253581BCACC64C09E72E2749A90903AB59370",
+        "Action": "MountPayload",
+        "State": "IntentDurable",
+        "Step": null,
+        "Outcome": null
+      },
+      {
+        "Reference": "00000009-7320BBFE3556278D5AD28D0F840029AA7AF77D7C88259AED6B6261C13E1DF359.json",
+        "Sha256": "7320BBFE3556278D5AD28D0F840029AA7AF77D7C88259AED6B6261C13E1DF359",
+        "Action": "MountPayload",
+        "State": "AppliedAndVerified",
+        "Step": null,
+        "Outcome": null
+      }
+    ],
+    "effects": [
+      {
+        "Reference": "00000000-3B25AA2A6216C5EE16686914E85D03CA1CC31E1E906897F33691D6623A4B10A3.json",
+        "Sha256": "3B25AA2A6216C5EE16686914E85D03CA1CC31E1E906897F33691D6623A4B10A3",
+        "Action": null,
+        "State": null,
+        "Step": "Baseline",
+        "Outcome": "IntentDurable"
+      },
+      {
+        "Reference": "00000001-7629D6053930B6D01D76E0FD4B8785B3536642B607F4C0AC36DBD5CB38402D75.json",
+        "Sha256": "7629D6053930B6D01D76E0FD4B8785B3536642B607F4C0AC36DBD5CB38402D75",
+        "Action": null,
+        "State": null,
+        "Step": "Baseline",
+        "Outcome": "AppliedAndVerified"
+      }
+    ]
+  },
+  "IncompleteHandoffRejected": {
+    "Code": "InitramfsEffectChainIncomplete",
+    "SuccessReceiptProduced": false,
+    "Verifier": "canonical_initramfs_readback.verify"
+  },
+  "Retention": {
+    "RawArchiveSha256": "D4FCB6FBD5A8AC3EA4A3D57CEDCE8D47796AE6512D35127B333FEBA9CE8052CA",
+    "RawEvidence": "/var/lib/igloo/initramfs-helper-labs/1ed3a65c15a04cc9afd2a5308eba8f1c/guest-evidence",
+    "FailedBackingRetentionSha256": "9B3A3141A982E8593946B6C212A1937B1389E0800369F7DFDAA83BACE70F96FC",
+    "Backings": {
+      "journal.raw": {
+        "Device": 2096,
+        "Inode": 84602,
+        "Length": 8589934592,
+        "Links": 1,
+        "Sha256": "E220D079929177D48775D9F150006886A832E84806A974304140D148FCAFA5B0"
+      },
+      "runtime.raw": {
+        "Device": 2096,
+        "Inode": 84597,
+        "Length": 25769803776,
+        "Links": 1,
+        "Sha256": "F3F8F21C01C8AD3ECF2E3B8AD97E91301AB1CDDB864314D4D2FDF01C9D9D5E71"
+      },
+      "target.raw": {
+        "Device": 2096,
+        "Inode": 84600,
+        "Length": 42949672960,
+        "Links": 1,
+        "Sha256": "56188DC44E73FCA57DB3EF1339C463AF72FD311BBE17CCD3FC86550468C0D28B"
+      }
+    },
+    "NormalShutdown": {
+      "CanonicalTeardownVerified": false,
+      "ConsolePowerDown": true,
+      "ProcessAbsent": true
+    },
+    "ProvisioningUnmounts": {
+      "Journal": "70FF39C4CF427637E23E987A1F0EA3FE0249009BCE984863C5AA4A1CE20B68BB",
+      "Tools": "567134E00EA490488342A17259446FBFC544682B0CBCDBFC4FD77AA8459BF5F6",
+      "AreCanonicalTeardown": false
+    }
+  },
+  "Checks": [
+    {
+      "Command": "dotnet build Igloo.sln --no-restore -m:1 -warnaserror",
+      "Environment": "Windows",
+      "Result": "Passed before final adapter corrections"
+    },
+    {
+      "Command": "dotnet test Igloo.sln --no-build --no-restore -m:1",
+      "Environment": "Windows after solution rebuild",
+      "Result": "1438 passed before final adapter corrections",
+      "Suites": {
+        "Core": 398,
+        "Migration": 444,
+        "Iso": 19,
+        "Community.App": 58,
+        "Preflight": 343,
+        "UsbWriter": 23,
+        "Fleet": 153
+      }
+    },
+    {
+      "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows final corrected source",
+      "Result": "Passed; zero warnings/errors"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror",
+      "Environment": "Windows final corrected source",
+      "Result": "444 passed; overlaps solution suite"
+    },
+    {
+      "Command": "dotnet test tests/Igloo.Core.Tests/Igloo.Core.Tests.csproj --no-restore -m:1 -warnaserror --filter FullyQualifiedName~InstallationContinuationTests",
+      "Environment": "Windows rebuilt source",
+      "Result": "23 passed; overlaps Core suite"
+    },
+    {
+      "Command": "python3 -B -m unittest discover -s tests/installer -p 'test_*.py'",
+      "Environment": "WSL Python 3.12 final corrected source",
+      "Result": "367 passed"
+    },
+    {
+      "Command": "Native ordinary-file publication fixtures inside disposable GPT VM",
+      "Result": "9 passed on executed revision; no generator invoked"
+    },
+    {
+      "Command": "canonical_initramfs_readback.verify on retained partial raw chains",
+      "Result": "Rejected InitramfsEffectChainIncomplete"
+    },
+    {
+      "Command": "git diff --check and changed-untracked whitespace/BOM/size/secret-pattern scan",
+      "Result": "Passed"
+    }
+  ],
+  "CheckLimitations": [
+    "Complete canonical generation/publication/readback/teardown not executed after failure.",
+    "No extra retained-helper pass; qualified generator/observer semantics reused unchanged.",
+    "No power-loss or target boot validation.",
+    "No new full-byte audit of every historical failed run; none was attached or written.",
+    "Full solution was not rerun after final adapter correction; affected Migration suite/harness and Linux suite were rebuilt/retested."
+  ],
+  "ChangesThisContinuation": [
+    {
+      "Sha256": "E19CC7706D218CA9D338967F9D8F826B1F2CC662D577EFB876E70821A7D91266",
+      "NewThisContinuation": false,
+      "Path": "distros/debian/Deployment/DebianMountSession.cs",
+      "Length": 45601
+    },
+    {
+      "Sha256": "C52BC8AEF6A2F0D2561B3FF25A558A75DF2688823D792859F5781326742701AA",
+      "NewThisContinuation": false,
+      "Path": "distros/debian/Deployment/DebianNativeMountSession.cs",
+      "Length": 15831
+    },
+    {
+      "Sha256": "2C0AB902CCF1ACF2FBC9F3D5C67F8A9938E264E2A4E9D894C168D85EBA8BD544",
+      "NewThisContinuation": false,
+      "Path": "distros/debian/native/block_session.py",
+      "Length": 21325
+    },
+    {
+      "Sha256": "BE93B9909C20647E642709353183F9427117131016E5081CE0D0C36E6FD297D4",
+      "NewThisContinuation": false,
+      "Path": "distros/debian/native/session_entry.py",
+      "Length": 4147
+    },
+    {
+      "Sha256": "F704F292602292CFD3FB547E2C984129E487227FCB4C8022030F115C0172681D",
+      "NewThisContinuation": false,
+      "Path": "distros/debian/native/session_import.py",
+      "Length": 15655
+    },
+    {
+      "Sha256": "8DCF77485D77F584C1F8FFF66B9180F1059704A760D94CE88CA723A3A384F771",
+      "NewThisContinuation": false,
+      "Path": "tests/installer/CanonicalImportQualification/Program.cs",
+      "Length": 6892
+    },
+    {
+      "Sha256": "4FB3BA4FA842A6BADA4353CC5626914005EBB4F40FF794825B07367ECE3CA53F",
+      "NewThisContinuation": false,
+      "Path": "tests/installer/CanonicalImportQualification/README.md",
+      "Length": 29787
+    },
+    {
+      "Sha256": "018048FAB38AB4E11CE49F62B6434BF441068B49B582F2CEDF6A6AF7EBD2B63F",
+      "NewThisContinuation": true,
+      "Path": "distros/debian/Deployment/DebianInitramfsContinuation.cs",
+      "Length": 11414
+    },
+    {
+      "Sha256": "B2617F6EB09E2F8ADF87545A6A4E21782C5E3DBA36541F769EA83418EB30254A",
+      "NewThisContinuation": true,
+      "Path": "distros/debian/native/initramfs_observer.py",
+      "Length": 11288
+    },
+    {
+      "Sha256": "D306A9EE7ACF0DF5A6431B78D1E412FC2201E25FDFA85FE9038DC0CE73C4C282",
+      "NewThisContinuation": true,
+      "Path": "distros/debian/native/initramfs_publication.py",
+      "Length": 4930
+    },
+    {
+      "Sha256": "26AF812FB2A9134B8E1CAE68722A3F1F1074A76CB8D658DEC961E5E5F79F9181",
+      "NewThisContinuation": true,
+      "Path": "distros/debian/native/session_initramfs.py",
+      "Length": 13867
+    },
+    {
+      "Sha256": "F7698A2C3476C4C61D4D55519C740E0286A98A9C161CC492B90D238DCEF7E0E8",
+      "NewThisContinuation": false,
+      "Path": "docs/architecture/debian-initramfs-continuation.md",
+      "Length": 19274
+    },
+    {
+      "Sha256": "EEF526265F6B30D2C2C1E2B64B7C8ABBF9C08ECD6049D3469EE02D01BDED3B92",
+      "NewThisContinuation": false,
+      "Path": "src/Igloo.Core/Preparation/InstallationStorage.cs",
+      "Length": 28408
+    },
+    {
+      "Sha256": "D61FB92572DCBC3201B187E33581B422E57A0C18A5CB120EC9AE3C862C4C4DFF",
+      "NewThisContinuation": false,
+      "Path": "tests/Igloo.Core.Tests/InstallationContinuationTests.cs",
+      "Length": 8289
+    },
+    {
+      "Sha256": "90E1D521B3D596890DD61C039F92076601BDC6326551405BBB4581FC3BCE7DB5",
+      "NewThisContinuation": false,
+      "Path": "tests/Igloo.Migration.Tests/DebianConfigurationContinuationTests.cs",
+      "Length": 17066
+    },
+    {
+      "Sha256": "3BE570319A12C5B12A486CA160118E965FF23DCCAA2B1F13867520C9338EEC62",
+      "NewThisContinuation": false,
+      "Path": "tests/installer/CanonicalImportQualification/LabConfiguration.cs",
+      "Length": 10279
+    },
+    {
+      "Sha256": "66CE546C7377E00159762BFF83271EB3F2F442324D598EE60F400248C966A457",
+      "NewThisContinuation": true,
+      "Path": "tests/installer/CanonicalImportQualification/LabInitramfs.cs",
+      "Length": 10073
+    },
+    {
+      "Sha256": "4924CFB8412FB014F931A10542BDCC14B4AAB9A801F2E1AFFD7C2347E68D5DB5",
+      "NewThisContinuation": true,
+      "Path": "tests/installer/canonical_initramfs_guest.py",
+      "Length": 7968
+    },
+    {
+      "Sha256": "928FF3BCAB4FCDA7B072CDB46D4E016B916A0B7941E38233F8A3F717814552B8",
+      "NewThisContinuation": true,
+      "Path": "tests/installer/canonical_initramfs_lab.py",
+      "Length": 4652
+    },
+    {
+      "Sha256": "BDF172419E653F2FCD8DE6C0C499345DAC19ACB7C53DAE44E521717CA86236D3",
+      "NewThisContinuation": true,
+      "Path": "tests/installer/canonical_initramfs_readback.py",
+      "Length": 5000
+    },
+    {
+      "Sha256": "2BBAAE9BF2A9CB3D00557583AE06C96232E07E180CEA84AC62C00C18F17623F5",
+      "NewThisContinuation": false,
+      "Path": "tests/installer/canonical_storage_lab.py",
+      "Length": 12599
+    },
+    {
+      "Sha256": "8BAC162AD23987C72072CBD9E39218EB3F7B04D8A716EEDAF5B612D4DF5D2749",
+      "NewThisContinuation": false,
+      "Path": "tests/installer/initramfs_broker_rehearsal.py",
+      "Length": 10009
+    },
+    {
+      "Sha256": "0F7A3BE3A2456FC8B513CF9CE1145F890632AEB35F990A5EB5D3FA330963ED33",
+      "NewThisContinuation": true,
+      "Path": "tests/installer/test_initramfs_publication.py",
+      "Length": 5918
+    }
+  ],
+  "Preservation": {
+    "InitialPathsPreserved": true,
+    "ExactTransportManifestUnchanged": true,
+    "PriorCandidateEvidenceUnchanged": true,
+    "NoResetCleanStashBranchSwitchHistoryRewriteCommitPushIssueClosure": true
+  },
+  "RemainingBoundary": "A separately authorized fresh derivative must native-qualify corrected session_initramfs.perform, initramfs_publication.publish, installed-image/delta observation, canonical_initramfs_readback.verify success, and exact teardown. Failed-session recovery is not implemented.",
+  "Gates": {
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "ProductionEnablement": false,
+    "TargetBooted": false,
+    "AgentUserDataEnrollment": false,
+    "EspFirmwareBootloaderOperations": false
+  },
+  "FinalWorkingTree": {
+    "Head": "25794d402aa5d22ca7849d33a4f06078e99818b0",
+    "Branch": "refactor/community-fleet-foundation",
+    "ModifiedTracked": 32,
+    "Untracked": 84,
+    "IndexEmpty": true,
+    "NewFilesThisContinuation": 10,
+    "ChangedExistingFilesThisContinuation": 14,
+    "OwnEvidenceFileExcludedFromSelfHash": true
+  }
+}
