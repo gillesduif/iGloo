@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Igloo.Cli</AssemblyName>
+    <Product>Igloo.Cli</Product>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Igloo.Command.Contracts/Igloo.Command.Contracts.csproj" />
+    <ProjectReference Include="../../../src/Igloo.Core.Runtime/Igloo.Core.Runtime.csproj" />
+  </ItemGroup>
+</Project>

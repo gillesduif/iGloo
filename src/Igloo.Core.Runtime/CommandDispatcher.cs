@@ -50,10 +50,13 @@ public sealed class CommandDispatcher : ICommandDispatcher
         var error = Validate(request, out var handler);
         if (error is not null)
             return Failure(request, error);
+        // Validation and pre-dispatch cancellation do not allocate an operation.
+        // Once a mutation gets one, every terminal outcome keeps that identity.
+        var effective = request;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var effective = handler!.Descriptor.Kind == CommandKind.Mutation && request.OperationId is null
+            effective = handler!.Descriptor.Kind == CommandKind.Mutation && request.OperationId is null
                 ? request with { OperationId = Guid.NewGuid() } : request;
             progress?.Report(new(effective.RequestId, effective.OperationId, "validating"));
             var data = await handler.ExecuteAsync(effective, progress, cancellationToken).ConfigureAwait(false);
@@ -66,57 +69,67 @@ public sealed class CommandDispatcher : ICommandDispatcher
         }
         catch (OperationCanceledException)
         {
-            return Failure(request, new(CommandErrorCode.Cancelled, "Operation cancelled."));
+            return Failure(effective, new(CommandErrorCode.Cancelled, "Operation cancelled."));
         }
         catch (JsonException)
         {
-            return Failure(request, new(CommandErrorCode.InvalidRequest, "Input does not match the capability schema."));
+            return Failure(effective, new(CommandErrorCode.InvalidRequest, "Input does not match the capability schema."));
         }
         catch (ArgumentException)
         {
-            return Failure(request, new(CommandErrorCode.InvalidRequest, "Input does not match the capability schema."));
+            return Failure(effective, new(CommandErrorCode.InvalidRequest, "Input does not match the capability schema."));
         }
         catch (KeyNotFoundException)
         {
-            return Failure(request, new(CommandErrorCode.NotSupported, "The requested item is unavailable."));
+            return Failure(effective, new(CommandErrorCode.NotSupported, "The requested item is unavailable."));
         }
         catch (ResourceBusyException)
         {
-            return Failure(request, new(CommandErrorCode.ResourceBusy, "A conflicting local operation is running."));
+            return Failure(effective, new(CommandErrorCode.ResourceBusy, "A conflicting local operation is running."));
         }
         catch (ArtifactVerificationException)
         {
-            return Failure(request, new(CommandErrorCode.VerificationFailed,
+            return Failure(effective, new(CommandErrorCode.VerificationFailed,
                 "Artifact verification failed."));
         }
         catch (PlanJournalCorruptException)
         {
-            return Failure(request, new(CommandErrorCode.VerificationFailed,
+            return Failure(effective, new(CommandErrorCode.VerificationFailed,
                 "Advisory plan record failed integrity checks."));
         }
         catch (CommandEvidenceException)
         {
-            return Failure(request, new(CommandErrorCode.VerificationFailed,
+            return Failure(effective, new(CommandErrorCode.VerificationFailed,
                 "Local evidence failed integrity checks."));
         }
         catch (StateChangedException)
         {
-            return Failure(request, new(CommandErrorCode.StateChanged,
+            return Failure(effective, new(CommandErrorCode.StateChanged,
                 "Observed endpoint state changed; inspect and plan again."));
         }
         catch (CommandPreconditionException)
         {
-            return Failure(request, new(CommandErrorCode.PreconditionFailed,
+            return Failure(effective, new(CommandErrorCode.PreconditionFailed,
                 "Required endpoint preconditions are unavailable."));
         }
         catch (NotSupportedException)
         {
-            return Failure(request, new(CommandErrorCode.NotSupported, "This operation is not supported for the selected provider."));
+            return Failure(effective, new(CommandErrorCode.NotSupported, "This operation is not supported for the selected provider."));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException
             or InvalidOperationException)
         {
-            return Failure(request, new(CommandErrorCode.InternalFailure, "The local operation failed. Consult protected local diagnostics."));
+            return Failure(effective, new(CommandErrorCode.InternalFailure, "The local operation failed. Consult protected local diagnostics."));
+        }
+        // The handler may fail with an unclassified exception after an operation
+        // was assigned and reported. Keep that identity in a sanitized terminal
+        // result; the outer CLI boundary only has the original request.
+#pragma warning disable CA1031 // The command boundary must convert unknown handler failures to a bound result.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return Failure(effective, new(CommandErrorCode.InternalFailure,
+                "The local operation failed. Consult protected local diagnostics."));
         }
     }
 

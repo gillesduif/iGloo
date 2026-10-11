@@ -15,4 +15,5 @@
     <ProjectReference Include="..\Igloo.Core.Host\Igloo.Core.Host.csproj" />
     <ProjectReference Include="..\Igloo.Cli.Client\Igloo.Cli.Client.csproj" />
   </ItemGroup>
+  <Import Project="..\Igloo.Cli\Igloo.Cli\PackagedCli.targets" />
 </Project>

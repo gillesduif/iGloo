@@ -146,6 +146,99 @@ public sealed class CommandBoundaryTests
         Assert.Equal(CommandErrorCode.Cancelled, result.Error!.Code);
     }
 
+    [Theory]
+    [InlineData(false, CommandErrorCode.InternalFailure)]
+    [InlineData(true, CommandErrorCode.Cancelled)]
+    public async Task MutationFailureRetainsTheAssignedOperationId(bool cancelInHandler,
+        CommandErrorCode expectedCode)
+    {
+        var handler = new FaultingMutationHandler(cancelInHandler
+            ? new OperationCanceledException() : new InvalidOperationException());
+        var dispatcher = new CommandDispatcher(new Checker(),
+            new DistroLoader(NullLogger<DistroLoader>.Instance),
+            new DistroRegistry(NullLogger<DistroRegistry>.Instance), [handler]);
+        var request = Request("fixture.mutation.fail");
+        var progress = new CapturedCommandProgress();
+        var failed = await dispatcher.ExecuteAsync(request, progress);
+        Assert.Equal(expectedCode, failed.Error!.Code);
+        Assert.False(failed.Succeeded);
+        Assert.NotNull(failed.OperationId);
+        Assert.Equal(failed.OperationId, Assert.Single(progress.Events).OperationId);
+        Assert.Equal(failed.OperationId, handler.ObservedOperationId);
+
+        var invalid = await dispatcher.ExecuteAsync(request with
+        {
+            RequestId = Guid.NewGuid(), Input = default,
+        });
+        Assert.Equal(CommandErrorCode.InvalidRequest, invalid.Error!.Code);
+        Assert.Null(invalid.OperationId);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        var beforeDispatch = await dispatcher.ExecuteAsync(request with
+        {
+            RequestId = Guid.NewGuid(),
+        }, cancellationToken: cancelled.Token);
+        Assert.Equal(CommandErrorCode.Cancelled, beforeDispatch.Error!.Code);
+        Assert.Null(beforeDispatch.OperationId);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnexpectedHandlerFailureRetainsAssignedOperationWithoutLeakingException(
+        bool nullReference)
+    {
+#pragma warning disable CA2201 // A runtime-reserved exception is the explicit regression input.
+        var handler = new FaultingMutationHandler(nullReference
+            ? new NullReferenceException("PRIVATE_EXCEPTION")
+            : new FormatException("PRIVATE_EXCEPTION"));
+#pragma warning restore CA2201
+        var dispatcher = new CommandDispatcher(new Checker(),
+            new DistroLoader(NullLogger<DistroLoader>.Instance),
+            new DistroRegistry(NullLogger<DistroRegistry>.Instance), [handler]);
+        var progress = new CapturedCommandProgress();
+        var request = Request("fixture.mutation.fail");
+
+        var result = await dispatcher.ExecuteAsync(request, progress);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(CommandErrorCode.InternalFailure, result.Error!.Code);
+        Assert.NotNull(result.OperationId);
+        Assert.Equal(result.OperationId, handler.ObservedOperationId);
+        Assert.Equal(result.OperationId, Assert.Single(progress.Events).OperationId);
+        Assert.DoesNotContain("PRIVATE_EXCEPTION",
+            JsonSerializer.Serialize(result, CommandProtocol.JsonOptions), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MachineRendererKeepsUnexpectedHandlerOperationInProgressAndTerminalFrames()
+    {
+        var dispatcher = new CommandDispatcher(new Checker(),
+            new DistroLoader(NullLogger<DistroLoader>.Instance),
+            new DistroRegistry(NullLogger<DistroRegistry>.Instance),
+            [new FaultingMutationHandler(new FormatException("PRIVATE_EXCEPTION"))]);
+        var request = Request("fixture.mutation.fail");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var exit = await CliApplication.RunAsync(["invoke", "--machine"], dispatcher,
+            new StringReader(JsonSerializer.Serialize(request, CommandProtocol.JsonOptions) + "\n"),
+            output, error);
+        var frames = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => JsonSerializer.Deserialize<CommandStreamEvent>(line,
+                CommandProtocol.JsonOptions)!).ToArray();
+
+        Assert.NotEqual(0, exit);
+        Assert.Equal(new[] { "hello", "accepted", "progress", "result" },
+            frames.Select(frame => frame.Type));
+        var result = frames[^1].Result!;
+        Assert.Equal(CommandErrorCode.InternalFailure, result.Error!.Code);
+        Assert.NotNull(result.OperationId);
+        Assert.Equal(result.OperationId, frames[2].Progress!.OperationId);
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.DoesNotContain("PRIVATE_EXCEPTION", output.ToString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task CliJsonIsOneParseableResultAndErrorsHaveStableExitCodes()
     {
@@ -787,6 +880,28 @@ public sealed class CommandBoundaryTests
             LastSpec = spec;
             return Task.FromResult(new IsoAcquisitionResult("PRIVATE_PATH", true, true, 123));
         }
+    }
+
+    private sealed class FaultingMutationHandler(Exception failure) : ICommandHandler
+    {
+        public CapabilityDescriptor Descriptor { get; } = new("fixture.mutation.fail", 1, 1, 1,
+            CommandKind.Mutation, RiskClass.Low, false, AuthorityRequirement.User, []);
+        public int CallCount { get; private set; }
+        public Guid? ObservedOperationId { get; private set; }
+
+        public Task<object> ExecuteAsync(CommandRequest request,
+            IProgress<CommandProgress>? progress, CancellationToken cancellationToken)
+        {
+            CallCount++;
+            ObservedOperationId = request.OperationId;
+            return Task.FromException<object>(failure);
+        }
+    }
+
+    private sealed class CapturedCommandProgress : IProgress<CommandProgress>
+    {
+        public List<CommandProgress> Events { get; } = [];
+        public void Report(CommandProgress value) => Events.Add(value);
     }
 
     private sealed class FakeStaging(string directory) : IFileStagingService

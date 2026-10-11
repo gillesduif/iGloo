@@ -1,0 +1,84 @@
+<Project>
+  <!-- Keep the CLI in one deterministic adjacent package slot for each frontend. -->
+  <PropertyGroup>
+    <_IglooCliProject>$(MSBuildThisFileDirectory)Igloo.Cli.csproj</_IglooCliProject>
+    <_IglooCliFramework>net10.0-windows10.0.19041.0</_IglooCliFramework>
+    <_IglooCliBuildOutput>$(MSBuildThisFileDirectory)bin\$(Configuration)\$(_IglooCliFramework)\</_IglooCliBuildOutput>
+    <_IglooDistrosRoot>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', '..', 'distros'))</_IglooDistrosRoot>
+  </PropertyGroup>
+
+  <!-- The only compiled providers in this checkout. Read-only catalogue data and
+       provider assets are packaged alongside their freshly built plugin DLLs. -->
+  <ItemGroup>
+    <_IglooProviderProject Include="$(_IglooDistrosRoot)\fedora-kde\Igloo.Distro.FedoraKde.csproj;
+                                    $(_IglooDistrosRoot)\debian\Igloo.Distro.Debian.csproj;
+                                    $(_IglooDistrosRoot)\ubuntu\Igloo.Distro.Ubuntu.csproj;
+                                    $(_IglooDistrosRoot)\linuxmint-cinnamon\Igloo.Distro.LinuxmintCinnamon.csproj" />
+    <_IglooProviderDll Include="$(_IglooDistrosRoot)\fedora-kde\bin\$(Configuration)\net8.0\Igloo.Distro.FedoraKde.dll">
+      <DistroId>fedora-kde</DistroId>
+    </_IglooProviderDll>
+    <_IglooProviderDll Include="$(_IglooDistrosRoot)\debian\bin\$(Configuration)\net8.0\Igloo.Distro.Debian.dll">
+      <DistroId>debian</DistroId>
+    </_IglooProviderDll>
+    <_IglooProviderDll Include="$(_IglooDistrosRoot)\ubuntu\bin\$(Configuration)\net8.0\Igloo.Distro.Ubuntu.dll">
+      <DistroId>ubuntu</DistroId>
+    </_IglooProviderDll>
+    <_IglooProviderDll Include="$(_IglooDistrosRoot)\linuxmint-cinnamon\bin\$(Configuration)\net8.0\Igloo.Distro.LinuxmintCinnamon.dll">
+      <DistroId>linuxmint-cinnamon</DistroId>
+    </_IglooProviderDll>
+  </ItemGroup>
+
+  <Target Name="PreparePackagedIglooProviders">
+    <MSBuild Projects="@(_IglooProviderProject)" Targets="Restore;Build"
+             Properties="Configuration=$(Configuration)" />
+    <Error Condition="!Exists('%(_IglooProviderDll.Identity)')"
+           Text="A declared iGloo provider binary is unavailable for packaging." />
+    <ItemGroup>
+      <_IglooDistroData Include="$(_IglooDistrosRoot)\**\*"
+                        Exclude="$(_IglooDistrosRoot)\**\*.cs;
+                                 $(_IglooDistrosRoot)\**\*.csproj;
+                                 $(_IglooDistrosRoot)\**\*.dll;
+                                 $(_IglooDistrosRoot)\**\*.pdb;
+                                 $(_IglooDistrosRoot)\**\bin\**;
+                                 $(_IglooDistrosRoot)\**\obj\**;
+                                 $(_IglooDistrosRoot)\**\README.md" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="StageIglooCliForBuild" AfterTargets="Build"
+          DependsOnTargets="PreparePackagedIglooProviders"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="$(_IglooCliProject)" Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+    <Error Condition="!Exists('$(_IglooCliBuildOutput)Igloo.Cli.exe')"
+           Text="The built Igloo.Cli executable is unavailable for packaging." />
+    <ItemGroup>
+      <_IglooCliBuildFiles Include="$(_IglooCliBuildOutput)**\*"
+                           Exclude="$(_IglooCliBuildOutput)**\*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_IglooCliBuildFiles)"
+          DestinationFiles="@(_IglooCliBuildFiles->'$(TargetDir)cli\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_IglooDistroData)"
+          DestinationFiles="@(_IglooDistroData->'$(TargetDir)distros\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_IglooProviderDll)"
+          DestinationFiles="@(_IglooProviderDll->'$(TargetDir)distros\%(DistroId)\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="StageIglooCliForPublish" AfterTargets="Publish"
+          DependsOnTargets="PreparePackagedIglooProviders"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="$(_IglooCliProject)" Targets="Publish"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$(PublishDir)cli\" />
+    <Error Condition="!Exists('$(PublishDir)cli\Igloo.Cli.exe')"
+           Text="The published Igloo.Cli executable is unavailable for packaging." />
+    <Copy SourceFiles="@(_IglooDistroData)"
+          DestinationFiles="@(_IglooDistroData->'$(PublishDir)distros\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_IglooProviderDll)"
+          DestinationFiles="@(_IglooProviderDll->'$(PublishDir)distros\%(DistroId)\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

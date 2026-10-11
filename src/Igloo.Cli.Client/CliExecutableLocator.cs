@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace Igloo.Cli.Client;
 
-/// <summary>Resolves only packaged or repository-build CLI locations; never searches PATH.</summary>
+/// <summary>Resolves packaged CLI locations, or a build only for an explicit repository-root caller; never searches PATH.</summary>
 public static class CliExecutableLocator
 {
     public const string ExecutableName = "Igloo.Cli.exe";
@@ -23,6 +23,13 @@ public static class CliExecutableLocator
         {
             if (File.Exists(Path.Join(current.FullName, "Igloo.sln")))
             {
+                // An app/test running beneath the checkout still needs its own
+                // packaged CLI. Only an explicit repository-root development
+                // request may resolve the build output.
+                if (!string.Equals(Path.TrimEndingDirectorySeparator(applicationRoot),
+                        Path.TrimEndingDirectorySeparator(current.FullName),
+                        StringComparison.OrdinalIgnoreCase))
+                    break;
                 foreach (var configuration in new[] { "Debug", "Release" })
                 {
                     var candidate = Path.Join(current.FullName, "src", "Igloo.Cli", "Igloo.Cli",
@@ -49,10 +56,28 @@ public static class CliExecutableLocator
         if (!File.Exists(fullPath))
             throw new CliTransportException(CliTransportError.ExecutableUnavailable,
                 "The iGloo CLI executable is unavailable.");
+        try
+        {
+            var file = new FileInfo(fullPath);
+            if ((file.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw RedirectedPath();
+            for (var directory = file.Directory; directory is not null;
+                 directory = directory.Parent)
+                if ((directory.Attributes & FileAttributes.ReparsePoint) != 0)
+                    throw RedirectedPath();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw RedirectedPath();
+        }
         if (!string.Equals(FileVersionInfo.GetVersionInfo(fullPath).ProductName, "Igloo.Cli",
                 StringComparison.Ordinal))
             throw new CliTransportException(CliTransportError.IdentityMismatch,
                 "The configured executable has an unexpected product identity.");
         return fullPath;
     }
+
+    private static CliTransportException RedirectedPath() =>
+        new(CliTransportError.IdentityMismatch,
+            "The configured CLI path is redirected or could not be inspected.");
 }

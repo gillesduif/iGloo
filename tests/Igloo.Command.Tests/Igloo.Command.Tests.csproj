@@ -6,6 +6,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="StreamFixture\**\*.cs" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
     <PackageReference Include="xunit" Version="2.7.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7" />
@@ -15,5 +16,6 @@
     <ProjectReference Include="..\..\src\Igloo.Core.Host\Igloo.Core.Host.csproj" />
     <ProjectReference Include="..\..\src\Igloo.Cli\Igloo.Cli\Igloo.Cli.csproj" />
     <ProjectReference Include="..\..\src\Igloo.Cli.Client\Igloo.Cli.Client.csproj" />
+    <ProjectReference Include="StreamFixture\StreamFixture.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

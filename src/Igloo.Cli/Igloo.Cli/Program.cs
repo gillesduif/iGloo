@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text;
 using Igloo.Command.Contracts;
 using Igloo.Core.Host;
 
@@ -8,6 +9,8 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
+        if (args is ["invoke", "--machine"])
+            Console.InputEncoding = new UTF8Encoding(false, true);
         using var cancellation = new CancellationTokenSource();
         Console.CancelKeyPress += (_, eventArgs) =>
         {
@@ -36,18 +39,83 @@ internal static class Program
 #pragma warning restore CA1031
     }
 
-    private static string FindDistrosDirectory()
+    private static string FindDistrosDirectory() =>
+        FindDistrosDirectory(AppContext.BaseDirectory);
+
+    internal static string FindDistrosDirectory(string cliBaseDirectory)
     {
-        var configured = Environment.GetEnvironmentVariable("IGLOO_DISTROS_DIRECTORY");
-        if (!string.IsNullOrWhiteSpace(configured)) return Path.GetFullPath(configured);
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        var executableDirectory = new DirectoryInfo(Path.GetFullPath(cliBaseDirectory));
+        if (string.Equals(executableDirectory.Name, "cli", StringComparison.OrdinalIgnoreCase))
+        {
+            var packageRoot = executableDirectory.Parent ?? throw new InvalidDataException();
+            RejectRedirectedAncestors(executableDirectory);
+            var packaged = Path.Join(packageRoot.FullName, "distros");
+            VerifyPackagedProviders(packaged);
+            return packaged;
+        }
+
+        // Source execution is deliberately limited to the exact repository
+        // build output; a packaged CLI cannot fall back to ancestor providers.
+        var current = executableDirectory;
         while (current is not null)
         {
-            var candidate = Path.Join(current.FullName, "distros");
-            if (Directory.Exists(candidate)) return candidate;
+            if (File.Exists(Path.Join(current.FullName, "Igloo.sln")))
+            {
+                foreach (var configuration in new[] { "Debug", "Release" })
+                {
+                    var build = Path.Join(current.FullName, "src", "Igloo.Cli", "Igloo.Cli",
+                        "bin", configuration, "net10.0-windows10.0.19041.0");
+                    if (string.Equals(Path.TrimEndingDirectorySeparator(build),
+                            Path.TrimEndingDirectorySeparator(executableDirectory.FullName),
+                            StringComparison.OrdinalIgnoreCase))
+                        return Path.Join(current.FullName, "distros");
+                }
+                break;
+            }
             current = current.Parent;
         }
-        return Path.Join(AppContext.BaseDirectory, "distros");
+        throw new InvalidDataException("The CLI provider package is unavailable.");
+    }
+
+    private static void VerifyPackagedProviders(string directory)
+    {
+        if (!Directory.Exists(directory)) throw new InvalidDataException();
+        RejectRedirectedAncestors(new DirectoryInfo(directory));
+        foreach (var (id, assembly) in new[]
+                 {
+                     ("fedora-kde", "Igloo.Distro.FedoraKde.dll"),
+                     ("debian", "Igloo.Distro.Debian.dll"),
+                     ("ubuntu", "Igloo.Distro.Ubuntu.dll"),
+                     ("linuxmint-cinnamon", "Igloo.Distro.LinuxmintCinnamon.dll"),
+                 })
+        {
+            var provider = new DirectoryInfo(Path.Join(directory, id));
+            if (!provider.Exists || (provider.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException();
+            var manifest = new FileInfo(Path.Join(provider.FullName, "distro.json"));
+            var plugin = new FileInfo(Path.Join(provider.FullName, assembly));
+            if (!manifest.Exists || !plugin.Exists ||
+                (manifest.Attributes & FileAttributes.ReparsePoint) != 0 ||
+                (plugin.Attributes & FileAttributes.ReparsePoint) != 0 ||
+                manifest.Length is <= 0 or > 1024 * 1024 || plugin.Length <= 0)
+                throw new InvalidDataException();
+            using var stream = manifest.OpenRead();
+            using var document = JsonDocument.Parse(stream, new JsonDocumentOptions { MaxDepth = 32 });
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException();
+            var identities = document.RootElement.EnumerateObject().Where(property =>
+                property.NameEquals("id")).ToArray();
+            if (identities.Length != 1 || identities[0].Value.ValueKind != JsonValueKind.String ||
+                identities[0].Value.GetString() != id)
+                throw new InvalidDataException();
+        }
+    }
+
+    private static void RejectRedirectedAncestors(DirectoryInfo directory)
+    {
+        for (var current = directory; current is not null; current = current.Parent)
+            if ((current.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException();
     }
 }
 
@@ -55,9 +123,14 @@ internal static class CliApplication
 {
     private static readonly JsonSerializerOptions HumanJson = new(CommandProtocol.JsonOptions) { WriteIndented = true };
 
-    public static async Task<int> RunAsync(string[] args, ICommandDispatcher dispatcher,
+    public static Task<int> RunAsync(string[] args, ICommandDispatcher dispatcher,
         TextReader input, TextWriter output, TextWriter error,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RunAsync(args, dispatcher, input, output, error, null, cancellationToken);
+
+    internal static async Task<int> RunAsync(string[] args, ICommandDispatcher dispatcher,
+        TextReader input, TextWriter output, TextWriter error,
+        TimeSpan? machineOutputTimeout, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(dispatcher);
@@ -65,7 +138,8 @@ internal static class CliApplication
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(error);
         if (args is ["invoke", "--machine"])
-            return await RunMachineAsync(dispatcher, input, output, cancellationToken).ConfigureAwait(false);
+            return await RunMachineAsync(dispatcher, input, output, machineOutputTimeout,
+                cancellationToken).ConfigureAwait(false);
         var json = args.Contains("--json", StringComparer.Ordinal);
         var positional = args.Where(a => a != "--json").ToArray();
         CommandRequest request;
@@ -75,7 +149,8 @@ internal static class CliApplication
             {
                 json = true;
                 request = JsonSerializer.Deserialize<CommandRequest>(
-                    await input.ReadToEndAsync(cancellationToken).ConfigureAwait(false),
+                    await MachineInputLines.ReadBoundedAllAsync(input, cancellationToken)
+                        .ConfigureAwait(false),
                     CommandProtocol.JsonOptions) ?? throw new JsonException();
             }
             else
@@ -106,7 +181,8 @@ internal static class CliApplication
                     JsonSerializer.SerializeToElement(value, CommandProtocol.JsonOptions));
             }
         }
-        catch (Exception ex) when (ex is JsonException or ArgumentException or FormatException or OverflowException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException or FormatException
+            or OverflowException or InvalidDataException or EncoderFallbackException)
         {
             var bad = new CommandResult(CommandProtocol.Version, "", 0, Guid.NewGuid(), Guid.NewGuid(),
                 null, false, null, new(CommandErrorCode.InvalidRequest, "Invalid command or JSON request."), [], []);
@@ -126,36 +202,41 @@ internal static class CliApplication
     }
 
     private static async Task<int> RunMachineAsync(ICommandDispatcher dispatcher, TextReader input,
-        TextWriter output, CancellationToken cancellationToken)
+        TextWriter output, TimeSpan? machineOutputTimeout, CancellationToken cancellationToken)
     {
+        var lines = new MachineInputLines(input);
+        var frames = new MachineFrameWriter(output, machineOutputTimeout);
+        await using var frameDisposal = frames.ConfigureAwait(false);
         var version = typeof(CliApplication).Assembly.GetName().Version?.ToString() ?? "unknown";
-        await output.WriteLineAsync(JsonSerializer.Serialize(new CommandStreamEvent("hello",
+        await frames.WriteRequiredAsync(JsonSerializer.Serialize(new CommandStreamEvent("hello",
             CommandProtocol.Version, Guid.Empty, Guid.Empty,
-            Product: "Igloo.Cli", ProductVersion: version), CommandProtocol.JsonOptions)).ConfigureAwait(false);
-        await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            Product: "Igloo.Cli", ProductVersion: version), CommandProtocol.JsonOptions),
+            cancellationToken).ConfigureAwait(false);
 
         CommandRequest request;
         try
         {
-            var line = await input.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+            var line = await lines.ReadLineAsync(cancellationToken).ConfigureAwait(false);
             request = JsonSerializer.Deserialize<CommandRequest>(line ?? string.Empty,
                 CommandProtocol.JsonOptions) ?? throw new JsonException();
         }
-        catch (Exception ex) when (ex is JsonException or ArgumentException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidDataException
+            or DecoderFallbackException)
         {
             var invalid = new CommandResult(CommandProtocol.Version, string.Empty, 0,
                 Guid.NewGuid(), Guid.NewGuid(), null, false, null,
                 new(CommandErrorCode.InvalidRequest, "Invalid machine request."), [], []);
-            await output.WriteLineAsync(JsonSerializer.Serialize(new CommandStreamEvent("result",
+            await frames.WriteRequiredAsync(JsonSerializer.Serialize(new CommandStreamEvent("result",
                 CommandProtocol.Version, invalid.RequestId, invalid.CorrelationId,
-                Result: invalid), CommandProtocol.JsonOptions)).ConfigureAwait(false);
+                Result: invalid), CommandProtocol.JsonOptions), cancellationToken)
+                .ConfigureAwait(false);
+            await frames.CompleteAsync().ConfigureAwait(false);
             return ExitCode(invalid);
         }
 
-        await output.WriteLineAsync(JsonSerializer.Serialize(new CommandStreamEvent("accepted",
+        await frames.WriteRequiredAsync(JsonSerializer.Serialize(new CommandStreamEvent("accepted",
             CommandProtocol.Version, request.RequestId, request.CorrelationId),
-            CommandProtocol.JsonOptions)).ConfigureAwait(false);
-        await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            CommandProtocol.JsonOptions), cancellationToken).ConfigureAwait(false);
 
         using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _ = Task.Run(async () =>
@@ -164,12 +245,9 @@ internal static class CliApplication
             {
                 while (!requestCancellation.IsCancellationRequested)
                 {
-                    var control = await input.ReadLineAsync(requestCancellation.Token).ConfigureAwait(false);
+                    var control = await lines.ReadLineAsync(requestCancellation.Token).ConfigureAwait(false);
                     if (control is null) return;
-                    using var document = JsonDocument.Parse(control);
-                    var root = document.RootElement;
-                    if (root.TryGetProperty("type", out var type) && type.GetString() == "cancel" &&
-                        root.TryGetProperty("requestId", out var id) && id.GetGuid() == request.RequestId)
+                    if (IsMatchingCancellation(control, request.RequestId))
                     {
                         await requestCancellation.CancelAsync().ConfigureAwait(false);
                         return;
@@ -177,10 +255,10 @@ internal static class CliApplication
                 }
             }
             catch (Exception ex) when (ex is OperationCanceledException or IOException or JsonException
-                or InvalidOperationException or FormatException) { }
+                or InvalidOperationException or FormatException or DecoderFallbackException) { }
         }, CancellationToken.None);
 
-        var stream = new MachineProgress(output, request);
+        var stream = new MachineProgress(frames, request);
         CommandResult result;
         try
         {
@@ -202,37 +280,62 @@ internal static class CliApplication
                 [], []);
         }
 #pragma warning restore CA1031
-        stream.Complete(result);
-        await output.FlushAsync(CancellationToken.None).ConfigureAwait(false);
+        await stream.CompleteAsync(result).ConfigureAwait(false);
+        await frames.CompleteAsync().ConfigureAwait(false);
         return ExitCode(result);
     }
 
-    private sealed class MachineProgress(TextWriter output, CommandRequest request) : IProgress<CommandProgress>
+    internal static bool IsMatchingCancellation(string control, Guid requestId)
+    {
+        using var document = JsonDocument.Parse(control, new JsonDocumentOptions { MaxDepth = 8 });
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) return false;
+        var count = 0;
+        var isCancel = false;
+        var matchesRequest = false;
+        foreach (var property in root.EnumerateObject())
+        {
+            if (++count > 2) return false;
+            if (property.NameEquals("type") && property.Value.ValueKind == JsonValueKind.String)
+                isCancel = property.Value.GetString() == "cancel";
+            else if (property.NameEquals("requestId") &&
+                     property.Value.ValueKind == JsonValueKind.String &&
+                     property.Value.TryGetGuid(out var actual))
+                matchesRequest = actual == requestId;
+            else return false;
+        }
+        return count == 2 && isCancel && matchesRequest;
+    }
+
+    private sealed class MachineProgress(MachineFrameWriter writer, CommandRequest request) : IProgress<CommandProgress>
     {
         private readonly object _gate = new();
         private bool _complete;
+        private bool _overflow;
 
         public void Report(CommandProgress value)
         {
             lock (_gate)
             {
                 if (_complete) return;
-                output.WriteLine(JsonSerializer.Serialize(new CommandStreamEvent("progress",
+                if (!writer.TryWriteProgress(JsonSerializer.Serialize(new CommandStreamEvent("progress",
                     CommandProtocol.Version, request.RequestId, request.CorrelationId,
-                    Progress: value), CommandProtocol.JsonOptions));
-                output.Flush();
+                    Progress: value), CommandProtocol.JsonOptions)))
+                    _overflow = true;
             }
         }
 
-        public void Complete(CommandResult result)
+        public async Task CompleteAsync(CommandResult result)
         {
             lock (_gate)
             {
                 _complete = true;
-                output.WriteLine(JsonSerializer.Serialize(new CommandStreamEvent("result",
-                    CommandProtocol.Version, request.RequestId, request.CorrelationId,
-                    Result: result), CommandProtocol.JsonOptions));
+                if (_overflow)
+                    throw new IOException("The bounded machine progress stream overflowed.");
             }
+            await writer.WriteRequiredAsync(JsonSerializer.Serialize(new CommandStreamEvent("result",
+                CommandProtocol.Version, request.RequestId, request.CorrelationId,
+                Result: result), CommandProtocol.JsonOptions)).ConfigureAwait(false);
         }
     }
 
