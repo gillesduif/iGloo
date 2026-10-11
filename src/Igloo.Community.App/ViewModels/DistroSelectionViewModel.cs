@@ -117,7 +117,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                          && _recommendedIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
                      || string.Equals(m.DefaultDesktopEnvironment?.Trim(), category,
                                       StringComparison.OrdinalIgnoreCase))
-            .Select(m => EvaluateItem(m, secureBootOn, report) with
+            .Select(m => EvaluateItem(m, report) with
             {
                 IsRecommended = _recommendedIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase),
             })
@@ -142,15 +142,15 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
 
     //   Helpers                                
 
-    private DistroListItem EvaluateItem(DistroManifest m, bool secureBootOn, PreflightReport? report)
+    private DistroListItem EvaluateItem(DistroManifest m, PreflightReport? report)
     {
         var comingSoon = !m.IsAvailable;
 
-        if (secureBootOn && !HasSecureBootTag(m))
+        if (report is not null && !_compatibility.IsLoaded(m.Id))
         {
             return new DistroListItem(m,
                 IsCompatible: false,
-                IncompatibilityReason: "Requires Secure Boot to be disabled",
+                IncompatibilityReason: "Installer support unavailable",
                 IsComingSoon: comingSoon);
         }
 
@@ -160,7 +160,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         // This call is the ONLY place plugin CheckCompatibility is enforced 
         // before it was wired up, a machine below Ubuntu's RAM floor sailed into
         // an install that could only fail after repartitioning had begun.
-        if (report is not null && _compatibility.IsLoaded(m.Id))
+        if (report is not null)
         {
             try
             {
@@ -177,8 +177,10 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // A buggy plugin must not take down the catalog; fail open with a log.
+                // A failed compatibility check cannot establish installation support.
                 _logger.LogWarning(ex, "CheckCompatibility failed for {DistroId}", m.Id);
+                return new DistroListItem(m, IsCompatible: false,
+                    IncompatibilityReason: "Compatibility check unavailable", IsComingSoon: comingSoon);
             }
         }
 
@@ -186,8 +188,6 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                                   IsComingSoon: comingSoon);
     }
 
-    private static bool HasSecureBootTag(DistroManifest m)
-        => m.Tags.Any(t => string.Equals(t, "secure-boot-supported", StringComparison.OrdinalIgnoreCase));
 }
 
 public sealed record DistroListItem(

@@ -62,10 +62,25 @@ public sealed record CommandResult(
 public sealed record CommandProgress(Guid RequestId, Guid? OperationId,
     string Phase, long? Completed = null, long? Total = null);
 
+/// <summary>One line of the CLI machine stream. Exactly one Result terminates a request.</summary>
+public sealed record CommandStreamEvent(
+    string Type, int ProtocolVersion, Guid RequestId, Guid CorrelationId,
+    string? Product = null, string? ProductVersion = null,
+    CommandProgress? Progress = null, CommandResult? Result = null);
+
 public sealed record SystemInspection(bool IsUefi, bool SecureBootEnabled,
     bool TpmPresent, string BitLockerState, long TotalRamBytes,
     int DiskCount, IReadOnlyList<InspectionFinding> Findings);
 public sealed record InspectionFinding(string Code, string Severity);
+public sealed record DetailedSystemInspection(SystemInspection Summary,
+    IReadOnlyList<InspectionDisk> Disks, int LinuxInstallationCount,
+    int InstallerLeftoverCount);
+/// <summary>Display and advisory facts only. Ordinals are not physical target identities.</summary>
+public sealed record InspectionDisk(int Ordinal, long TotalBytes, long FreeBytes,
+    string PartitionStyle, bool HasBootPartition, bool HasSystemPartition,
+    IReadOnlyList<InspectionPartition> Partitions);
+public sealed record InspectionPartition(int Index, long SizeBytes, long OffsetBytes,
+    bool IsBoot, bool IsSystem, long ShrinkableBytes, string FileSystemCategory);
 public sealed record DistroSummary(string Id, string DisplayName, string? Status);
 public sealed record DistroList(IReadOnlyList<DistroSummary> Distros);
 public sealed record DistroSelection(string DistroId);
@@ -74,6 +89,11 @@ public sealed record DistroCompatibility(string DistroId,
     IReadOnlyList<InspectionFinding> Findings, bool HasBlockers);
 public sealed record IsoAcquired(string DistroId, bool Sha256Verified,
     bool GpgVerified, long SizeBytes);
+public sealed record ArtifactAcquired(string ArtifactId, string DistroId, string Sha256,
+    bool GpgVerified, long SizeBytes);
+public sealed record ArtifactSelection(string ArtifactId);
+public sealed record ArtifactStatus(string ArtifactId, string DistroId, string Sha256,
+    bool GpgVerified, long SizeBytes, bool Present, bool VerifiedNow);
 
 public sealed record MigrationInspection(int WindowsBootDiskCount, long? ObservedAvailableBytes,
     IReadOnlyList<string> BlockerCodes, bool CanRequestAdvisoryPlan);
@@ -81,6 +101,27 @@ public sealed record MigrationPlanInput(string DistroId, long RequestedLinuxByte
 public sealed record MigrationPlanResult(string DistroId, long RequiredBytes,
     long? ObservedAvailableBytes, IReadOnlyList<string> BlockerCodes,
     bool Executable, string Disposition);
+public enum MigrationCapacityDisposition
+{
+    KnownAvailable, Insufficient, PhysicalDiskTooSmall, Unknown, AmbiguousTarget,
+}
+public sealed record MigrationPlanResultV2(Guid PlanId, string DistroId, long RequiredBytes,
+    long? ObservedAvailableBytes, MigrationCapacityDisposition CapacityState,
+    IReadOnlyList<string> BlockerCodes, string ObservedStateFingerprint,
+    string ProviderRevisionFingerprint, bool Executable, string Disposition,
+    string ObservedMachineFingerprint);
+public sealed record PlanSelection(Guid PlanId);
+public sealed record MigrationTargetBinding(Guid PlanId, Guid TargetId,
+    string BoundStateFingerprint, bool Executable);
+public sealed record MigrationAllocationInput(Guid PlanId, Guid TargetId,
+    long RequestedShrinkBytes);
+/// <summary>An exact advisory shrink intent, not an installer layout or execution grant.</summary>
+public sealed record MigrationAllocationResult(Guid PlanId, Guid TargetId, Guid AllocationId,
+    string Scope, long RequestedShrinkBytes, long PlannedShrinkBytes,
+    long CurrentPartitionBytes, long ResultingPartitionBytes,
+    long NewFreeOffsetBytes, string ObservedLayoutRevision,
+    MigrationCapacityDisposition CapacityState, IReadOnlyList<string> WarningCodes,
+    bool Executable);
 public sealed record RecoveryInspection(string Support, string ReasonCode,
     bool HasExactSnapshot);
 public sealed record OperationSelection(Guid OperationId);

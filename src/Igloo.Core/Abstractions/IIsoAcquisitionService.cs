@@ -28,7 +28,8 @@ public sealed record IsoSpecification(string DistroId, Uri DownloadUrl, string E
     string? IsoFilePattern = null);
 
 
-public sealed record IsoAcquisitionResult(string LocalPath, bool Sha256Verified, bool GpgVerified, long SizeBytes);
+public sealed record IsoAcquisitionResult(string LocalPath, bool Sha256Verified, bool GpgVerified,
+    long SizeBytes, string? VerifiedSha256 = null);
 
 
 public sealed record IsoAcquisitionProgress(IsoAcquisitionPhase Phase, long BytesCompleted,

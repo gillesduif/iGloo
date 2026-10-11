@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:igloo:command:v1:stream-event",
+  "title": "iGloo CLI machine stream event V1",
+  "type": "object",
+  "required": ["type", "protocolVersion", "requestId", "correlationId"],
+  "properties": {
+    "type": { "enum": ["hello", "accepted", "progress", "result"] },
+    "protocolVersion": { "const": 1 },
+    "requestId": { "type": "string", "format": "uuid" },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "product": { "type": "string" },
+    "productVersion": { "type": "string" },
+    "progress": {
+      "type": "object",
+      "required": ["requestId", "phase"],
+      "properties": {
+        "requestId": { "type": "string", "format": "uuid" },
+        "operationId": { "type": "string", "format": "uuid" },
+        "phase": { "type": "string" },
+        "completed": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "result": { "$ref": "urn:igloo:command:v1:result" }
+  },
+  "allOf": [
+    { "if": { "properties": { "type": { "const": "hello" } } },
+      "then": { "required": ["product", "productVersion"],
+        "properties": {
+          "requestId": { "const": "00000000-0000-0000-0000-000000000000" },
+          "correlationId": { "const": "00000000-0000-0000-0000-000000000000" }
+        },
+        "not": { "anyOf": [{ "required": ["progress"] }, { "required": ["result"] }] } } },
+    { "if": { "properties": { "type": { "const": "accepted" } } },
+      "then": { "not": { "anyOf": [{ "required": ["product"] },
+        { "required": ["productVersion"] }, { "required": ["progress"] },
+        { "required": ["result"] }] } } },
+    { "if": { "properties": { "type": { "const": "progress" } } },
+      "then": { "required": ["progress"],
+        "not": { "anyOf": [{ "required": ["product"] },
+          { "required": ["productVersion"] }, { "required": ["result"] }] } } },
+    { "if": { "properties": { "type": { "const": "result" } } },
+      "then": { "required": ["result"],
+        "not": { "anyOf": [{ "required": ["product"] },
+          { "required": ["productVersion"] }, { "required": ["progress"] }] } } }
+  ],
+  "additionalProperties": false
+}

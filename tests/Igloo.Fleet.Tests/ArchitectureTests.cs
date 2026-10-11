@@ -22,7 +22,7 @@ public sealed class ArchitectureTests
             ["Igloo.Community.App"] = ["Igloo.Command.Contracts", "Igloo.Core.Host"],
             ["Igloo.Fleet.Contracts"] = [],
             ["Igloo.Fleet.Domain"] = ["Igloo.Fleet.Contracts"],
-            ["Igloo.Fleet.Agent"] = ["Igloo.Fleet.Contracts", "Igloo.Fleet.Domain", "Igloo.Command.Contracts", "Igloo.Core.Host"],
+            ["Igloo.Fleet.Agent"] = ["Igloo.Fleet.Contracts", "Igloo.Fleet.Domain", "Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Core.Host"],
             ["Igloo.Fleet.Server"] = ["Igloo.Fleet.Domain", "Igloo.Fleet.Persistence"],
             ["Igloo.Fleet.Persistence"] = ["Igloo.Fleet.Domain"],
             ["Igloo.Fleet.Web"] = ["Igloo.Fleet.Contracts"],
@@ -42,5 +42,12 @@ public sealed class ArchitectureTests
                 .Select(e => Path.GetFileNameWithoutExtension(e.Attribute("Include")!.Value));
             Assert.All(references, reference => Assert.Equal("Igloo.Core", reference));
         }
+        var developmentEntry = File.ReadAllText(Path.Join(root.FullName, "src", "Igloo.Fleet.Agent", "Program.cs"));
+        Assert.Contains("CliCommandClient.ForApplication", developmentEntry, StringComparison.Ordinal);
+        Assert.DoesNotContain("IglooHost.Create", developmentEntry, StringComparison.Ordinal);
+        var trustedEntry = File.ReadAllText(Path.Join(root.FullName, "src", "Igloo.Fleet.Agent",
+            "TrustedAgentCommand.cs"));
+        Assert.Contains("new ReadOnlyPlanner(commands)", trustedEntry, StringComparison.Ordinal);
+        Assert.DoesNotContain("IglooHost.Create", trustedEntry, StringComparison.Ordinal);
     }
 }

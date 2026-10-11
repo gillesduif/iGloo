@@ -9,6 +9,7 @@
     <ProjectReference Include="..\Igloo.Core.Runtime\Igloo.Core.Runtime.csproj" />
     <ProjectReference Include="..\Igloo.Iso\Igloo.Iso.csproj" />
     <ProjectReference Include="..\Igloo.Migration\Igloo.Migration.csproj" />
+    <ProjectReference Include="..\Igloo.Preflight\Igloo.Preflight.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Igloo.Command.Tests" />

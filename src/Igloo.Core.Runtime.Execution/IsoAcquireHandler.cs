@@ -9,9 +9,10 @@ using Igloo.Core.Runtime;
 namespace Igloo.Core.Runtime.Execution;
 
 public sealed class IsoAcquireHandler(DistroLoader loader, IsoAcquisitionCoordinator coordinator,
-    IOperationJournal? journal = null) : ICommandHandler
+    IOperationJournal? journal = null, FileArtifactRegistry? artifacts = null,
+    bool artifactMode = false) : ICommandHandler
 {
-    public CapabilityDescriptor Descriptor => new("iso.acquire", 1, 1, 1,
+    public CapabilityDescriptor Descriptor => new(artifactMode ? "artifact.acquire" : "iso.acquire", 1, 1, 1,
         CommandKind.Mutation, RiskClass.Low, false, AuthorityRequirement.User,
         loader.LoadedDistros.Where(d => d.IsAvailable).Select(d => d.Id)
             .Order(StringComparer.Ordinal).ToArray());
@@ -39,11 +40,18 @@ public sealed class IsoAcquireHandler(DistroLoader loader, IsoAcquisitionCoordin
         try
         {
             var result = await coordinator.AcquireAsync(distro, isoProgress, cancellationToken).ConfigureAwait(false);
+            ArtifactAcquired? artifact = null;
+            if (artifactMode)
+                artifact = await (artifacts ?? throw new InvalidOperationException(
+                    "Artifact registry is unavailable.")).RecordAsync(distro.Id, result,
+                    cancellationToken).ConfigureAwait(false);
             if (journal is not null)
                 await journal.TransitionAsync(request.OperationId!.Value, LocalOperationState.Completed,
-                    "iso.verified", ["Sha256Verified", "GpgVerified"],
+                    "iso.verified", result.GpgVerified
+                        ? ["Sha256Verified", "GpgVerified"] : ["Sha256Verified"],
                     cancellationToken: CancellationToken.None).ConfigureAwait(false);
-            return new IsoAcquired(distro.Id, result.Sha256Verified, result.GpgVerified, result.SizeBytes);
+            return artifact is not null ? artifact : (object)new IsoAcquired(distro.Id,
+                result.Sha256Verified, result.GpgVerified, result.SizeBytes);
         }
         catch (OperationCanceledException)
         {

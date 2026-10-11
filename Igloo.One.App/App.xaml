@@ -1,0 +1,23 @@
+<Application x:Class="Igloo.One.App.OneApplication"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Igloo.One.App"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <SolidColorBrush x:Key="Brush.Window" Color="#171B22" />
+            <SolidColorBrush x:Key="Brush.Text.Primary" Color="#F5F7FA" />
+            <SolidColorBrush x:Key="Brush.Text.Secondary" Color="#C7CDD5" />
+            <SolidColorBrush x:Key="Brush.Text.Tertiary" Color="#8993A2" />
+            <SolidColorBrush x:Key="Brush.Layer.Card" Color="#252B34" />
+            <SolidColorBrush x:Key="Brush.Stroke.Card" Color="#3C4653" />
+            <SolidColorBrush x:Key="Brush.AccentW11" Color="#79B7FF" />
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <Style x:Key="Button.Caption" TargetType="Button">
+                <Setter Property="Width" Value="46" />
+                <Setter Property="Height" Value="32" />
+            </Style>
+            <Style x:Key="Button.Caption.Close" TargetType="Button" BasedOn="{StaticResource Button.Caption}" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

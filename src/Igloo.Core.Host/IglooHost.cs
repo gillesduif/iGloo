@@ -11,7 +11,6 @@ using Igloo.Preflight;
 using Igloo.UsbWriter;
 using System.Diagnostics;
 using System.Globalization;
-using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -49,12 +48,25 @@ public static class IglooHost
         services.AddSingleton<IBackendCatalog>(sp => sp.GetRequiredService<BackendCatalog>());
         services.AddSingleton<IProviderCatalog>(sp => sp.GetRequiredService<BackendCatalog>());
         services.AddSingleton<IOperationJournal>(_ => new FileOperationJournal(FileOperationJournal.DefaultDirectory));
+        services.AddSingleton<IAdvisoryPlanJournal>(_ => new FileAdvisoryPlanJournal(
+            FileAdvisoryPlanJournal.DefaultDirectory));
+        services.AddSingleton(_ => new FileArtifactRegistry(FileArtifactRegistry.DefaultDirectory,
+            IsoAcquisitionService.DefaultCacheDirectory));
+        services.AddSingleton<ICanonicalMigrationTargetSource, WindowsCanonicalMigrationTargetSource>();
+        services.AddSingleton(sp => new FileMigrationTargetRegistry(
+            FileMigrationTargetRegistry.DefaultDirectory,
+            sp.GetRequiredService<ICanonicalMigrationTargetSource>()));
+        services.AddSingleton<IAllocationObservationSource, WindowsAllocationObservationSource>();
+        services.AddSingleton(sp => new FileMigrationAllocationRegistry(
+            FileMigrationAllocationRegistry.DefaultDirectory,
+            sp.GetRequiredService<FileMigrationTargetRegistry>(),
+            sp.GetRequiredService<IAllocationObservationSource>()));
         services.AddSingleton<IEndpointInspection>(sp => sp.GetRequiredService<IPreflightWorkflow>());
         services.AddSingleton<IIsoWorkflow>(sp => new IsoWorkflow(sp.GetRequiredService<IsoAcquisitionCoordinator>()));
         services.AddSingleton<IMigrationStagingWorkflow>(sp => new MigrationStagingWorkflow(
             sp.GetRequiredService<MigrationStagingCoordinator>()));
         services.AddSingleton<IProviderCompatibility>(sp => new ProviderCompatibility(
-            sp.GetRequiredService<DistroRegistry>()));
+            sp.GetRequiredService<DistroRegistry>(), sp.GetRequiredService<DistroLoader>()));
         services.AddSingleton<IInstallationPreparation>(sp => new InstallationPreparation(
             sp.GetRequiredService<DistroRegistry>(), sp.GetRequiredService<IDirectInstallService>()));
         services.AddSingleton<IPreflightWorkflow>(sp => new PreflightWorkflow(
@@ -72,12 +84,32 @@ public static class IglooHost
             {
                 new OperationStatusHandler(journal, false),
                 new OperationStatusHandler(journal, true),
+                new ArtifactStatusHandler(sp.GetRequiredService<FileArtifactRegistry>()),
+                new MigrationTargetBindHandler(sp.GetRequiredService<IAdvisoryPlanJournal>(),
+                    sp.GetRequiredService<IPreflightChecker>(),
+                    sp.GetRequiredService<DistroLoader>(),
+                    sp.GetRequiredService<DistroRegistry>(),
+                    sp.GetRequiredService<ICanonicalMigrationTargetSource>(),
+                    sp.GetRequiredService<FileMigrationTargetRegistry>()),
+                new MigrationTargetAllocateHandler(sp.GetRequiredService<IAdvisoryPlanJournal>(),
+                    sp.GetRequiredService<FileMigrationTargetRegistry>(),
+                    sp.GetRequiredService<FileMigrationAllocationRegistry>(),
+                    sp.GetRequiredService<IAllocationObservationSource>(),
+                    sp.GetRequiredService<IPreflightChecker>(),
+                    sp.GetRequiredService<DistroLoader>(),
+                    sp.GetRequiredService<DistroRegistry>()),
             };
             if (includeIsoAcquisition)
+            {
                 additional.Add(new IsoAcquireHandler(sp.GetRequiredService<DistroLoader>(),
                     sp.GetRequiredService<IsoAcquisitionCoordinator>(), journal));
+                additional.Add(new IsoAcquireHandler(sp.GetRequiredService<DistroLoader>(),
+                    sp.GetRequiredService<IsoAcquisitionCoordinator>(), journal,
+                    sp.GetRequiredService<FileArtifactRegistry>(), artifactMode: true));
+            }
             return new CommandDispatcher(sp.GetRequiredService<IPreflightChecker>(),
-                sp.GetRequiredService<DistroLoader>(), sp.GetRequiredService<DistroRegistry>(), additional);
+                sp.GetRequiredService<DistroLoader>(), sp.GetRequiredService<DistroRegistry>(), additional,
+                sp.GetRequiredService<IAdvisoryPlanJournal>());
         });
         return services;
     }
@@ -199,9 +231,9 @@ public interface IProviderCompatibility
 public sealed record ProviderInspection(string DistroId, long MinimumDiskBytes,
     string ImplementationHash);
 
-internal sealed class ProviderCompatibility(DistroRegistry registry) : IProviderCompatibility
+internal sealed class ProviderCompatibility(DistroRegistry registry, DistroLoader loader) : IProviderCompatibility
 {
-    private readonly DistroCompatibilityEvaluator _evaluator = new(registry);
+    private readonly DistroCompatibilityEvaluator _evaluator = new(registry, loader);
     public bool IsLoaded(string distroId) => registry.TryGet(distroId, out _);
     public IReadOnlyList<PreflightFinding> Evaluate(string distroId, PreflightReport report) =>
         _evaluator.Evaluate(distroId, report);
@@ -210,14 +242,11 @@ internal sealed class ProviderCompatibility(DistroRegistry registry) : IProvider
         CancellationToken cancellationToken = default)
     {
         if (!registry.TryGet(distroId, out var plugin)) return null;
-        var assemblyPath = plugin.GetType().Assembly.Location;
-        using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hasher.AppendData(await File.ReadAllBytesAsync(assemblyPath, cancellationToken).ConfigureAwait(false));
-        var catalog = Path.Join(Path.GetDirectoryName(assemblyPath), "distro.json");
-        if (File.Exists(catalog))
-            hasher.AppendData(await File.ReadAllBytesAsync(catalog, cancellationToken).ConfigureAwait(false));
+        var manifest = loader.LoadedDistros.SingleOrDefault(d => string.Equals(d.Id, distroId,
+            StringComparison.OrdinalIgnoreCase));
         return new ProviderInspection(plugin.Id, plugin.Metadata.MinimumRequirements.MinDiskBytes,
-            Convert.ToHexString(hasher.GetHashAndReset()));
+            await ProviderRevision.FingerprintAsync(plugin, manifest, cancellationToken)
+                .ConfigureAwait(false));
     }
 }
 

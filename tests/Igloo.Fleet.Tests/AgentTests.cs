@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Igloo.Command.Contracts;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Host;
 using Igloo.Fleet.Agent;
@@ -57,6 +58,24 @@ public sealed class AgentTests
         var value = ReadOnlyAssessment.Map(report, new(Guid.NewGuid(), Guid.NewGuid()), DateTimeOffset.UtcNow);
         Assert.Equal(EligibilityStatus.NeedsReview, value.Eligibility);
         Assert.Contains(value.Checks, c => c.Id == CheckId.BitLocker && c.Status == CheckStatus.Unknown);
+    }
+
+    [Fact]
+    public void CliInspectionAndLocalInspectionProduceTheSameSanitizedAssessment()
+    {
+        var report = Report;
+        var publicInspection = new SystemInspection(report.IsUefi, report.SecureBootEnabled,
+            report.TpmPresent, report.BitLocker.ToString(), report.TotalRamBytes,
+            report.Disks.Count, report.Findings.Select(f =>
+                new InspectionFinding(f.Code, f.Severity.ToString())).ToArray());
+        var identity = new DeviceIdentity(Guid.NewGuid(), Guid.NewGuid());
+        var started = DateTimeOffset.UtcNow;
+        var legacy = ReadOnlyAssessment.Map(report, identity, started);
+        var cli = ReadOnlyAssessment.Map(publicInspection, identity, started);
+        Assert.Equal(legacy.Inventory, cli.Inventory);
+        Assert.Equal(legacy.Checks.ToArray(), cli.Checks.ToArray());
+        Assert.Equal(legacy.Eligibility, cli.Eligibility);
+        Assert.DoesNotContain("PRIVATE_PASSWORD", JsonSerializer.Serialize(cli), StringComparison.Ordinal);
     }
 
     [Theory]

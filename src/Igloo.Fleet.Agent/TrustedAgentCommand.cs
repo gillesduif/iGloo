@@ -3,7 +3,7 @@ using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
-using Igloo.Core.Host;
+using Igloo.Cli.Client;
 using Igloo.Fleet.Contracts;
 
 namespace Igloo.Fleet.Agent;
@@ -57,11 +57,10 @@ internal static class TrustedAgentCommand
         using (var client = new HttpClient(handler) { BaseAddress = address, Timeout = TimeSpan.FromSeconds(30) })
         {
             var distros = Environment.GetEnvironmentVariable("IGLOO_FLEET_DISTROS") ?? Path.Join(AppContext.BaseDirectory, "distros");
-            var backend = await IglooHost.CreateReadOnlyAsync(Path.GetFullPath(distros),
-                timeout.Token).ConfigureAwait(false);
-            await using var backendDisposal = backend.ConfigureAwait(false);
+            var commands = CliCommandClient.ForApplication(AppContext.BaseDirectory,
+                distrosDirectory: Path.GetFullPath(distros));
             var workflow = new TrustedAgentWorkflow(client,
-                new ReadOnlyPlanner(backend.Inspection, backend.Providers),
+                new ReadOnlyPlanner(commands),
                 new ResultSpool(Path.Join(directory, "outbox")));
             await workflow.RunOnceAsync(metadata.Identity, timeout.Token).ConfigureAwait(false);
             Console.WriteLine("Read-only Agent cycle complete; execution capability is absent.");

@@ -8,10 +8,11 @@ namespace Igloo.Core.Runtime;
 
 public sealed class CommandDispatcher : ICommandDispatcher
 {
-    private readonly Dictionary<string, ICommandHandler> _handlers;
+    private readonly Dictionary<(string Id, int Version), ICommandHandler> _handlers;
 
     public CommandDispatcher(IPreflightChecker checker, DistroLoader loader, DistroRegistry registry,
-        IEnumerable<ICommandHandler>? additionalHandlers = null)
+        IEnumerable<ICommandHandler>? additionalHandlers = null,
+        IAdvisoryPlanJournal? planJournal = null)
     {
         ArgumentNullException.ThrowIfNull(checker);
         ArgumentNullException.ThrowIfNull(loader);
@@ -22,18 +23,25 @@ public sealed class CommandDispatcher : ICommandDispatcher
             new CapabilityDescribeHandler(() => Capabilities),
             new VersionHandler(),
             new SystemInspectHandler(checker),
+            new SystemInspectDetailHandler(checker),
             new DistroListHandler(loader),
             new DistroInspectHandler(loader),
-            new DistroCompatibilityHandler(checker, registry, new DistroCompatibilityEvaluator(registry)),
+            new DistroCompatibilityHandler(checker, registry, new DistroCompatibilityEvaluator(registry, loader)),
             new MigrationInspectHandler(checker),
-            new MigrationPlanHandler(checker, loader, registry, new DistroCompatibilityEvaluator(registry)),
+            new MigrationPlanHandler(checker, loader, registry, new DistroCompatibilityEvaluator(registry, loader)),
             new RecoveryInspectHandler(),
         ];
-        _handlers = handlers.Concat(additionalHandlers ?? []).ToDictionary(h => h.Descriptor.Id, StringComparer.Ordinal);
+        _handlers = handlers.Concat(planJournal is null ? [] :
+                [new MigrationPlanHandler(checker, loader, registry,
+                    new DistroCompatibilityEvaluator(registry, loader), 2, planJournal),
+                    new MigrationPlanReadHandler(planJournal)])
+            .Concat(additionalHandlers ?? []).ToDictionary(h => (h.Descriptor.Id,
+                h.Descriptor.Version));
     }
 
     public IReadOnlyList<CapabilityDescriptor> Capabilities =>
-        _handlers.Values.Select(h => h.Descriptor).OrderBy(d => d.Id, StringComparer.Ordinal).ToArray();
+        _handlers.Values.Select(h => h.Descriptor).OrderBy(d => d.Id, StringComparer.Ordinal)
+            .ThenBy(d => d.Version).ToArray();
 
     public async Task<CommandResult> ExecuteAsync(CommandRequest request,
         IProgress<CommandProgress>? progress = null, CancellationToken cancellationToken = default)
@@ -76,6 +84,31 @@ public sealed class CommandDispatcher : ICommandDispatcher
         {
             return Failure(request, new(CommandErrorCode.ResourceBusy, "A conflicting local operation is running."));
         }
+        catch (ArtifactVerificationException)
+        {
+            return Failure(request, new(CommandErrorCode.VerificationFailed,
+                "Artifact verification failed."));
+        }
+        catch (PlanJournalCorruptException)
+        {
+            return Failure(request, new(CommandErrorCode.VerificationFailed,
+                "Advisory plan record failed integrity checks."));
+        }
+        catch (CommandEvidenceException)
+        {
+            return Failure(request, new(CommandErrorCode.VerificationFailed,
+                "Local evidence failed integrity checks."));
+        }
+        catch (StateChangedException)
+        {
+            return Failure(request, new(CommandErrorCode.StateChanged,
+                "Observed endpoint state changed; inspect and plan again."));
+        }
+        catch (CommandPreconditionException)
+        {
+            return Failure(request, new(CommandErrorCode.PreconditionFailed,
+                "Required endpoint preconditions are unavailable."));
+        }
         catch (NotSupportedException)
         {
             return Failure(request, new(CommandErrorCode.NotSupported, "This operation is not supported for the selected provider."));
@@ -95,15 +128,15 @@ public sealed class CommandDispatcher : ICommandDispatcher
         if (request.RequestId == Guid.Empty || request.CorrelationId == Guid.Empty ||
             string.IsNullOrWhiteSpace(request.CapabilityId))
             return new(CommandErrorCode.InvalidRequest, "Request ID, correlation ID and capability ID are required.");
-        if (!_handlers.TryGetValue(request.CapabilityId, out handler))
-            return new(CommandErrorCode.UnsupportedCapability, "Capability is unavailable.");
-        if (request.CapabilityVersion != handler.Descriptor.Version)
-            return new(CommandErrorCode.UnsupportedVersion, "Unsupported capability version.");
+        if (!_handlers.TryGetValue((request.CapabilityId, request.CapabilityVersion), out handler))
+            return _handlers.Keys.Any(k => k.Id == request.CapabilityId)
+                ? new(CommandErrorCode.UnsupportedVersion, "Unsupported capability version.")
+                : new(CommandErrorCode.UnsupportedCapability, "Capability is unavailable.");
         if (request.DryRun && !handler.Descriptor.SupportsDryRun)
             return new(CommandErrorCode.InvalidRequest, "This capability has no dry-run mode.");
         if (request.Input.ValueKind != JsonValueKind.Object)
             return new(CommandErrorCode.InvalidRequest, "Input must be a JSON object.");
-        if ((handler.Descriptor.Id is "system.version" or "system.capabilities" or "system.inspect" or "distro.list" or "migration.inspect" or "recovery.inspect")
+        if ((handler.Descriptor.Id is "system.version" or "system.capabilities" or "system.inspect" or "system.inspect.detail" or "distro.list" or "migration.inspect" or "recovery.inspect")
             && request.Input.ValueKind == JsonValueKind.Object && request.Input.EnumerateObject().Any())
             return new(CommandErrorCode.InvalidRequest, "This capability takes no input fields.");
         return null;
@@ -119,6 +152,34 @@ public sealed class ResourceBusyException : Exception
     public ResourceBusyException() : base("Resource busy.") { }
     public ResourceBusyException(string message) : base(message) { }
     public ResourceBusyException(string message, Exception innerException) : base(message, innerException) { }
+}
+
+public sealed class ArtifactVerificationException : Exception
+{
+    public ArtifactVerificationException() : base("Artifact verification failed.") { }
+    public ArtifactVerificationException(string message) : base(message) { }
+    public ArtifactVerificationException(string message, Exception innerException) : base(message, innerException) { }
+}
+
+public sealed class CommandEvidenceException : Exception
+{
+    public CommandEvidenceException() : base("Local evidence failed integrity checks.") { }
+    public CommandEvidenceException(string message) : base(message) { }
+    public CommandEvidenceException(string message, Exception innerException) : base(message, innerException) { }
+}
+
+public sealed class StateChangedException : Exception
+{
+    public StateChangedException() : base("Observed state changed.") { }
+    public StateChangedException(string message) : base(message) { }
+    public StateChangedException(string message, Exception innerException) : base(message, innerException) { }
+}
+
+public sealed class CommandPreconditionException : Exception
+{
+    public CommandPreconditionException() : base("Required preconditions are unavailable.") { }
+    public CommandPreconditionException(string message) : base(message) { }
+    public CommandPreconditionException(string message, Exception innerException) : base(message, innerException) { }
 }
 
 public interface ICommandHandler
@@ -146,7 +207,8 @@ internal sealed class CapabilityDescribeHandler(Func<IReadOnlyList<CapabilityDes
     {
         var selection = request.Input.Deserialize<CapabilitySelection>(CommandProtocol.JsonOptions);
         if (string.IsNullOrWhiteSpace(selection?.CapabilityId)) throw new ArgumentException("Missing capability ID.");
-        return Task.FromResult<object>(catalogue().SingleOrDefault(c => c.Id == selection.CapabilityId)
+        return Task.FromResult<object>(catalogue().Where(c => c.Id == selection.CapabilityId)
+            .OrderByDescending(c => c.Version).FirstOrDefault()
             ?? throw new KeyNotFoundException());
     }
 }
@@ -169,9 +231,22 @@ internal sealed class SystemInspectHandler(IPreflightChecker checker) : ICommand
         CancellationToken cancellationToken)
     {
         var report = await checker.RunAsync(cancellationToken).ConfigureAwait(false);
-        return new SystemInspection(report.IsUefi, report.SecureBootEnabled, report.TpmPresent,
-            report.BitLocker.ToString(), report.TotalRamBytes, report.Disks.Count,
-            report.Findings.Select(f => new InspectionFinding(f.Code, f.Severity.ToString())).ToArray());
+        return new ObservedPayload(PublicInspectionMapper.MapSummary(report),
+            ObservedStateRevision.Fingerprint(report));
+    }
+}
+
+internal sealed class SystemInspectDetailHandler(IPreflightChecker checker) : ICommandHandler
+{
+    public CapabilityDescriptor Descriptor { get; } = new("system.inspect.detail", 1, 1, 1,
+        CommandKind.Query, RiskClass.Low, false, AuthorityRequirement.User, []);
+
+    public async Task<object> ExecuteAsync(CommandRequest request, IProgress<CommandProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var report = await checker.RunAsync(cancellationToken).ConfigureAwait(false);
+        return new ObservedPayload(PublicInspectionMapper.MapDetail(report),
+            ObservedStateRevision.Fingerprint(report));
     }
 }
 
@@ -214,9 +289,10 @@ internal sealed class DistroCompatibilityHandler(IPreflightChecker checker, Dist
         if (!registry.TryGet(selection.DistroId, out var plugin)) throw new KeyNotFoundException();
         var report = await checker.RunAsync(cancellationToken).ConfigureAwait(false);
         var findings = evaluator.Evaluate(plugin.Id, report);
-        return new DistroCompatibility(plugin.Id,
-            findings.Select(f => new InspectionFinding(f.Code, f.Severity.ToString())).ToArray(),
-            findings.Any(f => f.Severity == FindingSeverity.Blocker));
+        return new ObservedPayload(new DistroCompatibility(plugin.Id,
+            findings.Select(PublicInspectionMapper.MapFinding).ToArray(),
+            findings.Any(f => f.Severity == FindingSeverity.Blocker)),
+            ObservedStateRevision.Fingerprint(report));
     }
 }
 

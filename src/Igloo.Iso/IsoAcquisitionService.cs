@@ -14,6 +14,10 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     private readonly ILogger<IsoAcquisitionService> _logger;
     private readonly string _cacheDir;
 
+    public static string DefaultCacheDirectory => Path.Join(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Igloo", "iso-cache");
+
     private const int BufferSize = 81_920; // 80 KB
 
     public IsoAcquisitionService(
@@ -22,9 +26,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     {
         _httpFactory = httpFactory;
         _logger = logger;
-        _cacheDir = Path.Join(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Igloo", "iso-cache");
+        _cacheDir = DefaultCacheDirectory;
     }
 
     //   Public API                               
@@ -77,7 +79,8 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         //   Done                               ─
         progress?.Report(new IsoAcquisitionProgress(IsoAcquisitionPhase.Complete, 0, null, null));
 
-        return new IsoAcquisitionResult(isoPath, Sha256Verified: true, gpgVerified, new FileInfo(isoPath).Length);
+        return new IsoAcquisitionResult(isoPath, Sha256Verified: true, gpgVerified,
+            new FileInfo(isoPath).Length, computedHash);
     }
 
     /// <summary>

@@ -22,6 +22,8 @@ public sealed class PlanningTests
                 [new(1, "NTFS", totalGb << 30, null, false, true, shrinkGb << 30)]),
         };
         Assert.Equal(expectedGb.HasValue ? expectedGb.Value << 30 : null, ReadOnlyPlanner.AvailableCapacity(disks, 20L << 30));
+        Assert.Equal(Igloo.Core.Abstractions.MigrationCapacityEvaluator.Evaluate(disks, 20L << 30)
+            .ObservedAvailableBytes, ReadOnlyPlanner.AvailableCapacity(disks, 20L << 30));
     }
 
     internal static DeviceIdentity Device(PlanningFixture fixture)

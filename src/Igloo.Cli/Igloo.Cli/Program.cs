@@ -14,15 +14,32 @@ internal static class Program
             eventArgs.Cancel = true;
             cancellation.Cancel();
         };
-        var backend = await IglooHost.CreateAsync(FindDistrosDirectory(),
-            cancellation.Token).ConfigureAwait(false);
-        await using var backendDisposal = backend.ConfigureAwait(false);
-        return await CliApplication.RunAsync(args, backend.Commands, Console.In, Console.Out,
-            Console.Error, cancellation.Token).ConfigureAwait(false);
+        try
+        {
+            var backend = await IglooHost.CreateAsync(FindDistrosDirectory(),
+                cancellation.Token).ConfigureAwait(false);
+            await using var backendDisposal = backend.ConfigureAwait(false);
+            return await CliApplication.RunAsync(args, backend.Commands, Console.In, Console.Out,
+                Console.Error, cancellation.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return 130;
+        }
+#pragma warning disable CA1031 // A CLI process must not print unexpected private exception text.
+        catch (Exception)
+        {
+            // Startup failures have no trusted command result. Never write raw exception text.
+            await Console.Error.WriteLineAsync("LocalBackendInitializationFailed").ConfigureAwait(false);
+            return 4;
+        }
+#pragma warning restore CA1031
     }
 
     private static string FindDistrosDirectory()
     {
+        var configured = Environment.GetEnvironmentVariable("IGLOO_DISTROS_DIRECTORY");
+        if (!string.IsNullOrWhiteSpace(configured)) return Path.GetFullPath(configured);
         var current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current is not null)
         {
@@ -47,6 +64,8 @@ internal static class CliApplication
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(error);
+        if (args is ["invoke", "--machine"])
+            return await RunMachineAsync(dispatcher, input, output, cancellationToken).ConfigureAwait(false);
         var json = args.Contains("--json", StringComparer.Ordinal);
         var positional = args.Where(a => a != "--json").ToArray();
         CommandRequest request;
@@ -64,15 +83,26 @@ internal static class CliApplication
                 var capability = ResolveCapability(positional);
                 object value = positional is ["distros", "inspect" or "compatibility", _]
                     or ["iso", "acquire", _]
+                    or ["artifacts", "acquire", _]
                     ? new DistroSelection(positional[2])
                     : positional is ["migration", "plan", _, ..]
                         ? new MigrationPlanInput(positional[2], positional.Length == 4
                             ? long.Parse(positional[3], System.Globalization.CultureInfo.InvariantCulture) : 0)
+                    : positional is ["migration", "plans", "read", _]
+                        or ["migration", "target", "bind", _]
+                        ? new PlanSelection(Guid.Parse(positional[3]))
+                    : positional is ["migration", "target", "allocate", _, _, _]
+                        ? new MigrationAllocationInput(Guid.Parse(positional[3]),
+                            Guid.Parse(positional[4]), long.Parse(positional[5],
+                                System.Globalization.CultureInfo.InvariantCulture))
                     : positional is ["operations", "status", _] or ["migration", "status", _]
                         ? new OperationSelection(Guid.Parse(positional[2]))
+                    : positional is ["artifacts", "status", _]
+                        ? new ArtifactSelection(positional[2])
                     : positional is ["capabilities", "describe", _]
                         ? new CapabilitySelection(positional[2]) : new { };
-                request = new(CommandProtocol.Version, capability, 1, Guid.NewGuid(), Guid.NewGuid(),
+                request = new(CommandProtocol.Version, capability,
+                    capability == "migration.plan" ? 2 : 1, Guid.NewGuid(), Guid.NewGuid(),
                     JsonSerializer.SerializeToElement(value, CommandProtocol.JsonOptions));
             }
         }
@@ -92,7 +122,121 @@ internal static class CliApplication
             : null;
         var result = await dispatcher.ExecuteAsync(request, progress, cancellationToken).ConfigureAwait(false);
         await RenderAsync(result, json, output, error).ConfigureAwait(false);
-        return result.Error?.Code switch
+        return ExitCode(result);
+    }
+
+    private static async Task<int> RunMachineAsync(ICommandDispatcher dispatcher, TextReader input,
+        TextWriter output, CancellationToken cancellationToken)
+    {
+        var version = typeof(CliApplication).Assembly.GetName().Version?.ToString() ?? "unknown";
+        await output.WriteLineAsync(JsonSerializer.Serialize(new CommandStreamEvent("hello",
+            CommandProtocol.Version, Guid.Empty, Guid.Empty,
+            Product: "Igloo.Cli", ProductVersion: version), CommandProtocol.JsonOptions)).ConfigureAwait(false);
+        await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+        CommandRequest request;
+        try
+        {
+            var line = await input.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+            request = JsonSerializer.Deserialize<CommandRequest>(line ?? string.Empty,
+                CommandProtocol.JsonOptions) ?? throw new JsonException();
+        }
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
+        {
+            var invalid = new CommandResult(CommandProtocol.Version, string.Empty, 0,
+                Guid.NewGuid(), Guid.NewGuid(), null, false, null,
+                new(CommandErrorCode.InvalidRequest, "Invalid machine request."), [], []);
+            await output.WriteLineAsync(JsonSerializer.Serialize(new CommandStreamEvent("result",
+                CommandProtocol.Version, invalid.RequestId, invalid.CorrelationId,
+                Result: invalid), CommandProtocol.JsonOptions)).ConfigureAwait(false);
+            return ExitCode(invalid);
+        }
+
+        await output.WriteLineAsync(JsonSerializer.Serialize(new CommandStreamEvent("accepted",
+            CommandProtocol.Version, request.RequestId, request.CorrelationId),
+            CommandProtocol.JsonOptions)).ConfigureAwait(false);
+        await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+        using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!requestCancellation.IsCancellationRequested)
+                {
+                    var control = await input.ReadLineAsync(requestCancellation.Token).ConfigureAwait(false);
+                    if (control is null) return;
+                    using var document = JsonDocument.Parse(control);
+                    var root = document.RootElement;
+                    if (root.TryGetProperty("type", out var type) && type.GetString() == "cancel" &&
+                        root.TryGetProperty("requestId", out var id) && id.GetGuid() == request.RequestId)
+                    {
+                        await requestCancellation.CancelAsync().ConfigureAwait(false);
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or JsonException
+                or InvalidOperationException or FormatException) { }
+        }, CancellationToken.None);
+
+        var stream = new MachineProgress(output, request);
+        CommandResult result;
+        try
+        {
+            result = await dispatcher.ExecuteAsync(request, stream,
+                requestCancellation.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            result = new(CommandProtocol.Version, request.CapabilityId, request.CapabilityVersion,
+                request.RequestId, request.CorrelationId, request.OperationId, false, null,
+                new(CommandErrorCode.Cancelled, "Operation cancelled."), [], []);
+        }
+#pragma warning disable CA1031 // Keep exactly one sanitized terminal outcome on machine stdout.
+        catch (Exception)
+        {
+            result = new(CommandProtocol.Version, request.CapabilityId, request.CapabilityVersion,
+                request.RequestId, request.CorrelationId, request.OperationId, false, null,
+                new(CommandErrorCode.InternalFailure, "The local operation failed. Consult protected local diagnostics."),
+                [], []);
+        }
+#pragma warning restore CA1031
+        stream.Complete(result);
+        await output.FlushAsync(CancellationToken.None).ConfigureAwait(false);
+        return ExitCode(result);
+    }
+
+    private sealed class MachineProgress(TextWriter output, CommandRequest request) : IProgress<CommandProgress>
+    {
+        private readonly object _gate = new();
+        private bool _complete;
+
+        public void Report(CommandProgress value)
+        {
+            lock (_gate)
+            {
+                if (_complete) return;
+                output.WriteLine(JsonSerializer.Serialize(new CommandStreamEvent("progress",
+                    CommandProtocol.Version, request.RequestId, request.CorrelationId,
+                    Progress: value), CommandProtocol.JsonOptions));
+                output.Flush();
+            }
+        }
+
+        public void Complete(CommandResult result)
+        {
+            lock (_gate)
+            {
+                _complete = true;
+                output.WriteLine(JsonSerializer.Serialize(new CommandStreamEvent("result",
+                    CommandProtocol.Version, request.RequestId, request.CorrelationId,
+                    Result: result), CommandProtocol.JsonOptions));
+            }
+        }
+    }
+
+    private static int ExitCode(CommandResult result) => result.Error?.Code switch
         {
             null => 0,
             CommandErrorCode.InvalidRequest or CommandErrorCode.UnsupportedCapability
@@ -101,7 +245,6 @@ internal static class CliApplication
             CommandErrorCode.InternalFailure => 4,
             _ => 3,
         };
-    }
 
     private static string ResolveCapability(string[] args)
     {
@@ -109,14 +252,20 @@ internal static class CliApplication
         {
             ["version"] => "system.version",
             ["inspect"] => "system.inspect",
+            ["inspect", "detail"] => "system.inspect.detail",
             ["capabilities", "list"] => "system.capabilities",
             ["capabilities", "describe", _] => "system.capability.describe",
             ["distros", "list"] => "distro.list",
             ["distros", "inspect", _] => "distro.inspect",
             ["distros", "compatibility", _] => "distro.compatibility",
             ["iso", "acquire", _] => "iso.acquire",
+            ["artifacts", "acquire", _] => "artifact.acquire",
+            ["artifacts", "status", _] => "artifact.status",
             ["migration", "inspect"] => "migration.inspect",
             ["migration", "plan", _] or ["migration", "plan", _, _] => "migration.plan",
+            ["migration", "plans", "read", _] => "migration.plan.read",
+            ["migration", "target", "bind", _] => "migration.target.bind",
+            ["migration", "target", "allocate", _, _, _] => "migration.target.allocate",
             ["migration", "status", _] => "migration.status",
             ["operations", "status", _] => "operation.status",
             ["recovery", "inspect"] => "recovery.inspect",
@@ -149,6 +298,27 @@ internal static class CliApplication
                 foreach (var finding in machine.Findings)
                     await output.WriteLineAsync($"{finding.Severity}: {finding.Code}").ConfigureAwait(false);
                 break;
+            case "system.inspect.detail":
+                var detail = result.Data!.Value.Deserialize<DetailedSystemInspection>(CommandProtocol.JsonOptions)!;
+                await output.WriteLineAsync($"UEFI: {detail.Summary.IsUefi}; Secure Boot: {detail.Summary.SecureBootEnabled}; " +
+                    $"BitLocker: {detail.Summary.BitLockerState}").ConfigureAwait(false);
+                foreach (var disk in detail.Disks)
+                {
+                    await output.WriteLineAsync($"Disk {disk.Ordinal}: {disk.TotalBytes} bytes, " +
+                        $"{disk.FreeBytes} observed free, {disk.PartitionStyle}; " +
+                        $"boot: {disk.HasBootPartition}; system: {disk.HasSystemPartition}")
+                        .ConfigureAwait(false);
+                    foreach (var partition in disk.Partitions)
+                        await output.WriteLineAsync($"  Partition {partition.Index}: " +
+                            $"{partition.SizeBytes} bytes, {partition.FileSystemCategory}; " +
+                            $"shrinkable: {partition.ShrinkableBytes} bytes")
+                            .ConfigureAwait(false);
+                }
+                await output.WriteLineAsync($"Linux installations: {detail.LinuxInstallationCount}; " +
+                    $"installer leftovers: {detail.InstallerLeftoverCount}").ConfigureAwait(false);
+                foreach (var finding in detail.Summary.Findings)
+                    await output.WriteLineAsync($"{finding.Severity}: {finding.Code}").ConfigureAwait(false);
+                break;
             case "distro.list":
                 var distros = result.Data!.Value.Deserialize<DistroList>(CommandProtocol.JsonOptions)!;
                 foreach (var distro in distros.Distros)
@@ -172,6 +342,18 @@ internal static class CliApplication
                 await output.WriteLineAsync($"{iso.DistroId}: acquired {iso.SizeBytes} bytes; SHA-256 verified: {iso.Sha256Verified}; GPG verified: {iso.GpgVerified}")
                     .ConfigureAwait(false);
                 break;
+            case "artifact.acquire":
+                var acquired = result.Data!.Value.Deserialize<ArtifactAcquired>(CommandProtocol.JsonOptions)!;
+                await output.WriteLineAsync($"{acquired.DistroId}: verified artifact {acquired.ArtifactId}; " +
+                    $"SHA-256 {acquired.Sha256}; GPG verified: {acquired.GpgVerified}")
+                    .ConfigureAwait(false);
+                break;
+            case "artifact.status":
+                var artifact = result.Data!.Value.Deserialize<ArtifactStatus>(CommandProtocol.JsonOptions)!;
+                await output.WriteLineAsync($"{artifact.ArtifactId}: " +
+                    $"{(artifact.VerifiedNow ? "verified now" : artifact.Present ? "verification failed" : "missing")}")
+                    .ConfigureAwait(false);
+                break;
             case "migration.inspect":
                 var migration = result.Data!.Value.Deserialize<MigrationInspection>(CommandProtocol.JsonOptions)!;
                 await output.WriteLineAsync($"Windows boot disks: {migration.WindowsBootDiskCount}; observed capacity: {migration.ObservedAvailableBytes?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"} bytes")
@@ -180,11 +362,46 @@ internal static class CliApplication
                     await output.WriteLineAsync($"Review: {blocker}").ConfigureAwait(false);
                 break;
             case "migration.plan":
-                var plan = result.Data!.Value.Deserialize<MigrationPlanResult>(CommandProtocol.JsonOptions)!;
-                await output.WriteLineAsync($"{plan.DistroId}: {plan.Disposition}; required {plan.RequiredBytes} bytes; observed {plan.ObservedAvailableBytes?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"} bytes")
+                if (result.CapabilityVersion == 2)
+                {
+                    var saved = result.Data!.Value.Deserialize<MigrationPlanResultV2>(CommandProtocol.JsonOptions)!;
+                    await output.WriteLineAsync($"Plan {saved.PlanId}: {saved.DistroId}; " +
+                        $"{saved.Disposition}; capacity {saved.CapacityState}; " +
+                        $"required {saved.RequiredBytes} bytes; observed " +
+                        $"{saved.ObservedAvailableBytes?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"} bytes")
+                        .ConfigureAwait(false);
+                    foreach (var blocker in saved.BlockerCodes)
+                        await output.WriteLineAsync($"Blocker: {blocker}").ConfigureAwait(false);
+                }
+                else
+                {
+                    var plan = result.Data!.Value.Deserialize<MigrationPlanResult>(CommandProtocol.JsonOptions)!;
+                    await output.WriteLineAsync($"{plan.DistroId}: {plan.Disposition}; required {plan.RequiredBytes} bytes; observed {plan.ObservedAvailableBytes?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"} bytes")
+                        .ConfigureAwait(false);
+                    foreach (var blocker in plan.BlockerCodes)
+                        await output.WriteLineAsync($"Blocker: {blocker}").ConfigureAwait(false);
+                }
+                break;
+            case "migration.plan.read":
+                var previous = result.Data!.Value.Deserialize<MigrationPlanResultV2>(CommandProtocol.JsonOptions)!;
+                await output.WriteLineAsync($"Plan {previous.PlanId}: {previous.DistroId}; " +
+                    $"{previous.Disposition}; capacity {previous.CapacityState}; " +
+                    $"required {previous.RequiredBytes} bytes")
                     .ConfigureAwait(false);
-                foreach (var blocker in plan.BlockerCodes)
-                    await output.WriteLineAsync($"Blocker: {blocker}").ConfigureAwait(false);
+                break;
+            case "migration.target.bind":
+                var binding = result.Data!.Value.Deserialize<MigrationTargetBinding>(
+                    CommandProtocol.JsonOptions)!;
+                await output.WriteLineAsync($"Target {binding.TargetId} bound to advisory plan " +
+                    $"{binding.PlanId}; executable: {binding.Executable}").ConfigureAwait(false);
+                break;
+            case "migration.target.allocate":
+                var allocation = result.Data!.Value.Deserialize<MigrationAllocationResult>(
+                    CommandProtocol.JsonOptions)!;
+                await output.WriteLineAsync($"Allocation {allocation.AllocationId}: " +
+                    $"{allocation.Scope}, shrink {allocation.PlannedShrinkBytes} bytes; " +
+                    $"installer layout unbound; executable: {allocation.Executable}")
+                    .ConfigureAwait(false);
                 break;
             case "system.capabilities":
                 var catalogue = result.Data!.Value.Deserialize<CapabilityDescriptor[]>(CommandProtocol.JsonOptions)!;

@@ -47,23 +47,22 @@ internal sealed class MigrationInspectHandler(IPreflightChecker checker) : IComm
         CancellationToken cancellationToken)
     {
         var report = await checker.RunAsync(cancellationToken).ConfigureAwait(false);
-        var disks = report.Disks.Where(d => d.Partitions.Any(p => p.IsBoot)).ToArray();
+        var capacity = MigrationCapacityEvaluator.Evaluate(report.Disks, 0);
         var blockers = new List<string>();
         if (!report.IsUefi) blockers.Add("LegacyFirmware");
-        if (disks.Length != 1) blockers.Add("AmbiguousWindowsBootDisk");
+        if (capacity.State == MigrationCapacityState.AmbiguousTarget) blockers.Add("AmbiguousWindowsBootDisk");
         if (report.BitLocker is not BitLockerState.NotEncrypted) blockers.Add("BitLockerRequiresReview");
-        var disk = disks.Length == 1 ? disks[0] : null;
-        var capacity = disk is null ? null : (long?)Math.Max(disk.FreeBytes,
-            disk.Partitions.Where(p => p.IsBoot).Select(p => p.ShrinkableBytes).DefaultIfEmpty(0).Max());
-        return new ObservedPayload(new MigrationInspection(disks.Length, capacity, blockers,
+        return new ObservedPayload(new MigrationInspection(capacity.WindowsBootDiskCount,
+            capacity.ObservedAvailableBytes, blockers,
             blockers.Count == 0), ObservedStateRevision.Fingerprint(report));
     }
 }
 
 internal sealed class MigrationPlanHandler(IPreflightChecker checker, DistroLoader loader, DistroRegistry registry,
-    DistroCompatibilityEvaluator evaluator) : ICommandHandler
+    DistroCompatibilityEvaluator evaluator, int version = 1,
+    IAdvisoryPlanJournal? planJournal = null) : ICommandHandler
 {
-    public CapabilityDescriptor Descriptor => new("migration.plan", 1, 1, 1,
+    public CapabilityDescriptor Descriptor => new("migration.plan", version, 1, version,
         CommandKind.Plan, RiskClass.Low, false, AuthorityRequirement.User,
         loader.LoadedDistros.Where(d => d.IsAvailable && registry.TryGet(d.Id, out _))
             .Select(d => d.Id).Order(StringComparer.Ordinal).ToArray());
@@ -74,33 +73,55 @@ internal sealed class MigrationPlanHandler(IPreflightChecker checker, DistroLoad
         var input = request.Input.Deserialize<MigrationPlanInput>(CommandProtocol.JsonOptions);
         if (input is null || string.IsNullOrWhiteSpace(input.DistroId) || input.RequestedLinuxBytes < 0)
             throw new ArgumentException("Invalid migration plan input.");
-        if (!loader.LoadedDistros.Any(d => d.IsAvailable &&
-            string.Equals(d.Id, input.DistroId, StringComparison.OrdinalIgnoreCase)))
-            throw new KeyNotFoundException();
+        var manifest = loader.LoadedDistros.SingleOrDefault(d => d.IsAvailable &&
+            string.Equals(d.Id, input.DistroId, StringComparison.OrdinalIgnoreCase))
+            ?? throw new KeyNotFoundException();
         if (!registry.TryGet(input.DistroId, out var plugin)) throw new KeyNotFoundException();
         var report = await checker.RunAsync(cancellationToken).ConfigureAwait(false);
         var required = Math.Max(input.RequestedLinuxBytes, plugin.Metadata.MinimumRequirements.MinDiskBytes);
-        var disks = report.Disks.Where(d => d.Partitions.Any(p => p.IsBoot)).ToArray();
+        var capacity = MigrationCapacityEvaluator.Evaluate(report.Disks, required);
         var blockers = new List<string>();
         if (!report.IsUefi) blockers.Add("LegacyFirmware");
         if (report.BitLocker is not BitLockerState.NotEncrypted) blockers.Add("BitLockerRequiresReview");
-        if (disks.Length != 1) blockers.Add("AmbiguousWindowsBootDisk");
+        if (capacity.State == MigrationCapacityState.AmbiguousTarget) blockers.Add("AmbiguousWindowsBootDisk");
         if (evaluator.Evaluate(plugin.Id, report).Any(f => f.Severity == FindingSeverity.Blocker))
             blockers.Add("DistroCompatibilityBlocker");
-        long? available = null;
-        if (disks.Length == 1)
+        if (capacity.WindowsBootDiskCount == 1)
         {
-            var disk = disks[0];
-            var shrinkable = disk.Partitions.Where(p => p.IsBoot).Select(p => p.ShrinkableBytes)
-                .DefaultIfEmpty(0).Max();
-            if (disk.TotalBytes < required) blockers.Add("DiskTooSmall");
-            else if (disk.FreeBytes < required && shrinkable <= 0) blockers.Add("CapacityUnknown");
-            else available = Math.Max(disk.FreeBytes, shrinkable);
-            if (available < required) blockers.Add("InsufficientObservedCapacity");
+            if (capacity.State == MigrationCapacityState.PhysicalDiskTooSmall)
+                blockers.Add("DiskTooSmall");
+            if (capacity.State == MigrationCapacityState.Unknown) blockers.Add("CapacityUnknown");
+            if (capacity.State == MigrationCapacityState.Insufficient)
+                blockers.Add("InsufficientObservedCapacity");
         }
-        return new ObservedPayload(new MigrationPlanResult(plugin.Id, required, available,
+        var observed = ObservedStateRevision.Fingerprint(report);
+        var available = capacity.State == MigrationCapacityState.PhysicalDiskTooSmall
+            ? null : capacity.ObservedAvailableBytes;
+        if (version == 2)
+        {
+            if (planJournal is null) throw new InvalidOperationException("Plan journal is unavailable.");
+            var providerRevision = await ProviderRevision.FingerprintAsync(plugin, manifest,
+                cancellationToken)
+                .ConfigureAwait(false);
+            var boundRevision = MigrationStateRevision.Bind(observed, providerRevision, plugin.Id);
+            var plan = new MigrationPlanResultV2(Guid.NewGuid(), plugin.Id, required,
+                capacity.ObservedAvailableBytes,
+                capacity.State switch
+                {
+                    MigrationCapacityState.KnownAvailable => MigrationCapacityDisposition.KnownAvailable,
+                    MigrationCapacityState.Insufficient => MigrationCapacityDisposition.Insufficient,
+                    MigrationCapacityState.PhysicalDiskTooSmall => MigrationCapacityDisposition.PhysicalDiskTooSmall,
+                    MigrationCapacityState.AmbiguousTarget => MigrationCapacityDisposition.AmbiguousTarget,
+                    _ => MigrationCapacityDisposition.Unknown,
+                }, blockers, boundRevision, providerRevision, Executable: false,
+                Disposition: "AdvisoryOnly", ObservedMachineFingerprint: observed);
+            await planJournal.SaveAsync(plan, request, cancellationToken).ConfigureAwait(false);
+            return new ObservedPayload(plan, boundRevision);
+        }
+        return new ObservedPayload(new MigrationPlanResult(plugin.Id, required,
+            available,
             blockers, Executable: false, Disposition: "AdvisoryOnly"),
-            ObservedStateRevision.Fingerprint(report));
+            observed);
     }
 }
 

@@ -1,5 +1,5 @@
 using System.Net.Http.Headers;
-using Igloo.Core.Host;
+using Igloo.Cli.Client;
 using Igloo.Fleet.Agent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -30,13 +30,11 @@ using var handler = new HttpClientHandler { AllowAutoRedirect = false, UseProxy 
 using var client = new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5187/"), Timeout = TimeSpan.FromSeconds(30) };
 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-var backend = await IglooHost.CreateReadOnlyAsync(
-    Path.Join(AppContext.BaseDirectory, "distros"), timeout.Token).ConfigureAwait(false);
-await using var backendDisposal = backend.ConfigureAwait(false);
 try
 {
     var identity = host.Services.GetRequiredService<IDeviceIdentityProvider>().GetIdentity();
-    var workflow = new FleetAssessmentClient(client, new ReadOnlyAssessment(backend.Inspection));
+    var commands = CliCommandClient.ForApplication(AppContext.BaseDirectory);
+    var workflow = new FleetAssessmentClient(client, new ReadOnlyAssessment(commands));
     var result = await workflow.RunAsync(identity, timeout.Token).ConfigureAwait(false);
     logger.LogInformation("Assessment {AssessmentId} for {DeviceId}: {Outcome}, {Eligibility}",
         result.AssessmentId, identity.DeviceId, result.Outcome, result.Eligibility);
@@ -44,6 +42,11 @@ try
 catch (FleetProtocolException ex)
 {
     logger.LogError("Fleet request rejected: {Code}", ex.Error.Code);
+    Environment.ExitCode = 1;
+}
+catch (CliTransportException ex)
+{
+    logger.LogError("Local CLI unavailable: {Code}", ex.Code);
     Environment.ExitCode = 1;
 }
 catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)

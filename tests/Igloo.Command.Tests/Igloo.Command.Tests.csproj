@@ -14,5 +14,6 @@
     <ProjectReference Include="..\..\src\Igloo.Core.Runtime.Execution\Igloo.Core.Runtime.Execution.csproj" />
     <ProjectReference Include="..\..\src\Igloo.Core.Host\Igloo.Core.Host.csproj" />
     <ProjectReference Include="..\..\src\Igloo.Cli\Igloo.Cli\Igloo.Cli.csproj" />
+    <ProjectReference Include="..\..\src\Igloo.Cli.Client\Igloo.Cli.Client.csproj" />
   </ItemGroup>
 </Project>
