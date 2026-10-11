@@ -63,6 +63,21 @@ public sealed class DebianUserDataAdmissionTests
         var receipt = File.ReadAllBytes(Path.Combine(input, "receipt.json"));
         var bundle = File.ReadAllBytes(Path.Combine(input, "bundle.json"));
         Assert.True(DebianUserDataAdmission.ValidateLabAdmissionStructure(plan, declaration, receipt, bundle));
+        var composed = DebianFirstBootEvidence.InspectLabSelectedDocuments(plan, declaration,
+            declaration.PredecessorSha256, declaration.PredecessorCloseSha256, receipt, bundle);
+        Assert.Equal(plan.GenerationId, composed.GenerationId);
+        Assert.Equal(plan.OperationId, composed.UserDataOperationId);
+        Assert.Equal(Hash(receipt), composed.UserDataReceiptSha256);
+        Assert.Contains("DeploymentContentStageTraceAndReadback", composed.MissingRequirements);
+        Assert.Contains("EnrollmentProducer", composed.MissingRequirements);
+        Assert.Throws<InvalidDataException>(() => DebianFirstBootEvidence.InspectLabSelectedDocuments(plan,
+            declaration, new('F', 64), declaration.PredecessorCloseSha256, receipt, bundle));
+        Assert.Throws<InvalidDataException>(() => DebianFirstBootEvidence.InspectLabSelectedDocuments(plan,
+            declaration with { Account = declaration.Account with { Uid = 0 } }, declaration.PredecessorSha256,
+            declaration.PredecessorCloseSha256, receipt, bundle));
+        Assert.Throws<InvalidDataException>(() => DebianFirstBootEvidence.InspectLabSelectedDocuments(plan,
+            declaration, declaration.PredecessorSha256, declaration.PredecessorCloseSha256,
+            receipt, bundle.Concat(new byte[] { 0 }).ToArray()));
         Assert.False(DebianUserDataAdmission.ValidateLabAdmissionStructure(plan, declaration with { SessionId = Guid.NewGuid() }, receipt, bundle));
         Assert.False(DebianUserDataAdmission.ValidateLabAdmissionStructure(plan, declaration with { PredecessorSha256 = new('F', 64) }, receipt, bundle));
         Assert.False(DebianUserDataAdmission.ValidateLabAdmissionStructure(plan, declaration with { SourcePrefix = "other" }, receipt, bundle));

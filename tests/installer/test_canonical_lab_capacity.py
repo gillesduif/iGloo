@@ -1,6 +1,7 @@
 """Host-capacity protocol tests; no WSL instance or native mutation is invoked."""
 import json
 import sys
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -46,6 +47,17 @@ class HostCapacityTests(unittest.TestCase):
     def test_non_wsl_keeps_native_filesystem_check_path(self):
         with patch.object(capacity.platform, 'release', return_value='6.12-debian'), patch.object(capacity.subprocess, 'run') as run:
             self.assertIsNone(capacity.require_backing_capacity(100))
+            run.assert_not_called()
+
+    def test_explicit_windows_script_must_match_pinned_stage_bytes(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(capacity.platform, 'release', return_value='microsoft-standard-WSL2'), \
+                patch.dict(capacity.os.environ, {'WSL_DISTRO_NAME': 'Ubuntu-24.04'}), \
+                patch.object(capacity.subprocess, 'run') as run:
+            changed = Path(directory)/'capacity.ps1'
+            changed.write_bytes(b'not the pinned capacity gate')
+            with self.assertRaisesRegex(ValueError, 'HostCapacityScriptChanged'):
+                capacity.require_backing_capacity(100, script_path=changed)
             run.assert_not_called()
 
     def test_copy_and_creation_check_backing_capacity_before_mutation(self):

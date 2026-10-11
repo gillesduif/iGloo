@@ -9,7 +9,7 @@ import copy
 import configured_root as root
 import configured_successor
 from isolation_policy import canonical, digest, require
-from userdata_contract import validate, sha, INPUT_EVIDENCE, INPUT_RECEIPT, validate_admitted_bundle
+from userdata_contract import validate, sha, INPUT_EVIDENCE, INPUT_RECEIPT, validate_admitted_bundle, SelectedDocumentPaths
 from debian_first_boot import INPUT_ROOT
 
 IMAGE_PATH = '/boot/initrd.img-6.12.107+deb13-amd64'
@@ -25,7 +25,7 @@ def directory_entry(path, uid=0, gid=0, mode=0o755):
             'Length': None, 'Sha256': None, 'Target': None, 'Xattrs': {}}
 
 
-def compose_predecessor(view, original, configured, initramfs):
+def compose_predecessor(view, original, configured, initramfs, *, transfer=None):
     require(initramfs['Step'] == 'Verify' and initramfs['CompleteImageQualification'] is True and
         initramfs['ConfiguredEntriesSha256'] == configured['FilesystemDeltaSha256'] and
         initramfs['PackageStateSha256'] == configured['PackageStateSha256'], 'UserDataInitramfsPredecessorRequired')
@@ -33,7 +33,8 @@ def compose_predecessor(view, original, configured, initramfs):
     require(type(image['Length']) is int and 0 < image['Length'] <= 536870912 and sha(image['Sha256']) and
         initramfs['ImageSemantics']['ImageSha256'] == image['Sha256'] and
         initramfs['ImageSemantics']['ImageLength'] == image['Length'], 'UserDataImagePredecessorChanged')
-    baseline = configured_successor.reconstruct_manifest(view, original, configured)
+    policy = None if transfer is None else SelectedDocumentPaths(transfer)
+    baseline = configured_successor.reconstruct_manifest(view, original, configured, selected_documents=policy)
     require(not any(e['Path'] == IMAGE_PATH for e in baseline['Entries']), 'UserDataImageAlreadyInConfiguredBaseline')
     baseline['Entries'].append(file_entry(IMAGE_PATH, image['Length'], image['Sha256'], mode=0o600))
     baseline['Entries'].sort(key=lambda e: e['Path'])
@@ -80,7 +81,7 @@ def expected_delta(baseline, transfer, admission=None):
 
 def verify_delta(view, baseline, transfer, package_sha256, admission=None):
     expected, added = expected_delta(baseline, transfer, admission)
-    root.verify_tree(view, expected)
+    root.verify_tree(view, expected, selected_documents=SelectedDocumentPaths(transfer))
     require(root.verify_dpkg(view, baseline) == package_sha256, 'UserDataSuccessorPackageStateChanged')
     return {'FilesystemSha256': digest(canonical(expected['Entries'])), 'AddedPaths': added,
         'PackageStateSha256': package_sha256, 'ConfiguredAndInitramfsPreserved': True,

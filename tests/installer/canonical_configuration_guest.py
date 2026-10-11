@@ -7,10 +7,94 @@ chains before target acquisition. Artifact objects remain on the original payloa
 import json
 import os
 from pathlib import Path
+import hashlib
+import re
+import stat
 import subprocess
+import sys
 import uuid
 
-from canonical_storage_guest import ENV, digest, protect_runtime, require, run, save
+if __name__ != '__main__':
+    from canonical_storage_guest import ENV, digest, protect_runtime, require, run, save
+
+
+def _isolated_import_closure(expected_sha256):
+    """Join the host-nominated tools-ISO manifest before local imports."""
+    script = Path(__file__).absolute()
+    if not sys.flags.isolated or not sys.dont_write_bytecode or \
+            script.name != 'canonical_configuration_guest.py' or \
+            script.parent.name != 'lab' or '..' in script.parts:
+        raise ValueError('ConfigurationGuestImportIsolationChanged')
+    _verify_staged_files(script, expected_sha256)
+    sys.path.insert(0, str(script.parent))
+
+
+def _verify_staged_files(script, expected_sha256):
+    """Closed file consistency against an independent host-supplied digest."""
+    if type(expected_sha256) is not str or not re.fullmatch(r'[0-9A-F]{64}', expected_sha256):
+        raise ValueError('ConfigurationGuestImportExpectationInvalid')
+    names = {'canonical_storage_guest.py', 'canonical_import_guest.py',
+        'canonical_configuration_guest.py', 'canonical_stage_guest.py',
+        'canonical_stage_files.py', 'canonical_configuration_readback.py',
+        'canonical_initramfs_readback.py'}
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    directory = os.open('/', flags)
+    try:
+        for part in script.parent.parts[1:]:
+            following = os.open(part, flags, dir_fd=directory)
+            os.close(directory); directory = following
+            metadata = os.fstat(directory)
+            if metadata.st_uid != 0 or metadata.st_mode & 0o022:
+                raise ValueError('ConfigurationGuestImportParentUnprotected')
+
+        def exact(name, limit):
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                         dir_fd=directory)
+            try:
+                before = os.fstat(fd)
+                if not stat.S_ISREG(before.st_mode) or before.st_uid != 0 or \
+                        before.st_nlink != 1 or before.st_mode & 0o022 or \
+                        not 0 < before.st_size <= limit:
+                    raise ValueError('ConfigurationGuestImportFileUnprotected')
+                raw = os.read(fd, limit + 1)
+                after = os.fstat(fd)
+                if len(raw) != before.st_size or (before.st_dev, before.st_ino,
+                        before.st_size, before.st_mtime_ns, before.st_ctime_ns) != \
+                        (after.st_dev, after.st_ino, after.st_size,
+                         after.st_mtime_ns, after.st_ctime_ns):
+                    raise ValueError('ConfigurationGuestImportFileChanged')
+                return raw
+            finally:
+                os.close(fd)
+
+        def pairs(items):
+            value = {}
+            for key, item in items:
+                if key in value:
+                    raise ValueError('ConfigurationGuestImportManifestDuplicate')
+                value[key] = item
+            return value
+
+        manifest_raw = exact('guest-import-closure.json', 16 * 1024)
+        if hashlib.sha256(manifest_raw).hexdigest().upper() != expected_sha256:
+            raise ValueError('ConfigurationGuestImportExpectationChanged')
+        manifest = json.loads(manifest_raw, object_pairs_hook=pairs)
+        if type(manifest) is not dict or set(manifest) != {'Version', 'Stage', 'Entry', 'Files'} or \
+                type(manifest['Version']) is not int or manifest['Version'] != 1 or \
+                manifest['Stage'] != 'configuration' or \
+                manifest['Entry'] != script.name or type(manifest['Files']) is not dict or \
+                set(manifest['Files']) != names or \
+                set(os.listdir(directory)) != names | {'guest-import-closure.json'}:
+            raise ValueError('ConfigurationGuestImportManifestChanged')
+        for name in names:
+            expected = manifest['Files'][name]
+            if type(expected) is not str or not re.fullmatch(r'[0-9A-F]{64}', expected) or \
+                    hashlib.sha256(exact(name, 2 * 1024 * 1024)).hexdigest().upper() != expected:
+                raise ValueError('ConfigurationGuestImportHashChanged')
+    except OSError as error:
+        raise ValueError('ConfigurationGuestImportClosureUnprotected') from error
+    finally:
+        os.close(directory)
 
 
 def prepare(host_path, stage):
@@ -102,3 +186,18 @@ def execute(evidence, stage, negative=False):
         'StdoutSha256': digest((evidence/(name+'.stdout')).read_bytes()), 'StderrSha256': digest((evidence/(name+'.stderr')).read_bytes())})
     print(json.dumps({'Evidence': str(evidence), 'Operation': name, 'ExitCode': result.returncode}), flush=True)
     return result.returncode
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 4 or sys.argv[1] != '--execute-and-capture':
+        raise ValueError('ConfigurationGuestCommandUnsupported')
+    _isolated_import_closure(sys.argv[3])
+    from canonical_storage_guest import ENV, digest, protect_runtime, require, run, save
+    from canonical_stage_guest import capture_completed
+    stage = Path('/opt/igloo-lab')
+    authorization = json.loads((stage/'derived-authorization.json').read_bytes())
+    evidence = Path('/root')/('core-configuration-'+authorization['AttemptId'])
+    require((evidence/'journals.json').is_file() and
+            (evidence/'continuation.json').is_file(), 'ConfigurationPreparationMissing')
+    require(execute(evidence, stage) == 0, 'ConfigurationExecutionFailed')
+    capture_completed('configuration', sys.argv[2])

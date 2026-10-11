@@ -103,6 +103,19 @@ def lab_guest_disks(inventory):
 
 
 def lab_provenance(declaration):
+    agent = declaration.get('LabAgentStage')
+    require((declaration.get('AgentStagePlan') is None) == (agent is None) and
+            (declaration.get('AgentStagePacket') is None) == (agent is None), 'AgentStageDeclarationMixed')
+    if agent is not None:
+        require(all(declaration.get(k) is None for k in ('StorageSmoke', 'LabImport', 'ImportPlan',
+                'LabConfiguration', 'ConfigurationPlan', 'LabInitramfs', 'InitramfsPlan',
+                'LabUserData', 'UserDataPlan')) and
+                agent.get('Provider') == 'IsolatedFileBackedLab' and type(agent.get('Version')) is int and
+                agent['Version'] == 6 and agent.get('Scope') == 'OfflineAgentStage' and
+                agent.get('GenerationId') == declaration['GenerationId'] and
+                declaration['AgentStagePlan']['Provenance'] == agent,
+                'AgentStageProvenanceInvalid')
+        return agent
     userdata = declaration.get('LabUserData')
     if userdata is not None:
         require(all(declaration.get(k) is None for k in ('StorageSmoke', 'LabImport', 'ImportPlan', 'LabConfiguration', 'ConfigurationPlan', 'LabInitramfs', 'InitramfsPlan')),
@@ -239,6 +252,8 @@ class MountSession:
         self.configuration_result = None
         self.userdata_attempted = False
         self.userdata_result = None
+        self.agent_stage_attempted = False
+        self.agent_stage_result = None
         self.initramfs_attempted = False
         self.initramfs_result = None
 
@@ -284,6 +299,11 @@ class MountSession:
                 import session_userdata
                 require(self.acquired and not self.teardown and self.declaration.get('LabUserData') is not None, 'UserDataScopeRequired')
                 self.userdata_result = session_userdata.perform(self)
+            elif action == 'StageOfflineAgent':
+                import session_agent_offline
+                require(self.acquired and not self.teardown and self.declaration.get('LabAgentStage') is not None,
+                        'AgentStageScopeRequired')
+                self.agent_stage_result = session_agent_offline.perform(self)
             elif action == 'GenerateInitramfs':
                 import session_initramfs
                 require(self.acquired and not self.teardown and self.declaration.get('LabInitramfs') is not None,
@@ -329,6 +349,8 @@ class MountSession:
                 result["ConfigurationResult"] = self.configuration_result
             if action == 'TransferUserData':
                 result['UserDataResult'] = self.userdata_result
+            if action == 'StageOfflineAgent':
+                result['AgentStageResult'] = self.agent_stage_result
             if action == 'GenerateInitramfs':
                 result['InitramfsResult'] = self.initramfs_result
             if action == "ImportConfiguredRoot":

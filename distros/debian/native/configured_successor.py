@@ -12,7 +12,7 @@ from isolation_policy import canonical, digest, require, sha
 from session_configuration import entries
 
 
-def reconstruct_manifest(view, original, observation):
+def reconstruct_manifest(view, original, observation, *, selected_documents=None):
     require(observation.get('ProfileStep') == 'Verify' and
             observation.get('MachineIdentity') == 'FirstBootPending' and
             sha(observation.get('FilesystemDeltaSha256')) and
@@ -20,7 +20,7 @@ def reconstruct_manifest(view, original, observation):
     paths = observation.get('ChangedPaths')
     require(type(paths) is list and paths == sorted(set(paths)) and 0 < len(paths) <= 256 and
             all(type(p) is str and p.startswith('/') for p in paths), 'ConfiguredPredecessorPathsInvalid')
-    actual = entries(view)
+    actual = entries(view) if selected_documents is None else entries(view, selected_documents=selected_documents)
     require(set(paths) <= set(actual), 'ConfiguredPredecessorOutputMissing')
     expected = copy.deepcopy(original)
     expected['Entries'] = [e for e in original['Entries'] if e['Path'] not in paths]

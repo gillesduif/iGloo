@@ -7,6 +7,7 @@ import base64
 import re
 import uuid
 import unicodedata
+from dataclasses import dataclass, field
 
 from debian_first_boot import decode, validate_completion_receipt
 from isolation_policy import canonical, digest, require
@@ -73,6 +74,27 @@ def validate(raw):
 
 def sha(value):
     return type(value) is str and re.fullmatch('[0-9A-F]{64}', value) is not None
+
+
+@dataclass(frozen=True)
+class SelectedDocumentPaths:
+    """Observation-only exact additions, derived from immutable validated bytes.
+
+    This never authorizes writes or changes artifact validation. Spelling is
+    preserved verbatim; normalization is used only by the existing collision
+    validator, never to rename or match a different filesystem entry.
+    """
+    transfer: bytes
+    destinations: frozenset = field(init=False)
+
+    def __post_init__(self):
+        require(type(self.transfer) is bytes, 'UserDataObservationPlanBytes')
+        plan = validate(self.transfer)
+        paths = frozenset(plan['Home'] + '/' + e['Destination'] for e in plan['Entries'])
+        require(all(len(p.encode('utf-8')) <= 4096 and
+                    all(len(part.encode('utf-8')) <= 255 for part in p.split('/')[1:]) for p in paths),
+                'UserDataObservationPathBound')
+        object.__setattr__(self, 'destinations', paths)
 
 
 def identifier(value):

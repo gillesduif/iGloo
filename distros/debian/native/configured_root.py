@@ -395,9 +395,12 @@ def import_files(view, manifest, content_fd, checkpoint):
     os.fsync(view.fd)
 
 
-def inspect_tree(view):
+def inspect_tree(view, *, selected_documents=None):
     """Fresh FD walk. Does not trust the importer or its output handles."""
     view.check()
+    if selected_documents is not None:
+        from userdata_contract import SelectedDocumentPaths
+        require(type(selected_documents) is SelectedDocumentPaths, 'InvalidSuccessorPathPolicy')
     entries = []
     def walk(directory, path):
         info = os.fstat(directory)
@@ -406,7 +409,8 @@ def inspect_tree(view):
         require(len(entries) <= MAX_ENTRIES, "ReadbackLimit")
         for name in sorted(os.listdir(directory)):
             child_path = path.rstrip("/") + "/" + name
-            path_parts(child_path)
+            if selected_documents is None or child_path not in selected_documents.destinations:
+                path_parts(child_path)
             if child_path == "/lost+found":
                 lost = beneath(directory, name, os.O_RDONLY | os.O_DIRECTORY)
                 try:
@@ -448,8 +452,8 @@ def inspect_tree(view):
     return entries
 
 
-def verify_tree(view, manifest):
-    actual = {p: (s, t, a, h) for p, s, t, a, h in inspect_tree(view)}
+def verify_tree(view, manifest, *, selected_documents=None):
+    actual = {p: (s, t, a, h) for p, s, t, a, h in inspect_tree(view, selected_documents=selected_documents)}
     expected = {e["Path"]: e for e in manifest["Entries"]}
     require(set(actual) == set(expected), "FilesystemSetMismatch")
     links = Counter(e["Target"] for e in manifest["Entries"] if e["Type"] == "HardLink")

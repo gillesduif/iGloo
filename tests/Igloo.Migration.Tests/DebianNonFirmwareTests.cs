@@ -13,6 +13,45 @@ namespace Igloo.Migration.Tests;
 
 public sealed class DebianNonFirmwareTests
 {
+    [Fact]
+    public void OfflineStageIsStableBeforeFutureReceiptHashesAndCannotActivate()
+    {
+        var generation = Id(910); var operation = Id(911); var target = Id(912);
+        var stage = DebianAgentProfiles.DeclareOfflineStage(generation, operation, target);
+        Assert.Equal(DebianAgentProfiles.OfflineStageScope, stage.Scope);
+        Assert.True(stage.ConfigurationPending && stage.EnablePending);
+        Assert.False(stage.StartDuringInstallation);
+        Assert.Equal(new[] { DebianAgentProfiles.AgentPath, DebianAgentProfiles.UnitPath },
+            stage.Files.Select(f => f.Destination));
+        Assert.Equal(DebianFirstBootEvidence.WorkerSha256, stage.Files[0].Sha256);
+        var plan = WorkerPlan(TargetRootFixture.Create());
+        var changed = plan with { Agent = plan.Agent with { FirstBoot = new([
+            new("DeploymentContent", "content.json", new string('C', 64)),
+            new("UserData", "user-data.json", new string('D', 64))]) } };
+        var first = DebianAgentProfiles.Declare(plan);
+        var second = DebianAgentProfiles.Declare(changed);
+        Assert.NotEqual(first.Files[1].Sha256, second.Files[1].Sha256); // receipt-bound config
+        Assert.Equal(first.Files[0].Sha256, stage.Files[0].Sha256);
+        Assert.Equal(first.Files[2].Sha256, stage.Files[1].Sha256);
+        var readback = new DebianAgentOfflineReadbackV1(generation, operation, target, stage.Files, true, true, true);
+        Assert.True(DebianAgentProfiles.VerifyOfflineStage(stage, A(readback)).Value);
+        Assert.NotEqual(ObservationAvailability.Available,
+            DebianAgentProfiles.VerifyOfflineStage(stage, A(readback with { EnableLinkAbsent = false })).Availability);
+        Assert.NotEqual(ObservationAvailability.Available,
+            DebianAgentProfiles.VerifyOfflineStage(stage with { Files = stage.Files.SetItem(1,
+                stage.Files[1] with { Sha256 = new string('F', 64) }) }, A(readback)).Availability);
+        Assert.NotEqual(ObservationAvailability.Available,
+            DebianAgentProfiles.VerifyOfflineStage(stage, A(readback with { TargetRootId = Guid.NewGuid() })).Availability);
+        Assert.NotEqual(ObservationAvailability.Available,
+            DebianAgentProfiles.VerifyOfflineStage(stage with { Scope = "Production" }, A(readback)).Availability);
+        var canonical = DebianAgentProfiles.DeclareLabOfflineStage(generation, operation, target);
+        Assert.True(stage.Files.SequenceEqual(canonical.Files));
+        Assert.Equal(DebianAgentProfiles.LabOfflineStageScope, canonical.Scope);
+        Assert.NotEqual(ObservationAvailability.Available, DebianAgentProfiles.VerifyOfflineStage(canonical, A(readback)).Availability);
+        Assert.NotEqual(ObservationAvailability.Available, DebianAgentProfiles.VerifyLabOfflineStage(stage, A(readback)).Availability);
+        Assert.True(DebianAgentProfiles.VerifyLabOfflineStage(canonical, A(readback)).Value);
+        Assert.Equal(ObservationAvailability.Unsupported, DebianAgentProfiles.WorkerQualification.Availability);
+    }
     private static DebianDeploymentPlanV1 WorkerPlan(TargetRootFixture.State state)
     {
         var plan = Plan(state);

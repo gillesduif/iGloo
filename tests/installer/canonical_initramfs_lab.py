@@ -9,19 +9,24 @@ from canonical_configuration_readback import verify
 from canonical_lab_runtime import checkpoint
 from canonical_lab_capacity import require_backing_capacity
 from canonical_storage_lab import sha
+from canonical_stage_completion import verify as verify_completion
 
 
-def derive(authorization_path, predecessor, run):
+def derive(authorization_path, predecessor, completion, run):
     authorization_path, predecessor, run = map(Path, (authorization_path, predecessor, run))
     for p in (authorization_path, *authorization_path.parents):
         require(not p.is_symlink() and p.stat().st_uid == 0 and not p.stat().st_mode & 0o022, 'InitramfsAuthorizationUnprotected')
     authorization = json.loads(authorization_path.read_bytes())
     require(authorization['Version'] == 1 and authorization['Scope'] == 'OneConfiguredCheckpointInitramfs' and
             run.name == authorization['AttemptId'].replace('-', ''), 'InitramfsAuthorizationScope')
-    retention = predecessor/'configured-retention.json'
+    verified = verify_completion(completion, authorization_path, 'configuration')
+    require(predecessor.name == verified['SourceRunId'].replace('-', ''),
+            'ConfiguredSourceRunChanged')
+    protected_raw = verified['Raw']
+    retention = protected_raw/'configured-retention.json'
     require(sha(retention) == authorization['RetentionSha256'], 'ConfiguredRetentionChanged')
     kept = json.loads(retention.read_bytes())
-    prior = verify(predecessor/'guest-evidence/execution', predecessor/'guest-evidence/journals')
+    prior = verify(protected_raw/'guest-evidence/execution', protected_raw/'guest-evidence/journals')
     require(prior['Configuration'] == prior['Teardown'] == 'AppliedAndVerified' and
             prior['EffectRecords'][-1] == kept['ConfigurationResult'] and prior['SessionRecords'][-1] == kept['CloseResult'] and
             authorization['ConfigurationSha256'] == kept['ConfigurationResult']['Sha256'] and
@@ -48,15 +53,17 @@ def derive(authorization_path, predecessor, run):
             'DestinationInode': after[1], 'Length': after[2], 'SourceSha256': authorization[key], 'ReopenedSha256': sha(run/name)})
     checkpoint(run, 'initramfs-derivation.json', {'Authorization': authorization,
         'AuthorizationSha256': sha(authorization_path), 'Copies': copies})
+    verify_completion(completion, authorization_path, 'configuration')
 
 
-def stage_predecessor(predecessor, destination):
-    predecessor, destination = map(Path, (predecessor, destination)); destination.mkdir()
+def stage_predecessor(completion, authorization, destination):
+    predecessor = verify_completion(completion, authorization, 'configuration')['Raw']
+    destination = Path(destination); destination.mkdir()
     shutil.copytree(predecessor/'input/predecessor', destination/'import')
     for name in ('session', 'effects'): shutil.copytree(predecessor/'guest-evidence/journals'/name, destination/name)
     for name in ('continuation.json', 'continuation-inventory.json'):
         shutil.copyfile(predecessor/'guest-evidence/execution'/name, destination/name)
-    shutil.copyfile(predecessor/'input/derived-authorization.json', destination/'derived-authorization.json')
+    shutil.copyfile(predecessor/'input/source-authorization.json', destination/'derived-authorization.json')
     first = json.loads((predecessor/'guest-evidence/execution/configuration.stdout').read_text().splitlines()[0])
     checkpoint(destination, 'configuration-plan.json', first['Plan'])
     retained = json.loads((predecessor/'configured-retention.json').read_bytes())

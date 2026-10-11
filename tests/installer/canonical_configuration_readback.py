@@ -10,30 +10,40 @@ def require(value, code):
     if not value: raise ValueError(code)
 
 
-def chain(directory, preflight):
-    require((directory/'plan.sha256').read_bytes() == preflight['PlanSha256'].encode(), 'ConfigurationReservationChanged')
+def chain(directory, preflight, *, captured=None, prefix=None):
+    reservation = ((directory/'plan.sha256').read_bytes() if captured is None else
+                   captured[prefix+'/plan.sha256'])
+    require(reservation == preflight['PlanSha256'].encode(), 'ConfigurationReservationChanged')
     records, refs, previous = [], [], None
-    for sequence, path in enumerate(sorted(p for p in directory.iterdir() if p.name != 'plan.sha256')):
-        require(re.fullmatch(r'[0-9]{8}-[0-9A-F]{64}\.json', path.name), 'ConfigurationRecordName')
-        data = path.read_bytes(); sha = digest(data); record = json.loads(data)
-        require(path.name == f'{sequence:08d}-{sha}.json' and record['Sequence'] == sequence and
+    entries = ([(p.name, p.read_bytes()) for p in sorted(directory.iterdir())
+                if p.name != 'plan.sha256'] if captured is None else
+               [(name[len(prefix)+1:], captured[name]) for name in sorted(captured)
+                if name.startswith(prefix+'/') and name != prefix+'/plan.sha256'])
+    for sequence, (name, data) in enumerate(entries):
+        require(re.fullmatch(r'[0-9]{8}-[0-9A-F]{64}\.json', name), 'ConfigurationRecordName')
+        sha = digest(data); record = json.loads(data)
+        require(name == f'{sequence:08d}-{sha}.json' and record['Sequence'] == sequence and
             record['PreviousSha256'] == previous and record['SchemaVersion'] == 3 and
             record['SessionId'] == preflight['SessionId'] and record['PlanSha256'] == preflight['PlanSha256'] and
             record['OperationId'] == preflight['Plan']['OperationId'] and record['Provenance'] == preflight['Plan']['Provenance'] and
             record['GenerationId'] == preflight['Plan']['Provenance']['GenerationId'] and record['Predecessor'] == preflight['Predecessor'],
             'ConfigurationRecordBinding')
-        previous = sha; refs.append({'Reference': path.name, 'Sha256': sha}); records.append(record)
+        previous = sha; refs.append({'Reference': name, 'Sha256': sha}); records.append(record)
     require(records, 'ConfigurationRecordsMissing')
     return records, refs
 
 
-def verify(evidence, journals):
+def verify(evidence, journals, *, captured=None):
     evidence, journals = Path(evidence), Path(journals)
-    lines = [json.loads(line) for line in (evidence/'configuration.stdout').read_text().splitlines()]
+    stdout = ((evidence/'configuration.stdout').read_bytes() if captured is None else
+              captured['guest-evidence/execution/configuration.stdout'])
+    lines = [json.loads(line) for line in stdout.splitlines()]
     preflight = lines[0]; require(preflight['Phase'] == 'ConfigurationPreflight', 'ConfigurationPreflightMissing')
     generation = preflight['Plan']['Provenance']['GenerationId']
-    session, session_refs = chain(journals/'session'/generation, preflight)
-    effects, effect_refs = chain(journals/'effects'/generation, preflight)
+    session, session_refs = chain(journals/'session'/generation, preflight,
+        captured=captured, prefix=f'guest-evidence/journals/session/{generation}')
+    effects, effect_refs = chain(journals/'effects'/generation, preflight,
+        captured=captured, prefix=f'guest-evidence/journals/effects/{generation}')
     steps = ('Baseline', 'Files', 'Debconf', 'Exim', 'Tls', 'Locale', 'User', 'Credential', 'Sudo', 'Verify')
     completed = []; pending = False; terminated = False
     bindings = effects[0]['Bindings']; preserved = effects[0]['ProtectedStateSha256']

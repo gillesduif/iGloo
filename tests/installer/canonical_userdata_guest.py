@@ -8,6 +8,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -212,7 +214,138 @@ def execute(evidence, stage, negative=False):
     return result.returncode
 
 
+def capture_completed(challenge):
+    """The fixed live-guest post-Close verifier and bounded console producer.
+
+    No destination is selected by the guest. The host's live peer/launch check
+    must precede acceptance of this frame; a saved console transcript is never
+    an acquisition source.
+    """
+    require(re.fullmatch(r'[0-9A-F]{64}', challenge) is not None, 'UserDataCaptureChallengeInvalid')
+    stage = Path('/opt/igloo-userdata-canonical')
+    a = json.loads((stage/'userdata-authorization.json').read_bytes())
+    require(a['Version'] == 1 and a['Scope'] == 'OneInitramfsCheckpointSelectedDocuments',
+            'UserDataCaptureScopeChanged')
+    run_id = a['AttemptId']; evidence = Path('/root')/('userdata-'+run_id)
+    journals = Path('/lab-journal/userdata')/run_id
+    require(json.loads((evidence/'userdata-exit.json').read_bytes())['ExitCode'] == 0,
+            'UserDataCaptureSessionExitChanged')
+    from canonical_userdata_readback import verify as verify_terminal
+    verified = verify_terminal(evidence, journals)
+    require(verified['UserData'] == verified['Teardown'] == 'AppliedAndVerified' and
+            verified['OperationId'] == a['OperationId'], 'UserDataCaptureTerminalUnavailable')
+    save(evidence, 'independent-handoff.json', verified)
+    with open('/dev/vdb1', 'rb') as volume:
+        after = hashlib.file_digest(volume, 'sha256').hexdigest().upper()
+    require(after == json.loads((evidence/'preserved-before.json').read_bytes())['Sha256'],
+            'UserDataCapturePreservedChanged')
+    save(evidence, 'preserved-after.json', {'Sha256': after, 'Unchanged': True})
+    retained = Path('/root')/('userdata-retained-journals-'+run_id)
+    require(not retained.exists(), 'UserDataCaptureReplay')
+    shutil.copytree(journals, retained, symlinks=False)
+    for item in retained.rglob('*'):
+        require(not item.is_symlink(), 'UserDataCaptureJournalLink')
+        if item.is_file():
+            fd = os.open(item, os.O_RDONLY | os.O_NOFOLLOW)
+            try: os.fsync(fd)
+            finally: os.close(fd)
+    require(verify_terminal(evidence, retained) == verified, 'UserDataCaptureRetainedChanged')
+    before_mounts = Path('/proc/self/mountinfo').read_text().splitlines()
+    owned = [line for line in before_mounts if line.split()[4] == '/lab-journal']
+    require(len(owned) == 1, 'UserDataCaptureJournalMountMissing')
+    subprocess.run(['umount', '/lab-journal'], check=True, env=ENV)
+    after_mounts = Path('/proc/self/mountinfo').read_text().splitlines()
+    require([line for line in before_mounts if line not in owned] == after_mounts and
+            not any(line.split()[4] == '/mnt/userdata-tools' for line in after_mounts),
+            'UserDataCaptureJournalUnmountChanged')
+    save(evidence, 'provisioning-journal-unmount.json', {'OrdinaryUnmount': True,
+        'ExactMountDelta': True, 'MountAbsent': True,
+        'BeforeSha256': digest(('\n'.join(before_mounts)).encode()),
+        'AfterSha256': digest(('\n'.join(after_mounts)).encode())})
+    os.sync()
+    fixed = {
+        'input/userdata-authorization.json': stage/'userdata-authorization.json',
+        'userdata-derivation.json': stage/'userdata-derivation.json',
+    }
+    for name in ('host-binding.json', 'inventory.json', 'userdata.stdout', 'userdata-exit.json',
+                 'independent-handoff.json', 'preserved-before.json', 'preserved-after.json',
+                 'provisioning-journal-unmount.json'):
+        fixed['guest-evidence/execution/'+name] = evidence/name
+    for label, root in (('input/initramfs-predecessor', stage/'initramfs-predecessor'),
+                        ('guest-evidence/journals', retained)):
+        for item in root.rglob('*'):
+            require(not item.is_symlink(), 'UserDataCaptureInputLink')
+            if item.is_file(): fixed[label+'/'+item.relative_to(root).as_posix()] = item
+    require(len(fixed) <= 4096, 'UserDataCaptureInventoryBound')
+    items = []; total = 0
+    for name, path in sorted(fixed.items()):
+        require(not path.is_symlink() and path.is_file(), 'UserDataCaptureInputChanged')
+        raw = path.read_bytes(); total += len(raw)
+        require(total <= 16*1024*1024, 'UserDataCaptureBytesBound')
+        items.append({'Path': name, 'Length': len(raw), 'Sha256': digest(raw),
+                      'Bytes': base64.b64encode(raw).decode('ascii')})
+    host = json.loads((evidence/'host-binding.json').read_bytes())
+    packet = encoded({'Version': 1, 'Scope': 'ControlledGuestUserDataCaptureV1',
+        'Challenge': challenge, 'RunId': run_id,
+        'GenerationId': a['GenerationId'], 'OperationId': a['OperationId'],
+        'SessionId': verified['SessionId'], 'PlanSha256': verified['PlanSha256'],
+        'ResultSha256': verified['EffectRecords'][-1]['Sha256'],
+        'CloseSha256': verified['SessionRecords'][-1]['Sha256'],
+        'HostBindingSha256': digest((evidence/'host-binding.json').read_bytes()),
+        'Files': items})
+    emit_capture_frame(packet, challenge)
+
+
+def emit_capture_frame(packet, challenge):
+    """Shared bounded serial framing for canonical and labelled fixture records."""
+    require(re.fullmatch(r'[0-9A-F]{64}', challenge) is not None and
+            0 < len(packet) <= 24*1024*1024, 'UserDataCapturePacketBound')
+    # The serial shell can leave its echoed command on the active output line.
+    # Start the authenticated frame at a fresh line and keep DATA well below
+    # the console's line limit; raw packet bytes are not transformed.
+    print('', flush=True)
+    print('IGLOO_USERDATA_CAPTURE_BEGIN '+challenge+' '+str(len(packet))+' '+digest(packet), flush=True)
+    body = base64.b64encode(packet).decode('ascii')
+    for i in range(0, len(body), 1024):
+        print('IGLOO_DATA '+body[i:i+1024], flush=True)
+    print('IGLOO_USERDATA_CAPTURE_END '+challenge, flush=True)
+
+
+def fixture_capture_packet(source, challenge):
+    """Validate the fixed fixture packet before adding the live challenge."""
+    source = Path(source)
+    require(source.is_file() and not source.is_symlink() and source.stat().st_size <= 20*1024*1024,
+            'FixtureCaptureInputChanged')
+    value = json.loads(source.read_bytes())
+    require(set(value) == {'Version', 'Scope', 'RunId', 'CodecSourceRunId', 'Files'} and
+            value['Version'] == 1 and value['Scope'] == 'ControlledGuestFixtureCaptureV1' and
+            type(value['Files']) is list, 'FixtureCaptureSchemaChanged')
+    value['Challenge'] = challenge
+    return encoded(value)
+
+
+def emit_fixture_capture(challenge):
+    """Transmit fixed ISO-carried codec inputs; never execute UserData."""
+    source = Path('/mnt/igloo-live-fixture/fixture-packet.json')
+    emit_capture_frame(fixture_capture_packet(source, challenge), challenge)
+
+
 if __name__ == '__main__':
-    require(len(sys.argv) == 3 and sys.argv[1] == '--observe-payload', 'ReadOnlyPayloadObserverOnly')
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'native'))
-    print(json.dumps(payload_inventory(int(sys.argv[2])), sort_keys=True, separators=(',', ':')), flush=True)
+    if len(sys.argv) == 3 and sys.argv[1] == '--observe-payload':
+        print(json.dumps(payload_inventory(int(sys.argv[2])), sort_keys=True, separators=(',', ':')), flush=True)
+    elif len(sys.argv) == 3 and sys.argv[1] == '--execute-and-capture':
+        # The trusted host supplies a fresh challenge over its bound live
+        # serial channel. Execute is create-new; a consumed guest intent cannot
+        # be resumed merely by opening another console connection.
+        stage = Path('/opt/igloo-userdata-canonical')
+        a = json.loads((stage/'userdata-authorization.json').read_bytes())
+        evidence = Path('/root')/('userdata-'+a['AttemptId'])
+        require((evidence/'journals.json').is_file() and
+                (evidence/'declaration.json').is_file(), 'UserDataPreparationMissing')
+        require(execute(evidence, stage) == 0, 'UserDataExecutionFailed')
+        capture_completed(sys.argv[2])
+    elif len(sys.argv) == 3 and sys.argv[1] == '--emit-fixture-capture':
+        emit_fixture_capture(sys.argv[2])
+    else:
+        raise ValueError('UserDataGuestCommandUnsupported')

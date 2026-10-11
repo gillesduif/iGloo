@@ -8,28 +8,20 @@ import sys
 import types
 
 
-def main():
-    raw = sys.stdin.buffer.readline(8 * 1024 * 1024 + 1)
-    if len(raw) > 8 * 1024 * 1024 or not raw.endswith(b"\n"):
-        raise ValueError("Invalid session declaration")
-    def pairs(values):
-        result = {}
-        for key, value in values:
-            if key in result:
-                raise ValueError("Duplicate declaration key")
-            result[key] = value
-        return result
-    declaration = json.loads(raw, object_pairs_hook=pairs)
+def load_verified_modules(declaration):
+    """Shared by the entrypoint and tests; grants no session or effect authority."""
     directory = Path(__file__).resolve().parent
     modules = ("target_files.py", "isolation_policy.py", "isolation_observer.py", "package_broker.py", "mount_supervisor.py",
                "target_observer.py", "deployment_journal.py", "configured_root_metadata.py", "root_transport.py", "configured_root.py",
                "session_import.py", "session_configuration.py")
-    if declaration.get('LabInitramfs') is not None or declaration.get('LabUserData') is not None:
+    if any(declaration.get(k) is not None for k in ('LabInitramfs', 'LabUserData', 'LabAgentStage')):
         modules += ("configured_successor.py", "initramfs_archive.py", "initramfs_generated.py", "initramfs_candidate.py",
                     "initramfs_observer.py", "initramfs_publication.py", "session_initramfs.py")
-    if declaration.get('LabUserData') is not None:
+    if declaration.get('LabUserData') is not None or declaration.get('LabAgentStage') is not None:
         modules += ("debian_first_boot.py", "userdata_contract.py", "userdata_producer.py", "userdata_source.py",
                     "userdata_admission.py", "userdata_successor.py", "session_userdata.py")
+    if declaration.get('LabAgentStage') is not None:
+        modules += ("agent_offline.py", "agent_offline_successor.py", "session_agent_offline.py")
     modules += ("block_session.py",)
     hashes = declaration["ToolHashes"]
     if not {str(directory / name) for name in modules} <= set(hashes):
@@ -57,8 +49,25 @@ def main():
         module.__package__ = ""
         sys.modules[module.__name__] = module
         exec(compile(sources[name], module.__file__, "exec"), module.__dict__)
+
+
+def main():
+    raw = sys.stdin.buffer.readline(8 * 1024 * 1024 + 1)
+    if len(raw) > 8 * 1024 * 1024 or not raw.endswith(b"\n"):
+        raise ValueError("Invalid session declaration")
+    def pairs(values):
+        result = {}
+        for key, value in values:
+            if key in result:
+                raise ValueError("Duplicate declaration key")
+            result[key] = value
+        return result
+    declaration = json.loads(raw, object_pairs_hook=pairs)
+    load_verified_modules(declaration)
     if "UserDataObservation" in declaration or "UserDataProducerObservation" in declaration:
-        return sys.modules["session_userdata"].observe(declaration)
+        return sys.modules["session_userdata"].observe_entry(declaration)
+    if "AgentStageObservation" in declaration:
+        return sys.modules["session_agent_offline"].observe_entry(declaration)
     if "ConfigurationObservation" in declaration:
         return sys.modules["session_configuration"].observe_configuration(declaration)
     if "InitramfsObservation" in declaration:

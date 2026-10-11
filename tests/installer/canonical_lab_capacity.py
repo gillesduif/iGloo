@@ -1,12 +1,13 @@
 """Host provisioning capacity only; never ownership or execution authority."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import platform
 import subprocess
 
 
-def require_backing_capacity(required):
+def require_backing_capacity(required, *, script_path=None):
     if type(required) is not int or not 0 < required <= 2**63 - 1:
         raise ValueError('InvalidCapacityRequirement')
     if 'microsoft' not in platform.release().lower():
@@ -14,7 +15,13 @@ def require_backing_capacity(required):
     distro = os.environ.get('WSL_DISTRO_NAME')
     if not distro:
         raise ValueError('WslDistributionUnavailable')
-    script = Path(__file__).with_name('Test-CanonicalLabHostCapacity.ps1')
+    script = Path(script_path) if script_path is not None else Path(__file__).with_name('Test-CanonicalLabHostCapacity.ps1')
+    if script_path is not None:
+        protected_script = Path(__file__).with_name('Test-CanonicalLabHostCapacity.ps1')
+        if script.is_symlink() or not script.is_file() or (
+                hashlib.sha256(script.read_bytes()).digest() !=
+                hashlib.sha256(protected_script.read_bytes()).digest()):
+            raise ValueError('HostCapacityScriptChanged')
     mapped = subprocess.run(['/usr/bin/wslpath', '-w', str(script.resolve())],
         capture_output=True, check=True, timeout=30).stdout.decode().strip()
     # This bounded host-side lab supports the existing C: Windows installation.

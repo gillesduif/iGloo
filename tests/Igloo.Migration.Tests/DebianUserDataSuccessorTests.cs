@@ -13,7 +13,11 @@ internal static class DebianUserDataSuccessorTests
     private static string Hash(byte[] raw) => DebianConfiguredRootArtifacts.Digest(raw);
     internal static void Check(ValidatedInstallationStorage previousStorage, DebianVerifiedInitramfs previous, InstallerLabStorageEvidenceV1 evidence)
     {
-        var (manifest, entries, _) = DebianUserDataTests.Fixture();
+        var (manifest, entries, files) = DebianUserDataTests.Fixture();
+        const string binary = "OneDrive/Documents/nested/binary.bin";
+        files[binary] = Enumerable.Range(0, 131073).Select(i => (byte)(i % 251)).ToArray();
+        entries = entries.Select(e => e.Path == binary ? e with { Length = files[binary].Length, Sha256 = Hash(files[binary]) } : e).ToImmutableArray();
+        manifest = manifest with { Files = manifest.Files with { TotalBytes = files.Values.Sum(b => b.Length) } };
         var operation = Guid.NewGuid(); var attempt = Guid.NewGuid();
         var transfer = DebianUserData.Serialize(DebianUserData.Plan(manifest, previousStorage.Provenance.GenerationId, operation, 1000, 1000, entries));
         var auth = new InstallerLabUserDataAuthorizationV1(1, "OneInitramfsCheckpointSelectedDocuments", attempt, operation,
@@ -30,6 +34,29 @@ internal static class DebianUserDataSuccessorTests
             previousStorage, d, new('D', 64), new('F', 64), backings, backings, inventory, Observations.Available(evidence.GuestDisks));
         var storage = Derive(derivation).Value;
         Assert.Equal(5, storage.Provenance.Version);
+        var agentAttempt = Guid.NewGuid(); var agentOperation = Guid.NewGuid();
+        var agentAuth = new InstallerLabAgentStageAuthorizationV1(1, "OneUserDataCheckpointOfflineAgentStage",
+            agentAttempt, agentOperation, storage.Provenance.GenerationId, new('1', 64), new('2', 64),
+            new('3', 64), new('4', 64), new('5', 64));
+        var agentCopies = storage.Acquisition.Disks.Where(d => d.Backing.Serial is "IGLOO-LAB-TARGET" or "IGLOO-LAB-JOURNAL")
+            .Select(d => new InstallerLabCopyV1(d.Backing.Serial, d.Backing.HostDevice, d.Backing.HostInode,
+                d.Backing.HostDevice, d.Backing.HostInode + 20000, d.Backing.Length,
+                d.Backing.Serial == "IGLOO-LAB-TARGET" ? agentAuth.TargetSha256 : agentAuth.JournalSha256,
+                d.Backing.Serial == "IGLOO-LAB-TARGET" ? agentAuth.TargetSha256 : agentAuth.JournalSha256))
+            .OrderBy(c => c.Serial == "IGLOO-LAB-TARGET" ? 0 : 1).ToImmutableArray();
+        var agentDerivation = new InstallerLabAgentStageDerivationV1(agentAuth, new('6', 64), agentCopies);
+        var agentBackings = storage.Acquisition.Disks.Select(d => d.Backing.Serial is "IGLOO-LAB-TARGET" or "IGLOO-LAB-JOURNAL"
+            ? d.Backing with { HostInode = agentCopies.Single(c => c.Serial == d.Backing.Serial).DestinationInode }
+            : d.Backing).ToImmutableArray();
+        Observation<ValidatedInstallationStorage> DeriveAgent(InstallerLabAgentStageDerivationV1 d) =>
+            InstallationStorage.ContinueLabUserDataCheckpoint(storage, d, new('6', 64), new('7', 64),
+                agentBackings, agentBackings, inventory, Observations.Available(evidence.GuestDisks));
+        Assert.Equal(6, DeriveAgent(agentDerivation).Value.Provenance.Version);
+        Assert.NotEqual(ObservationAvailability.Available,
+            DeriveAgent(agentDerivation with { Authorization = agentAuth with { Scope = "OneInitramfsCheckpointSelectedDocuments" } }).Availability);
+        Assert.NotEqual(ObservationAvailability.Available,
+            DeriveAgent(agentDerivation with { Copies = agentCopies.SetItem(0,
+                agentCopies[0] with { SourceInode = agentCopies[0].SourceInode + 1 }) }).Availability);
         Assert.NotEqual(ObservationAvailability.Available, Derive(derivation with { Authorization = auth with { Scope = "OneConfiguredCheckpointInitramfs" } }).Availability);
         Assert.NotEqual(ObservationAvailability.Available, Derive(derivation with { Copies = copies.SetItem(0, copies[0] with { SourceInode = copies[0].SourceInode + 1 }) }).Availability);
         Assert.NotEqual(ObservationAvailability.Available, Derive(derivation with { StagedTargetSha256 = auth.TargetSha256 }).Availability);
@@ -61,5 +88,7 @@ internal static class DebianUserDataSuccessorTests
         File.WriteAllText(Path.Combine(export, "request.json"), DebianNativeMountSession.SerializeRequest(authority, runtime, 12345));
         File.WriteAllBytes(Path.Combine(export, "context.json"), context);
         File.WriteAllBytes(Path.Combine(export, "plan.json"), transfer);
+        File.WriteAllBytes(Path.Combine(export, "data.json"), JsonSerializer.SerializeToUtf8Bytes(
+            files.ToDictionary(f => f.Key, f => Convert.ToBase64String(f.Value))));
     }
 }

@@ -6,25 +6,34 @@ import re
 from canonical_configuration_readback import digest, require
 
 
-def verify(evidence, journals):
+def verify(evidence, journals, *, captured=None):
     evidence, journals = Path(evidence), Path(journals)
-    preflight = json.loads((evidence/'initramfs.stdout').read_text().splitlines()[0])
+    stdout = ((evidence/'initramfs.stdout').read_bytes() if captured is None else
+              captured['guest-evidence/execution/initramfs.stdout'])
+    preflight = json.loads(stdout.splitlines()[0])
     require(preflight['Phase'] == 'InitramfsPreflight', 'InitramfsPreflightMissing')
     plan = preflight['Plan']; generation = plan['Provenance']['GenerationId']
     def chain(store):
         directory = journals/store/generation
-        require((directory/'plan.sha256').read_bytes() == preflight['PlanSha256'].encode(), 'InitramfsReservationChanged')
+        prefix = f'guest-evidence/journals/{store}/{generation}'
+        reservation = ((directory/'plan.sha256').read_bytes() if captured is None else
+                       captured[prefix+'/plan.sha256'])
+        require(reservation == preflight['PlanSha256'].encode(), 'InitramfsReservationChanged')
         result, references, previous = [], [], None
-        for index, path in enumerate(sorted(p for p in directory.iterdir() if p.name != 'plan.sha256')):
-            require(re.fullmatch(r'[0-9]{8}-[0-9A-F]{64}\.json', path.name), 'InitramfsRecordName')
-            raw = path.read_bytes(); value = json.loads(raw); sha = digest(raw)
-            require(path.name == f'{index:08d}-{sha}.json' and value['Sequence'] == index and
+        entries = ([(p.name, p.read_bytes()) for p in sorted(directory.iterdir())
+                    if p.name != 'plan.sha256'] if captured is None else
+                   [(name[len(prefix)+1:], captured[name]) for name in sorted(captured)
+                    if name.startswith(prefix+'/') and name != prefix+'/plan.sha256'])
+        for index, (name, raw) in enumerate(entries):
+            require(re.fullmatch(r'[0-9]{8}-[0-9A-F]{64}\.json', name), 'InitramfsRecordName')
+            value = json.loads(raw); sha = digest(raw)
+            require(name == f'{index:08d}-{sha}.json' and value['Sequence'] == index and
                 value['PreviousSha256'] == previous and value['SchemaVersion'] == 4 and
                 value['GenerationId'] == generation and value['SessionId'] == preflight['SessionId'] and
                 value['OperationId'] == plan['OperationId'] and value['PlanSha256'] == preflight['PlanSha256'] and
                 value['Provenance'] == plan['Provenance'] and value['ConfigurationSha256'] == plan['ConfigurationSha256'] and
                 value['ConfigurationCloseSha256'] == plan['ConfigurationCloseSha256'], 'InitramfsRecordBinding')
-            previous = sha; result.append(value); references.append({'Reference': path.name, 'Sha256': sha})
+            previous = sha; result.append(value); references.append({'Reference': name, 'Sha256': sha})
         return result, references
     effects, effect_refs = chain('effects'); sessions, session_refs = chain('session')
     steps = ('Baseline', 'Generation', 'Candidate', 'Publication', 'Verify')

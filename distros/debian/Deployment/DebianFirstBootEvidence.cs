@@ -10,6 +10,12 @@ public enum DebianFirstBootState { InstalledFirstBootPending, FirstBootSucceeded
 public sealed record DebianFirstBootRequirementV1(string Kind, string FileName, string Sha256);
 public sealed record DebianFirstBootPlanV1(ImmutableArray<DebianFirstBootRequirementV1> RequiredReceipts);
 public sealed record DebianFirstBootServiceV1(Guid InvocationId, string UnitName, int ExecMainCode, int ExecMainStatus, string Result);
+// This is a read-only composition finding, not a completion receipt or an
+// installation/storage capability. The caller must independently reopen the
+// protected producer, admission and Close chains before using retained bytes.
+public sealed record DebianFirstBootLabInputV1(Guid GenerationId, Guid UserDataOperationId,
+    string InitramfsResultSha256, string InitramfsCloseSha256, string UserDataReceiptSha256,
+    string UserDataEvidenceSha256, ImmutableArray<string> MissingRequirements);
 public sealed record DebianAgentReceiptV1(Guid GenerationId, string Profile, string WorkerSha256,
     string ConfigurationSha256, string UnitSha256, ImmutableArray<DebianAgentFileV1> InstalledFiles,
     bool Enabled, DebianFirstBootState State, string? FirstBootEvidenceSha256)
@@ -24,6 +30,31 @@ public static class DebianFirstBootEvidence
     private static readonly JsonSerializerOptions StrictJson = new() { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
     public const string Profile = "debian-first-boot-evidence-v1";
     private static readonly string[] CompletionFields = ["SchemaVersion", "GenerationId", "Kind", "State", "EvidenceSha256"];
+
+    // The bounded lab UserData producer has completed, but it is only one
+    // first-boot input. In particular these bytes cannot stand in for the
+    // full deployment stage trace, installed agent or enrollment producer.
+    // No DeploymentContent receipt is issued by this read-only composition.
+    public static DebianFirstBootLabInputV1 InspectLabSelectedDocuments(
+        DebianUserDataPlanV1 transfer, DebianUserDataCanonicalDeclarationV1 declaration,
+        string initramfsResultSha256, string initramfsCloseSha256, byte[] receipt, byte[] evidence)
+    {
+        ArgumentNullException.ThrowIfNull(transfer);
+        ArgumentNullException.ThrowIfNull(declaration);
+        ArgumentNullException.ThrowIfNull(receipt);
+        ArgumentNullException.ThrowIfNull(evidence);
+        if (!DebianDeploymentPlanning.Hash(initramfsResultSha256) ||
+            !DebianDeploymentPlanning.Hash(initramfsCloseSha256) ||
+            declaration.PredecessorSha256 != initramfsResultSha256 ||
+            declaration.PredecessorCloseSha256 != initramfsCloseSha256 ||
+            !DebianUserDataAdmission.ValidateLabAdmissionStructure(transfer, declaration, receipt, evidence))
+            throw new InvalidDataException("LabUserDataFirstBootInputRejected");
+        return new DebianFirstBootLabInputV1(transfer.GenerationId, transfer.OperationId,
+            initramfsResultSha256, initramfsCloseSha256,
+            Convert.ToHexString(SHA256.HashData(receipt)), Convert.ToHexString(SHA256.HashData(evidence)),
+            ["DeploymentContentStageTraceAndReadback", "AgentInstallationAndReadback",
+                "BootloaderAndFirmwareFinalization", "EnrollmentProducer"]);
+    }
 
     public static bool ValidCompletionReceipt(JsonElement receipt, Guid generation, string kind)
     {

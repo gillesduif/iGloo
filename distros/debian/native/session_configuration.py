@@ -63,8 +63,8 @@ def files(plan, parameters, exim_before, user_defaults_before):
         '/etc/resolv.conf': ('SymbolicLink', '/run/NetworkManager/resolv.conf', 0o777)}
 
 
-def entries(view):
-    return {p: (s, t, a, h) for p, s, t, a, h in root.inspect_tree(view)}
+def entries(view, *, selected_documents=None):
+    return {p: (s, t, a, h) for p, s, t, a, h in root.inspect_tree(view, selected_documents=selected_documents)}
 
 
 def exact_file(actual, path, uid, gid, mode, length_limit=16 * 1024 * 1024):

@@ -35,7 +35,7 @@ internal static class LabUserData
             LabConfiguration.ReadChain(Path.Combine(directory, "effects", generation)), binding.InitramfsSha256, binding.CloseSha256));
     }
 
-    private static DebianRootDevelopmentPinV1 ReadPin(string path, DebianVerifiedInitramfs previous)
+    internal static DebianRootDevelopmentPinV1 ReadPin(string path, DebianVerifiedInitramfs previous)
     {
         var pin = LabStorageSmoke.Read<UserDataExternalPin>(path);
         var imported = previous.Configured.Imported;

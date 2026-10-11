@@ -22,6 +22,52 @@ from package_broker import DirectoryLease
 from target_files import beneath
 
 
+OBSERVER_CODES = frozenset(('UnsupportedPathEncoding', 'FilesystemSetMismatch', 'FilesystemMetadataMismatch',
+    'FilesystemTypeMismatch', 'FileOrHardlinkMismatch', 'SymlinkMismatch', 'XattrMismatch',
+    'ReadbackMountChanged', 'UnexpectedChildMount', 'ConfiguredPredecessorDeltaChanged',
+    'UserDataIndependentDestinationMismatch', 'UserDataSourceNotPreserved', 'UserDataObserverAccountChanged',
+    'UserDataAdmissionFileMetadata', 'UserDataAdmissionAuthorityChanged', 'UserDataAdmissionPlanChanged'))
+
+
+class ObserverFailure(ValueError):
+    def __init__(self, evidence):
+        super().__init__('UserDataIndependentRootObserverFailed')
+        self.evidence = evidence
+
+
+def observe_entry(declaration):
+    """Secret-safe failure envelope, independently bound to the executed observer."""
+    try:
+        return observe(declaration)
+    except (OSError, ValueError, KeyError, TypeError, ImportError, AttributeError) as error:
+        request = declaration.get('UserDataObservation', {})
+        step = request.get('Step')
+        step = step if step in ('Baseline', 'Transfer', 'Admission', 'Verify') else 'Producer'
+        print(canonical({'UserDataObserverFailure': 1, 'Step': step,
+            'Code': str(error) if str(error) in OBSERVER_CODES else 'ObserverUnavailable',
+            'ExecutionSha256': declaration['ExecutionSha256'],
+            'ObserverSha256': declaration['ToolHashes'][__file__]}).decode(), flush=True)
+        return 1
+
+
+def observer_response(response, declaration, step):
+    if response.returncode != 0:
+        evidence = {'Step': step, 'Code': 'ObserverUnavailable',
+            'ExecutionSha256': declaration['ExecutionSha256'], 'ObserverSha256': declaration['ToolHashes'][__file__]}
+        if 0 < len(response.stdout) <= 1024:
+            try:
+                value = contract.decode(response.stdout)
+                if (set(value) == {'UserDataObserverFailure', *evidence} and type(value['UserDataObserverFailure']) is int and
+                    value['UserDataObserverFailure'] == 1 and value['Step'] == step and
+                    value['ExecutionSha256'] == evidence['ExecutionSha256'] and value['ObserverSha256'] == evidence['ObserverSha256'] and
+                    value['Code'] in OBSERVER_CODES | {'ObserverUnavailable'}):
+                    evidence['Code'] = value['Code']
+            except (ValueError, KeyError, TypeError): pass
+        raise ObserverFailure(evidence)
+    require(0 < len(response.stdout) < 1024*1024, 'UserDataIndependentRootObserverFailed')
+    return contract.decode(response.stdout)
+
+
 def profile(declaration):
     plan = declaration['UserDataPlan']; previous = declaration['InitramfsPredecessor']
     require(type(plan['SchemaVersion']) is int and plan['SchemaVersion'] == 1 and
@@ -108,6 +154,7 @@ def verify_store_mount(observed, namespace, witness, current):
         mount['Device'] == f"{witness['Major']}:{witness['Minor']}" and
         {'rw', 'nodev', 'nosuid', 'noexec'} <= set(mount['Options']) and
         [m for m in mounts if m['Device'] == mount['Device']] == selected and
+        [m for m in mounts if m['Path'] == '/lab-journal'] == selected and
         not any(m['Propagation'] or m['Path'].startswith('/lab-journal/') for m in mounts),
         'UserDataJournalMountChanged')
 
@@ -135,7 +182,7 @@ def observe(declaration):
             acquired = source.observe(request['PayloadFd'], view.fd, transfer, authority, base64.b64decode(plan['Delivery'], validate=True))
             outcome = {'FilesystemSha256': digest(canonical(expected['Entries'])), 'SourceBindingSha256': digest(canonical(acquired))}
         else:
-            expected = successor.compose_predecessor(view, original, configured['Observation'], previous['Observation'])
+            expected = successor.compose_predecessor(view, original, configured['Observation'], previous['Observation'], transfer=transfer)
             producer.observe(request['Producer'])  # fresh selected-source, account, home/complement verification
             admitted = None
             if step in ('Admission', 'Verify'):
@@ -182,8 +229,7 @@ def perform(session):
             response = subprocess.run([session.runtime.python, '-I', '-B', session.declaration['EntryPath']],
                 input=canonical({**session.declaration, 'UserDataObservation': request})+b'\n', pass_fds=fds,
                 capture_output=True, timeout=7200, check=False)
-            require(response.returncode == 0 and 0 < len(response.stdout) < 1024*1024, 'UserDataIndependentRootObserverFailed')
-            value = contract.decode(response.stdout)
+            value = observer_response(response, session.declaration, step)
             require(value['OperationId'] == plan['OperationId'] and value['SessionId'] == session.declaration['SessionId'] and
                 value['PlanSha256'] == session.declaration['PlanSha256'] and value['Step'] == step and
                 value['RootIdentity'] == list(view.expected), 'UserDataIndependentRootObserverChanged')
@@ -214,9 +260,11 @@ def perform(session):
         result = checkpoint('Verify', 'AppliedAndVerified', **independent('Verify'))
         connected.verify(); session.channel.checkpoint({'State': 'AppliedAndVerified', 'UserDataResultReference': result['Reference']})
         return {'Reference': result['Reference'], 'Sha256': result['Sha256'], 'OperationId': plan['OperationId']}
-    except (OSError, ValueError, KeyError, TypeError, ImportError, AttributeError, subprocess.TimeoutExpired):
+    except (OSError, ValueError, KeyError, TypeError, ImportError, AttributeError, subprocess.TimeoutExpired) as error:
         try:
-            if active is not None: checkpoint(active, 'OutcomeUnknown', Code='UserDataEffectOrObservationUnavailable')
+            if active is not None:
+                diagnostics = {'ObserverFailure': error.evidence} if isinstance(error, ObserverFailure) else {}
+                checkpoint(active, 'OutcomeUnknown', Code='UserDataEffectOrObservationUnavailable', **diagnostics)
             else: session.channel.ask('UserDataStopped')
         except (OSError, ValueError, KeyError): pass
         raise

@@ -86,10 +86,46 @@ public sealed record InstallerLabUserDataAuthorizationV1(int Version, string Sco
 public sealed record InstallerLabUserDataDerivationV1(InstallerLabUserDataAuthorizationV1 Authorization,
     string AuthorizationSha256, ImmutableArray<InstallerLabCopyV1> Copies, string DeliverySha256,
     string StagedTargetSha256);
+public sealed record InstallerLabAgentStageAuthorizationV1(int Version, string Scope, Guid AttemptId,
+    Guid OperationId, Guid GenerationId, string UserDataSha256, string CloseSha256,
+    string RetentionSha256, string TargetSha256, string JournalSha256);
+public sealed record InstallerLabAgentStageDerivationV1(InstallerLabAgentStageAuthorizationV1 Authorization,
+    string AuthorizationSha256, ImmutableArray<InstallerLabCopyV1> Copies);
 
 public static class InstallationStorage
 {
     private static readonly string[] DerivedSerials = ["IGLOO-LAB-TARGET", "IGLOO-LAB-JOURNAL"];
+    public static Observation<ValidatedInstallationStorage> ContinueLabUserDataCheckpoint(
+        ValidatedInstallationStorage predecessor, InstallerLabAgentStageDerivationV1 derivation,
+        string authorizationSha256, string hostObservationSha256, ImmutableArray<InstallerLabBackingV1> declared,
+        ImmutableArray<InstallerLabBackingV1> reopened, Observation<InstallerRuntimeInventoryV1> fresh,
+        Observation<ImmutableArray<InstallerLabGuestDiskV1>> guest)
+    {
+        ArgumentNullException.ThrowIfNull(predecessor); ArgumentNullException.ThrowIfNull(derivation);
+        var a = derivation.Authorization;
+        if (predecessor.Provenance is not { Provider: "IsolatedFileBackedLab", Version: 5, Scope: "SelectedDocumentTrees" } ||
+            a is not { Version: 1, Scope: "OneUserDataCheckpointOfflineAgentStage" } ||
+            a.AttemptId == Guid.Empty || a.OperationId == Guid.Empty || a.AttemptId == predecessor.Provenance.RunId ||
+            a.OperationId == predecessor.Continuation?.OperationId || a.GenerationId != predecessor.Provenance.GenerationId ||
+            derivation.AuthorizationSha256 != authorizationSha256 || !Hash(authorizationSha256) ||
+            new[] { a.UserDataSha256, a.CloseSha256, a.RetentionSha256, a.TargetSha256, a.JournalSha256 }.Any(h => !Hash(h)) ||
+            derivation.Copies.IsDefault || derivation.Copies.Length != 2 ||
+            !derivation.Copies.Select(c => c.Serial).SequenceEqual(DerivedSerials))
+            return Fail<ValidatedInstallationStorage>("AgentStageDerivationAuthorizationInvalid");
+        var acquired = InstallerLabAcquisition.Correlate(a.AttemptId, hostObservationSha256, declared, reopened, fresh, guest);
+        if (acquired.Availability != ObservationAvailability.Available)
+            return Observations.Failure<ValidatedInstallationStorage>(acquired.Availability, acquired.Code!);
+        var copies = VerifyIndependentCopies(predecessor, acquired.Value, derivation.Copies,
+            a.TargetSha256, a.JournalSha256, true);
+        if (copies is not null) return Fail<ValidatedInstallationStorage>(copies);
+        var context = new ValidatedInstallationStorage(new("IsolatedFileBackedLab", 6, "OfflineAgentStage",
+            a.AttemptId, a.GenerationId, Digest(new { predecessor.Provenance, derivation, acquired.Value })),
+            acquired.Value, predecessor.Receipts, predecessor.Preserved, predecessor.Closure,
+            new(a.OperationId, a.UserDataSha256, a.RetentionSha256) { DerivationSha256 = Digest(derivation) });
+        var valid = Revalidate(context, fresh, guest);
+        return valid.Availability == ObservationAvailability.Available ? Observations.Available(context) :
+            Observations.Failure<ValidatedInstallationStorage>(valid.Availability, valid.Code!);
+    }
     // Initial copy equality and the later provisioned payload delta are distinct.
     // The trusted lab composition must reopen delivery and verify its exact staged
     // contents before admitting source authority. This is storage ownership only.

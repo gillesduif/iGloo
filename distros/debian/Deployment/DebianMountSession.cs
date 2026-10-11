@@ -5,7 +5,7 @@ using Igloo.Core.Preparation;
 
 namespace Igloo.Distro.Debian.Deployment;
 
-public enum DebianMountSessionAction { AcquireLeases, MountRoot, MountLinuxEsp, MountPayload, Inspect, UnmountLinuxEsp, UnmountPayload, UnmountRoot, Close, ImportConfiguredRoot, PrepareImportMountpoints, ConfigureCore, GenerateInitramfs, TransferUserData }
+public enum DebianMountSessionAction { AcquireLeases, MountRoot, MountLinuxEsp, MountPayload, Inspect, UnmountLinuxEsp, UnmountPayload, UnmountRoot, Close, ImportConfiguredRoot, PrepareImportMountpoints, ConfigureCore, GenerateInitramfs, TransferUserData, StageOfflineAgent }
 public enum DebianMountSessionState { New, Active, Closed, OutcomeUnknown }
 
 // Authority side of the private supervisor pipe. Native code sends fresh observations here;
@@ -127,7 +127,7 @@ public sealed partial class DebianMountSessionAuthority
         DebianCoreConfigurationPlanV1 plan, IDebianDeploymentJournal sessionJournal, IDebianDeploymentJournal configurationJournal,
         DebianRootDevelopmentPinV1 externalPin) => new(storage, predecessor, plan, sessionJournal, configurationJournal, externalPin);
     public ValidatedInstallationStorage? StorageSmoke { get; }
-    private bool RootOnly => SourcePlan is not null || StorageSmoke is not null || ConfigurationPlan is not null || InitramfsPlan is not null || UserDataPlan is not null;
+    private bool RootOnly => SourcePlan is not null || StorageSmoke is not null || ConfigurationPlan is not null || InitramfsPlan is not null || UserDataPlan is not null || AgentStagePlan is not null;
     public string? LastResultReference { get; private set; }
     public string? LastResultSha256 { get; private set; }
 
@@ -214,6 +214,8 @@ public sealed partial class DebianMountSessionAuthority
         var allowed = action == expected && !_teardown || Leases is not null && action == DebianMountSessionAction.Inspect ||
             action == DebianMountSessionAction.TransferUserData && UserDataPlan is not null && !_importReserved && !_teardown &&
                 _mounted.SequenceEqual([DebianMountSessionAction.MountRoot, DebianMountSessionAction.MountPayload]) ||
+            action == DebianMountSessionAction.StageOfflineAgent && AgentStagePlan is not null && !_importReserved && !_teardown &&
+                _mounted.SequenceEqual([DebianMountSessionAction.MountRoot, DebianMountSessionAction.MountPayload]) ||
             action == DebianMountSessionAction.GenerateInitramfs && InitramfsPlan is not null && !_importReserved && !_teardown &&
                 _mounted.SequenceEqual([DebianMountSessionAction.MountRoot, DebianMountSessionAction.MountPayload]) ||
             action == DebianMountSessionAction.ConfigureCore && ConfigurationPlan is not null && !_importReserved && !_teardown &&
@@ -251,7 +253,8 @@ public sealed partial class DebianMountSessionAuthority
                 case "AuthenticateConfigurationSource":
                     if (!(ConfigurationPlan is not null && _action == DebianMountSessionAction.ConfigureCore ||
                         InitramfsPlan is not null && _action == DebianMountSessionAction.GenerateInitramfs ||
-                        UserDataPlan is not null && _action == DebianMountSessionAction.TransferUserData) ||
+                        UserDataPlan is not null && _action == DebianMountSessionAction.TransferUserData ||
+                        AgentStagePlan is not null && _action == DebianMountSessionAction.StageOfflineAgent) ||
                         Predecessor is null || _authenticator is null || _sourceAuthenticated || _observationSequence <= _actionObservationSequence)
                         throw new InvalidDataException("Configuration authentication out of order.");
                     var configurationDescriptor = message.GetProperty("Descriptor").GetBytesFromBase64();
@@ -275,6 +278,19 @@ public sealed partial class DebianMountSessionAuthority
                     break;
                 case "UserDataCheckpoint":
                     response = await UserDataCheckpointAsync(message, challenge, ct).ConfigureAwait(false);
+                    break;
+                case "AgentStageCheckpoint":
+                    response = await AgentStageCheckpointAsync(message, challenge, ct).ConfigureAwait(false);
+                    break;
+                case "AgentStageStopped":
+                    if (AgentStagePlan is null || _action != DebianMountSessionAction.StageOfflineAgent ||
+                        _agentStageVerified || !_sourceAuthenticated)
+                        throw new InvalidDataException("Agent stage failure outside active authority.");
+                    await PersistAsync("StageOfflineAgent", "OutcomeUnknown", JsonSerializer.SerializeToElement(new {
+                        Code = "AgentStageOperationStopped", CompletedSteps = _agentStageStep,
+                        AgentStageResultReference = _agentStageReference }), ct).ConfigureAwait(false);
+                    State = DebianMountSessionState.OutcomeUnknown;
+                    response = new { Challenge = challenge, Accepted = true };
                     break;
                 case "UserDataStopped":
                     if (UserDataPlan is null || _action != DebianMountSessionAction.TransferUserData || _userDataVerified || !_sourceAuthenticated)
@@ -389,6 +405,9 @@ public sealed partial class DebianMountSessionAuthority
                     if (_action == DebianMountSessionAction.TransferUserData &&
                         (state == "IntentDurable" && _userDataStep != 1 || state == "AppliedAndVerified" && !_userDataVerified))
                         throw new InvalidDataException("UserData baseline/result required.");
+                    if (_action == DebianMountSessionAction.StageOfflineAgent &&
+                        (state == "IntentDurable" && _agentStageStep != 1 || state == "AppliedAndVerified" && !_agentStageVerified))
+                        throw new InvalidDataException("Agent stage baseline/result required.");
                     if (_action == DebianMountSessionAction.GenerateInitramfs &&
                         (state == "IntentDurable" && _initramfsStep != 1 || state == "AppliedAndVerified" && !_initramfsVerified))
                         throw new InvalidDataException("Initramfs baseline/result required.");
@@ -470,6 +489,10 @@ public sealed partial class DebianMountSessionAuthority
             result.GetProperty("UserDataResult").GetProperty("Reference").GetString() != _userDataResultReference ||
             result.GetProperty("UserDataResult").GetProperty("Sha256").GetString() != _importPreviousHash))
             throw new InvalidDataException("UserData handoff differs from durable result.");
+        if (_action == DebianMountSessionAction.StageOfflineAgent && (!_agentStageVerified ||
+            result.GetProperty("AgentStageResult").GetProperty("Reference").GetString() != _agentStageReference ||
+            result.GetProperty("AgentStageResult").GetProperty("Sha256").GetString() != _importPreviousHash))
+            throw new InvalidDataException("Agent stage handoff differs from durable result.");
         if (_action == DebianMountSessionAction.PrepareImportMountpoints) _scaffold = true;
         if (_action is DebianMountSessionAction.UnmountRoot or DebianMountSessionAction.UnmountLinuxEsp or DebianMountSessionAction.UnmountPayload)
             _mounted.Remove(_action.Value switch
@@ -620,6 +643,11 @@ public sealed partial class DebianMountSessionAuthority
             bytes = JsonSerializer.SerializeToUtf8Bytes(new { SchemaVersion = 5, GenerationId, SessionId, PlanSha256 = _planHash,
                 LabStorage!.Provenance, UserDataPlan.OperationId, UserDataPlan.InitramfsSha256, UserDataPlan.InitramfsCloseSha256,
                 UserDataResultReference = _userDataResultReference, Sequence = _sequence, PreviousSha256 = _previousHash,
+                Action = action, State = state, Evidence = evidence });
+        if (AgentStagePlan is not null)
+            bytes = JsonSerializer.SerializeToUtf8Bytes(new { SchemaVersion = 6, GenerationId, SessionId, PlanSha256 = _planHash,
+                LabStorage!.Provenance, AgentStagePlan.OperationId, AgentStagePlan.UserDataSha256, AgentStagePlan.UserDataCloseSha256,
+                AgentStageResultReference = _agentStageReference, Sequence = _sequence, PreviousSha256 = _previousHash,
                 Action = action, State = state, Evidence = evidence });
         var reference = await _journal.AppendDurablyAsync(GenerationId, bytes, ct).ConfigureAwait(false);
         var reopened = await _journal.ReopenAsync(reference, ct).ConfigureAwait(false);

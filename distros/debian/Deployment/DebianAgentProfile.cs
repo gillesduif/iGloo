@@ -11,9 +11,21 @@ public sealed record DebianAgentInstallProfileV1(string ProfileVersion, Guid Gen
     bool StartDuringDeployment);
 public sealed record DebianAgentReadbackV1(Guid GenerationId, ImmutableArray<DebianAgentFileV1> Files,
     string UnitContent, string EnableLink, string EnableTarget, bool StartedDuringDeployment);
+// A distinct lab-only materialization state. V1 InstalledFirstBootPending still
+// requires its final receipt-bound configuration and enable link; neither is
+// inferred from these two stable files.
+public sealed record DebianAgentOfflineStageV1(int SchemaVersion, string Scope, Guid GenerationId,
+    Guid OperationId, Guid TargetRootId, string ProfileVersion, ImmutableArray<DebianAgentFileV1> Files,
+    string ConfigurationPath, string EnableLink, string EnableTarget, bool ConfigurationPending,
+    bool EnablePending, bool StartDuringInstallation);
+public sealed record DebianAgentOfflineReadbackV1(Guid GenerationId, Guid OperationId, Guid TargetRootId,
+    ImmutableArray<DebianAgentFileV1> Files, bool ConfigurationAbsent, bool EnableLinkAbsent,
+    bool SourceAndUnrelatedContentUnchanged);
 
 public static class DebianAgentProfiles
 {
+    public const string OfflineStageScope = "FixtureOnlyOfflineAgentStageV1";
+    public const string LabOfflineStageScope = "LabCanonicalOfflineAgentStageV1";
     public const string Version = "debian-additive-agent-v1";
     public const string AgentPath = "/usr/lib/igloo/debian-agent.py";
     public const string ConfigurationPath = "/etc/igloo/deployment.json";
@@ -27,6 +39,53 @@ public static class DebianAgentProfiles
         "RestrictAddressFamilies=AF_UNIX\nSystemCallFilter=~@mount @raw-io @reboot\n" +
         "InaccessiblePaths=/boot /sys/firmware\nUMask=0077\n" +
         "[Install]\nWantedBy=multi-user.target\n";
+
+    public static DebianAgentOfflineStageV1 DeclareOfflineStage(Guid generation, Guid operation, Guid targetRoot)
+    {
+        if (generation == Guid.Empty || operation == Guid.Empty || targetRoot == Guid.Empty)
+            throw new InvalidDataException("Offline agent stage identity missing.");
+        var worker = DebianFirstBootEvidence.WorkerBytes();
+        return new(1, OfflineStageScope, generation, operation, targetRoot, Version,
+            [new("embedded:" + DebianFirstBootEvidence.Profile, AgentPath, worker.Length,
+                DebianFirstBootEvidence.WorkerSha256, 0, 0, 0x1a4),
+             new("generated:" + Version, UnitPath, System.Text.Encoding.UTF8.GetByteCount(Unit),
+                DebianDeploymentPlanning.TextHash(Unit), 0, 0, 0x1a4)],
+            ConfigurationPath, "/etc/systemd/system/multi-user.target.wants/igloo-deployment.service",
+            UnitPath, true, true, false);
+    }
+
+    public static DebianAgentOfflineStageV1 DeclareLabOfflineStage(Guid generation, Guid operation, Guid targetRoot) =>
+        DeclareOfflineStage(generation, operation, targetRoot) with { Scope = LabOfflineStageScope };
+
+    public static Observation<bool> VerifyOfflineStage(DebianAgentOfflineStageV1 expected,
+        Observation<DebianAgentOfflineReadbackV1> observed) => VerifyStage(expected, observed, OfflineStageScope);
+
+    public static Observation<bool> VerifyLabOfflineStage(DebianAgentOfflineStageV1 expected,
+        Observation<DebianAgentOfflineReadbackV1> observed) => VerifyStage(expected, observed, LabOfflineStageScope);
+
+    private static Observation<bool> VerifyStage(DebianAgentOfflineStageV1 expected,
+        Observation<DebianAgentOfflineReadbackV1> observed, string scope)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        ArgumentNullException.ThrowIfNull(observed);
+        if (observed.Availability != ObservationAvailability.Available)
+            return Observations.Failure<bool>(observed.Availability, "DebianOfflineAgentReadbackUnavailable");
+        var canonical = scope == OfflineStageScope
+            ? DeclareOfflineStage(expected.GenerationId, expected.OperationId, expected.TargetRootId)
+            : DeclareLabOfflineStage(expected.GenerationId, expected.OperationId, expected.TargetRootId);
+        var actual = observed.Value;
+        if (expected.SchemaVersion != canonical.SchemaVersion || expected.Scope != canonical.Scope ||
+            expected.ProfileVersion != canonical.ProfileVersion || expected.Files.IsDefault ||
+            !expected.Files.SequenceEqual(canonical.Files) || expected.ConfigurationPath != canonical.ConfigurationPath ||
+            expected.EnableLink != canonical.EnableLink || expected.EnableTarget != canonical.EnableTarget ||
+            !expected.ConfigurationPending || !expected.EnablePending || expected.StartDuringInstallation ||
+            actual.GenerationId != expected.GenerationId ||
+            actual.OperationId != expected.OperationId || actual.TargetRootId != expected.TargetRootId ||
+            actual.Files.IsDefault || !actual.Files.SequenceEqual(expected.Files) ||
+            !actual.ConfigurationAbsent || !actual.EnableLinkAbsent || !actual.SourceAndUnrelatedContentUnchanged)
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous, "DebianOfflineAgentStageChanged");
+        return Observations.Available(true);
+    }
 
     public static DebianAgentInstallProfileV1 Declare(DebianDeploymentPlanV1 plan)
     {

@@ -2,6 +2,63 @@ using System.Text.Json;
 using Igloo.Core.Abstractions;
 using Igloo.Distro.Debian.Deployment;
 
+if (args.Length == 2 && args[0] == "--agent-stage-predecessor-readiness")
+    return CanonicalImportQualification.LabAgentStage.Readiness(args[1]);
+if (args.Length == 3 && args[0] == "--agent-stage-completion-readiness")
+    return CanonicalImportQualification.LabAgentStage.CompletionReadiness(args[1], args[2]);
+if (args.Length == 7 && args[0] == "--agent-stage-derived-lab")
+    return await CanonicalImportQualification.LabAgentStage.RunAsync(args[1], args[2], args[3],
+        args[4], args[5], args[6]);
+
+if (args.Length == 4 && args[0] == "--export-offline-agent-stage")
+    return CanonicalImportQualification.LabOfflineAgent.Export(args[1], args[2], args[3]);
+if (args.Length == 4 && args[0] == "--export-lab-agent-stage-test-packet")
+    return CanonicalImportQualification.LabOfflineAgent.Export(args[1], args[2], args[3], canonical: true);
+if (args.Length == 1 && args[0] == "--verify-offline-agent-stage-stdin")
+    return await CanonicalImportQualification.LabOfflineAgent.VerifyAsync();
+
+if (args.Length == 1 && args[0] == "--inspect-firstboot-userdata-stdin")
+{
+    // Read-only test bridge for independently reopened protected inputs. It
+    // never creates a DeploymentContent receipt or an effect capability.
+    try
+    {
+        using var stream = Console.OpenStandardInput();
+        using var bounded = new MemoryStream();
+        var chunk = new byte[8192];
+        int count;
+        while ((count = await stream.ReadAsync(chunk)) != 0)
+        {
+            if (bounded.Length + count > 4 * 1024 * 1024)
+                throw new InvalidDataException("FirstBootInputOversized");
+            await bounded.WriteAsync(chunk.AsMemory(0, count));
+        }
+        bounded.Position = 0;
+        using var input = await JsonDocument.ParseAsync(bounded);
+        var root = input.RootElement;
+        string[] names = ["Transfer", "Declaration", "Receipt", "Evidence", "InitramfsResultSha256", "InitramfsCloseSha256"];
+        if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Select(p => p.Name)
+            .Order(StringComparer.Ordinal).SequenceEqual(names.Order(StringComparer.Ordinal)) is false)
+            throw new InvalidDataException("FirstBootInputShapeRejected");
+        var transfer = JsonSerializer.Deserialize<DebianUserDataPlanV1>(root.GetProperty("Transfer").GetBytesFromBase64())!;
+        var declaration = JsonSerializer.Deserialize<DebianUserDataCanonicalDeclarationV1>(root.GetProperty("Declaration").GetBytesFromBase64())!;
+        var receipt = root.GetProperty("Receipt").GetBytesFromBase64();
+        var evidence = root.GetProperty("Evidence").GetBytesFromBase64();
+        var result = DebianFirstBootEvidence.InspectLabSelectedDocuments(transfer, declaration,
+            root.GetProperty("InitramfsResultSha256").GetString()!,
+            root.GetProperty("InitramfsCloseSha256").GetString()!, receipt, evidence);
+        Console.WriteLine(JsonSerializer.Serialize(new { State = "PendingRequiredProducers", Input = result,
+            CompletionReceiptProduced = false, EffectAuthorization = false }));
+        return 0;
+    }
+    catch (Exception error) when (error is JsonException or InvalidDataException or InvalidOperationException or FormatException or ArgumentException)
+    {
+        Console.WriteLine(JsonSerializer.Serialize(new { State = "Rejected", Code = "FirstBootInputRejected",
+            CompletionReceiptProduced = false, EffectAuthorization = false }));
+        return 2;
+    }
+}
+
 if (args.Length is 3 or 5 && args[0] == "--userdata-readiness")
     return CanonicalImportQualification.LabUserData.Readiness(args[1], args[2],
         args.Length == 5 ? args[3] : null, args.Length == 5 ? args[4] : null);

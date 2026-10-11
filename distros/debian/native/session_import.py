@@ -68,6 +68,7 @@ class ConnectedImportView:
                  session.declaration.get("LabConfiguration") is not None or
                  session.declaration.get("LabInitramfs") is not None or
                  session.declaration.get("LabUserData") is not None or
+                 session.declaration.get("LabAgentStage") is not None or
                  (session.declaration.get("StorageSmoke") or {}).get("Scope") == "StorageSmoke") and
                 [r["Role"] for r in session.supervisor.receipts] == ["Root", "Payload"], "ImportPhaseTopologyRequired")
         try:
