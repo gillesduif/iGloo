@@ -42,7 +42,7 @@ public static class FedoraOwnedStorageRecipe
     }
 
     public static Observation<string> ReplaceLegacyStorageSection(string template, InstallationOwnershipV1 ownership,
-        Guid expectedGeneration, Observation<InstallerRuntimeInventoryV1> inventory)
+        Guid expectedGeneration, Observation<InstallerRuntimeInventoryV1> inventory, bool includeLegacyWifi = true)
     {
         ArgumentNullException.ThrowIfNull(template);
         var recipe = Generate(ownership, expectedGeneration, inventory);
@@ -58,9 +58,11 @@ public static class FedoraOwnedStorageRecipe
             template.LastIndexOf(networkMarker, StringComparison.Ordinal) != network ||
             template.LastIndexOf(endMarker, StringComparison.Ordinal) != end)
             return Observations.Failure<string>(ObservationAvailability.Ambiguous, "FedoraStorageTemplateChanged");
+        var networkScript = includeLegacyWifi
+            ? "\n%pre --interpreter=/bin/bash --erroronfail\nset -euo pipefail\nlog() { echo \"[igloo-pre] $*\" >&2; }\n" + template[network..end]
+            : "\n";
         var rendered = template[..start] + "# Storage resolved from the independently verified preparation generation.\n" + recipe.Value +
-            "\n%pre --interpreter=/bin/bash --erroronfail\nset -euo pipefail\nlog() { echo \"[igloo-pre] $*\" >&2; }\n" +
-            template[network..end] + template[(end + endMarker.Length)..];
+            networkScript + template[(end + endMarker.Length)..];
         // No appended command can reintroduce another storage allocator from the legacy template.
         string[] storageCommands = ["part", "partition", "autopart", "reqpart", "clearpart", "zerombr", "ignoredisk", "bootloader", "raid", "logvol", "volgroup", "btrfs", "mount"];
         var actual = new List<string>();
@@ -74,6 +76,9 @@ public static class FedoraOwnedStorageRecipe
         }
         if (!actual.SequenceEqual(recipe.Value.Split('\n', StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal))
             return Observations.Failure<string>(ObservationAvailability.Ambiguous, "FedoraUnexpectedStorageInstruction");
+        if (!includeLegacyWifi && (rendered.Contains("nmcli device wifi connect", StringComparison.Ordinal) ||
+            rendered.Contains("{{WIFI_LIST}}", StringComparison.Ordinal)))
+            return Observations.Failure<string>(ObservationAvailability.Ambiguous, "FedoraUnsafeNetworkHandoff");
         return Observations.Available(rendered);
     }
 }

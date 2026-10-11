@@ -17,7 +17,24 @@ public sealed record PreparationSpacePlanV1(ulong AlignmentPaddingBytes, ulong R
     ImmutableArray<PreparationAllocationV1> Allocations);
 public sealed record PreparationPlanV1(int SchemaVersion, Guid GenerationId, CanonicalDiskIdentityV1 TargetDisk,
     CanonicalVolumeIdentityV1 WindowsEsp, ImmutableArray<Guid> BeforePartitionIds,
-    PreparationSpacePlanV1 Space);
+    PreparationSpacePlanV1 Space)
+{
+    // Optional while the private alpha path and older lab fixtures remain. A reviewed executor
+    // MUST require this binding; the legacy plan by itself is not execution authority.
+    public ReviewedPreparationIntentV1? ReviewedIntent { get; init; }
+}
+
+// Extends the existing preparation plan instead of introducing another layout model. These
+// references are private local identities, never public LayoutId or an authorization token.
+public sealed record ReviewedPreparationIntentV1(Guid PlanId, Guid TargetId, Guid AllocationId,
+    string ArtifactSha256, string ProviderRevisionSha256, ReviewedMediaMeasurementsV1 Media,
+    CanonicalVolumeIdentityV1 ShrinkSource,
+    ImmutableArray<PreparedGptPartitionV1> BeforePartitions, ulong ShrinkBytes,
+    ulong ResultingSourceBytes, ulong FreeOffsetBytes, ulong FreeSizeBytes);
+public sealed record ReviewedMediaMeasurementsV1(ulong FullIsoBytes, ulong KernelBytes,
+    ulong InitrdBytes, ulong Stage2Bytes);
+public sealed record ReviewedShrinkReceiptV1(Guid GenerationId, CanonicalVolumeIdentityV1 Before,
+    CanonicalVolumeIdentityV1 After);
 
 // This receipt must come from a successful provider CreatePartition result, fresh canonical
 // readback and durable persistence. A newly discovered partition or matching label is NOT a receipt.
@@ -29,6 +46,7 @@ public sealed record PreparedLayoutV1(int SchemaVersion, PreparationPlanV1 Plan,
     // Additive preparation evidence, not a RecoverySnapshotV1 schema change. Older checkpoints
     // without partition-only receipts cannot qualify for the complete installation contract.
     public PreparedStorageOwnershipV1? StorageOwnership { get; init; }
+    public ReviewedShrinkReceiptV1? ShrinkReceipt { get; init; }
 }
 public sealed record PreparationAssessment(PreparationState State, ObservationAvailability Availability, string Code);
 
@@ -84,6 +102,84 @@ public static class PreparedLayoutRules
 {
     public const string ShimPath = @"\EFI\iGloo\shimx64.efi";
     public const string GrubPath = @"\EFI\iGloo\grubx64.efi";
+
+    // This is a structural, non-authorizing check. The caller must still reopen and compare
+    // PlanId/TargetId/AllocationId, rehash the artifact and provider, and reobserve storage.
+    public static Observation<bool> VerifyReviewedIntent(PreparationPlanV1 plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        var intent = plan.ReviewedIntent;
+        if (!IsValidPlan(plan) || intent is null || intent.PlanId == Guid.Empty ||
+            intent.TargetId == Guid.Empty || intent.AllocationId == Guid.Empty ||
+            !Digest(intent.ArtifactSha256) || !Digest(intent.ProviderRevisionSha256) ||
+            intent.Media is null || intent.Media.KernelBytes == 0 || intent.Media.InitrdBytes == 0 ||
+            intent.Media.FullIsoBytes > long.MaxValue || intent.Media.KernelBytes > long.MaxValue ||
+            intent.Media.InitrdBytes > long.MaxValue || intent.Media.Stage2Bytes > long.MaxValue ||
+            !CanonicalRecoveryIdentity.IsValid(intent.ShrinkSource) ||
+            intent.ShrinkSource.FileSystem != "NTFS" ||
+            intent.ShrinkSource.PartitionType != PreparationSpacePlanning.BasicDataType ||
+            intent.ShrinkSource.Disk != plan.TargetDisk || intent.ShrinkSource.SizeBytes > long.MaxValue ||
+            intent.BeforePartitions.IsDefaultOrEmpty || intent.ShrinkBytes == 0 ||
+            intent.ShrinkBytes > long.MaxValue || intent.ResultingSourceBytes == 0 || intent.FreeSizeBytes == 0)
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous, "ReviewedPreparationIntentInvalid");
+        var before = intent.BeforePartitions;
+        var source = PreparedStorageOwnership.PartitionOf(intent.ShrinkSource);
+        if (before.Select(p => p.PartitionGuid).Distinct().Count() != before.Length ||
+            !before.Select(p => p.PartitionGuid).Order().SequenceEqual(plan.BeforePartitionIds.Order()) ||
+            before.Any(p => p.Disk != plan.TargetDisk || p.PartitionGuid == Guid.Empty ||
+                p.PartitionType == Guid.Empty || p.SizeBytes == 0 || p.OffsetBytes == 0 ||
+                p.OffsetBytes > plan.TargetDisk.SizeBytes ||
+                p.SizeBytes > plan.TargetDisk.SizeBytes - p.OffsetBytes) ||
+            before.Any(p => before.Any(other => p.PartitionGuid != other.PartitionGuid &&
+                Overlaps(p.OffsetBytes, p.SizeBytes, other.OffsetBytes, other.SizeBytes))) ||
+            !before.Contains(source) ||
+            !before.Contains(PreparedStorageOwnership.PartitionOf(plan.WindowsEsp)))
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous, "ReviewedPrelayoutMismatch");
+        try
+        {
+            checked
+            {
+                if (intent.ShrinkBytes < plan.Space.RequiredBytes ||
+                    intent.ResultingSourceBytes + intent.ShrinkBytes != intent.ShrinkSource.SizeBytes ||
+                    intent.FreeOffsetBytes != intent.ShrinkSource.OffsetBytes + intent.ResultingSourceBytes ||
+                    intent.FreeOffsetBytes + intent.FreeSizeBytes > plan.TargetDisk.SizeBytes ||
+                    plan.Space.Allocations[0].OffsetBytes != Align(intent.FreeOffsetBytes) ||
+                    plan.Space.Allocations[^1].OffsetBytes + plan.Space.Allocations[^1].SizeBytes >
+                        intent.FreeOffsetBytes + intent.FreeSizeBytes ||
+                    before.Any(p => p.PartitionGuid != source.PartitionGuid &&
+                        Overlaps(intent.FreeOffsetBytes, intent.FreeSizeBytes, p.OffsetBytes, p.SizeBytes)))
+                    return Observations.Failure<bool>(ObservationAvailability.Ambiguous, "ReviewedExtentMismatch");
+            }
+        }
+        catch (OverflowException)
+        {
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous, "ReviewedExtentOverflow");
+        }
+        return Observations.Available(true);
+    }
+
+    // The provider's resize result and a fresh independent storage readback must agree with
+    // the exact shrink in the reviewed intent. This is a receipt, not a rollback proof.
+    public static Observation<ReviewedShrinkReceiptV1> VerifyShrink(PreparationPlanV1 plan,
+        Observation<CanonicalVolumeIdentityV1> providerResult,
+        Observation<CanonicalVolumeIdentityV1> independentReadback)
+    {
+        ArgumentNullException.ThrowIfNull(providerResult);
+        ArgumentNullException.ThrowIfNull(independentReadback);
+        var reviewed = VerifyReviewedIntent(plan);
+        if (reviewed.Availability != ObservationAvailability.Available)
+            return Observations.Failure<ReviewedShrinkReceiptV1>(reviewed.Availability, reviewed.Code!);
+        if (providerResult.Availability != ObservationAvailability.Available ||
+            independentReadback.Availability != ObservationAvailability.Available)
+            return Observations.Failure<ReviewedShrinkReceiptV1>(ObservationAvailability.Unavailable,
+                "ReviewedShrinkReadbackUnavailable");
+        var before = plan.ReviewedIntent!.ShrinkSource;
+        var expected = before with { SizeBytes = plan.ReviewedIntent.ResultingSourceBytes };
+        if (providerResult.Value != expected || independentReadback.Value != expected)
+            return Observations.Failure<ReviewedShrinkReceiptV1>(ObservationAvailability.Ambiguous,
+                "ReviewedShrinkReceiptMismatch");
+        return Observations.Available(new ReviewedShrinkReceiptV1(plan.GenerationId, before, expected));
+    }
 
     public static bool IsValidPlan(PreparationPlanV1 plan)
     {
@@ -215,5 +311,8 @@ public static class PreparedLayoutRules
         !file.RelativePath.Contains("..", StringComparison.Ordinal) && !file.RelativePath.Contains(':', StringComparison.Ordinal) && !file.RelativePath.Contains('/', StringComparison.Ordinal);
     private static bool Overlaps(ulong offset, ulong size, ulong otherOffset, ulong otherSize) =>
         offset >= otherOffset ? offset - otherOffset < otherSize : otherOffset - offset < size;
+    private static ulong Align(ulong value) => checked((value + PreparationSpacePlanning.Alignment - 1) /
+        PreparationSpacePlanning.Alignment * PreparationSpacePlanning.Alignment);
+    private static bool Digest(string value) => value is { Length: 64 } && value.All(Uri.IsHexDigit);
     private static Observation<PreparedPartitionV1> Failure(ObservationAvailability state, string code) => Observations.Failure<PreparedPartitionV1>(state, code);
 }

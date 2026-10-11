@@ -1,7 +1,9 @@
 using System.Collections.Immutable;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Preparation;
+using Igloo.Core.Models;
 using Igloo.Distro.FedoraKde;
+using System.Text;
 using Xunit;
 using static Igloo.TestData.InstallationOwnershipFixture;
 
@@ -9,6 +11,100 @@ namespace Igloo.Migration.Tests;
 
 public sealed class FedoraOwnedStorageRecipeTests
 {
+    [Fact]
+    public async Task ReviewedProviderConfigUsesOnlyOwnedStorageAndNoWifiSecretPath()
+    {
+        var (binding, inventory) = Reviewed();
+        var provider = new FedoraKdePlugin();
+        Assert.IsAssignableFrom<IReviewedInstallerStorageProvider>(provider);
+        var result = await provider.RenderReviewedInstallerConfigAsync(Manifest(), binding,
+            binding.Esp.GenerationId, A(inventory));
+        Assert.True(result.Availability == ObservationAvailability.Available, result.Code);
+        var text = Encoding.UTF8.GetString(result.Value.Contents.Span);
+        Assert.Contains("part / --onpart=PARTUUID=", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("autopart --type", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("falling back to largest", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("nmcli device wifi connect", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("%include /tmp/ks-storage.cfg", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{WIFI_LIST}}", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReviewedProviderRefusesUnattendedWifiAndChangedInstallerTarget()
+    {
+        var (binding, inventory) = Reviewed();
+        var provider = new FedoraKdePlugin();
+        var wifi = Manifest() with { WifiNetworks = [new WifiNetwork { Ssid = "network", Psk = "private-value" }] };
+        var blocked = await provider.RenderReviewedInstallerConfigAsync(wifi, binding,
+            binding.Esp.GenerationId, A(inventory));
+        Assert.Equal("SecureNetworkCredentialHandoffUnavailable", blocked.Code);
+        var wrong = await provider.RenderReviewedInstallerConfigAsync(Manifest(), binding,
+            Guid.NewGuid(), A(inventory));
+        Assert.NotEqual(ObservationAvailability.Available, wrong.Availability);
+        var changed = inventory with { Disks = [inventory.Disks[0] with { GptDiskGuid = Guid.NewGuid() }] };
+        var target = await provider.RenderReviewedInstallerConfigAsync(Manifest(), binding,
+            binding.Esp.GenerationId, A(changed));
+        Assert.NotEqual(ObservationAvailability.Available, target.Availability);
+        var noShrinkReceipt = binding with { Layout = binding.Layout with { ShrinkReceipt = null } };
+        var missing = await provider.RenderReviewedInstallerConfigAsync(Manifest(), noShrinkReceipt,
+            binding.Esp.GenerationId, A(inventory));
+        Assert.NotEqual(ObservationAvailability.Available, missing.Availability);
+    }
+
+    [Fact]
+    public void OptInProviderDoesNotPromoteLegacyOwnershipToReviewedIntent()
+    {
+        var (legacy, inventory) = Create();
+        var provider = new FedoraKdePlugin();
+        Assert.NotEqual(ObservationAvailability.Available,
+            provider.RenderReviewedStorage(legacy, legacy.Esp.GenerationId, A(inventory)).Availability);
+    }
+
+    private static MigrationManifest Manifest() => new()
+    {
+        DistroId = "fedora-kde",
+        User = new() { WindowsUsername = "fixture", PreferredLinuxUsername = "fixture", FullName = "Fixture" },
+        Files = new() { StagingPath = "fixture" },
+        Hardware = new() { InstallMode = "dual-boot" },
+    };
+
+    private static (InstallationOwnershipV1 Binding, InstallerRuntimeInventoryV1 Inventory) Reviewed()
+    {
+        var (binding, inventory) = Create();
+        const ulong mib = PreparationSpacePlanning.Alignment;
+        var plan = binding.Layout.Plan;
+        var owned = binding.Layout.StorageOwnership!;
+        var prior = owned.PreservedPartitions.Single(p => p.PartitionGuid != plan.WindowsEsp.PartitionGuid);
+        var sourcePartition = prior with { SizeBytes = 69739 * mib };
+        var shrunkPartition = prior with { SizeBytes = 39739 * mib };
+        var source = new Igloo.Core.Recovery.CanonicalVolumeIdentityV1(plan.TargetDisk,
+            sourcePartition.PartitionGuid, Id(777), sourcePartition.PartitionType,
+            sourcePartition.OffsetBytes, sourcePartition.SizeBytes, "NTFS");
+        var reviewed = plan with
+        {
+            ReviewedIntent = new(Id(601), Id(602), Id(603), new string('A', 64),
+                new string('B', 64), new(5UL * 1024 * 1024 * 1024, 100 * mib, 100 * mib, 100 * mib), source,
+                [PreparedStorageOwnership.PartitionOf(plan.WindowsEsp), sourcePartition],
+                30000 * mib, 39739 * mib, 40000 * mib, 40000 * mib),
+        };
+        var layout = binding.Layout with
+        {
+            Plan = reviewed,
+            ShrinkReceipt = new(reviewed.GenerationId, source,
+                source with { SizeBytes = shrunkPartition.SizeBytes }),
+            StorageOwnership = owned with
+            {
+                PreservedPartitions = [PreparedStorageOwnership.PartitionOf(plan.WindowsEsp), shrunkPartition],
+            },
+        };
+        var changed = inventory with
+        {
+            Partitions = inventory.Partitions.Select(p => p.PartitionGuid == source.PartitionGuid
+                ? p with { SizeBytes = shrunkPartition.SizeBytes } : p).ToImmutableArray(),
+        };
+        return (binding with { Layout = layout }, changed);
+    }
+
     [Fact]
     public void CompleteRecipeFormatsOnlyOwnedRootAndReusesOnlyOwnedEsp()
     {

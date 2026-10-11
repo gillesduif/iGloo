@@ -83,6 +83,13 @@ public static class PreparedStorageOwnership
         var preserved = ownership.PreservedPartitions;
         var created = ownership.CreatedPartitions;
         var expected = preserved.Concat(created.Select(r => r.Identity)).ToImmutableArray();
+        if (plan.ReviewedIntent is not null &&
+            (layout.ShrinkReceipt is not { } shrink || shrink.GenerationId != expectedGeneration ||
+             shrink.Before != plan.ReviewedIntent.ShrinkSource ||
+             PreparedLayoutRules.VerifyShrink(plan, Observations.Available(shrink.After),
+                 Observations.Available(shrink.After)).Availability != ObservationAvailability.Available ||
+             !preserved.Contains(PartitionOf(shrink.After))))
+            return Fail<bool>(ObservationAvailability.Ambiguous, "ReviewedShrinkReceiptMissingOrChanged");
         if (!ValidInventory(expected) ||
             !preserved.Select(p => p.PartitionGuid).Order().SequenceEqual(plan.BeforePartitionIds.Order()) ||
             !preserved.Contains(PartitionOf(plan.WindowsEsp)) ||

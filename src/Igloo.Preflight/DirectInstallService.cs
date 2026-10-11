@@ -10,6 +10,7 @@ using System.Security;
 using System.Text;
 using System.Text.Json;
 using Igloo.Core.Abstractions;
+using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
 using Igloo.Preflight.CommunityPreparation;
 using Igloo.Preflight.CommunityRecovery;
@@ -136,6 +137,53 @@ public sealed partial class DirectInstallService : IDirectInstallService
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
         => Task.Run(() => RegisterBootEntry(progress, ct), ct);
 
+    // Explicit reviewed entry. No ordinal, drive letter or label is accepted as source
+    // authority. It remains closed until the native exact-geometry writer and dedicated ESP
+    // installer binding are proven; in particular it never falls into Prepare's heuristic.
+    internal static Task PrepareReviewedAsync(PreparationPlanV1 plan, InstallerBootSpec bootSpec,
+        long requestedLinuxBytes, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var review = ReviewPreparedIntent(plan, bootSpec, requestedLinuxBytes);
+        if (review.Availability != ObservationAvailability.Available)
+            throw new NotSupportedException(review.Code);
+        DedicatedEspPreparationSupport.RequireSupported();
+        throw new NotSupportedException("ReviewedWindowsPartitionWriterNotImplemented");
+    }
+
+    internal static Observation<bool> ReviewPreparedIntent(PreparationPlanV1 plan,
+        InstallerBootSpec bootSpec, long requestedLinuxBytes)
+    {
+        ArgumentNullException.ThrowIfNull(bootSpec);
+        var verified = PreparedLayoutRules.VerifyReviewedIntent(plan);
+        if (verified.Availability != ObservationAvailability.Available) return verified;
+        var parts = plan.Space.Allocations;
+        var intent = plan.ReviewedIntent!;
+        DirectInstallSizePlan measuredMedia;
+        try
+        {
+            measuredMedia = PlanStorageSizes(bootSpec, requestedLinuxBytes,
+                checked((long)intent.Media.FullIsoBytes), checked((long)intent.Media.KernelBytes),
+                checked((long)intent.Media.InitrdBytes), checked((long)intent.Media.Stage2Bytes));
+        }
+        catch (Exception ex) when (ex is OverflowException or ArgumentOutOfRangeException)
+        {
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous, "ReviewedMediaSizingInvalid");
+        }
+        var payload = parts.Single(p => p.Role == PreparationRole.Payload);
+        var root = parts.Single(p => p.Role == PreparationRole.LinuxRoot);
+        var iso = parts.SingleOrDefault(p => p.Role == PreparationRole.Iso);
+        if (requestedLinuxBytes <= 0 || measuredMedia.OemDrvBytes <= 0 ||
+            measuredMedia.IsoPartitionBytes < 0 || measuredMedia.TotalShrinkBytes <= 0 ||
+            payload.SizeBytes < (ulong)measuredMedia.OemDrvBytes ||
+            root.SizeBytes < (ulong)requestedLinuxBytes || !root.CreateInWindows ||
+            (measuredMedia.IsoOnOwnPartition ?
+                iso is null || iso.SizeBytes < (ulong)measuredMedia.IsoPartitionBytes : iso is not null) ||
+            intent.ShrinkBytes < plan.Space.RequiredBytes)
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous, "ReviewedMediaSizingMismatch");
+        return Observations.Available(true);
+    }
+
     //   Private - Prepare                           ─
 
     private void Prepare(
@@ -165,7 +213,6 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // downloading 862 MB from a mirror during installation.
         Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Measuring ISO content…");
         var (kernelBytes, initrdBytes, installImgBytes) = MeasureIsoContent(isoPath);
-        long extractedBytes = kernelBytes + initrdBytes + installImgBytes;
         _logger.LogInformation(
             "ISO content: kernel={K} MiB  initrd={I} MiB  install.img={S} MiB",
             kernelBytes / MiB, initrdBytes / MiB, installImgBytes / MiB);
@@ -180,10 +227,11 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // partition it can mount. Small ISOs (Mint, Debian hd-media) stay on the
         // single FAT32 partition exactly as before  no behaviour change for them.
         long fullIsoBytes = _bootSpec.CopyFullIsoToVolume ? new FileInfo(isoPath).Length : 0;
-        bool isoOnOwnPartition = _bootSpec.CopyFullIsoToVolume && fullIsoBytes >= Fat32MaxFileBytes;
-        long fat32IsoBytes = (_bootSpec.CopyFullIsoToVolume && !isoOnOwnPartition) ? fullIsoBytes : 0;
-        long oemDrvBytes = RoundUpMiB(extractedBytes + fat32IsoBytes + PartitionOverheadBytes);
-        long isoPartBytes = isoOnOwnPartition ? RoundUpMiB(fullIsoBytes + IsoPartitionOverheadBytes) : 0;
+        var sizing = PlanStorageSizes(_bootSpec, linuxSizeBytes, fullIsoBytes,
+            kernelBytes, initrdBytes, installImgBytes);
+        bool isoOnOwnPartition = sizing.IsoOnOwnPartition;
+        long oemDrvBytes = sizing.OemDrvBytes;
+        long isoPartBytes = sizing.IsoPartitionBytes;
         char driveLetter;
 
         var existing = FindExistingOemDrv(diskNumber);
@@ -233,7 +281,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
             _logger.LogInformation("Direct install: shrinking disk {Disk} by {GiB} GiB",
                 diskNumber, linuxSizeBytes / MiB / 1024);
 
-            long totalShrink = linuxSizeBytes + oemDrvBytes + isoPartBytes;
+            long totalShrink = sizing.TotalShrinkBytes;
 
             var shrinkProg = new Progress<string>(msg =>
                 Report(prog, DirectInstallPhase.ShrinkingPartition, message: msg));
@@ -1354,6 +1402,32 @@ public sealed partial class DirectInstallService : IDirectInstallService
     }
 
     //   Utility                                ─
+
+    // This mirrors the size arithmetic used by the current private installer. It deliberately
+    // does not choose a partition, free extent, EFI relationship or installer-side layout.
+    internal static DirectInstallSizePlan PlanStorageSizes(InstallerBootSpec bootSpec,
+        long linuxSizeBytes, long fullIsoBytes, long kernelBytes, long initrdBytes,
+        long installImgBytes)
+    {
+        ArgumentNullException.ThrowIfNull(bootSpec);
+        if (linuxSizeBytes < 0 || fullIsoBytes < 0 || kernelBytes < 0 ||
+            initrdBytes < 0 || installImgBytes < 0)
+            throw new ArgumentOutOfRangeException(nameof(linuxSizeBytes));
+        checked
+        {
+            bool separateIso = bootSpec.CopyFullIsoToVolume && fullIsoBytes >= Fat32MaxFileBytes;
+            long fat32IsoBytes = bootSpec.CopyFullIsoToVolume && !separateIso ? fullIsoBytes : 0;
+            long oemDrvBytes = RoundUpMiB(kernelBytes + initrdBytes + installImgBytes +
+                fat32IsoBytes + PartitionOverheadBytes);
+            long isoPartitionBytes = separateIso
+                ? RoundUpMiB(fullIsoBytes + IsoPartitionOverheadBytes) : 0;
+            return new(separateIso, oemDrvBytes, isoPartitionBytes,
+                linuxSizeBytes + oemDrvBytes + isoPartitionBytes);
+        }
+    }
+
+    internal sealed record DirectInstallSizePlan(bool IsoOnOwnPartition,
+        long OemDrvBytes, long IsoPartitionBytes, long TotalShrinkBytes);
 
     internal static long RoundUpMiB(long bytes) =>
         ((bytes + MiB - 1) / MiB) * MiB;

@@ -1,4 +1,5 @@
 using Igloo.Core.Models;
+using Igloo.Core.Preparation;
 
 namespace Igloo.Core.Abstractions;
 
@@ -23,6 +24,15 @@ public interface IDistroPlugin
     Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default);
 
     InstallerBootSpec GetInstallerBootSpec();
+}
+
+// Opt-in provider contract for a storage recipe bound to independently observed owned
+// partitions. It is not an execution capability; the legacy RenderInstallerConfigAsync
+// remains private/transitional until Windows and recovery can honor this same plan.
+public interface IReviewedInstallerStorageProvider
+{
+    Observation<string> RenderReviewedStorage(InstallationOwnershipV1 ownership,
+        Guid expectedGeneration, Observation<InstallerRuntimeInventoryV1> inventory);
 }
 
 public sealed record InstallerBootSpec

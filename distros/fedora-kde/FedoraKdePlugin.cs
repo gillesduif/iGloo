@@ -4,11 +4,12 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
+using Igloo.Core.Preparation;
 using Igloo.Core.Services;
 
 namespace Igloo.Distro.FedoraKde;
 
-public sealed class FedoraKdePlugin : IDistroPlugin
+public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStorageProvider
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -126,6 +127,49 @@ public sealed class FedoraKdePlugin : IDistroPlugin
             Extras: Array.Empty<InstallerConfigExtra>());
 
         return config;
+    }
+
+    public Observation<string> RenderReviewedStorage(InstallationOwnershipV1 ownership,
+        Guid expectedGeneration, Observation<InstallerRuntimeInventoryV1> inventory)
+    {
+        ArgumentNullException.ThrowIfNull(ownership);
+        var reviewed = PreparedLayoutRules.VerifyReviewedIntent(ownership.Layout.Plan);
+        return reviewed.Availability == ObservationAvailability.Available
+            ? FedoraOwnedStorageRecipe.Generate(ownership, expectedGeneration, inventory)
+            : Observations.Failure<string>(reviewed.Availability, reviewed.Code!);
+    }
+
+    // This opt-in renderer is not called by the private alpha installation route. It refuses
+    // saved Wi-Fi entirely: neither the kickstart nor the internal manifest handed to first boot
+    // may carry an unattended PSK on a reviewed path without cross-OS secret custody.
+    public async Task<Observation<InstallerConfig>> RenderReviewedInstallerConfigAsync(MigrationManifest manifest,
+        InstallationOwnershipV1 ownership, Guid expectedGeneration,
+        Observation<InstallerRuntimeInventoryV1> inventory, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentNullException.ThrowIfNull(ownership);
+        ArgumentNullException.ThrowIfNull(inventory);
+        if (manifest.DistroId != Id || manifest.Hardware.InstallMode != "dual-boot")
+            return Observations.Failure<InstallerConfig>(ObservationAvailability.Unsupported, "FedoraReviewedModeUnsupported");
+        if (manifest.WifiNetworks.Count != 0)
+            return Observations.Failure<InstallerConfig>(ObservationAvailability.Unsupported,
+                "SecureNetworkCredentialHandoffUnavailable");
+        var recipe = RenderReviewedStorage(ownership, expectedGeneration, inventory);
+        if (recipe.Availability != ObservationAvailability.Available)
+            return Observations.Failure<InstallerConfig>(recipe.Availability, recipe.Code!);
+        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var templatePath = Path.Join(asmDir, "kickstart", "ks.cfg.template");
+        if (!File.Exists(templatePath))
+            return Observations.Failure<InstallerConfig>(ObservationAvailability.Unavailable, "FedoraTemplateUnavailable");
+        var reviewed = FedoraOwnedStorageRecipe.ReplaceLegacyStorageSection(
+            await File.ReadAllTextAsync(templatePath, ct).ConfigureAwait(false), ownership,
+            expectedGeneration, inventory, includeLegacyWifi: false);
+        if (reviewed.Availability != ObservationAvailability.Available)
+            return Observations.Failure<InstallerConfig>(reviewed.Availability, reviewed.Code!);
+        var rendered = RenderFromTemplate(reviewed.Value, manifest)
+            .Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
+        return Observations.Available(new InstallerConfig("ks.cfg", Encoding.UTF8.GetBytes(rendered),
+            Array.Empty<InstallerConfigExtra>()));
     }
 
     public Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
