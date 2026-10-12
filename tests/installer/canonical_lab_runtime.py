@@ -32,6 +32,69 @@ def checkpoint(directory, name, value):
         raise OSError('CheckpointReopenChanged')
 
 
+def checkpoint_exact_json_member(directory, name, document, member):
+    """Retain a verified preflight member's JSON bytes, including nested lexical form.
+
+    Typed .NET fingerprints can include JsonElement raw text. Decoding and
+    re-serializing that element changes its identity even when the parsed values
+    are equal. The caller must first verify the enclosing capture separately.
+    """
+    text = document.decode('utf-8', 'strict')
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError('PreflightDuplicateField')
+            result[key] = value
+        return result
+    decoder = json.JSONDecoder(object_pairs_hook=unique)
+    parsed = decoder.decode(text)
+    if (not isinstance(parsed, dict) or member not in parsed or
+            not isinstance(parsed[member], dict)):
+        raise ValueError('PreflightMemberMissing')
+    def space(index):
+        while index < len(text) and text[index] in ' \t\r\n':
+            index += 1
+        return index
+    index = space(0)
+    if text[index:index+1] != '{':
+        raise ValueError('PreflightObjectRequired')
+    index += 1
+    selected = None
+    while True:
+        index = space(index)
+        if text[index:index+1] == '}':
+            break
+        key, index = decoder.raw_decode(text, index)
+        if not isinstance(key, str):
+            raise ValueError('PreflightKeyInvalid')
+        index = space(index)
+        if text[index:index+1] != ':':
+            raise ValueError('PreflightColonMissing')
+        start = space(index + 1)
+        _, index = decoder.raw_decode(text, start)
+        if key == member:
+            selected = text[start:index].encode('utf-8')
+        index = space(index)
+        if text[index:index+1] == '}':
+            break
+        if text[index:index+1] != ',':
+            raise ValueError('PreflightSeparatorInvalid')
+        index += 1
+    if selected is None:
+        raise ValueError('PreflightMemberMissing')
+    path = directory / name
+    with path.open('xb') as out:
+        out.write(selected); out.flush(); os.fsync(out.fileno())
+    fd = os.open(directory, os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    if path.read_bytes() != selected:
+        raise OSError('CheckpointReopenChanged')
+
+
 def observe_construction(run):
     declaration = json.loads((run / 'construction-intent.json').read_bytes())
     pid = json.loads((run / 'construction-process.json').read_bytes())['Pid']

@@ -11,7 +11,7 @@ import shutil
 from canonical_configuration_derivation import closed, copy_verified, identity, require
 from canonical_initramfs_readback import verify
 from canonical_lab_capacity import require_backing_capacity
-from canonical_lab_runtime import checkpoint
+from canonical_lab_runtime import checkpoint, checkpoint_exact_json_member
 from canonical_storage_lab import sha
 from canonical_stage_completion import verify as verify_completion
 
@@ -78,12 +78,18 @@ def finalize_staging(run, guest_delivery):
 
 def stage_predecessor(completion, authorization, destination):
     predecessor = verify_completion(completion, authorization, 'initramfs')['Raw']
+    stage_predecessor_raw(predecessor, destination)
+
+
+def stage_predecessor_raw(predecessor, destination):
+    """Shape already verified captured bytes for the read-only .NET reader."""
+    predecessor = Path(predecessor)
     destination = Path(destination); destination.mkdir()
     shutil.copytree(predecessor/'input/configured-predecessor', destination/'configured')
     for name in ('session', 'effects'): shutil.copytree(predecessor/'guest-evidence/journals'/name, destination/name)
     for name in ('declaration.json', 'inventory.json'): shutil.copyfile(predecessor/'guest-evidence/execution'/name, destination/name)
     shutil.copyfile(predecessor/'input/source-authorization.json', destination/'initramfs-authorization.json')
-    preflight = json.loads((predecessor/'guest-evidence/execution/initramfs.stdout').read_text().splitlines()[0])
+    preflight = (predecessor/'guest-evidence/execution/initramfs.stdout').read_bytes().splitlines()[0]
     kept = json.loads((predecessor/'initramfs-retention.json').read_bytes())
-    checkpoint(destination, 'initramfs-plan.json', preflight['Plan'])
+    checkpoint_exact_json_member(destination, 'initramfs-plan.json', preflight, 'Plan')
     checkpoint(destination, 'binding.json', {'InitramfsSha256': kept['InitramfsResult']['Sha256'], 'CloseSha256': kept['CloseResult']['Sha256']})

@@ -188,15 +188,27 @@ def execute(evidence, stage, negative=False, *, runtime_name='runtime.json'):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4 or sys.argv[1] != '--execute-and-capture':
+    if len(sys.argv) == 5 and sys.argv[1] == '--prepare':
+        _isolated_import_closure(sys.argv[3])
+        from canonical_storage_guest import ENV, digest, protect_runtime, require, run, save
+        stage = Path('/opt/igloo-lab')
+        authorization = json.loads((stage/'initramfs-authorization.json').read_bytes())
+        host_path = Path('/root/igloo-stage-host-binding-'+authorization['AttemptId'].replace('-', '')+'.json')
+        require(Path(sys.argv[4]) == host_path and
+                json.loads(host_path.read_bytes())['RunId'] == authorization['AttemptId'],
+                'InitramfsPreparationHostBindingChanged')
+        prepare(host_path, stage)
+        print('IGLOO_STAGE_PREPARED '+sys.argv[2]+' '+digest(host_path.read_bytes()), flush=True)
+    elif len(sys.argv) != 4 or sys.argv[1] != '--execute-and-capture':
         raise ValueError('InitramfsGuestCommandUnsupported')
-    _isolated_import_closure(sys.argv[3])
-    from canonical_storage_guest import ENV, digest, protect_runtime, require, run, save
-    from canonical_stage_guest import capture_completed
-    stage = Path('/opt/igloo-lab')
-    authorization = json.loads((stage/'initramfs-authorization.json').read_bytes())
-    evidence = Path('/root')/('initramfs-'+authorization['AttemptId'])
-    require((evidence/'journals.json').is_file() and
-            (evidence/'declaration.json').is_file(), 'InitramfsPreparationMissing')
-    require(execute(evidence, stage) == 0, 'InitramfsExecutionFailed')
-    capture_completed('initramfs', sys.argv[2])
+    else:
+        _isolated_import_closure(sys.argv[3])
+        from canonical_storage_guest import ENV, digest, protect_runtime, require, run, save
+        from canonical_stage_guest import capture_completed
+        stage = Path('/opt/igloo-lab')
+        authorization = json.loads((stage/'initramfs-authorization.json').read_bytes())
+        evidence = Path('/root')/('initramfs-'+authorization['AttemptId'])
+        require((evidence/'journals.json').is_file() and
+                (evidence/'declaration.json').is_file(), 'InitramfsPreparationMissing')
+        require(execute(evidence, stage) == 0, 'InitramfsExecutionFailed')
+        capture_completed('initramfs', sys.argv[2])

@@ -73,7 +73,8 @@ def create(previous, repo, publish, delivery=None, *, configuration_checkpoint=N
            derived_authorization=None, failed_configuration=None, initramfs_authorization=None, configured_predecessor=None,
            configured_completion=None, userdata_authorization=None, initramfs_predecessor=None,
            initramfs_completion=None, userdata_inputs=None,
-           agent_stage_authorization=None, userdata_predecessor=None, userdata_completion=None):
+           agent_stage_authorization=None, userdata_predecessor=None, userdata_completion=None,
+           on_launch=None, before_launch=None):
     previous, repo, publish = map(Path, (previous, repo, publish))
     if agent_stage_authorization is not None:
         if any(value is not None for value in (derived_authorization, configuration_checkpoint,
@@ -352,12 +353,21 @@ def create(previous, repo, publish, delivery=None, *, configuration_checkpoint=N
             'LaunchSha256': sha(run / 'launch-intent.json'),
             'Arguments': args, 'Disks': disks, 'ToolsSha256': sha(run / 'tools.iso'),
             'ReceiverManifestSha256': sha(Path(userdata_authorization).parent / 'completion-tools.json')})
+    # The closed caller checks the exact frozen source-to-ISO/host-tool closure
+    # while all staged inputs and launch witnesses are still root-custodied.
+    # A mismatch stops before QEMU is started.
+    if before_launch is not None:
+        before_launch(run)
     # Bind the protected launch to staged tools while the run tree is still
     # root-owned. QEMU receives backing access only after that witness exists.
     for path in [run, *(run / n for n in ('runtime.raw', 'target.raw', 'journal.raw'))]:
         os.chown(path, identity.pw_uid, identity.pw_gid)
     with (run / 'qemu.stderr').open('xb') as error:
         process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=error, start_new_session=True)
+    if on_launch is not None:
+        # The closed caller takes ownership at Popen, before a later witness
+        # write can fail. The callback only stores the process identity.
+        on_launch(process, run)
     checkpoint(run, 'process.json', {'Pid': process.pid})
     if userdata_authorization is not None:
         from canonical_userdata_acquisition import process_start_time
@@ -375,7 +385,7 @@ def create(previous, repo, publish, delivery=None, *, configuration_checkpoint=N
     return run
 
 
-def observe(run, phase=None):
+def observe(run, phase=None, *, protected_binding=None):
     run = Path(run)
     if phase not in (None, 'userdata-canonical'): raise ValueError('UnknownLaunchPhase')
     prefix = '' if phase is None else phase + '-'
@@ -402,6 +412,14 @@ def observe(run, phase=None):
         f = found[str(run / (name + '.raw'))]
         bindings.append({'Serial': serial, 'Length': f['Length'], 'HostDevice': f['Device'], 'HostInode': f['Inode'],
             'CreationSha256': sha(run / 'derivation-intent.json'), 'LaunchSha256': sha(run / (prefix + 'launch-intent.json'))})
-    checkpoint(run, prefix + 'host-binding.json', {'RunId': declared['RunId'], 'HostObservationSha256': sha(run / (prefix + 'host-readback.json')),
-        'CreatedBackings': bindings, 'ReopenedBackings': bindings})
+    binding = {'RunId': declared['RunId'], 'HostObservationSha256': sha(run / (prefix + 'host-readback.json')),
+        'CreatedBackings': bindings, 'ReopenedBackings': bindings}
+    if protected_binding is not None:
+        protected_binding = Path(protected_binding)
+        if protected_binding.name != 'completion-host-binding.json':
+            raise ValueError('ProtectedHostBindingDestinationChanged')
+        checkpoint(protected_binding.parent, protected_binding.name, binding)
+    checkpoint(run, prefix + 'host-binding.json', binding)
+    if protected_binding is not None and sha(protected_binding) != sha(run / (prefix + 'host-binding.json')):
+        raise ValueError('ProtectedHostBindingReadbackChanged')
     return run / (prefix + 'host-binding.json')

@@ -2,6 +2,9 @@ using System.Text.Json;
 using Igloo.Core.Abstractions;
 using Igloo.Distro.Debian.Deployment;
 
+if (args.Length == 2 && args[0] == "--export-readonly-stage-fixture")
+    return CanonicalImportQualification.LabReadOnlyStageFixture.Export(args[1]);
+
 if (args.Length == 2 && args[0] == "--agent-stage-predecessor-readiness")
     return CanonicalImportQualification.LabAgentStage.Readiness(args[1]);
 if (args.Length == 3 && args[0] == "--agent-stage-completion-readiness")

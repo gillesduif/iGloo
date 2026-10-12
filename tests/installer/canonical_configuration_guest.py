@@ -189,15 +189,27 @@ def execute(evidence, stage, negative=False):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4 or sys.argv[1] != '--execute-and-capture':
+    if len(sys.argv) == 5 and sys.argv[1] == '--prepare':
+        _isolated_import_closure(sys.argv[3])
+        from canonical_storage_guest import ENV, digest, protect_runtime, require, run, save
+        stage = Path('/opt/igloo-lab')
+        authorization = json.loads((stage/'derived-authorization.json').read_bytes())
+        host_path = Path('/root/igloo-stage-host-binding-'+authorization['AttemptId'].replace('-', '')+'.json')
+        require(Path(sys.argv[4]) == host_path and
+                json.loads(host_path.read_bytes())['RunId'] == authorization['AttemptId'],
+                'ConfigurationPreparationHostBindingChanged')
+        prepare(host_path, stage)
+        print('IGLOO_STAGE_PREPARED '+sys.argv[2]+' '+digest(host_path.read_bytes()), flush=True)
+    elif len(sys.argv) != 4 or sys.argv[1] != '--execute-and-capture':
         raise ValueError('ConfigurationGuestCommandUnsupported')
-    _isolated_import_closure(sys.argv[3])
-    from canonical_storage_guest import ENV, digest, protect_runtime, require, run, save
-    from canonical_stage_guest import capture_completed
-    stage = Path('/opt/igloo-lab')
-    authorization = json.loads((stage/'derived-authorization.json').read_bytes())
-    evidence = Path('/root')/('core-configuration-'+authorization['AttemptId'])
-    require((evidence/'journals.json').is_file() and
-            (evidence/'continuation.json').is_file(), 'ConfigurationPreparationMissing')
-    require(execute(evidence, stage) == 0, 'ConfigurationExecutionFailed')
-    capture_completed('configuration', sys.argv[2])
+    else:
+        _isolated_import_closure(sys.argv[3])
+        from canonical_storage_guest import ENV, digest, protect_runtime, require, run, save
+        from canonical_stage_guest import capture_completed
+        stage = Path('/opt/igloo-lab')
+        authorization = json.loads((stage/'derived-authorization.json').read_bytes())
+        evidence = Path('/root')/('core-configuration-'+authorization['AttemptId'])
+        require((evidence/'journals.json').is_file() and
+                (evidence/'continuation.json').is_file(), 'ConfigurationPreparationMissing')
+        require(execute(evidence, stage) == 0, 'ConfigurationExecutionFailed')
+        capture_completed('configuration', sys.argv[2])

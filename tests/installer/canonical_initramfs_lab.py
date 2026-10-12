@@ -6,7 +6,7 @@ import shutil
 
 from canonical_configuration_derivation import closed, copy_verified, identity, require
 from canonical_configuration_readback import verify
-from canonical_lab_runtime import checkpoint
+from canonical_lab_runtime import checkpoint, checkpoint_exact_json_member
 from canonical_lab_capacity import require_backing_capacity
 from canonical_storage_lab import sha
 from canonical_stage_completion import verify as verify_completion
@@ -58,14 +58,20 @@ def derive(authorization_path, predecessor, completion, run):
 
 def stage_predecessor(completion, authorization, destination):
     predecessor = verify_completion(completion, authorization, 'configuration')['Raw']
+    stage_predecessor_raw(predecessor, destination)
+
+
+def stage_predecessor_raw(predecessor, destination):
+    """Shape already verified captured bytes for the read-only .NET reader."""
+    predecessor = Path(predecessor)
     destination = Path(destination); destination.mkdir()
     shutil.copytree(predecessor/'input/predecessor', destination/'import')
     for name in ('session', 'effects'): shutil.copytree(predecessor/'guest-evidence/journals'/name, destination/name)
     for name in ('continuation.json', 'continuation-inventory.json'):
         shutil.copyfile(predecessor/'guest-evidence/execution'/name, destination/name)
     shutil.copyfile(predecessor/'input/source-authorization.json', destination/'derived-authorization.json')
-    first = json.loads((predecessor/'guest-evidence/execution/configuration.stdout').read_text().splitlines()[0])
-    checkpoint(destination, 'configuration-plan.json', first['Plan'])
+    first = (predecessor/'guest-evidence/execution/configuration.stdout').read_bytes().splitlines()[0]
+    checkpoint_exact_json_member(destination, 'configuration-plan.json', first, 'Plan')
     retained = json.loads((predecessor/'configured-retention.json').read_bytes())
     checkpoint(destination, 'binding.json', {'ConfigurationSha256': retained['ConfigurationResult']['Sha256'],
         'CloseSha256': retained['CloseResult']['Sha256']})

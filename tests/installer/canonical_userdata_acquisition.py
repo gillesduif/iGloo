@@ -33,16 +33,40 @@ HOST_CLOSURE = frozenset(('canonical_userdata_acquisition.py',
 # execution source. The host source file is itself in the protected receiver
 # closure, while its manifest expectation comes from completion-launch.json.
 STAGE_ENTRY_BOOTSTRAP = '''\
-import hashlib, importlib.abc, importlib.util, json, os, pathlib, re, stat, sys
+import base64, hashlib, importlib.abc, importlib.util, json, os, pathlib, re, stat, subprocess, sys
 script = pathlib.Path(sys.argv[1])
-stage, challenge, expected = sys.argv[2:]
+stage, challenge, expected, *operation = sys.argv[2:]
+preparing = len(operation) == 3 and operation[0] == 'prepare'
 if (not sys.flags.isolated or not sys.dont_write_bytecode or
     stage not in ('configuration', 'initramfs') or
     script.name != 'canonical_'+stage+'_guest.py' or
     script.parent.name != 'lab' or not script.is_absolute() or
     re.fullmatch('[0-9A-F]{64}', expected) is None or
-    re.fullmatch('[0-9A-F]{64}', challenge) is None):
+    re.fullmatch('[0-9A-F]{64}', challenge) is None or
+    (operation and not preparing) or
+    (preparing and (re.fullmatch('[0-9a-f]{32}', operation[1]) is None or
+                    len(operation[2]) > 3072))):
     raise ValueError('StageGuestBootstrapArgumentsChanged')
+if preparing:
+    mountpoint = pathlib.Path('/opt/igloo-lab')
+    if not mountpoint.exists():
+        mountpoint.mkdir(mode=0o700)
+    info = mountpoint.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or
+        info.st_mode & 0o022 or list(mountpoint.iterdir())):
+        raise ValueError('StageGuestBootstrapMountpointChanged')
+    subprocess.run(['mount', '-t', 'iso9660', '-o', 'ro,nodev,nosuid,noexec',
+                    '/dev/sr0', str(mountpoint)], check=True, timeout=30,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    mounts = [line.split(' - ') for line in pathlib.Path('/proc/self/mountinfo').read_text().splitlines()]
+    owned = [(left.split(), right.split()) for left, right in mounts
+             if left.split()[4] == str(mountpoint)]
+    if (len(owned) != 1 or owned[0][0][3:5] != ['/', str(mountpoint)] or
+        owned[0][1][:2] != ['iso9660', '/dev/sr0'] or
+        not {'ro', 'nodev', 'nosuid', 'noexec'}.issubset(
+            set(owned[0][0][5].split(','))) or
+        any(left.split()[4].startswith(str(mountpoint)+'/') for left, _ in mounts)):
+        raise ValueError('StageGuestBootstrapToolsMountChanged')
 flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 directory = os.open('/', flags)
 try:
@@ -121,7 +145,23 @@ class FrozenStage(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         module.__file__ = str(script.parent/name)
         exec(compile(files[name], module.__file__, 'exec'), module.__dict__)
 sys.meta_path.insert(0, FrozenStage())
-sys.argv = [str(script), '--execute-and-capture', challenge, expected]
+if preparing:
+    encoded = operation[2]
+    data = base64.b64decode(encoded, validate=True)
+    if (not 0 < len(data) <= 2304 or
+        base64.b64encode(data).decode('ascii') != encoded or
+        json.loads(data, object_pairs_hook=unique).get('RunId', '').replace('-', '') != operation[1]):
+        raise ValueError('StageGuestBootstrapHostBindingChanged')
+    host_path = pathlib.Path('/root/igloo-stage-host-binding-'+operation[1]+'.json')
+    output = os.open(host_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(output, 'wb') as stream:
+        stream.write(data); stream.flush(); os.fsync(stream.fileno())
+    directory = os.open('/root', flags)
+    try: os.fsync(directory)
+    finally: os.close(directory)
+    sys.argv = [str(script), '--prepare', challenge, expected, str(host_path)]
+else:
+    sys.argv = [str(script), '--execute-and-capture', challenge, expected]
 exec(compile(files[script.name], str(script), 'exec'),
      {'__name__': '__main__', '__file__': str(script), '__package__': None})
 '''
@@ -143,6 +183,25 @@ def stage_entry_command(stage, challenge, expected):
                '; echo IGLOO_CAPTURE_EXIT:$?\n')
     require(all(len(line.encode('ascii')) <= 4000 for line in command.splitlines()),
             'CaptureGuestCommandLineBound')
+    return command
+
+
+def stage_preparation_command(stage, challenge, expected, run_id, host_binding):
+    """Fixed, single-use guest preparation through the same frozen import closure."""
+    require(stage in ('configuration', 'initramfs') and
+            type(challenge) is str and HEX.fullmatch(challenge) and
+            type(expected) is str and HEX.fullmatch(expected) and
+            type(run_id) is str and re.fullmatch(r'[0-9a-f]{32}', run_id) and
+            type(host_binding) is bytes and 0 < len(host_binding) <= 2304,
+            'StagePreparationInputChanged')
+    encoded = base64.b64encode(host_binding).decode('ascii')
+    require(len(encoded) <= 3072, 'StagePreparationInputOversized')
+    entry = '/opt/igloo-lab/lab/canonical_'+stage+'_guest.py'
+    command = ('python3 -I -B -c '+shlex.quote(STAGE_ENTRY_BOOTSTRAP)+' '+
+               entry+' '+stage+' '+challenge+' '+expected+' prepare '+
+               run_id+' '+encoded+'; echo IGLOO_PREPARE_EXIT:$?\n')
+    require(all(len(line.encode('ascii')) <= 4000 for line in command.splitlines()),
+            'StagePreparationCommandLineBound')
     return command
 
 if __name__ == '__main__':

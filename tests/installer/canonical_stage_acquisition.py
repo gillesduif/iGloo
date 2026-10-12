@@ -16,6 +16,7 @@ import stat
 import struct
 import subprocess
 import sys
+import time
 
 HOST_CLOSURE = frozenset((
     'canonical_stage_acquisition.py', 'canonical_stage_completion.py',
@@ -87,7 +88,8 @@ from canonical_stage_completion import (STAGES, digest, protected, verify as ver
 from canonical_storage_lab import sha
 from canonical_stage_files import read_file as exact_file, snapshot_tree
 from canonical_userdata_acquisition import (process_start_time,
-                                            read_controlled_channel, unique)
+                                            read_controlled_channel,
+                                            stage_preparation_command, unique)
 
 
 RUN_PARENT = {
@@ -465,6 +467,86 @@ def receive_live(stage, run, authorization, pending, *, deadline_seconds=5*3600+
             'StageCaptureBackingChangedDuringTransfer')
     return accept_packet(stage, packet, challenge, run, authorization,
                          pending, launch, process, found)
+
+
+def _preparation_status(channel, challenge, binding_sha, *, deadline_seconds=300,
+                        clock=time.monotonic):
+    """Bound the one-use preparation acknowledgement, including echoed shell text."""
+    require(type(deadline_seconds) in (int, float) and
+            0 < deadline_seconds <= 600, 'StagePreparationDeadlineChanged')
+    expected = b'IGLOO_STAGE_PREPARED '+challenge.encode()+b' '+binding_sha.encode()
+    started = clock(); buffer = bytearray(); received = 0; prepared = False
+    while True:
+        remaining = started+deadline_seconds-clock()
+        require(remaining > 0, 'StagePreparationTimeout')
+        channel.settimeout(min(2, remaining))
+        try:
+            chunk = channel.recv(4096)
+        except socket.timeout:
+            continue
+        require(chunk, 'StagePreparationChannelClosed')
+        received += len(chunk)
+        require(received <= 256 * 1024, 'StagePreparationOutputUnbounded')
+        buffer.extend(chunk)
+        require(len(buffer) <= 8192, 'StagePreparationLineUnbounded')
+        while b'\n' in buffer:
+            line, _, tail = buffer.partition(b'\n')
+            buffer = bytearray(tail)
+            line = line.removesuffix(b'\r')
+            if line == expected:
+                require(not prepared, 'StagePreparationDuplicateAcknowledgement')
+                prepared = True
+            elif line.startswith(b'IGLOO_STAGE_PREPARED '):
+                raise ValueError('StagePreparationAcknowledgementChanged')
+            elif line == b'IGLOO_PREPARE_EXIT:0':
+                require(prepared, 'StagePreparationAcknowledgementMissing')
+                return {'Acknowledged': True, 'ReceivedBytes': received}
+            elif line.startswith(b'IGLOO_PREPARE_EXIT:'):
+                raise ValueError('StagePreparationCommandFailed')
+
+
+def prepare_live(stage, run, authorization, host_binding, *, deadline_seconds=300):
+    """Send only the verified stage preparation, never a caller shell command."""
+    run, authorization, host_binding = map(Path, (run, authorization, host_binding))
+    launch, process, found = inspect_controlled_process(stage, run, authorization)
+    require(host_binding == authorization.parent/'completion-host-binding.json',
+            'StagePreparationHostBindingPathChanged')
+    binding_raw = exact_file(host_binding, limit=2304)
+    binding = json.loads(binding_raw, object_pairs_hook=unique)
+    require(binding['RunId'] == launch['RunId'] and
+            all(any(item['Serial'] == serial and
+                    (item['HostDevice'], item['HostInode'], item['Length']) ==
+                    (found[str(run/name)]['Device'], found[str(run/name)]['Inode'],
+                     found[str(run/name)]['Length']) and
+                    item['LaunchSha256'] == launch['LaunchSha256']
+                    for item in binding['ReopenedBackings'])
+                for name, serial in (('runtime.raw', 'IGLOO-GPT-RUNTIME'),
+                    ('target.raw', 'IGLOO-LAB-TARGET'),
+                    ('journal.raw', 'IGLOO-LAB-JOURNAL'))),
+            'StagePreparationHostBindingChanged')
+    challenge = os.urandom(32).hex().upper()
+    command = stage_preparation_command(stage, challenge,
+        launch['GuestImportClosureSha256'], run.name, binding_raw)
+    console = run/'console.sock'
+    require(stat.S_ISSOCK(console.lstat().st_mode) and not console.is_symlink(),
+            'StagePreparationConsoleChanged')
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as channel:
+        channel.settimeout(5); channel.connect(str(console))
+        peer_pid, peer_uid, _ = struct.unpack('3i', channel.getsockopt(
+            socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+        uid = pwd.getpwnam('gillesduif').pw_uid
+        require(uid != 0 and peer_pid == process['Pid'] and
+                os.stat(f'/proc/{peer_pid}').st_uid == uid and
+                peer_uid in (0, uid) and
+                process_start_time(peer_pid) == process['StartTime'],
+                'StagePreparationPeerChanged')
+        channel.sendall(command.encode('ascii'))
+        status = _preparation_status(channel, challenge, digest(binding_raw),
+                                     deadline_seconds=deadline_seconds)
+    require(inspect_controlled_process(stage, run, authorization)[2] == found and
+            exact_file(host_binding, limit=2304) == binding_raw,
+            'StagePreparationLaunchOrBindingChanged')
+    return status
 
 
 def finish_writer(stage, run, authorization, pending, *, wait_seconds=60):

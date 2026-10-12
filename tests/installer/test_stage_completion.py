@@ -117,7 +117,7 @@ def chain(root, stage, plan, preflight):
     return refs
 
 
-def fixture(base, stage):
+def fixture(base, stage, *, payload_builder=None):
     spec = completion.STAGES[stage]
     handoff = base/'store'/stage/(SOURCE.replace('-', '')+'-published')
     pending = base/'store'/stage/SOURCE.replace('-', '')
@@ -134,12 +134,22 @@ def fixture(base, stage):
                  'PlanSha256': PLAN, 'SessionId': SESSION}
     if stage == 'configuration':
         preflight['Predecessor'] = {'ResultSha256': '4'*64}
-    refs = chain(raw, stage, plan, preflight)
-    source_auth = {'Version': 1, 'Scope': spec['source_scope'],
-                   'AttemptId': SOURCE, 'OperationId': OPERATION,
-                   'GenerationId': GENERATION}
-    put(raw, 'input/source-authorization.json', source_auth)
-    put(source_store, 'authorization.json', source_auth)
+    if payload_builder is None:
+        refs = chain(raw, stage, plan, preflight)
+        source_auth = {'Version': 1, 'Scope': spec['source_scope'],
+                       'AttemptId': SOURCE, 'OperationId': OPERATION,
+                       'GenerationId': GENERATION}
+        source_auth_raw = encoded(source_auth)
+        preflight_raw = encoded(preflight)
+    else:
+        built = payload_builder(raw, stage)
+        refs = built['References']
+        source_auth = built['SourceAuthorization']
+        source_auth_raw = built['SourceAuthorizationRaw']
+        preflight = built['Preflight']
+        preflight_raw = built['PreflightRaw']
+    put(raw, 'input/source-authorization.json', source_auth_raw)
+    put(source_store, 'authorization.json', source_auth_raw)
     manifest = {'Version': 1, 'Scope': 'ProtectedStageAcquisitionToolsV1',
                 'Stage': stage, 'Files': {'fixture-tool.py': 'A'*64}}
     put(source_store, 'completion-tools.json', manifest)
@@ -150,7 +160,7 @@ def fixture(base, stage):
     put(source_store, 'guest-import-closure.json', guest_import)
     launch = {'Scope': 'ControlledStageLaunchV1', 'Stage': stage, 'RunId': SOURCE,
               'LaunchSha256': '9'*64,
-              'AuthorizationSha256': digest(encoded(source_auth)),
+              'AuthorizationSha256': digest(source_auth_raw),
               'GuestImportClosureSha256': digest(encoded(guest_import)),
               'ReceiverManifestSha256': digest(encoded(manifest))}
     put(source_store, 'completion-launch.json', launch)
@@ -158,8 +168,9 @@ def fixture(base, stage):
                'Pid': 123, 'StartTime': 456,
                'LaunchWitnessSha256': digest(encoded(launch))}
     put(source_store, 'completion-process.json', process)
-    put(raw, spec['predecessor']+'proof.json', {'Fixture': True})
-    stdout = encoded(preflight)+b'\n'+encoded({stage.title(): 'AppliedAndVerified'})+b'\n'
+    if payload_builder is None:
+        put(raw, spec['predecessor']+'proof.json', {'Fixture': True})
+    stdout = preflight_raw+b'\n'+encoded({stage.title(): 'AppliedAndVerified'})+b'\n'
     put(raw, f'guest-evidence/execution/{stage}.stdout', stdout)
     put(raw, f'guest-evidence/execution/{stage}-exit.json',
         {'ExitCode': 0, 'StdoutSha256': digest(stdout)})
@@ -180,7 +191,9 @@ def fixture(base, stage):
                  'continuation-inventory.json' if stage == 'configuration' else 'candidate-plan.json',
                  'preserved-before.json', 'preserved-after.json',
                  'provisioning-journal-unmount.json'):
-        put(raw, 'guest-evidence/execution/'+name, {'Fixture': True})
+        target = raw/'guest-evidence/execution'/name
+        if not target.exists():
+            put(raw, 'guest-evidence/execution/'+name, {'Fixture': True})
     observed = spec['readback'](raw/'guest-evidence/execution',
                                 raw/'guest-evidence/journals')
     put(raw, 'guest-evidence/execution/independent-handoff.json', observed)
@@ -208,7 +221,7 @@ def fixture(base, stage):
                'PacketSha256': digest(encoded(packet)),
                'LaunchWitnessSha256': digest(encoded(launch)),
                'ProcessWitnessSha256': digest(encoded(process)),
-               'SourceAuthorizationSha256': digest(encoded(source_auth)),
+               'SourceAuthorizationSha256': digest(source_auth_raw),
                'Files': captured, 'Status': 'PendingBackingReadback'}
     put(handoff, 'capture.json', capture)
     put(source_store, 'completion-writer-disposition.json', {
@@ -271,7 +284,7 @@ def fixture(base, stage):
         'AnchorSha256': digest(encoded(anchor)),
         'SealSha256': digest(encoded(seal)),
         'CaptureSha256': digest(encoded(capture)),
-        'SourceAuthorizationSha256': digest(encoded(source_auth)),
+        'SourceAuthorizationSha256': digest(source_auth_raw),
         'LaunchWitnessSha256': digest(encoded(launch)),
         'ProcessWitnessSha256': digest(encoded(process)),
         'WriterDispositionSha256': digest((source_store/
@@ -303,13 +316,15 @@ def fixture(base, stage):
 
 
 @contextlib.contextmanager
-def fixture_roots(base):
-    with patch.object(completion, 'COMPLETION_ROOT', base/'store'), \
-         patch.object(completion, 'NEXT_AUTH_ROOTS', {stage: base/'next-auth'/stage
-                                                     for stage in completion.STAGES}), \
-         patch.object(completion, 'SOURCE_AUTH_ROOTS', {stage: base/'source-auth'/stage
-                                                       for stage in completion.STAGES}), \
-         patch.object(stage_files, '_protected'):
+def fixture_roots(base, *, actual_protection=False):
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(patch.object(completion, 'COMPLETION_ROOT', base/'store'))
+        stack.enter_context(patch.object(completion, 'NEXT_AUTH_ROOTS',
+            {stage: base/'next-auth'/stage for stage in completion.STAGES}))
+        stack.enter_context(patch.object(completion, 'SOURCE_AUTH_ROOTS',
+            {stage: base/'source-auth'/stage for stage in completion.STAGES}))
+        if not actual_protection:
+            stack.enter_context(patch.object(stage_files, '_protected'))
         yield
 
 

@@ -153,6 +153,73 @@ def _require_committed_seal(directory):
             'StageCompletionSealUncommitted')
 
 
+def _require_caller_reader(source_store, stage, anchor, anchor_raw,
+                           success_raw, *, publishing=False):
+    """Close the stage caller's direct-publisher bypass when it owns this run.
+
+    Earlier records without a caller source marker retain their v1 meaning.
+    A new caller-owned run cannot publish or reopen a successor without its
+    independently reopened Linux reader result.
+    """
+    source_store = Path(source_store)
+    source_path = source_store/'completion-caller-source.json'
+    if not os.path.lexists(source_path):
+        return
+    protected(source_path)
+    frozen, frozen_raw = _read(source_path)
+    reader_path = source_store/'completion-reader-result.json'
+    require(os.path.lexists(reader_path), 'StageCompletionCallerReaderMissing')
+    protected(reader_path)
+    reader, _ = _read(reader_path)
+    require(set(frozen) == {'Version', 'Scope', 'Stage', 'RequestSha256',
+                'Files', 'ReaderRuntimeSha256'} and
+            frozen['Version'] == 1 and
+            frozen['Scope'] == 'FrozenLabStageCallerSourceV1' and
+            frozen['Stage'] == stage and
+            type(frozen['RequestSha256']) is str and
+            HEX.fullmatch(frozen['RequestSha256']) and
+            type(frozen['ReaderRuntimeSha256']) is str and
+            HEX.fullmatch(frozen['ReaderRuntimeSha256']) and
+            type(frozen['Files']) is dict and
+            all(type(path) is str and type(value) is str and HEX.fullmatch(value)
+                for path, value in frozen['Files'].items()),
+            'StageCompletionCallerSourceChanged')
+    harness = [value for path, value in frozen['Files'].items()
+               if path.endswith('/CanonicalImportQualification.dll')]
+    require(len(harness) == 1 and
+            set(reader) == {'Version', 'Scope', 'Stage', 'AnchorSha256',
+                'ControllerSuccessSha256', 'SourceManifestSha256',
+                'RuntimeSha256', 'HarnessSha256', 'ReaderInput',
+                'ReaderResult', 'EffectAuthorization'} and
+            reader['Version'] == 1 and
+            reader['Scope'] == 'LabStageReadOnlyLinuxReaderV1' and
+            reader['Stage'] == stage and
+            reader['AnchorSha256'] == digest(anchor_raw) and
+            reader['ControllerSuccessSha256'] == digest(success_raw) and
+            reader['SourceManifestSha256'] == digest(frozen_raw) and
+            reader['RuntimeSha256'] == frozen['ReaderRuntimeSha256'] and
+            reader['HarnessSha256'] == harness[0] and
+            reader['ReaderInput'] == str(source_store/'completion-reader-input') and
+            reader['EffectAuthorization'] is False and
+            type(reader['ReaderResult']) is dict and
+            set(reader['ReaderResult']) == {'Scope', 'ResultSha256',
+                'CloseSha256', 'PlanSha256', 'EffectAuthorization'} and
+            reader['ReaderResult']['Scope'] == (
+                'ReadOnlyConfiguredPredecessor' if stage == 'configuration'
+                else 'ReadOnlyInitramfsPredecessor') and
+            reader['ReaderResult']['ResultSha256'] == anchor['ResultSha256'] and
+            reader['ReaderResult']['CloseSha256'] == anchor['CloseSha256'] and
+            reader['ReaderResult']['PlanSha256'] == anchor['PlanSha256'] and
+            reader['ReaderResult']['EffectAuthorization'] is False,
+            'StageCompletionCallerReaderChanged')
+    failure_path = source_store/'completion-caller-failure.json'
+    if os.path.lexists(failure_path):
+        protected(failure_path)
+        failure, _ = _read(failure_path)
+        require(not publishing and failure.get('Boundary') == 'Publication',
+                'StageCompletionCallerFailurePresent')
+
+
 def _validate_seal(seal, anchor, anchor_raw, capture_raw,
                    disposition_raw, stage):
     require(set(seal) == {'Version', 'Scope', 'Stage', 'RunId', 'GenerationId',
@@ -417,6 +484,7 @@ def verify(handoff, next_authorization, stage):
     _validate_controller_success(success, stage, anchor, anchor_raw,
                                  seal_raw, capture_raw, source_auth_raw,
                                  launch_raw, process_raw, disposition_raw)
+    _require_caller_reader(source_store, stage, anchor, anchor_raw, success_raw)
     require(result['ControllerSuccessSha256'] == digest(success_raw),
             'StageCompletionControllerSuccessChanged')
     pending = COMPLETION_ROOT/stage/anchor['SourceRunId'].replace('-', '')
@@ -601,6 +669,8 @@ def publish(pending, next_authorization, destination, stage):
     _validate_controller_success(success, stage, anchor, anchor_raw,
                                  seal_raw, capture_raw, source_raw,
                                  launch_raw, process_raw, disposition_raw)
+    _require_caller_reader(source_store, stage, anchor, anchor_raw,
+                           success_raw, publishing=True)
     require(digest(launch_raw) == capture['LaunchWitnessSha256'] and
             source_record == source_auth and source_record_raw == source_raw and
             digest(process_raw) == capture['ProcessWitnessSha256'] and
