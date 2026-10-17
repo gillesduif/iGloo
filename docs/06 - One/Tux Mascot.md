@@ -1,0 +1,40 @@
+---
+title: Tux Mascot
+type: component
+product: one
+status: in-progress
+doc_status: current
+validation_status: partial
+availability: branch-only
+graph_cluster: one
+last_reviewed: 2026-10-17
+sources: [src/Igloo.Mascot.Core/WingSkin.cs, src/Igloo.Mascot.Core/MascotMotion.cs, src/Igloo.Mascot.Wpf/TuxAvatar.cs, src/Igloo.Mascot.Wpf/TaskCardRing.cs, src/Igloo.Mascot.Wpf/Converters/TaskStateIconConverter.cs, scripts/generate_mascot_xaml.py, tests/Igloo.Mascot.Core.Tests/WingSkinTests.cs]
+aliases: []
+tags: [igloo, one, mascot]
+---
+
+# Tux Mascot
+
+**CODE OBSERVATION:** `Igloo.Mascot.Core` is a .NET 8 library with no WPF dependency. `Igloo.Mascot.Wpf` is a .NET 8 WPF library referenced by the existing .NET 10 `Igloo.One.App` shell. The demo is opened with **Mascot demo** in One's command bar. It is a visual development surface, not an installer or AI workflow. See [[06 - One/iGloo One Overview|One Overview]] for the product boundary.
+
+## Source and art conversion
+
+The flat vector artwork is [Tux.svg](../assets/Tux.svg), viewBox `0 0 216 256`. The attached browser prototype supplied animation behavior and math only; the app hosts no HTML, JavaScript, SVG, WebView2, or web asset at runtime. `scripts/generate_mascot_samples.py` exports arc-length path samples to an embedded JSON resource; it uses `svgpathtools==1.7.1` when regenerating. `scripts/generate_mascot_xaml.py` generates the checked-in `Themes/Generic.xaml` and asserts the required ids survive as `x:Name`. An independent XAML parse found 76 named elements, all 25 required artwork ids, 30 clipped elements and 30 used `BlurEffect` nodes from the SVG's 31 Gaussian blur definitions. It resolves the SVG's `<use>` paths and clip paths to WPF paths and geometries, and wraps `head_glare` and both eyelids so their clips stay fixed while their paths move. The original wing paths and tip glare are hidden and replaced by live `StreamGeometry` silhouettes and clipped glare ribbons. Build and runtime rendering have been checked. A short local benchmark found the converted blur effects costly, so the avatar removes them when its template loads and uses a clipped geometric halo behind each glare ribbon. This keeps the SVG conversion auditable but reduces filter parity with the original artwork.
+
+## Motion and task cards
+
+The wing profile uses 64 stations from the original outline, a measured centre line and normal-width correction. Each frame applies nested shoulder, elbow and wrist rotations, then builds a single nonzero-fill outline and a clipped glare ribbon. Positive user-facing angles raise both wings; the right wing negates them internally. The hand tip comes from the same terminal matrix. The animation core implements idle, action envelopes, talking fallback or `ILipSyncSource`, gaze priority, blink and exponential smoothing. A visible avatar owns one `CompositionTarget.Rendering` handler; it detaches when unloaded, hidden or minimized, and clamps `dt` to 0.05 s.
+
+`TaskCardRing` accepts an `ObservableCollection<TaskCardViewModel>`. Todo, Busy, Done and Failed use distinct icons and colours; `TaskStateIconConverter` binds the icon to the observable state. The first Busy card is held; progress advances only after the hold weight exceeds 0.9 and pauses during `WaitingForUser`. Cards use the measured hand coordinate transformed into ring space. The ring clamps the held card inside narrow hosts. Its template places the back orbit behind Tux and the front orbit and held card above Tux. `Themes/CardDark.xaml` and `Themes/CardLight.xaml` carry the card colour tokens; Windows high contrast uses system brushes. Tux art remains unchanged. Reduced-motion mode decreases idle amplitude and orbit speed.
+
+## Verification on 17 October 2026
+
+- `dotnet test tests/Igloo.Mascot.Core.Tests/Igloo.Mascot.Core.Tests.csproj`: **25 passed, 0 failed**. The sampled pivots and tips were left `(65.3916, 103.4318)` / `(74.7214, 215.6258)` and right `(161.9642, 127.9239)` / `(172.6557, 197.1503)`, inside the supplied Chromium tolerance. The golden suite also covers profile stations, matrix order, root immobility and constant normal width, action wing direction, lip sync, blink intervals, gaze blending and manual angle clamping.
+- `dotnet build Igloo.One.App/Igloo.One.App.csproj`: **0 warnings, 0 errors** at this review point.
+- The dev window rendered 23 PNGs with `RenderTargetBitmap`: transparent ring views and dark-stage views for rest, shoulder 100, 45/25/15, 60/50/30, hold, fold, blink, mouth and head tilt ±6, plus waiting for user, light cards and narrow hold. They are under `test-logs/mascot-visual-2026-10-17/`. The host capture used approximately 156% display scaling, and the narrow hold capture used the window's 760-WPF-unit minimum width. The hold snapshot logged the hand at `(123.8, 238.2)` and card centre at `(71, 246.2)` in ring coordinates; the tip lies inside the held card's 142-by-62 local bounds. The local browser surface blocked `file:` navigation to the prototype, so no actual side-by-side Chromium image comparison was completed. The supplied Chromium golden numbers were used for math comparison.
+- The automated demo completed all four cards, including the 3.2-second waiting interruption: `test-logs/mascot-flow-visible/flow.txt` reports `completed=4/4` and 1,665 rendered frames. A separate minimize/restore check recorded `visible=14, minimized=14, restored=36` in `test-logs/mascot-lifecycle-final/lifecycle.txt`, confirming that the rendering callback pauses while minimized and resumes on restore.
+- A WPF tier-2 A/B probe with the converted SVG blur effects enabled recorded 127 rendering callbacks in 30 seconds; the geometric halo path recorded 1,576 in the first 30-second interval. A .NET sampled-thread trace and runtime counters were collected during the baseline in `test-logs/mascot-benchmark-final/`, so its process measurements include diagnostic overhead. A clean 10-minute run without diagnostics is in `test-logs/mascot-benchmark-clean-final/performance.csv`. The exact final revision, measured without diagnostics in `test-logs/mascot-benchmark-release-final/performance.csv`, recorded 37,996 rendering callbacks over 600 seconds (63.3 callbacks/s overall). Private bytes were 188,223,488 at 30 seconds and 190,054,400 at 600 seconds, varying between 186,658,816 and 193,560,576 during the run; this showed no monotonic growth in the sampled values. CPU time was 232.48 seconds over 600 seconds, about 0.39 of one logical core on average. These are callback and process measurements, not a proof that every frame reached the display. The host reports both AMD Radeon integrated graphics and an NVIDIA RTX 5070; WPF's tier-2 result does not identify which adapter composed this remote-desktop window, so this is not an integrated-graphics certification.
+
+## Limits and follow-up evidence
+
+The head silhouette belongs to `body_base`; normal animation keeps tilt near 6° and horizontal shift near 4 SVG units, while demo sliders allow ±15° and ±8. The mid-arm remains narrow because the source artwork is narrow there. The glare is a ribbon measured from the original glare, not a hand-drawn highlight. Splitting the head from `body_base` is an optional later art change, outside this port. The geometric glare halo sacrifices exact SVG filter parity for lower render cost. In the full `EyesClosed=1` capture, small upper white crescents remain visible with the specified 26-unit eyelid travel; no art change was made. Sustained 60 fps specifically on integrated graphics remains unproven, as does pixel-level comparison with the HTML. The high-contrast code path uses Windows system brushes, but an actual high-contrast desktop capture was not taken.
