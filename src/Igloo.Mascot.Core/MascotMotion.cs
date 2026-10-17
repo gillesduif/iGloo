@@ -4,7 +4,7 @@ namespace Igloo.Mascot.Core;
 
 public enum MascotAction { None, Wave, Point, Think, Celebrate }
 public enum TaskCardState { Todo, Busy, Done, Failed }
-public enum GazePriority { Drift, Cursor, HeldCard, WaitingForUser }
+public enum GazePriority { Drift, Cursor, Scanning, HeldCard, WaitingForUser }
 
 public interface ILipSyncSource
 {
@@ -26,7 +26,8 @@ public static class MotionMath
     public static double Blink(double age) => age < 0 || age >= .2 ? 0 : 1 - Math.Abs(2 * age / .2 - 1);
 }
 
-public readonly record struct GazeInput(Vec2? Cursor, Vec2? HeldCard, Vec2? WaitingTarget);
+public readonly record struct GazeInput(Vec2? Cursor, Vec2? HeldCard, Vec2? WaitingTarget,
+    Vec2? ScanTarget = null);
 public readonly record struct GazeResult(Vec2 Target, GazePriority Priority);
 
 public static class GazeSolver
@@ -35,6 +36,7 @@ public static class GazeSolver
     {
         if (input.WaitingTarget is Vec2 wait) return new(Clamp(wait), GazePriority.WaitingForUser);
         if (input.HeldCard is Vec2 card) return new(Clamp(card), GazePriority.HeldCard);
+        if (input.ScanTarget is Vec2 scan) return new(Clamp(scan), GazePriority.Scanning);
         if (input.Cursor is Vec2 cursor) return new(Clamp(cursor), GazePriority.Cursor);
         return new(drift, GazePriority.Drift);
     }
@@ -98,7 +100,7 @@ public sealed class MascotMotion
     public void WordBoundary() => _pulse = 1;
 
     public MascotFrame Step(double time, double delta, ManualPose manual, GazeInput gaze,
-        bool holding, bool waiting, bool reducedMotion)
+        bool holding, bool waiting, bool reducedMotion, bool scanning = false)
     {
         double dt = Math.Clamp(delta, 0, .05);
         double c = reducedMotion ? .3 : 1;
@@ -112,11 +114,13 @@ public sealed class MascotMotion
             _eyeDrift = new((_random.NextDouble() - .5) * 2.4, (_random.NextDouble() - .5) * 1.6);
             _nextEye = time + 1.5 + _random.NextDouble() * 3;
         }
-        GazeResult look = GazeSolver.Resolve(gaze, _eyeDrift);
-        GazeResult unoccupied = GazeSolver.Resolve(new(gaze.Cursor, null, null), _eyeDrift);
+        Vec2? scanTarget = scanning ? new Vec2(Sn(.95) * .85, Sn(.7, 1) * .38) : null;
+        GazeResult look = GazeSolver.Resolve(gaze with { ScanTarget = scanTarget }, _eyeDrift);
+        GazeResult unoccupied = GazeSolver.Resolve(new(gaze.Cursor, null, null, scanTarget), _eyeDrift);
         double ex = unoccupied.Priority == GazePriority.Drift ? unoccupied.Target.X : unoccupied.Target.X * 2.6;
         double ey = unoccupied.Priority == GazePriority.Drift ? unoccupied.Target.Y : unoccupied.Target.Y * 1.8;
         if (look.Priority == GazePriority.Cursor) { hx += look.Target.X * 1.6; hr += look.Target.X * 2.2; }
+        if (look.Priority == GazePriority.Scanning) { hx += look.Target.X * 3; hr += look.Target.X * 4; }
 
         _hold = MotionMath.Smooth(_hold, holding ? 1 : 0, dt, 5);
         _wait = MotionMath.Smooth(_wait, waiting ? 1 : 0, dt, 6);

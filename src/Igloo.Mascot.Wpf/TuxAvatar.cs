@@ -75,6 +75,8 @@ public sealed class TuxAvatar : Control
         typeof(bool), typeof(TuxAvatar), new PropertyMetadata(false));
     public static readonly DependencyProperty WaitingForUserProperty = DependencyProperty.Register(nameof(WaitingForUser),
         typeof(bool), typeof(TuxAvatar), new PropertyMetadata(false));
+    public static readonly DependencyProperty IsScanningProperty = DependencyProperty.Register(nameof(IsScanning),
+        typeof(bool), typeof(TuxAvatar), new PropertyMetadata(false));
 
     public double LeftShoulder { get => (double)GetValue(LeftShoulderProperty); set => SetValue(LeftShoulderProperty, value); }
     public double LeftArm { get => (double)GetValue(LeftArmProperty); set => SetValue(LeftArmProperty, value); }
@@ -93,6 +95,7 @@ public sealed class TuxAvatar : Control
     public bool ShowPivots { get => (bool)GetValue(ShowPivotsProperty); set => SetValue(ShowPivotsProperty, value); }
     public bool IsHoldingCard { get => (bool)GetValue(IsHoldingCardProperty); set => SetValue(IsHoldingCardProperty, value); }
     public bool WaitingForUser { get => (bool)GetValue(WaitingForUserProperty); set => SetValue(WaitingForUserProperty, value); }
+    public bool IsScanning { get => (bool)GetValue(IsScanningProperty); set => SetValue(IsScanningProperty, value); }
     public MascotFrame CurrentFrame => _frame;
     public long RenderedFrames { get; private set; }
     public ILipSyncSource? LipSyncSource { get => _motion.LipSyncSource; set => _motion.LipSyncSource = value; }
@@ -209,7 +212,7 @@ public sealed class TuxAvatar : Control
         Vec2? card = _heldCardCentreScreen is Point held && IsHoldingCard ? Normalized(held) : null;
         Vec2? wait = _waitingTargetScreen is Point waiting && WaitingForUser ? Normalized(waiting) : null;
         _frame = _motion.Step(now, dt, manual, new(cursor, card, wait), IsHoldingCard,
-            WaitingForUser, !SystemParameters.ClientAreaAnimation);
+            WaitingForUser, !SystemParameters.ClientAreaAnimation, IsScanning);
         Paint(_frame);
         RenderedFrames++;
         FrameRendered?.Invoke(this, EventArgs.Empty);

@@ -133,6 +133,27 @@ public sealed class WingSkinTests
             GazeSolver.Resolve(new(new(1, 1), new(0, 0), null), default).Priority);
         Assert.Equal(GazePriority.Cursor,
             GazeSolver.Resolve(new(new(1, 1), null, null), default).Priority);
+        Assert.Equal(GazePriority.Scanning,
+            GazeSolver.Resolve(new(new(1, 1), null, null, new(-1, 0)), default).Priority);
+        Assert.Equal(GazePriority.HeldCard,
+            GazeSolver.Resolve(new(null, new(0, 0), null, new(-1, 0)), default).Priority);
+        Assert.Equal(GazePriority.WaitingForUser,
+            GazeSolver.Resolve(new(null, null, new(0, 1), new(-1, 0)), default).Priority);
+    }
+
+    [Fact]
+    public void SystemScanLooksAroundInsteadOfFollowingTheCursor()
+    {
+        var motion = new MascotMotion();
+        MascotFrame scanning = motion.Step(1, .05, default,
+            new(new(-1, 0), null, null), false, false, false, scanning: true);
+        Assert.Equal(GazePriority.Scanning, scanning.Gaze);
+        Assert.True(scanning.EyeX > 0);
+        Assert.True(scanning.HeadTilt > 0);
+
+        MascotFrame finished = motion.Step(4, .05, default,
+            new(new(-1, 0), null, null), false, false, false);
+        Assert.Equal(GazePriority.Cursor, finished.Gaze);
     }
 
     [Fact]
