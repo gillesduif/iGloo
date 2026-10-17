@@ -76,11 +76,27 @@
                     </Grid.RowDefinitions>
                     <Border BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="0,0,0,1"
                             Padding="18,14">
-                        <StackPanel>
-                            <TextBlock Text="Chat with Tux" FontSize="20" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding Status}" FontSize="12" Margin="0,4,0,0"
-                                       Foreground="{StaticResource Brush.Text.Tertiary}" />
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Chat with Tux" FontSize="20" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Status}" FontSize="12" Margin="0,4,0,0"
+                                           Foreground="{StaticResource Brush.Text.Tertiary}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Margin="8,0,0,0">
+                                <Button x:Name="VoiceToggleButton" Content="Sound on"
+                                        Style="{StaticResource Button.One.Secondary}"
+                                        Click="OnVoiceToggleClick" AutomationProperties.Name="Mute Tux voice" />
+                                <TextBlock x:Name="TalkingStatus" Text="Tux is speaking…" FontSize="10"
+                                           Margin="0,5,0,0" TextAlignment="Right"
+                                           Foreground="{StaticResource Brush.Accent.Bright}"
+                                           Visibility="Collapsed" />
+                            </StackPanel>
+                        </Grid>
                     </Border>
 
                     <ScrollViewer x:Name="TranscriptScroll" Grid.Row="1"
@@ -124,26 +140,46 @@
                         <StackPanel>
                             <TextBlock Text="Ask about the check or request another one" FontSize="11"
                                        Foreground="{StaticResource Brush.Text.Tertiary}" Margin="0,0,0,6" />
-                            <TextBox x:Name="MessageBox" MinHeight="58" MaxHeight="100" MaxLength="1000"
-                                     Padding="10,8" TextWrapping="Wrap" AcceptsReturn="True"
-                                     VerticalScrollBarVisibility="Auto" KeyDown="OnMessageKeyDown"
-                                     AutomationProperties.Name="Message to Tux" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid Width="52" Height="52" Margin="0,0,8,0">
+                                    <Ellipse x:Name="MicRing" Width="52" Height="52" Stroke="#8FD5FF"
+                                             StrokeThickness="2" Opacity="0" IsHitTestVisible="False" />
+                                    <Button x:Name="DictateButton" Style="{StaticResource Button.One.Microphone}"
+                                            Click="OnDictateClick" ToolTip="Record a message on this device"
+                                            AutomationProperties.Name="Start microphone recording">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Fill="White" Data="M9,5 C9,3.35 10.35,2 12,2 C13.65,2 15,3.35 15,5 L15,11 C15,12.65 13.65,14 12,14 C10.35,14 9,12.65 9,11 Z" />
+                                            <Path Stroke="White" StrokeThickness="1.8" StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  Data="M6,10 C6,13.4 8.6,16 12,16 C15.4,16 18,13.4 18,10 M12,16 L12,21 M8.5,21 L15.5,21" />
+                                        </Canvas>
+                                    </Button>
+                                </Grid>
+                                <TextBox x:Name="MessageBox" Grid.Column="1" MinHeight="52" MaxHeight="100"
+                                         MaxLength="1000" Padding="10,8" TextWrapping="Wrap" AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto" KeyDown="OnMessageKeyDown"
+                                         AutomationProperties.Name="Message to Tux" />
+                                <Button Grid.Column="2" Content="Send" Style="{StaticResource Button.One.Primary}"
+                                        Click="OnSendClick" Margin="8,0,0,0"
+                                        AutomationProperties.Name="Send message" />
+                            </Grid>
                             <Grid Margin="0,9,0,0">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock x:Name="VoiceStatus" Text="Voice is off until you choose Dictate or Read reply."
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="VoiceStatus" Text="Microphone is off. Select it to record locally."
                                            FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"
                                            Foreground="{StaticResource Brush.Text.Tertiary}"
-                                           Margin="0,0,0,8" />
-                                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button x:Name="DictateButton" Content="Dictate" Click="OnDictateClick"
-                                            Margin="0,0,6,0" AutomationProperties.Name="Start voice dictation" />
-                                    <Button x:Name="ReadReplyButton" Content="Read reply" Click="OnReadReplyClick"
-                                            Margin="0,0,6,0" AutomationProperties.Name="Read Tux reply aloud" />
-                                    <Button Content="Send" Click="OnSendClick" AutomationProperties.Name="Send message" />
-                                </StackPanel>
+                                           Margin="0,0,9,0" />
+                                <Button x:Name="ReadReplyButton" Grid.Column="1" Content="Replay voice"
+                                        Style="{StaticResource Button.One.Secondary}" Click="OnReadReplyClick"
+                                        AutomationProperties.Name="Replay Tux reply aloud" />
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -155,10 +191,27 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <mascot:TuxAvatar x:Name="MainAvatar" Width="260" Height="308"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   FollowCursor="True" IsScanning="{Binding IsChecking}"
-                                   AutomationProperties.Name="Tux mascot" />
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <mascot:TuxAvatar x:Name="MainAvatar" Width="260" Height="308"
+                                       HorizontalAlignment="Center" FollowCursor="True"
+                                       IsScanning="{Binding IsChecking}"
+                                       AutomationProperties.Name="Tux mascot" />
+                    <Border Background="#273A4D" BorderBrush="#5487AA" BorderThickness="1"
+                            CornerRadius="10" Padding="12,5" HorizontalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecking}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="Looking around…" FontSize="11"
+                                   Foreground="{StaticResource Brush.Accent.Bright}" />
+                    </Border>
+                </StackPanel>
                 <Border Grid.Row="1" Background="{StaticResource Brush.Layer.Card}"
                         BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="1"
                         CornerRadius="8" Padding="14,11" Margin="0,8,0,0">
@@ -168,9 +221,11 @@
                         <TextBlock Text="{Binding Status}" FontSize="13" Margin="0,5,0,10"
                                    TextWrapping="Wrap" />
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Check again" Click="OnCheckAgainClick"
+                            <Button Content="Check again" Style="{StaticResource Button.One.Secondary}"
+                                    Click="OnCheckAgainClick"
                                     IsEnabled="{Binding CanCheck}" Margin="0,0,7,0" />
-                            <Button Content="Wave" Click="OnWaveClick" />
+                            <Button Content="Wave" Style="{StaticResource Button.One.Secondary}"
+                                    Click="OnWaveClick" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -182,7 +237,8 @@
             <Grid Margin="24,11,28,12">
                 <TextBlock Text="iGloo One · Read-only system check" VerticalAlignment="Center"
                            FontSize="12" Foreground="{StaticResource Brush.Text.Tertiary}" />
-                <Button Content="Mascot demo" Click="OnMascotDemoClick"
+                <Button Content="Mascot demo" Style="{StaticResource Button.One.Secondary}"
+                        Click="OnMascotDemoClick"
                         HorizontalAlignment="Right" />
             </Grid>
         </Border>

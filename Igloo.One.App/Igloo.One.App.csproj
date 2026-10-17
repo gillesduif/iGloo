@@ -9,7 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.3.0" />
     <PackageReference Include="System.Speech" Version="10.0.0" />
+    <PackageReference Include="Vosk" Version="0.3.38" />
     <ProjectReference Include="..\src\Igloo.Command.Contracts\Igloo.Command.Contracts.csproj" />
     <ProjectReference Include="..\src\Igloo.Cli.Client\Igloo.Cli.Client.csproj" />
     <ProjectReference Include="..\src\Igloo.Mascot.Wpf\Igloo.Mascot.Wpf.csproj" />

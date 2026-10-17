@@ -1,102 +1,61 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using System.Speech.Recognition;
 using System.Speech.Synthesis;
 using System.Windows.Threading;
 
 namespace Igloo.One.App;
 
-/// <summary>Opt-in Windows desktop speech. Dictation fills the composer for review; it never sends on its own.</summary>
-internal sealed class OneVoiceSession(Dispatcher dispatcher) : IDisposable
+/// <summary>Local opt-in microphone dictation and Windows speech playback for Tux.</summary>
+internal sealed class OneVoiceSession(Dispatcher dispatcher) : IAsyncDisposable
 {
-    private SpeechRecognitionEngine? _recognizer;
+    private readonly OneOfflineDictation _dictation = new(dispatcher);
     private SpeechSynthesizer? _synthesizer;
+    private Prompt? _currentPrompt;
     private bool _speaking;
+    private bool _eventsConnected;
 
     public event Action<string>? StatusChanged;
     public event Action<string>? Transcribed;
-    public event Action? ListeningStopped;
+    public event Action? DictationStateChanged;
+    public event Action<double>? MicrophoneLevelChanged;
+    public event Action? MaximumDurationReached;
     public event Action? WordSpoken;
     public event Action? SpeechStopped;
-    public bool IsListening => _recognizer is not null;
+    public bool IsPreparing => _dictation.IsPreparing;
+    public bool IsListening => _dictation.IsListening;
+    public bool IsTranscribing => _dictation.IsTranscribing;
     public bool IsSpeaking => _speaking;
-    public static bool HasDesktopRecognizer => SpeechRecognitionEngine.InstalledRecognizers().Count > 0;
 
     [SuppressMessage("Globalization", "CA1304:Specify CultureInfo",
-        Justification = "The diagnostic intentionally counts installed voices across all languages.")]
-    public static (int Recognizers, int Voices) InstalledSupport()
+        Justification = "The diagnostic counts installed voices across all languages.")]
+    public static (int Microphones, int Voices) InstalledSupport()
     {
-        int recognizers = SpeechRecognitionEngine.InstalledRecognizers().Count;
         using var synthesizer = new SpeechSynthesizer();
-        return (recognizers, synthesizer.GetInstalledVoices().Count);
+        return (OneOfflineDictation.MicrophoneCount, synthesizer.GetInstalledVoices().Count);
     }
 
-    public void StartDictation()
+    public async Task StartDictationAsync(CancellationToken cancellationToken)
     {
-        if (_recognizer is not null) return;
-        var installed = SpeechRecognitionEngine.InstalledRecognizers();
-        RecognizerInfo? chosen = installed.FirstOrDefault(r => r.Culture.Equals(CultureInfo.CurrentUICulture))
-            ?? installed.FirstOrDefault(r => r.Culture.TwoLetterISOLanguageName ==
-                CultureInfo.CurrentUICulture.TwoLetterISOLanguageName)
-            ?? installed.FirstOrDefault();
-        if (chosen is null)
-            throw new InvalidOperationException("No Windows desktop speech recognizer is installed.");
-
-        var engine = new SpeechRecognitionEngine(chosen);
-        try
-        {
-            engine.LoadGrammar(new DictationGrammar());
-            engine.SetInputToDefaultAudioDevice();
-            engine.SpeechRecognized += OnRecognized;
-            engine.SpeechRecognitionRejected += OnRejected;
-            engine.RecognizeCompleted += OnRecognitionCompleted;
-            _recognizer = engine;
-            engine.RecognizeAsync(RecognizeMode.Single);
-            StatusChanged?.Invoke($"Listening in {chosen.Culture.DisplayName}…");
-        }
-        catch
-        {
-            _recognizer = null;
-            engine.Dispose();
-            throw;
-        }
+        ConnectDictationEvents();
+        await _dictation.StartAsync(cancellationToken).ConfigureAwait(true);
     }
 
-    public void StopDictation()
+    public void CancelDictationPreparation() => _dictation.CancelPreparation();
+
+    public async Task StopDictationAsync(CancellationToken cancellationToken)
     {
-        if (_recognizer is null) return;
-        _recognizer.RecognizeAsyncCancel();
-        StatusChanged?.Invoke("Stopping dictation…");
+        string? text = await _dictation.StopAsync(cancellationToken).ConfigureAwait(true);
+        if (!string.IsNullOrWhiteSpace(text)) Transcribed?.Invoke(text);
     }
 
-    private void OnRecognized(object? sender, SpeechRecognizedEventArgs args)
+    private void ConnectDictationEvents()
     {
-        if (args.Result.Confidence < .45 || string.IsNullOrWhiteSpace(args.Result.Text))
-        {
-            dispatcher.BeginInvoke(() => StatusChanged?.Invoke("Speech was unclear. Please try again."));
-            return;
-        }
-        string text = args.Result.Text;
-        dispatcher.BeginInvoke(() =>
-        {
-            Transcribed?.Invoke(text);
-            StatusChanged?.Invoke("Dictation added to the message box. Review it before sending.");
-        });
+        if (_eventsConnected) return;
+        _eventsConnected = true;
+        _dictation.StatusChanged += status => StatusChanged?.Invoke(status);
+        _dictation.StateChanged += () => DictationStateChanged?.Invoke();
+        _dictation.MicrophoneLevelChanged += level => MicrophoneLevelChanged?.Invoke(level);
+        _dictation.MaximumDurationReached += () => MaximumDurationReached?.Invoke();
     }
-
-    private void OnRejected(object? sender, SpeechRecognitionRejectedEventArgs args) =>
-        dispatcher.BeginInvoke(() => StatusChanged?.Invoke("I did not catch that. Please try again."));
-
-    private void OnRecognitionCompleted(object? sender, RecognizeCompletedEventArgs args) =>
-        dispatcher.BeginInvoke(() =>
-        {
-            if (_recognizer is not SpeechRecognitionEngine recognizer || !ReferenceEquals(recognizer, sender)) return;
-            recognizer.Dispose();
-            _recognizer = null;
-            ListeningStopped?.Invoke();
-            if (args.Error is not null) StatusChanged?.Invoke("Dictation is unavailable on this device.");
-            else if (args.Cancelled) StatusChanged?.Invoke("Dictation stopped.");
-        });
 
     public void Speak(string text)
     {
@@ -105,40 +64,39 @@ internal sealed class OneVoiceSession(Dispatcher dispatcher) : IDisposable
         {
             _synthesizer = new SpeechSynthesizer();
             _synthesizer.SetOutputToDefaultAudioDevice();
-            _synthesizer.SpeakProgress += (_, _) => dispatcher.BeginInvoke(() => WordSpoken?.Invoke());
+            _synthesizer.SpeakProgress += (_, args) => dispatcher.BeginInvoke(() =>
+            {
+                if (ReferenceEquals(args.Prompt, _currentPrompt)) WordSpoken?.Invoke();
+            });
             _synthesizer.SpeakCompleted += (_, args) => dispatcher.BeginInvoke(() =>
             {
+                if (!ReferenceEquals(args.Prompt, _currentPrompt)) return;
+                _currentPrompt = null;
                 _speaking = false;
                 SpeechStopped?.Invoke();
-                StatusChanged?.Invoke(args.Error is null ? "Voice playback finished." :
+                StatusChanged?.Invoke(args.Error is null ? "Tux finished speaking." :
                     "Voice playback is unavailable on this device.");
             });
         }
+        _synthesizer.SpeakAsyncCancelAll();
+        _currentPrompt = _synthesizer.SpeakAsync(text);
         _speaking = true;
-        try { _synthesizer.SpeakAsync(text); }
-        catch { _speaking = false; throw; }
-        StatusChanged?.Invoke("Reading Tux's reply aloud…");
+        StatusChanged?.Invoke("Tux is speaking…");
     }
 
     public void StopSpeaking()
     {
         if (!_speaking || _synthesizer is null) return;
+        _currentPrompt = null;
         _synthesizer.SpeakAsyncCancelAll();
         _speaking = false;
         SpeechStopped?.Invoke();
-        StatusChanged?.Invoke("Voice playback stopped.");
+        StatusChanged?.Invoke("Tux is quiet.");
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        if (_recognizer is not null)
-        {
-            _recognizer.SpeechRecognized -= OnRecognized;
-            _recognizer.SpeechRecognitionRejected -= OnRejected;
-            _recognizer.RecognizeCompleted -= OnRecognitionCompleted;
-            _recognizer.Dispose();
-            _recognizer = null;
-        }
+        await _dictation.DisposeAsync().ConfigureAwait(true);
         _synthesizer?.Dispose();
         _synthesizer = null;
     }

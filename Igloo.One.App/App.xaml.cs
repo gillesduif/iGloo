@@ -7,6 +7,9 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Speech.AudioFormat;
+using System.Speech.Synthesis;
+using NAudio.Wave;
 
 namespace Igloo.One.App;
 /// <summary>
@@ -28,7 +31,7 @@ public partial class OneApplication : Application
             try
             {
                 var support = OneVoiceSession.InstalledSupport();
-                File.WriteAllText(output, $"recognizers={support.Recognizers}, voices={support.Voices}{Environment.NewLine}");
+                File.WriteAllText(output, $"microphones={support.Microphones}, voices={support.Voices}{Environment.NewLine}");
                 Shutdown(0);
             }
             catch (Exception error)
@@ -38,19 +41,35 @@ public partial class OneApplication : Application
             }
             return;
         }
-        if (e.Args.Length >= 2 && (e.Args[0] is "--main-capture" or "--main-capture-complete" or "--demo-window-capture"))
+        if (e.Args.Length >= 2 && e.Args[0] == "--voice-selftest")
+        {
+            string output = Path.GetFullPath(e.Args[1]);
+            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => BeginVoiceSelfTest(output));
+            return;
+        }
+        if (e.Args.Length >= 2 && (e.Args[0] is "--main-capture" or "--main-capture-complete" or
+            "--main-speaking-capture" or "--main-live-voice-capture" or "--demo-window-capture"))
         {
             string output = Path.GetFullPath(e.Args[1]);
             Window main = e.Args[0] == "--demo-window-capture" ? new MascotDemoWindow() : new MainWindow();
+            if (main is MainWindow capture && e.Args[0] != "--main-live-voice-capture")
+                capture.AutoVoice = false;
             if (e.Args.Length >= 3 && double.TryParse(e.Args[2], out double width))
                 main.Width = Math.Max(main.MinWidth, width);
             MainWindow = main;
             main.Loaded += async (_, _) =>
             {
-                await Task.Delay(1000).ConfigureAwait(true);
+                int delay = e.Args.Length >= 4 && int.TryParse(e.Args[3], out int requestedDelay)
+                    ? Math.Clamp(requestedDelay, 100, 30000) : 1000;
+                await Task.Delay(delay).ConfigureAwait(true);
                 if (e.Args[0] == "--main-capture-complete" && main is MainWindow one)
                     for (int i = 0; one.IsSystemCheckRunning && i < 150; i++)
                         await Task.Delay(200).ConfigureAwait(true);
+                if (e.Args[0] == "--main-speaking-capture" && main is MainWindow speaking)
+                {
+                    speaking.ShowSpeechCapturePose();
+                    await Task.Delay(120).ConfigureAwait(true);
+                }
                 try
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
@@ -175,5 +194,53 @@ public partial class OneApplication : Application
             if (watch.Elapsed.TotalSeconds >= seconds) { timer.Stop(); process.Dispose(); Shutdown(0); }
         };
         timer.Start();
+    }
+
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "The diagnostic writes a failure report and exits nonzero rather than crashing the process.")]
+    private async void BeginVoiceSelfTest(string output)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        try
+        {
+            string wavePath = Path.ChangeExtension(output, ".wav");
+            using (var synthesizer = new SpeechSynthesizer())
+            {
+                synthesizer.SetOutputToWaveFile(wavePath,
+                    new SpeechAudioFormatInfo(16000, AudioBitsPerSample.Sixteen, AudioChannel.Mono));
+                synthesizer.Speak("Welcome to iGloo One. System check complete.");
+                synthesizer.SetOutputToNull();
+            }
+            using var reader = new WaveFileReader(wavePath);
+            if (reader.WaveFormat.SampleRate != 16000 || reader.WaveFormat.BitsPerSample != 16 ||
+                reader.WaveFormat.Channels != 1)
+                throw new InvalidDataException("The speech fixture was not 16 kHz mono PCM.");
+            byte[] samples = new byte[checked((int)reader.Length)];
+            int count = reader.Read(samples, 0, samples.Length);
+            byte[] stereo48 = new byte[checked(count / 2 * 3 * 8)];
+            int destination = 0;
+            for (int offset = 0; offset + 1 < count; offset += 2)
+            {
+                float sample = BitConverter.ToInt16(samples, offset) / 32768f;
+                for (int repeat = 0; repeat < 3; repeat++)
+                    for (int channel = 0; channel < 2; channel++)
+                {
+                    BitConverter.TryWriteBytes(stereo48.AsSpan(destination, 4), sample);
+                    destination += 4;
+                }
+            }
+            byte[] converted = await Task.Run(() => OneOfflineDictation.ConvertToMonoPcm(stereo48,
+                WaveFormat.CreateIeeeFloatWaveFormat(48000, 2))).ConfigureAwait(true);
+            string transcript = await OneOfflineDictation.TranscribeSampleAsync(
+                converted, CancellationToken.None).ConfigureAwait(true);
+            File.WriteAllText(output, $"capture_format=48000 Hz stereo float; pcm_bytes={converted.Length}{Environment.NewLine}" +
+                $"transcript={transcript}{Environment.NewLine}");
+            Shutdown(string.IsNullOrWhiteSpace(transcript) ? 1 : 0);
+        }
+        catch (Exception error)
+        {
+            File.WriteAllText(output, $"error={error}{Environment.NewLine}");
+            Shutdown(1);
+        }
     }
 }

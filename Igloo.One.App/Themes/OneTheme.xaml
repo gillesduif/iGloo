@@ -64,6 +64,81 @@
         </Setter>
     </Style>
 
+    <Style x:Key="Button.One.Secondary" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+        <Setter Property="Background" Value="#303E4D" />
+        <Setter Property="BorderBrush" Value="#52677D" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="13,7" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Win11}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#3E5268" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="#233140" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Button.One.Primary" TargetType="Button" BasedOn="{StaticResource Button.One.Secondary}">
+        <Setter Property="Foreground" Value="#10202D" />
+        <Setter Property="Background" Value="#7BC8F6" />
+        <Setter Property="BorderBrush" Value="#9FD9FA" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="Padding" Value="18,8" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#A4DDFB" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="#55B4E9" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="Button.One.Microphone" TargetType="Button" BasedOn="{StaticResource Button.One.Secondary}">
+        <Setter Property="Width" Value="48" />
+        <Setter Property="Height" Value="48" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="#315977" />
+        <Setter Property="BorderBrush" Value="#79B7DF" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="24">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Button.One.Microphone.Active" TargetType="Button"
+           BasedOn="{StaticResource Button.One.Microphone}">
+        <Setter Property="Background" Value="#B94352" />
+        <Setter Property="BorderBrush" Value="#FFB7C0" />
+    </Style>
+
     <Style x:Key="Button.Caption" TargetType="Button">
         <Setter Property="Width" Value="46" />
         <Setter Property="Height" Value="44" />
