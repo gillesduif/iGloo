@@ -224,5 +224,9 @@
 
         <!--   Command bar                            -->
 
+        <Button Grid.Row="2" Grid.ColumnSpan="2" Content="Mascot demo"
+                HorizontalAlignment="Right" Margin="0,4,28,8" Padding="12,5"
+                Click="OnMascotDemoClick" />
+
     </Grid>
 </Window>

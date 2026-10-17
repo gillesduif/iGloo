@@ -52,6 +52,9 @@ public partial class MainWindow : Window
 
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
 
+    private void OnMascotDemoClick(object sender, RoutedEventArgs e) =>
+        new MascotDemoWindow { Owner = this }.Show();
+
     private void OnStepChanged(object sender, System.Windows.Data.DataTransferEventArgs e)
     {
         // The One shell has no workflow coordinator yet.

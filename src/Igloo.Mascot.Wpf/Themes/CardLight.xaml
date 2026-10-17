@@ -1,0 +1,9 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <SolidColorBrush x:Key="Mascot.Card.Panel" Color="#EFF7FAFE" />
+  <SolidColorBrush x:Key="Mascot.Card.Text" Color="#1F2B3B" />
+  <SolidColorBrush x:Key="Mascot.Card.Todo" Color="#8E9BB0" />
+  <SolidColorBrush x:Key="Mascot.Card.Busy" Color="#5CC0FF" />
+  <SolidColorBrush x:Key="Mascot.Card.Done" Color="#35D49A" />
+  <SolidColorBrush x:Key="Mascot.Card.Failed" Color="#FF5F70" />
+</ResourceDictionary>

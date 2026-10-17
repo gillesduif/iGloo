@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\src\Igloo.Command.Contracts\Igloo.Command.Contracts.csproj" />
     <ProjectReference Include="..\src\Igloo.Cli.Client\Igloo.Cli.Client.csproj" />
+    <ProjectReference Include="..\src\Igloo.Mascot.Wpf\Igloo.Mascot.Wpf.csproj" />
   </ItemGroup>
 
   <Import Project="..\src\Igloo.Cli\Igloo.Cli\PackagedCli.targets" />

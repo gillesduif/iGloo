@@ -1,0 +1,30 @@
+<Window x:Class="Igloo.One.App.MascotDemoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mascot="clr-namespace:Igloo.Mascot.Wpf;assembly=Igloo.Mascot.Wpf"
+        Title="Tux · iGloo One dev demo" Width="1040" Height="700"
+        MinWidth="760" MinHeight="540" Background="{StaticResource Brush.Window}"
+        Foreground="{StaticResource Brush.Text.Primary}">
+  <Grid Margin="16">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="3*" />
+      <ColumnDefinition Width="2*" />
+    </Grid.ColumnDefinitions>
+    <Grid x:Name="Stage" Grid.Column="0">
+      <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+      <Border Background="{StaticResource Brush.Layer.Card}" CornerRadius="16">
+        <mascot:TaskCardRing x:Name="Ring" Margin="12,100,12,25">
+          <mascot:TaskCardRing.Avatar>
+            <mascot:TuxAvatar x:Name="Avatar" ShowPivots="True" />
+          </mascot:TaskCardRing.Avatar>
+        </mascot:TaskCardRing>
+      </Border>
+      <TextBox x:Name="InputBox" Grid.Row="1" Width="250" Height="38"
+               HorizontalAlignment="Left" Margin="18,8" Padding="8"
+               Text="Vraag of bevestig hier…" />
+    </Grid>
+    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="18,0,0,0">
+      <StackPanel x:Name="Controls" />
+    </ScrollViewer>
+  </Grid>
+</Window>
