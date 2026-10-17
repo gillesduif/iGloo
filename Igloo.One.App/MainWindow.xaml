@@ -59,48 +59,128 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="42,24,42,18">
+        <Grid Grid.Row="1" Margin="26,16,26,14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="2*" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,22,0">
-                <TextBlock Text="Welcome to iGloo One" FontSize="32" FontWeight="SemiBold"
-                           TextWrapping="Wrap" Margin="0,0,0,12" />
-                <TextBlock Text="Meet Tux, your iGloo companion."
-                           FontSize="16" TextWrapping="Wrap"
-                           Foreground="{StaticResource Brush.Text.Secondary}"
-                           Margin="0,0,0,28" />
-                <Border Background="{StaticResource Brush.Layer.Card}"
-                        BorderBrush="{StaticResource Brush.Stroke.Card}"
-                        BorderThickness="1" CornerRadius="8" Padding="16,12"
-                        MaxWidth="350" HorizontalAlignment="Left">
+            <Border Grid.Column="0" Background="{StaticResource Brush.Layer.Card}"
+                    BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="1"
+                    CornerRadius="12" Margin="0,0,18,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Border BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="0,0,0,1"
+                            Padding="18,14">
+                        <StackPanel>
+                            <TextBlock Text="Chat with Tux" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Status}" FontSize="12" Margin="0,4,0,0"
+                                       Foreground="{StaticResource Brush.Text.Tertiary}" />
+                        </StackPanel>
+                    </Border>
+
+                    <ScrollViewer x:Name="TranscriptScroll" Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="14,12,20,12">
+                        <ItemsControl ItemsSource="{Binding Messages}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,12" Padding="13,10" CornerRadius="10"
+                                            BorderThickness="1" MaxWidth="355">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="HorizontalAlignment" Value="Left" />
+                                                <Setter Property="Background" Value="#303945" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Stroke.Card}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsTux}" Value="False">
+                                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                                        <Setter Property="Background" Value="#203C52" />
+                                                        <Setter Property="BorderBrush" Value="#3A7293" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Speaker}" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.AccentW11}"
+                                                       Margin="0,0,0,4" />
+                                            <TextBlock Text="{Binding Text}" FontSize="13" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource Brush.Text.Primary}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Border Grid.Row="2" BorderBrush="{StaticResource Brush.Stroke.Card}"
+                            BorderThickness="0,1,0,0" Padding="14,12">
+                        <StackPanel>
+                            <TextBlock Text="Ask about the check or request another one" FontSize="11"
+                                       Foreground="{StaticResource Brush.Text.Tertiary}" Margin="0,0,0,6" />
+                            <TextBox x:Name="MessageBox" MinHeight="58" MaxHeight="100" MaxLength="1000"
+                                     Padding="10,8" TextWrapping="Wrap" AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto" KeyDown="OnMessageKeyDown"
+                                     AutomationProperties.Name="Message to Tux" />
+                            <Grid Margin="0,9,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock x:Name="VoiceStatus" Text="Voice is off until you choose Dictate or Read reply."
+                                           FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Foreground="{StaticResource Brush.Text.Tertiary}"
+                                           Margin="0,0,0,8" />
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button x:Name="DictateButton" Content="Dictate" Click="OnDictateClick"
+                                            Margin="0,0,6,0" AutomationProperties.Name="Start voice dictation" />
+                                    <Button x:Name="ReadReplyButton" Content="Read reply" Click="OnReadReplyClick"
+                                            Margin="0,0,6,0" AutomationProperties.Name="Read Tux reply aloud" />
+                                    <Button Content="Send" Click="OnSendClick" AutomationProperties.Name="Send message" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <mascot:TuxAvatar x:Name="MainAvatar" Width="260" Height="308"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FollowCursor="True" IsScanning="{Binding IsChecking}"
+                                   AutomationProperties.Name="Tux mascot" />
+                <Border Grid.Row="1" Background="{StaticResource Brush.Layer.Card}"
+                        BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="1"
+                        CornerRadius="8" Padding="14,11" Margin="0,8,0,0">
                     <StackPanel>
-                        <TextBlock Text="LOCAL STATUS" FontSize="11" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Text.Tertiary}"
-                                   Margin="0,0,0,7" />
-                        <TextBlock x:Name="CapabilityStatus" Text="Checking local capabilities…"
-                                   FontSize="14" TextWrapping="Wrap" />
+                        <TextBlock Text="SYSTEM CHECK" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{StaticResource Brush.Text.Tertiary}" />
+                        <TextBlock Text="{Binding Status}" FontSize="13" Margin="0,5,0,10"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Check again" Click="OnCheckAgainClick"
+                                    IsEnabled="{Binding CanCheck}" Margin="0,0,7,0" />
+                            <Button Content="Wave" Click="OnWaveClick" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
-                <Button Content="Wave to Tux" Click="OnWaveClick"
-                        HorizontalAlignment="Left" Margin="0,24,0,0"
-                        AutomationProperties.Name="Wave to Tux" />
-            </StackPanel>
-
-            <mascot:TuxAvatar x:Name="MainAvatar" Grid.Column="1"
-                               Width="320" Height="380"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               FollowCursor="True" ShowPivots="False"
-                               AutomationProperties.Name="Tux mascot" />
+            </Grid>
         </Grid>
 
         <Border Grid.Row="2" Background="{StaticResource Brush.Layer.Card}"
-                BorderBrush="{StaticResource Brush.Stroke.Card}"
-                BorderThickness="0,1,0,0">
+                BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="0,1,0,0">
             <Grid Margin="24,11,28,12">
-                <TextBlock Text="iGloo One" VerticalAlignment="Center"
+                <TextBlock Text="iGloo One · Read-only system check" VerticalAlignment="Center"
                            FontSize="12" Foreground="{StaticResource Brush.Text.Tertiary}" />
                 <Button Content="Mascot demo" Click="OnMascotDemoClick"
                         HorizontalAlignment="Right" />

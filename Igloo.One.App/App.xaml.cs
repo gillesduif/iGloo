@@ -21,16 +21,36 @@ public partial class OneApplication : Application
     {
         ArgumentNullException.ThrowIfNull(e);
         base.OnStartup(e);
-        if (e.Args.Length >= 2 && (e.Args[0] is "--main-capture" or "--demo-window-capture"))
+        if (e.Args.Length >= 2 && e.Args[0] == "--voice-probe")
         {
             string output = Path.GetFullPath(e.Args[1]);
-            Window main = e.Args[0] == "--main-capture" ? new MainWindow() : new MascotDemoWindow();
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            try
+            {
+                var support = OneVoiceSession.InstalledSupport();
+                File.WriteAllText(output, $"recognizers={support.Recognizers}, voices={support.Voices}{Environment.NewLine}");
+                Shutdown(0);
+            }
+            catch (Exception error)
+            {
+                File.WriteAllText(output, $"unavailable={error.GetType().Name}{Environment.NewLine}");
+                Shutdown(1);
+            }
+            return;
+        }
+        if (e.Args.Length >= 2 && (e.Args[0] is "--main-capture" or "--main-capture-complete" or "--demo-window-capture"))
+        {
+            string output = Path.GetFullPath(e.Args[1]);
+            Window main = e.Args[0] == "--demo-window-capture" ? new MascotDemoWindow() : new MainWindow();
             if (e.Args.Length >= 3 && double.TryParse(e.Args[2], out double width))
                 main.Width = Math.Max(main.MinWidth, width);
             MainWindow = main;
             main.Loaded += async (_, _) =>
             {
                 await Task.Delay(1000).ConfigureAwait(true);
+                if (e.Args[0] == "--main-capture-complete" && main is MainWindow one)
+                    for (int i = 0; one.IsSystemCheckRunning && i < 150; i++)
+                        await Task.Delay(200).ConfigureAwait(true);
                 try
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
