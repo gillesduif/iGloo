@@ -22,14 +22,12 @@ public partial class OneApplication : Application
         if (e.Args.Length >= 2 && e.Args[0] == "--mascot-capture")
         {
             string directory = Path.GetFullPath(e.Args[1]);
-            bool noBlur = e.Args.Length >= 3 && e.Args[2] == "--no-blur";
             var demo = new MascotDemoWindow();
             MainWindow = demo;
             demo.Loaded += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
             {
                 try
                 {
-                    if (noBlur) demo.DisableBlurEffectsForDiagnostics();
                     demo.CaptureAll(directory);
                     Shutdown(0);
                 }
@@ -46,11 +44,56 @@ public partial class OneApplication : Application
         {
             string directory = Path.GetFullPath(e.Args[1]);
             double seconds = e.Args.Length >= 3 && double.TryParse(e.Args[2], out double requested) ? requested : 600;
-            bool noBlur = e.Args.Length >= 4 && e.Args[3] == "--no-blur";
             var demo = new MascotDemoWindow();
             MainWindow = demo;
             demo.Loaded += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
-                BeginBenchmark(demo, directory, seconds, noBlur));
+                BeginBenchmark(demo, directory, seconds));
+            demo.Show();
+        }
+        else if (e.Args.Length >= 2 && e.Args[0] == "--mascot-lifecycle")
+        {
+            string directory = Path.GetFullPath(e.Args[1]);
+            var demo = new MascotDemoWindow();
+            MainWindow = demo;
+            demo.Loaded += async (_, _) =>
+            {
+                await Task.Delay(700).ConfigureAwait(true);
+                long visibleBefore = demo.RenderedFrames;
+                demo.WindowState = WindowState.Minimized;
+                await Task.Delay(700).ConfigureAwait(true);
+                long minimized = demo.RenderedFrames;
+                demo.WindowState = WindowState.Normal;
+                await Task.Delay(700).ConfigureAwait(true);
+                long restored = demo.RenderedFrames;
+                Directory.CreateDirectory(directory);
+                File.WriteAllText(Path.Combine(directory, "lifecycle.txt"),
+                    $"visible={visibleBefore}, minimized={minimized}, restored={restored}{Environment.NewLine}");
+                Shutdown(visibleBefore > 0 && minimized == visibleBefore && restored > minimized ? 0 : 1);
+            };
+            demo.Show();
+        }
+        else if (e.Args.Length >= 2 && e.Args[0] == "--mascot-flow")
+        {
+            string directory = Path.GetFullPath(e.Args[1]);
+            var demo = new MascotDemoWindow();
+            MainWindow = demo;
+            demo.Loaded += async (_, _) =>
+            {
+                try
+                {
+                    await demo.RunDemoAsync().ConfigureAwait(true);
+                    Directory.CreateDirectory(directory);
+                    File.WriteAllText(Path.Combine(directory, "flow.txt"),
+                        $"completed={demo.CompletedTasks}/4, frames={demo.RenderedFrames}{Environment.NewLine}");
+                    Shutdown(demo.CompletedTasks == 4 ? 0 : 1);
+                }
+                catch (Exception error)
+                {
+                    Directory.CreateDirectory(directory);
+                    File.WriteAllText(Path.Combine(directory, "flow-error.txt"), error.ToString());
+                    Shutdown(1);
+                }
+            };
             demo.Show();
         }
         else
@@ -61,9 +104,8 @@ public partial class OneApplication : Application
         }
     }
 
-    private void BeginBenchmark(MascotDemoWindow demo, string directory, double seconds, bool noBlur)
+    private void BeginBenchmark(MascotDemoWindow demo, string directory, double seconds)
     {
-        if (noBlur) demo.DisableBlurEffectsForDiagnostics();
         Directory.CreateDirectory(directory);
         string log = Path.Combine(directory, "performance.csv");
         File.WriteAllText(log, "elapsed_s,frames,private_bytes,managed_bytes,cpu_s,working_set_bytes,render_tier,glare_mode" + Environment.NewLine);

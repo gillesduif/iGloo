@@ -105,13 +105,6 @@ public sealed class TuxAvatar : Control
     public void SetGazeTarget(Point screenPoint) => _waitingTargetScreen = screenPoint;
     public void SetHeldCardGaze(Point screenPoint) => _heldCardCentreScreen = screenPoint;
 
-    /// <summary>Diagnostic only: removes WPF blur effects for an A/B performance sample.</summary>
-    public void DisableBlurEffectsForDiagnostics()
-    {
-        ApplyTemplate();
-        if (_root is not null) RemoveBlur(_root);
-    }
-
     private static void RemoveBlur(DependencyObject visual)
     {
         if (visual is UIElement element && element.Effect is BlurEffect) element.Effect = null;
@@ -302,7 +295,7 @@ public sealed class TuxAvatar : Control
                 IsHitTestVisible = false };
             var halo = new Path { Data = _halo, Fill = new SolidColorBrush(glareColour), Opacity = .25,
                 Clip = _outline, IsHitTestVisible = false };
-            _glare = new Path { Data = _ribbon, Fill = new SolidColorBrush(glareColour), Opacity = .93,
+            _glare = new Path { Data = _ribbon, Fill = new SolidColorBrush(glareColour), Opacity = .95,
                 Clip = _outline, IsHitTestVisible = false };
             canvas.Children.Add(_base);
             canvas.Children.Add(halo);

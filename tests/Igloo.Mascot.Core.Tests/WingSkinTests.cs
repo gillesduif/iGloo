@@ -34,6 +34,8 @@ public sealed class WingSkinTests
         Near(right.Pivot, 161.96, 127.92);
         Near(right.Tip, 172.66, 197.15);
         Assert.InRange(right.Length, 69.05, 71.05);
+        Assert.InRange(right.AMin, -42.48, -40.48);
+        Assert.InRange(right.AMax, 69.05, 71.05);
         Near(right.RestElbow(Default), 182.07, 151.75);
         Near(right.RestWrist(Default), 175.89, 181.06);
         Assert.Equal(17, right.GlareStart);
@@ -126,6 +128,23 @@ public sealed class WingSkinTests
             GazeSolver.Resolve(new(new(1, 1), new(0, 0), null), default).Priority);
         Assert.Equal(GazePriority.Cursor,
             GazeSolver.Resolve(new(new(1, 1), null, null), default).Priority);
+    }
+
+    [Fact]
+    public void HeldAndWaitingGazeRampWithTheirWeights()
+    {
+        var held = new MascotMotion();
+        MascotFrame card = held.Step(0, .05, default, new(null, new(1, 0), null), true, false, false);
+        Assert.InRange(card.Hold, .2, .25);
+        Assert.InRange(card.EyeX, .1, .5);
+        Assert.Equal(GazePriority.HeldCard, card.Gaze);
+
+        var waiting = new MascotMotion();
+        MascotFrame input = waiting.Step(0, .05, default, new(null, null, new(-1, 1)), false, true, false);
+        Assert.InRange(input.Wait, .24, .27);
+        Assert.InRange(input.EyeX, -.6, -.1);
+        Assert.InRange(input.EyeY, .1, .5);
+        Assert.Equal(GazePriority.WaitingForUser, input.Gaze);
     }
 
     [Fact]

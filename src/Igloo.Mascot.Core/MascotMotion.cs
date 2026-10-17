@@ -113,8 +113,9 @@ public sealed class MascotMotion
             _nextEye = time + 1.5 + _random.NextDouble() * 3;
         }
         GazeResult look = GazeSolver.Resolve(gaze, _eyeDrift);
-        double ex = look.Priority == GazePriority.Drift ? look.Target.X : look.Target.X * 2.6;
-        double ey = look.Priority == GazePriority.Drift ? look.Target.Y : look.Target.Y * 1.8;
+        GazeResult unoccupied = GazeSolver.Resolve(new(gaze.Cursor, null, null), _eyeDrift);
+        double ex = unoccupied.Priority == GazePriority.Drift ? unoccupied.Target.X : unoccupied.Target.X * 2.6;
+        double ey = unoccupied.Priority == GazePriority.Drift ? unoccupied.Target.Y : unoccupied.Target.Y * 1.8;
         if (look.Priority == GazePriority.Cursor) { hx += look.Target.X * 1.6; hr += look.Target.X * 2.2; }
 
         _hold = MotionMath.Smooth(_hold, holding ? 1 : 0, dt, 5);

@@ -61,16 +61,20 @@ public sealed class TaskCardRing : Control
     private static void OnCardsChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         var ring = (TaskCardRing)sender;
-        if (args.OldValue is ObservableCollection<TaskCardViewModel> old) old.CollectionChanged -= ring.OnCollectionChanged;
-        if (args.NewValue is ObservableCollection<TaskCardViewModel> current) current.CollectionChanged += ring.OnCollectionChanged;
+        if (args.OldValue is ObservableCollection<TaskCardViewModel> old)
+            CollectionChangedEventManager.RemoveHandler(old, ring.OnCollectionChanged);
+        if (args.NewValue is ObservableCollection<TaskCardViewModel> current)
+            CollectionChangedEventManager.AddHandler(current, ring.OnCollectionChanged);
         ring.RefreshVisuals();
     }
 
     private static void OnAvatarChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         var ring = (TaskCardRing)sender;
-        if (args.OldValue is TuxAvatar old) old.FrameRendered -= ring.OnAvatarFrame;
-        if (args.NewValue is TuxAvatar current) current.FrameRendered += ring.OnAvatarFrame;
+        if (args.OldValue is TuxAvatar old)
+            WeakEventManager<TuxAvatar, EventArgs>.RemoveHandler(old, nameof(TuxAvatar.FrameRendered), ring.OnAvatarFrame);
+        if (args.NewValue is TuxAvatar current)
+            WeakEventManager<TuxAvatar, EventArgs>.AddHandler(current, nameof(TuxAvatar.FrameRendered), ring.OnAvatarFrame);
     }
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args) => RefreshVisuals();
@@ -90,7 +94,7 @@ public sealed class TaskCardRing : Control
         foreach ((TaskCardViewModel card, CardVisual visual) in _visuals.ToArray())
         {
             if (present.Contains(card)) continue;
-            (visual.Border.Parent as Panel)?.Children.Remove(visual.Border);
+            (visual.Root.Parent as Panel)?.Children.Remove(visual.Root);
             _visuals.Remove(card);
         }
         foreach (TaskCardViewModel card in Cards)
@@ -98,7 +102,7 @@ public sealed class TaskCardRing : Control
             if (_visuals.ContainsKey(card)) continue;
             var visual = new CardVisual(card);
             _visuals.Add(card, visual);
-            _back.Children.Add(visual.Border);
+            _back.Children.Add(visual.Root);
         }
     }
 
@@ -178,10 +182,10 @@ public sealed class TaskCardRing : Control
             visual.Update(targetX, targetY, held ? 1.02 : orbit.Scale, held ? 1 : orbit.Opacity,
                 held ? -4 : 0, follow, now, DarkTheme, card.State, card.Progress);
             Canvas layer = held || orbit.Z > 0 ? _front : _back;
-            if (!ReferenceEquals(visual.Border.Parent, layer))
+            if (!ReferenceEquals(visual.Root.Parent, layer))
             {
-                (visual.Border.Parent as Panel)?.Children.Remove(visual.Border);
-                layer.Children.Add(visual.Border);
+                (visual.Root.Parent as Panel)?.Children.Remove(visual.Root);
+                layer.Children.Add(visual.Root);
             }
             if (held)
             {
@@ -203,7 +207,7 @@ public sealed class TaskCardRing : Control
         {
             Source = new Uri("/Igloo.Mascot.Wpf;component/Themes/CardLight.xaml", UriKind.Relative)
         };
-        private readonly Border _icon, _barFill;
+        private readonly Border _icon, _barFill, _face, _shadowBacking;
         private readonly TextBlock _iconText;
         private readonly Border _progressTrack;
         private readonly DropShadowEffect _shadow;
@@ -213,7 +217,7 @@ public sealed class TaskCardRing : Control
         private double _x, _y, _s = 1, _opacity = 1, _angle;
         private bool _placed;
 
-        public Border Border { get; }
+        public Grid Root { get; }
         public double X => _x;
         public double Y => _y;
 
@@ -244,14 +248,20 @@ public sealed class TaskCardRing : Control
             layout.Children.Add(_icon);
             Grid.SetColumn(text, 1);
             layout.Children.Add(text);
-            Border = new Border { Width = CardWidth, MinHeight = CardHeight, CornerRadius = new CornerRadius(12),
-                BorderThickness = new Thickness(1.5), Child = layout, Effect = _shadow,
+            _shadowBacking = new Border { Width = CardWidth, MinHeight = CardHeight,
+                CornerRadius = new CornerRadius(12), Background = Palette(true, "Mascot.Card.Panel"),
+                Effect = _shadow, CacheMode = new BitmapCache() };
+            _face = new Border { Width = CardWidth, MinHeight = CardHeight,
+                CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1.5), Child = layout };
+            Root = new Grid { Width = CardWidth, MinHeight = CardHeight,
                 RenderTransformOrigin = new Point(.5, .5), IsHitTestVisible = false };
+            Root.Children.Add(_shadowBacking);
+            Root.Children.Add(_face);
             var transform = new TransformGroup();
             transform.Children.Add(_scale);
             transform.Children.Add(_rotation);
-            Border.RenderTransform = transform;
-            AutomationProperties.SetName(Border, card.Title);
+            Root.RenderTransform = transform;
+            AutomationProperties.SetName(Root, card.Title);
         }
 
         public void Update(double x, double y, double scale, double opacity, double rotation,
@@ -264,11 +274,13 @@ public sealed class TaskCardRing : Control
                 _s += (scale - _s) * follow; _opacity += (opacity - _opacity) * follow;
                 _angle += (rotation - _angle) * follow;
             }
-            Canvas.SetLeft(Border, _x - CardWidth / 2);
-            Canvas.SetTop(Border, _y - CardHeight / 2);
+            Canvas.SetLeft(Root, _x - CardWidth / 2);
+            Canvas.SetTop(Root, _y - CardHeight / 2);
             _scale.ScaleX = _scale.ScaleY = _s;
             _rotation.Angle = _angle;
-            Border.Opacity = _opacity;
+            bool highContrast = SystemParameters.HighContrast;
+            Root.Opacity = highContrast ? 1 : _opacity;
+            _shadowBacking.Visibility = highContrast ? Visibility.Collapsed : Visibility.Visible;
             string accentKey = state switch
             {
                 TaskCardState.Busy => "Mascot.Card.Busy",
@@ -277,10 +289,11 @@ public sealed class TaskCardRing : Control
                 _ => "Mascot.Card.Todo"
             };
             Brush accent = Palette(dark, accentKey);
-            bool highContrast = SystemParameters.HighContrast;
-            Border.Background = highContrast ? SystemColors.WindowBrush : Palette(dark, "Mascot.Card.Panel");
-            Border.BorderBrush = highContrast ? SystemColors.WindowTextBrush : accent;
-            Border.SetValue(TextElement.ForegroundProperty, highContrast ? SystemColors.WindowTextBrush :
+            Brush panel = highContrast ? SystemColors.WindowBrush : Palette(dark, "Mascot.Card.Panel");
+            _face.Background = panel;
+            _shadowBacking.Background = panel;
+            _face.BorderBrush = highContrast ? SystemColors.WindowTextBrush : accent;
+            _face.SetValue(TextElement.ForegroundProperty, highContrast ? SystemColors.WindowTextBrush :
                 Palette(dark, "Mascot.Card.Text"));
             _icon.BorderBrush = highContrast ? SystemColors.WindowTextBrush : accent;
             _icon.Background = state == TaskCardState.Todo ? Brushes.Transparent :
@@ -295,7 +308,8 @@ public sealed class TaskCardRing : Control
             if (state == TaskCardState.Busy && !progress.HasValue)
                 _barFill.Margin = new Thickness((Math.Sin(time * 3) + 1) * 34, 0, 0, 0);
             else _barFill.Margin = default;
-            _shadow.Opacity = state == TaskCardState.Busy ? .25 + .18 * (1 + Math.Sin(time * 2 * Math.PI / 1.8)) / 2 : .32;
+            _shadowBacking.Opacity = state == TaskCardState.Busy ?
+                .7 + .3 * (1 + Math.Sin(time * 2 * Math.PI / 1.8)) / 2 : 1;
         }
     }
 }

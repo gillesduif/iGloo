@@ -87,7 +87,7 @@ def path(node):
     attrs = [f'x:Name="{ident}"', f'Data="{esc(node.get("d"))}"', f'Fill="{esc(fill)}"']
     if opacity != 1:
         attrs.append(f'Opacity="{opacity:.6g}"')
-    if ident in {"wing_left_base", "wing_left_glare", "wing_right_base", "wing_right_glare", "wing_tip_right_base"}:
+    if ident in {"wing_left_base", "wing_left_glare", "wing_right_base", "wing_right_glare", "wing_tip_right_base", "wing_tip_right_glare_1", "wing_tip_right_glare_2"}:
         attrs.append('Visibility="Collapsed"')
     clip = reference(node.get("clip-path"))
     if clip and ident not in {"head_glare", "eyelid_left", "eyelid_right"}:
@@ -109,10 +109,14 @@ def render(node):
         return body
     if kind == "g":
         ident = node.get("id")
-        if ident == "wing_tip_right_glare":
-            return ""
         body = "".join(render(c) for c in node)
         return f'<Canvas x:Name="{ident}" Width="216" Height="256">{body}</Canvas>'
+    if kind == "use":
+        href = node.get("href") or node.get("{http://www.w3.org/1999/xlink}href")
+        source = by_id[href[1:]]
+        clone = ET.Element(f"{ns}path", node.attrib)
+        clone.set("d", source.get("d"))
+        return path(clone)
     return ""
 
 
@@ -142,7 +146,12 @@ xaml = '''<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xam
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(xaml, encoding="utf-8")
 names = re.findall(r'x:Name="([^"]+)"', xaml)
-required = {"tux", "wing_left", "wing_right", "wing_tip_right_shadow", "face", "head_glare", "pupil_left", "pupil_right", "eyelid_left", "eyelid_right", "mandible_upper", "mandible_lower", "body_base", "feet"}
+required = {"tux", "wing_left", "wing_left_base", "wing_left_glare", "wing_right",
+            "wing_right_base", "wing_right_glare", "wing_tip_right", "wing_tip_right_base",
+            "wing_tip_right_shadow", "wing_tip_right_glare", "wing_tip_right_glare_1",
+            "wing_tip_right_glare_2", "face", "pupil_left", "pupil_right", "eyelid_left",
+            "eyelid_right", "eyebrow_left", "eyebrow_right", "mandible_upper",
+            "mandible_lower", "head_glare", "body_base", "feet"}
 assert required.issubset(names), sorted(required - set(names))
 assert len(names) == len(set(names)), "duplicate XAML names"
 print(f"{OUT}: {len(names)} preserved names; {len(clips)} clips; {len(blurs)} blur definitions")

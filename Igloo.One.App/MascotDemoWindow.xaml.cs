@@ -17,7 +17,7 @@ public partial class MascotDemoWindow : Window
 {
     private CancellationTokenSource? _demoCancellation;
     public long RenderedFrames => Avatar.RenderedFrames;
-    public void DisableBlurEffectsForDiagnostics() => Avatar.DisableBlurEffectsForDiagnostics();
+    public int CompletedTasks => Ring.Cards.Count(card => card.State == TaskCardState.Done);
 
     public MascotDemoWindow()
     {
@@ -28,6 +28,8 @@ public partial class MascotDemoWindow : Window
         Ring.Cards.Add(new() { Title = "Migrate Firefox data", Subtitle = "Transfer profile and settings" });
         Ring.WaitingChanged += (_, _) => PulseInput();
         InputBox.SizeChanged += (_, _) => SetInputGaze();
+        LocationChanged += (_, _) => SetInputGaze();
+        SizeChanged += (_, _) => SetInputGaze();
         Loaded += (_, _) => SetInputGaze();
         Closed += (_, _) => _demoCancellation?.Cancel();
         BuildControls();
@@ -86,7 +88,7 @@ public partial class MascotDemoWindow : Window
         AddSlider("Blend softness", nameof(TuxAvatar.BlendSoftness), .04, .3);
         AddHeading("Four-task flow");
         var tasks = new WrapPanel();
-        AddButton(tasks, "Run demo", () => _ = DemoAsync());
+        AddButton(tasks, "Run demo", () => _ = RunDemoAsync());
         AddButton(tasks, "Start next", StartNext);
         AddButton(tasks, "Complete", () => Ring.CompleteTask());
         AddButton(tasks, "Wait / resume", () => { SetInputGaze(); Ring.SetWaiting(!Ring.WaitingForUser); });
@@ -152,7 +154,7 @@ public partial class MascotDemoWindow : Window
         foreach (TaskCardViewModel card in Ring.Cards) { card.Progress = 0; card.State = TaskCardState.Todo; }
     }
 
-    private async Task DemoAsync()
+    public async Task RunDemoAsync()
     {
         Reset();
         using var cancellation = new CancellationTokenSource();
@@ -184,6 +186,7 @@ public partial class MascotDemoWindow : Window
     public void CaptureAll(string directory)
     {
         Directory.CreateDirectory(directory);
+        File.WriteAllText(Path.Combine(directory, "coordinates.txt"), string.Empty);
         Ring.UpdateLayout();
         Capture(directory, "01-rest", new(0, 0, 0), new(0, 0, 0));
         Capture(directory, "02-shoulders-100", new(100, 0, 0), new(100, 0, 0));
