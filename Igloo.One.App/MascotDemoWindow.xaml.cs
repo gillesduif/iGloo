@@ -35,6 +35,13 @@ public partial class MascotDemoWindow : Window
         BuildControls();
     }
 
+    private void OnMinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void OnMaxRestoreClick(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void OnCloseClick(object sender, RoutedEventArgs e) => Close();
+
     private void SetInputGaze()
     {
         if (InputBox.IsLoaded)

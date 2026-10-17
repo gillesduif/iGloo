@@ -3,28 +3,79 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mascot="clr-namespace:Igloo.Mascot.Wpf;assembly=Igloo.Mascot.Wpf"
         Title="Tux · iGloo One dev demo" Width="1040" Height="700"
-        MinWidth="760" MinHeight="540" Background="{StaticResource Brush.Window}"
-        Foreground="{StaticResource Brush.Text.Primary}">
-  <Grid Margin="16">
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="3*" />
-      <ColumnDefinition Width="2*" />
-    </Grid.ColumnDefinitions>
-    <Grid x:Name="Stage" Grid.Column="0">
-      <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-      <Border Background="{StaticResource Brush.Layer.Card}" CornerRadius="16">
-        <mascot:TaskCardRing x:Name="Ring" Margin="12,100,12,25">
-          <mascot:TaskCardRing.Avatar>
-            <mascot:TuxAvatar x:Name="Avatar" ShowPivots="True" />
-          </mascot:TaskCardRing.Avatar>
-        </mascot:TaskCardRing>
-      </Border>
-      <TextBox x:Name="InputBox" Grid.Row="1" Width="250" Height="38"
-               HorizontalAlignment="Left" Margin="18,8" Padding="8"
-               Text="Ask or confirm here…" />
+        MinWidth="760" MinHeight="540" WindowStyle="None"
+        Background="{StaticResource Brush.Window}"
+        TextElement.Foreground="{StaticResource Brush.Text.Primary}">
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="44" ResizeBorderThickness="6"
+                  GlassFrameThickness="-1" CornerRadius="0"
+                  UseAeroCaptionButtons="False" />
+  </WindowChrome.WindowChrome>
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="44" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <Grid Grid.Row="0" Background="Transparent">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+        <TextBlock Text="iGloo" FontSize="13" FontWeight="SemiBold" />
+        <Border Background="{StaticResource Brush.Layer.Card}"
+                BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="1"
+                CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
+          <TextBlock Text="ONE · MASCOT LAB" FontSize="9" FontWeight="SemiBold"
+                     Foreground="{StaticResource Brush.Text.Tertiary}" />
+        </Border>
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal">
+        <Button Style="{StaticResource Button.Caption}" Content="&#xE921;"
+                Click="OnMinimizeClick" WindowChrome.IsHitTestVisibleInChrome="True"
+                AutomationProperties.Name="Minimize" />
+        <Button Click="OnMaxRestoreClick" WindowChrome.IsHitTestVisibleInChrome="True">
+          <Button.Style>
+            <Style TargetType="Button" BasedOn="{StaticResource Button.Caption}">
+              <Setter Property="Content" Value="&#xE922;" />
+              <Setter Property="AutomationProperties.Name" Value="Maximize" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="Maximized">
+                  <Setter Property="Content" Value="&#xE923;" />
+                  <Setter Property="AutomationProperties.Name" Value="Restore down" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Button.Style>
+        </Button>
+        <Button Style="{StaticResource Button.Caption.Close}" Content="&#xE8BB;"
+                Click="OnCloseClick" WindowChrome.IsHitTestVisibleInChrome="True"
+                AutomationProperties.Name="Close" />
+      </StackPanel>
     </Grid>
-    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="18,0,0,0">
-      <StackPanel x:Name="Controls" />
-    </ScrollViewer>
+    <Grid Grid.Row="1" Margin="16">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="3*" />
+        <ColumnDefinition Width="2*" />
+      </Grid.ColumnDefinitions>
+      <Grid x:Name="Stage" Grid.Column="0">
+        <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <Border Background="{StaticResource Brush.Layer.Card}" CornerRadius="16">
+          <mascot:TaskCardRing x:Name="Ring" Margin="12,100,12,25">
+            <mascot:TaskCardRing.Avatar>
+              <mascot:TuxAvatar x:Name="Avatar" ShowPivots="True" />
+            </mascot:TaskCardRing.Avatar>
+          </mascot:TaskCardRing>
+        </Border>
+        <TextBox x:Name="InputBox" Grid.Row="1" Width="250" Height="38"
+                 HorizontalAlignment="Left" Margin="18,8" Padding="8"
+                 Text="Ask or confirm here…" />
+      </Grid>
+      <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                    Margin="18,0,0,0" Padding="0,0,18,0">
+        <StackPanel x:Name="Controls" />
+      </ScrollViewer>
+    </Grid>
   </Grid>
 </Window>
