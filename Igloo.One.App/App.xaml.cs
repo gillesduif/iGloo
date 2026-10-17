@@ -4,6 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace Igloo.One.App;
@@ -19,7 +21,39 @@ public partial class OneApplication : Application
     {
         ArgumentNullException.ThrowIfNull(e);
         base.OnStartup(e);
-        if (e.Args.Length >= 2 && e.Args[0] == "--mascot-capture")
+        if (e.Args.Length >= 2 && (e.Args[0] is "--main-capture" or "--demo-window-capture"))
+        {
+            string output = Path.GetFullPath(e.Args[1]);
+            Window main = e.Args[0] == "--main-capture" ? new MainWindow() : new MascotDemoWindow();
+            if (e.Args.Length >= 3 && double.TryParse(e.Args[2], out double width))
+                main.Width = Math.Max(main.MinWidth, width);
+            MainWindow = main;
+            main.Loaded += async (_, _) =>
+            {
+                await Task.Delay(1000).ConfigureAwait(true);
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+                    DpiScale dpi = VisualTreeHelper.GetDpi(main);
+                    var bitmap = new RenderTargetBitmap(
+                        (int)Math.Ceiling(main.ActualWidth * dpi.DpiScaleX),
+                        (int)Math.Ceiling(main.ActualHeight * dpi.DpiScaleY),
+                        dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+                    bitmap.Render(main);
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    using (FileStream stream = File.Create(output)) encoder.Save(stream);
+                    Shutdown(0);
+                }
+                catch (Exception error)
+                {
+                    File.WriteAllText(Path.ChangeExtension(output, ".error.txt"), error.ToString());
+                    Shutdown(1);
+                }
+            };
+            main.Show();
+        }
+        else if (e.Args.Length >= 2 && e.Args[0] == "--mascot-capture")
         {
             string directory = Path.GetFullPath(e.Args[1]);
             var demo = new MascotDemoWindow();

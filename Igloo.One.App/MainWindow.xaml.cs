@@ -1,18 +1,8 @@
-﻿using System.Text;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using Igloo.Mascot.Core;
 
 namespace Igloo.One.App;
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
+
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1515:Consider making public types internal",
     Justification = "WPF XAML-generated partial class is public.")]
 public partial class MainWindow : Window
@@ -32,17 +22,18 @@ public partial class MainWindow : Window
         {
             _backend = OneBackendClient.Create();
             var capabilities = await _backend.ListCapabilitiesAsync().ConfigureAwait(true);
-            Title = $"iGloo One · {capabilities.Count} local capabilities";
+            CapabilityStatus.Text = $"Local capabilities discovered: {capabilities.Count}.";
         }
         catch (Igloo.Cli.Client.CliTransportException)
         {
-            Title = "iGloo One · CLI unavailable";
+            CapabilityStatus.Text = "Local capabilities are unavailable right now.";
         }
     }
 
     private async void OnClosed(object? sender, EventArgs e)
     {
-        if (_backend is not null) await _backend.DisposeAsync().ConfigureAwait(true);
+        if (_backend is not null)
+            await _backend.DisposeAsync().ConfigureAwait(true);
     }
 
     private void OnMinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -55,8 +46,5 @@ public partial class MainWindow : Window
     private void OnMascotDemoClick(object sender, RoutedEventArgs e) =>
         new MascotDemoWindow { Owner = this }.Show();
 
-    private void OnStepChanged(object sender, System.Windows.Data.DataTransferEventArgs e)
-    {
-        // The One shell has no workflow coordinator yet.
-    }
+    private void OnWaveClick(object sender, RoutedEventArgs e) => MainAvatar.Trigger(MascotAction.Wave);
 }

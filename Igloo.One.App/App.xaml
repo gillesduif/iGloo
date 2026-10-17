@@ -4,19 +4,10 @@
              xmlns:local="clr-namespace:Igloo.One.App">
     <Application.Resources>
         <ResourceDictionary>
-            <SolidColorBrush x:Key="Brush.Window" Color="#171B22" />
-            <SolidColorBrush x:Key="Brush.Text.Primary" Color="#F5F7FA" />
-            <SolidColorBrush x:Key="Brush.Text.Secondary" Color="#C7CDD5" />
-            <SolidColorBrush x:Key="Brush.Text.Tertiary" Color="#8993A2" />
-            <SolidColorBrush x:Key="Brush.Layer.Card" Color="#252B34" />
-            <SolidColorBrush x:Key="Brush.Stroke.Card" Color="#3C4653" />
-            <SolidColorBrush x:Key="Brush.AccentW11" Color="#79B7FF" />
-            <BooleanToVisibilityConverter x:Key="BoolToVis" />
-            <Style x:Key="Button.Caption" TargetType="Button">
-                <Setter Property="Width" Value="46" />
-                <Setter Property="Height" Value="32" />
-            </Style>
-            <Style x:Key="Button.Caption.Close" TargetType="Button" BasedOn="{StaticResource Button.Caption}" />
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.Dark.xaml" />
+                <ResourceDictionary Source="Themes/OneTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

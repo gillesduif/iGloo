@@ -1,56 +1,32 @@
-<Window
-    x:Class="Igloo.One.App.MainWindow"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="iGloo"
-    MinWidth="760" MinHeight="580"
-    Width="930" Height="675"
-    WindowStartupLocation="CenterScreen"
-    WindowStyle="None"
-    Background="{StaticResource Brush.Window}"
-    TextElement.Foreground="{StaticResource Brush.Text.Primary}">
+<Window x:Class="Igloo.One.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mascot="clr-namespace:Igloo.Mascot.Wpf;assembly=Igloo.Mascot.Wpf"
+        Title="iGloo One" MinWidth="760" MinHeight="580"
+        Width="930" Height="675" WindowStartupLocation="CenterScreen"
+        WindowStyle="None" Background="{StaticResource Brush.Window}"
+        TextElement.Foreground="{StaticResource Brush.Text.Primary}">
 
-    <!--
-      WinUI-3-style shell: custom title bar (row 0), a left step rail naming
-      every wizard step (Visual Studio Installer / Settings pattern), a content
-      column, and a bottom command bar. WindowChrome keeps native drag, Aero
-      Snap, double-click maximize and resize borders.
-    -->
     <WindowChrome.WindowChrome>
-        <!-- GlassFrameThickness -1 = DWM sheet covers the whole client area, the
-             prerequisite for the Mica backdrop to show through (set in code). -->
-        <WindowChrome CaptionHeight="44"
-                      ResizeBorderThickness="6"
-                      GlassFrameThickness="-1"
-                      CornerRadius="0"
+        <WindowChrome CaptionHeight="44" ResizeBorderThickness="6"
+                      GlassFrameThickness="-1" CornerRadius="0"
                       UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
 
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition/>
-            <ColumnDefinition Width="91*"/>
-        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="44"   />
-            <!-- Title bar   -->
-            <RowDefinition Height="*"    />
-            <!-- Rail + page -->
+            <RowDefinition Height="44" />
+            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <!-- Command bar -->
         </Grid.RowDefinitions>
 
-        <!--   Title bar                             -->
-        <Grid Grid.Row="0" Background="Transparent" Grid.ColumnSpan="2">
+        <Grid Grid.Row="0" Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                <TextBlock Text="iGloo"
-                           FontSize="13" FontWeight="SemiBold"
-                           Foreground="{StaticResource Brush.Text.Primary}" />
+                <TextBlock Text="iGloo" FontSize="13" FontWeight="SemiBold" />
                 <Border Background="{StaticResource Brush.Layer.Card}"
                         BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="1"
                         CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
@@ -58,17 +34,11 @@
                                Foreground="{StaticResource Brush.Text.Tertiary}" />
                 </Border>
             </StackPanel>
-
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button x:Name="MinimizeButton"
-                        Style="{StaticResource Button.Caption}"
-                        Content="&#xE921;"
-                        Click="OnMinimizeClick"
-                        WindowChrome.IsHitTestVisibleInChrome="True"
+                <Button Style="{StaticResource Button.Caption}" Content="&#xE921;"
+                        Click="OnMinimizeClick" WindowChrome.IsHitTestVisibleInChrome="True"
                         AutomationProperties.Name="Minimize" />
-                <Button x:Name="MaxRestoreButton"
-                        Click="OnMaxRestoreClick"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <Button Click="OnMaxRestoreClick" WindowChrome.IsHitTestVisibleInChrome="True">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource Button.Caption}">
                             <Setter Property="Content" Value="&#xE922;" />
@@ -83,150 +53,58 @@
                         </Style>
                     </Button.Style>
                 </Button>
-                <Button x:Name="CloseButton"
-                        Style="{StaticResource Button.Caption.Close}"
-                        Content="&#xE8BB;"
-                        Click="OnCloseClick"
-                        WindowChrome.IsHitTestVisibleInChrome="True"
+                <Button Style="{StaticResource Button.Caption.Close}" Content="&#xE8BB;"
+                        Click="OnCloseClick" WindowChrome.IsHitTestVisibleInChrome="True"
                         AutomationProperties.Name="Close" />
             </StackPanel>
         </Grid>
 
-        <!--   Rail + content                         ─ -->
-        <Grid Grid.Row="1" Grid.ColumnSpan="2">
+        <Grid Grid.Row="1" Margin="42,24,42,18">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="212" />
+                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Step rail: every step by name with done / current / upcoming
-                 state. Answers "Where am I? What's done? What's next?" at a
-                 glance. Not interactive  the wizard is linear by design. -->
-            <ItemsControl Grid.Column="0"
-                          ItemsSource="{Binding StepMarkers}"
-                          Margin="8,8,0,8"
-                          IsTabStop="False"
-                          AutomationProperties.Name="Installation steps">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Grid Height="36" Margin="0,1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="28" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,22,0">
+                <TextBlock Text="Welcome to iGloo One" FontSize="32" FontWeight="SemiBold"
+                           TextWrapping="Wrap" Margin="0,0,0,12" />
+                <TextBlock Text="Meet Tux, your iGloo companion."
+                           FontSize="16" TextWrapping="Wrap"
+                           Foreground="{StaticResource Brush.Text.Secondary}"
+                           Margin="0,0,0,28" />
+                <Border Background="{StaticResource Brush.Layer.Card}"
+                        BorderBrush="{StaticResource Brush.Stroke.Card}"
+                        BorderThickness="1" CornerRadius="8" Padding="16,12"
+                        MaxWidth="350" HorizontalAlignment="Left">
+                    <StackPanel>
+                        <TextBlock Text="LOCAL STATUS" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{StaticResource Brush.Text.Tertiary}"
+                                   Margin="0,0,0,7" />
+                        <TextBlock x:Name="CapabilityStatus" Text="Checking local capabilities…"
+                                   FontSize="14" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <Button Content="Wave to Tux" Click="OnWaveClick"
+                        HorizontalAlignment="Left" Margin="0,24,0,0"
+                        AutomationProperties.Name="Wave to Tux" />
+            </StackPanel>
 
-                            <!-- WinUI selection pill for the current step -->
-                            <Border Grid.Column="0" Width="3" CornerRadius="1.5"
-                                    HorizontalAlignment="Left" Margin="0,8"
-                                    Background="{StaticResource Brush.AccentW11}">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Hidden" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-
-                            <!-- State glyph: ✓ when done · the step's Fluent icon otherwise -->
-                            <TextBlock Grid.Column="1" VerticalAlignment="Center"
-                                       HorizontalAlignment="Center" FontSize="14"
-                                       FontFamily="Segoe MDL2 Assets">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="{Binding Glyph}" />
-                                        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Tertiary}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsDone}" Value="True">
-                                                <Setter Property="Text" Value="&#xE73E;" />
-                                                <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
-                                                <Setter Property="FontSize" Value="11" />
-                                                <Setter Property="Foreground" Value="{StaticResource Brush.AccentW11}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-
-                            <TextBlock Grid.Column="2" Text="{Binding Title}"
-                                       VerticalAlignment="Center" Margin="6,0,0,0" FontSize="13">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Tertiary}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsDone}" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-
-                            <!-- Subtle row fill for the current step -->
-                            <Border Grid.ColumnSpan="3" CornerRadius="4" Panel.ZIndex="-1" Margin="4,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                                <Setter Property="Background" Value="{StaticResource Brush.Layer.Card}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                            </Border>
-                        </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            <!-- Content column: page title + page -->
-            <Grid Grid.Column="1" Margin="24,4,28,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <!-- Collapsed (not Hidden) on Welcome, so the Auto row gives its
-                     height back to the page instead of leaving a gap. -->
-                <TextBlock Grid.Row="0"
-                           Text="{Binding StepDescription}"
-                           Visibility="{Binding ShowStepTitle, Converter={StaticResource BoolToVis}}"
-                           FontSize="28" FontWeight="SemiBold"
-                           Foreground="{StaticResource Brush.Text.Primary}"
-                           Margin="0,4,0,12" />
-
-                <ContentControl x:Name="StepHost"
-                                Grid.Row="1"
-                                Content="{Binding CurrentPage, NotifyOnTargetUpdated=True}"
-                                VerticalContentAlignment="Stretch"
-                                HorizontalContentAlignment="Stretch"
-                                Binding.TargetUpdated="OnStepChanged"
-                                RenderTransformOrigin="0.5,0.5">
-                    <ContentControl.RenderTransform>
-                        <TranslateTransform x:Name="StepTransform" />
-                    </ContentControl.RenderTransform>
-                </ContentControl>
-
-            </Grid>
+            <mascot:TuxAvatar x:Name="MainAvatar" Grid.Column="1"
+                               Width="320" Height="380"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FollowCursor="True" ShowPivots="False"
+                               AutomationProperties.Name="Tux mascot" />
         </Grid>
 
-        <!--   Command bar                            -->
-
-        <Button Grid.Row="2" Grid.ColumnSpan="2" Content="Mascot demo"
-                HorizontalAlignment="Right" Margin="0,4,28,8" Padding="12,5"
-                Click="OnMascotDemoClick" />
-
+        <Border Grid.Row="2" Background="{StaticResource Brush.Layer.Card}"
+                BorderBrush="{StaticResource Brush.Stroke.Card}"
+                BorderThickness="0,1,0,0">
+            <Grid Margin="24,11,28,12">
+                <TextBlock Text="iGloo One" VerticalAlignment="Center"
+                           FontSize="12" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                <Button Content="Mascot demo" Click="OnMascotDemoClick"
+                        HorizontalAlignment="Right" />
+            </Grid>
+        </Border>
     </Grid>
 </Window>
