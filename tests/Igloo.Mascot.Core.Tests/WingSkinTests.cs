@@ -5,6 +5,11 @@ namespace Igloo.Mascot.Core.Tests;
 
 public sealed class WingSkinTests
 {
+    private sealed class FixedLipSync(double amplitude) : ILipSyncSource
+    {
+        public double Amplitude => amplitude;
+    }
+
     private static readonly (WingProfile Left, WingProfile Right) Profiles = WingProfile.LoadArtwork();
     private static readonly WingTuning Default = new();
 
@@ -159,6 +164,34 @@ public sealed class WingSkinTests
         Assert.Equal(0, MotionMath.Blink(0));
         Assert.InRange(MotionMath.Blink(.1), .999, 1);
         Assert.Equal(0, MotionMath.Blink(.2));
+    }
+
+    [Theory]
+    [InlineData(MascotAction.Wave, 1.6, true, false)]
+    [InlineData(MascotAction.Point, 1.6, true, false)]
+    [InlineData(MascotAction.Think, 1.6, false, true)]
+    [InlineData(MascotAction.Celebrate, 1.3, true, true)]
+    public void ActionsRaiseTheIntendedWings(MascotAction action, double age, bool left, bool right)
+    {
+        var baseline = new MascotMotion();
+        MascotFrame idle = baseline.Step(age, .05, default, default, false, false, false);
+        var active = new MascotMotion();
+        active.Trigger(action, 0);
+        MascotFrame posed = active.Step(age, .05, default, default, false, false, false);
+        if (left) Assert.True(posed.Left.Shoulder > idle.Left.Shoulder + 10);
+        if (right) Assert.True(posed.Right.Shoulder > idle.Right.Shoulder + 10);
+    }
+
+    [Fact]
+    public void LipSyncAmplitudeAndWordPulseDriveTheMouth()
+    {
+        var motion = new MascotMotion { LipSyncSource = new FixedLipSync(1) };
+        motion.Talk(0, 1);
+        MascotFrame level = motion.Step(0, .05, default, default, false, false, false);
+        Assert.InRange(level.Mouth, .5, .6);
+        motion.WordBoundary();
+        MascotFrame pulse = motion.Step(.05, .05, default, default, false, false, false);
+        Assert.True(pulse.Mouth > level.Mouth);
     }
 
     [Fact]
