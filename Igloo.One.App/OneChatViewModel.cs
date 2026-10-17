@@ -76,6 +76,7 @@ internal sealed class OneChatViewModel(Func<CancellationToken, Task<CommandResul
         }
         IsChecking = true;
         HasBlockers = false;
+        _lastSystemSummary = null;
         Status = "Checking this system…";
         try
         {
