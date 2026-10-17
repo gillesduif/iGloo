@@ -21,7 +21,7 @@
       </Border>
       <TextBox x:Name="InputBox" Grid.Row="1" Width="250" Height="38"
                HorizontalAlignment="Left" Margin="18,8" Padding="8"
-               Text="Vraag of bevestig hier…" />
+               Text="Ask or confirm here…" />
     </Grid>
     <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="18,0,0,0">
       <StackPanel x:Name="Controls" />

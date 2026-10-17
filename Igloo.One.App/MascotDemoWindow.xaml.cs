@@ -234,6 +234,8 @@ public partial class MascotDemoWindow : Window
         Point hand = Avatar.HandTipIn(Ring);
         File.AppendAllText(Path.Combine(directory, "coordinates.txt"), $"{name}: hand=({hand.X:F1},{hand.Y:F1}) card={Ring.HeldCardCentreInRing} ring=({Ring.ActualWidth:F1},{Ring.ActualHeight:F1}) avatar={Avatar.TranslatePoint(default, Ring)}{Environment.NewLine}");
         SavePng(Ring, Path.Combine(directory, name + ".png"));
+        Stage.UpdateLayout();
+        SavePng(Stage, Path.Combine(directory, name + "-stage.png"));
     }
 
     private static void SavePng(FrameworkElement visual, string path)

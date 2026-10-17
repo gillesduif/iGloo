@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using Igloo.Mascot.Core;
+using Igloo.Mascot.Wpf.Converters;
 
 namespace Igloo.Mascot.Wpf;
 
@@ -207,6 +208,7 @@ public sealed class TaskCardRing : Control
         {
             Source = new Uri("/Igloo.Mascot.Wpf;component/Themes/CardLight.xaml", UriKind.Relative)
         };
+        private static readonly TaskStateIconConverter IconConverter = new();
         private readonly Border _icon, _barFill, _face, _shadowBacking;
         private readonly TextBlock _iconText;
         private readonly Border _progressTrack;
@@ -232,6 +234,10 @@ public sealed class TaskCardRing : Control
             subtitle.SetBinding(TextBlock.TextProperty, new Binding(nameof(TaskCardViewModel.Subtitle)) { Source = card });
             _iconText = new TextBlock { FontSize = 14, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center };
+            _iconText.SetBinding(TextBlock.TextProperty, new Binding(nameof(TaskCardViewModel.State))
+            {
+                Source = card, Converter = IconConverter
+            });
             _icon = new Border { Width = 18, Height = 18, CornerRadius = new CornerRadius(9), BorderThickness = new Thickness(1.5),
                 VerticalAlignment = VerticalAlignment.Top, Child = _iconText,
                 RenderTransform = _iconRotation, RenderTransformOrigin = new Point(.5, .5) };
@@ -298,7 +304,6 @@ public sealed class TaskCardRing : Control
             _icon.BorderBrush = highContrast ? SystemColors.WindowTextBrush : accent;
             _icon.Background = state == TaskCardState.Todo ? Brushes.Transparent :
                 highContrast ? SystemColors.HighlightBrush : accent;
-            _iconText.Text = state switch { TaskCardState.Done => "✓", TaskCardState.Failed => "×", TaskCardState.Busy => "↻", _ => "" };
             _iconText.Foreground = state == TaskCardState.Todo ? Brushes.Transparent :
                 highContrast ? SystemColors.HighlightTextBrush : Brushes.Black;
             _iconRotation.Angle = state == TaskCardState.Busy ? (time * 200) % 360 : 0;
