@@ -148,8 +148,17 @@ public sealed class WingSkinTests
         MascotFrame scanning = motion.Step(1, .05, default,
             new(new(-1, 0), null, null), false, false, false, scanning: true);
         Assert.Equal(GazePriority.Scanning, scanning.Gaze);
-        Assert.True(scanning.EyeX > 0);
-        Assert.True(scanning.HeadTilt > 0);
+        Assert.True(scanning.EyeX < -1);
+        Assert.True(scanning.HeadTilt < -1);
+        Assert.True(scanning.Left.Shoulder > scanning.Right.Shoulder);
+
+        MascotFrame opposite = default;
+        for (int i = 0; i < 12; i++)
+            opposite = motion.Step(2 + i * .02, .02, default,
+                new(new(-1, 0), null, null), false, false, false, scanning: true);
+        Assert.True(opposite.EyeX > 0);
+        Assert.True(opposite.HeadTilt > 0);
+        Assert.True(opposite.Right.Shoulder > opposite.Left.Shoulder);
 
         MascotFrame finished = motion.Step(4, .05, default,
             new(new(-1, 0), null, null), false, false, false);

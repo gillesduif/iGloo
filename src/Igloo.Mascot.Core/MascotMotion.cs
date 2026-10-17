@@ -114,13 +114,21 @@ public sealed class MascotMotion
             _eyeDrift = new((_random.NextDouble() - .5) * 2.4, (_random.NextDouble() - .5) * 1.6);
             _nextEye = time + 1.5 + _random.NextDouble() * 3;
         }
-        Vec2? scanTarget = scanning ? new Vec2(Sn(.95) * .85, Sn(.7, 1) * .38) : null;
+        Vec2? scanTarget = scanning
+            ? new Vec2(Math.Cos(time * 2.5 + .4) * c, Math.Sin(time * 1.7 + .8) * .45 * c)
+            : null;
         GazeResult look = GazeSolver.Resolve(gaze with { ScanTarget = scanTarget }, _eyeDrift);
         GazeResult unoccupied = GazeSolver.Resolve(new(gaze.Cursor, null, null, scanTarget), _eyeDrift);
         double ex = unoccupied.Priority == GazePriority.Drift ? unoccupied.Target.X : unoccupied.Target.X * 2.6;
         double ey = unoccupied.Priority == GazePriority.Drift ? unoccupied.Target.Y : unoccupied.Target.Y * 1.8;
         if (look.Priority == GazePriority.Cursor) { hx += look.Target.X * 1.6; hr += look.Target.X * 2.2; }
-        if (look.Priority == GazePriority.Scanning) { hx += look.Target.X * 3; hr += look.Target.X * 4; }
+        if (look.Priority == GazePriority.Scanning)
+        {
+            hx = Math.Clamp(hx + look.Target.X * 3.7, -4, 4);
+            hr = Math.Clamp(hr + look.Target.X * 6, -6, 6);
+            ls += 52 * Math.Max(0, -look.Target.X) * c;
+            rs += 52 * Math.Max(0, look.Target.X) * c;
+        }
 
         _hold = MotionMath.Smooth(_hold, holding ? 1 : 0, dt, 5);
         _wait = MotionMath.Smooth(_wait, waiting ? 1 : 0, dt, 6);
