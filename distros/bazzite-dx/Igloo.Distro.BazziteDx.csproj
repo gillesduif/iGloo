@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Igloo.Distro.BazziteDx</RootNamespace>
+    <AssemblyName>Igloo.Distro.BazziteDx</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Igloo.Distro.BazziteDx.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Igloo.Core\Igloo.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="kickstart\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="agent\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The Bazzite agent drives the Fedora KDE agent's migration steps (Wi-Fi,
+         display layout, browsers, ...) and replaces only the steps an image-based
+         system does differently. Shipped under a module name it can import. -->
+    <Content Include="..\fedora-kde\agent\agent.py"
+             Link="agent\fedora_agent.py"
+             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\fedora-kde\agent\display-apply.py"
+             Link="agent\display-apply.py"
+             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\_shared\agent\igloo_boot.py"
+             Link="agent\igloo_boot.py"
+             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="distro.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="CopyPluginToDistroRoot" AfterTargets="Build">
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"
+          DestinationFolder="$(MSBuildProjectDirectory)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

@@ -2585,6 +2585,11 @@ def configure_logging(log_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 IGLOO_SEED_LABELS = ("OEMDRV", "CIDATA", "IGLOOISO")
 
+# The mount whose source is the Linux root partition. On an image-based system
+# (Bazzite) "/" is a composefs overlay with no block device behind it; the
+# physical root sits at /sysroot and that agent points this there.
+ROOT_MOUNT = "/"
+
 
 def export_logs_to_seed(manifest: dict[str, Any]) -> None:
     """Copy the install logs onto the FAT32 seed partition (OEMDRV/CIDATA).
@@ -2678,7 +2683,7 @@ def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
     # path  lsblk then fails, `disk` stays empty, and the whole cleanup silently
     # bails, leaving OEMDRV behind to break later installs. (ext4 roots on
     # Debian/Mint have no suffix, which is why this only ever bit Fedora.)
-    src = run_cmd(["findmnt", "-rno", "SOURCE", "--nofsroot", "/"], check=False)
+    src = run_cmd(["findmnt", "-rno", "SOURCE", "--nofsroot", ROOT_MOUNT], check=False)
     root_dev = re.sub(r"\[.*\]$", "", (src.stdout or "").strip())
     disk = ""
     if root_dev.startswith("/dev/"):

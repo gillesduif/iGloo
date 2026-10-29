@@ -22,6 +22,7 @@ public static class DistroRecommender
     {
         //                       every gaming work tinker | winlike modern | stable cutting
         ["bazzite"] = new(1, 2, 0, 1, 0, 2, 1, 2),
+        ["bazzite-dx"] = new(0, 2, 2, 2, 0, 2, 1, 2),
         ["cachyos"] = new(0, 2, 0, 2, 1, 1, 0, 2),
         ["endeavouros"] = new(0, 1, 0, 2, 1, 1, 0, 2),
         ["garuda"] = new(0, 2, 0, 2, 1, 2, 0, 2),

@@ -1,0 +1,42 @@
+{
+  "$schema": "../_schema/distro.schema.json",
+  "id": "bazzite-dx",
+  "displayName": "Bazzite DX",
+  "description": "Bazzite DX: the Bazzite gaming image with the KDE Plasma desktop plus a developer toolbox. VS Code, Docker and Podman, distrobox, virtualization (libvirt) and Homebrew come ready to use. GPU drivers, Steam and HDR support are included, and updates replace the whole system image, so a bad update can be rolled back. For developers who also play games.",
+  "logo": "logo/bazzite-logo.png",
+  "defaultDesktopEnvironment": "KDE Plasma",
+  "installerType": "Anaconda",
+
+  "_comment": "Bazzite publishes no unattended-installable ISO (its ISO is a live session that runs the installer interactively). iGloo boots the official Fedora Everything netinstall, which loads Anaconda only; the kickstart's ostreecontainer command then pulls the signed Bazzite DX image from containerImage (NVIDIA machines get containerImageNvidia). stage2Url only locates the Anaconda stage-2 for the netinstall; no Fedora packages are installed.",
+
+  "iso": {
+    "downloadUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-44-1.7.iso",
+    "sha256": "",
+    "gpgSignatureUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/iso/Fedora-Everything-44-1.7-x86_64-CHECKSUM",
+    "gpgKeyUrl": "https://fedoraproject.org/fedora.gpg",
+    "gpgKeyFingerprint": "36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6",
+    "stage2Url": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/os/"
+  },
+
+  "containerImage": "ghcr.io/ublue-os/bazzite-dx:stable",
+  "containerImageNvidia": "ghcr.io/ublue-os/bazzite-dx-nvidia:stable",
+
+  "tags": [
+    "gaming",
+    "developer-tools",
+    "image-based-updates",
+    "wayland-default"
+  ],
+
+  "minimumRequirements": {
+    "minRamBytes": 8589934592,
+    "minDiskBytes": 68719476736,
+    "requiresUefi": true,
+    "requires64Bit": true
+  },
+
+  "maintainer": {
+    "github": "gillesduif",
+    "note": "Installed from the Fedora netinstall with Anaconda's ostreecontainer command, then switched to the signed image (bootc --enforce-container-sigpolicy). Secure Boot needs the Universal Blue key enrolled through MokManager at the first reboot, hence no secure-boot-supported tag."
+  }
+}

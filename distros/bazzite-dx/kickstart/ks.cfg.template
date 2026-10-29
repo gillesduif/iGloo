@@ -1,0 +1,548 @@
+# ============================================================================
+# Igloo kickstart template for Bazzite DX
+# ----------------------------------------------------------------------------
+# Booted from the Fedora Everything netinstall. Bazzite is an image-based
+# system: instead of installing packages, Anaconda's ostreecontainer command
+# deploys the Bazzite DX container image straight from the registry.
+#
+# Rendered at runtime by the Igloo Windows-side app. Placeholders:
+#   {{CONTAINER_IMAGE}}    the image to deploy, e.g. ghcr.io/ublue-os/bazzite-dx:stable
+#                          (the -nvidia build when the machine has an NVIDIA GPU)
+#   {{SECURE_BOOT}}        "1" when Windows booted with Secure Boot on, else "0"
+#   {{LOCALE}}             e.g. en_US.UTF-8
+#   {{XLAYOUT}}            XKB layout name, e.g. be, us, de
+#   {{TIMEZONE}}           IANA tz, e.g. Europe/Brussels
+#   {{HOSTNAME}}           RFC 1123 hostname, at most 19 characters (Bazzite
+#                          renames longer ones to "bazzite" at first boot)
+#   {{LINUX_USERNAME}}     the user's chosen Linux login name
+#   {{FULL_NAME}}          display name (falls back to username)
+#   {{PASSWORD_OPTION}}    "--password=\"<sha512-crypt>\" --iscrypted", or "--lock"
+#   {{TARGET_DISK_BYTES}}  exact byte size of the user-selected target disk
+#   {{TARGET_DISK_MODEL}}  model string of the target disk (informational)
+#   {{WINDOWS_USERNAME}}   Windows login name (direct-install %post reads the
+#                          user's home on the NTFS partition)
+#   {{INSTALL_MODE}}       "replace" (wipe the disk) or "dual-boot" (use the free
+#                          space Igloo made by shrinking Windows)
+#   {{INCLUDED_FOLDERS}}   space-separated folder names (informational)
+#   FOLDER_MAP, BROWSER_MAP, CHROMIUM_MAP, WIFI_LIST (no braces - multi-line values,
+#                          literal tokens only inside the heredocs below). Same
+#                          format as the Fedora KDE template.
+#
+# Picked up by Anaconda automatically from the OEMDRV volume.
+# ============================================================================
+
+graphical
+
+# No initial-setup wizard: everything it asks is configured here.
+firstboot --disable
+
+lang {{LOCALE}}
+# XKB layout only; see the Fedora KDE template for why --vckeymap is omitted.
+keyboard --xlayouts='{{XLAYOUT}}'
+timezone {{TIMEZONE}} --utc
+
+network --bootproto=dhcp --device=link --activate --hostname={{HOSTNAME}}
+
+rootpw --lock
+# wheel: sudo, and bazzite-dx-groups adds every wheel member to docker,
+# libvirt and incus-admin.
+user --name={{LINUX_USERNAME}} --groups=wheel --gecos="{{FULL_NAME}}" {{PASSWORD_OPTION}}
+
+# ── Disk detection ───────────────────────────────────────────────────────────
+# Same as Fedora KDE: match the target disk by exact byte size, fall back to the
+# largest non-removable, non-USB disk, and write the storage commands to
+# /tmp/ks-storage.cfg for the %include below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+%pre --interpreter=/bin/bash
+set -euo pipefail
+
+TARGET_BYTES="{{TARGET_DISK_BYTES}}"
+TARGET_MODEL="{{TARGET_DISK_MODEL}}"
+INSTALL_MODE="{{INSTALL_MODE}}"
+TARGET_DISK=""
+
+log() { echo "[igloo-pre] $*" >&2; }
+log "Searching for target disk: model='$TARGET_MODEL' size=${TARGET_BYTES} bytes"
+
+for sys_dev in /sys/block/sd* /sys/block/nvme*n1 /sys/block/vd* /sys/block/xvd*; do
+    [ -e "$sys_dev/size" ] || continue
+    devname=$(basename "$sys_dev")
+
+    removable=$(cat "$sys_dev/removable" 2>/dev/null || echo 0)
+    [ "$removable" = "1" ] && { log "  $devname: removable, skipping"; continue; }
+
+    size_sectors=$(cat "$sys_dev/size" 2>/dev/null || echo 0)
+    size_bytes=$(( size_sectors * 512 ))
+    log "  $devname: ${size_bytes} bytes"
+
+    if [ "$size_bytes" = "$TARGET_BYTES" ] && [ "$TARGET_BYTES" != "0" ]; then
+        TARGET_DISK="$devname"
+        log "  --> matched by size"
+        break
+    fi
+done
+
+if [ -z "$TARGET_DISK" ]; then
+    log "No exact size match; falling back to largest non-removable disk"
+    TARGET_DISK=$(
+        lsblk -d -o NAME,SIZE,TYPE,TRAN -b -n 2>/dev/null \
+            | awk '$3=="disk" && $4!="usb"' \
+            | sort -k2 -rn \
+            | head -1 \
+            | awk '{print $1}'
+    )
+    log "  fallback target: $TARGET_DISK"
+fi
+
+if [ -z "$TARGET_DISK" ]; then
+    log "ERROR: could not identify a target disk - kickstart will fail"
+    echo "# ERROR: target disk not found" > /tmp/ks-storage.cfg
+else
+    log "Target disk: /dev/$TARGET_DISK  (mode: $INSTALL_MODE)"
+    {
+        # No --location: on UEFI Anaconda writes to the ESP by itself.
+        echo "bootloader --boot-drive=${TARGET_DISK}"
+        echo "ignoredisk --only-use=${TARGET_DISK}"
+        if [ "$INSTALL_MODE" = "dual-boot" ]; then
+            # DATA-LOSS WARNING: never "clearpart --linux" - it deletes every other
+            # Linux install on the disk. "--none" keeps all existing partitions and
+            # autopart fills only the space Igloo freed.
+            echo "clearpart --none"
+        else
+            echo "clearpart --drives=${TARGET_DISK} --all --initlabel"
+        fi
+        # Plain partitions, as on Fedora KDE: a volume group (or a btrfs volume)
+        # carries a name that can collide with an earlier install and stop the
+        # unattended install for confirmation. Bazzite's own installer picks
+        # btrfs, but autopart only offers btrfs as a volume (--type=btrfs, which
+        # has that name), never as a plain filesystem. XFS is what Fedora Atomic
+        # images installed on before btrfs; ostree does not care.
+        echo "autopart --type=plain --fstype=xfs --nohome"
+    } > /tmp/ks-storage.cfg
+    log "Storage config written to /tmp/ks-storage.cfg:"
+    cat /tmp/ks-storage.cfg >&2
+fi
+
+# ── Wi-Fi connectivity for the image pull ────────────────────────────────────
+# The image comes from the registry, so the installer must be online. Same
+# loop as Fedora KDE: try every network saved on Windows, connect to the first
+# one in range. The installed system's Wi-Fi is set up by the first-boot agent.
+: > /tmp/ks-network.cfg
+
+WLAN_DEV=""
+for wif in /sys/class/net/*/wireless; do
+    [ -e "$wif" ] || continue
+    WLAN_DEV=$(basename "$(dirname "$wif")")
+    break
+done
+
+if [ -n "$WLAN_DEV" ]; then
+    log "Wireless device: $WLAN_DEV - enabling radio and scanning"
+    nmcli radio wifi on 2>/dev/null || true
+
+    for i in $(seq 1 15); do
+        state=$(nmcli -t -f DEVICE,STATE device 2>/dev/null | awk -F: -v d="$WLAN_DEV" '$1==d{print $2}')
+        [ -n "$state" ] && [ "$state" != "unavailable" ] && break
+        sleep 2
+    done
+
+    TAB="$(printf '\t')"
+    connected=0
+    for pass in $(seq 1 6); do
+        [ "$connected" = "1" ] && break
+        nmcli device wifi rescan ifname "$WLAN_DEV" 2>/dev/null || true
+        sleep 2
+        VISIBLE=$(nmcli -t -f SSID device wifi list ifname "$WLAN_DEV" 2>/dev/null)
+        while IFS="$TAB" read -r wssid wpsk; do
+            [ -n "$wssid" ] || continue
+            printf '%s\n' "$VISIBLE" | grep -Fxq "$wssid" || continue
+            log "  Known network '$wssid' is in range - connecting"
+            if [ -n "$wpsk" ]; then
+                nmcli device wifi connect "$wssid" password "$wpsk" ifname "$WLAN_DEV" && { connected=1; break; }
+            else
+                nmcli device wifi connect "$wssid" ifname "$WLAN_DEV" && { connected=1; break; }
+            fi
+        done <<'WIFILIST'
+{{WIFI_LIST}}
+WIFILIST
+        [ "$connected" = "1" ] && break
+        log "  No known network connected yet (pass $pass/6) - rescanning"
+        sleep 3
+    done
+
+    if [ "$connected" = "1" ]; then
+        log "Wi-Fi connected on $WLAN_DEV"
+    else
+        log "WARNING: no saved Wi-Fi network in range - Anaconda may prompt for one"
+    fi
+else
+    log "No wireless interface found - relying on a wired link if present"
+fi
+%end
+
+%include /tmp/ks-storage.cfg
+%include /tmp/ks-network.cfg
+
+# ── Payload ───────────────────────────────────────────────────────────────────
+# The image is pulled unverified here because the installer environment has no
+# policy for ghcr.io/ublue-os; the chroot %post below switches the installed
+# system to the signed reference, so every later update is verified.
+# No %packages section: it is ignored (and rejected) with ostreecontainer.
+ostreecontainer --url={{CONTAINER_IMAGE}} --transport=registry --no-signature-verification
+
+reboot
+
+# ── Post-install (outside chroot) ─────────────────────────────────────────────
+# /mnt/sysimage is the new deployment. On an image-based system only /etc and
+# /var are writable and persistent: /home is a link to /var/home and /opt to
+# /var/opt, so every path written here is spelled out under /var.
+# ─────────────────────────────────────────────────────────────────────────────
+
+%post --nochroot --interpreter=/bin/bash --log=/mnt/sysimage/var/log/igloo-post.log
+set -euo pipefail
+
+SYSIMAGE="/mnt/sysimage"
+
+OEMDRV_DEV=$(blkid -L OEMDRV 2>/dev/null || true)
+OEMDRV=""
+if [ -n "$OEMDRV_DEV" ]; then
+    OEMDRV="/tmp/igloo_oemdrv"
+    mkdir -p "$OEMDRV"
+    if ! mount -o ro "$OEMDRV_DEV" "$OEMDRV" 2>/dev/null; then
+        OEMDRV=""
+    fi
+fi
+if [ -z "$OEMDRV" ]; then
+    echo "[igloo-post] WARNING: Could not mount OEMDRV (tried $OEMDRV_DEV) - agent/manifest copy skipped" >&2
+fi
+USERNAME="{{LINUX_USERNAME}}"
+WINDOWS_USERNAME="{{WINDOWS_USERNAME}}"
+INCLUDED_FOLDERS="{{INCLUDED_FOLDERS}}"
+USER_HOME="$SYSIMAGE/var/home/$USERNAME"
+# /opt/igloo as the running system resolves it (normally /var/opt/igloo).
+OPT_REAL=$(chroot "$SYSIMAGE" readlink -f /opt 2>/dev/null || echo /var/opt)
+case "$OPT_REAL" in
+    /var/*) ;;
+    *) echo "[igloo-post] WARNING: /opt resolves to $OPT_REAL, outside /var - the agent will not survive an image update" >&2 ;;
+esac
+AGENT_DIR="$SYSIMAGE$OPT_REAL/igloo"
+
+log() { echo "[igloo-post] $*"; }
+
+log "Starting Igloo post-install (nochroot)"
+log "  OEMDRV    : $OEMDRV"
+log "  SYSIMAGE  : $SYSIMAGE"
+log "  USERNAME  : $USERNAME"
+log "  AGENT_DIR : $AGENT_DIR"
+
+# ── 1. Create Igloo directories ──────────────────────────────────────────────
+install -d -m 0755 \
+    "$AGENT_DIR" \
+    "$SYSIMAGE/var/lib/igloo" \
+    "$SYSIMAGE/var/log/igloo"
+
+# The image reference, for the agent's signed-update check.
+echo "{{CONTAINER_IMAGE}}" > "$SYSIMAGE/var/lib/igloo/image"
+
+# ── 2. Copy the first-boot agent ────────────────────────────────────────────
+if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/igloo-agent" ]; then
+    for src in "$OEMDRV/igloo-agent"/*.sh "$OEMDRV/igloo-agent"/*.py; do
+        [ -f "$src" ] || continue
+        fname=$(basename "$src")
+        # tr -d '\r': a CR in the shebang fails the unit with status=203/EXEC.
+        tr -d '\r' < "$src" | install -m 0755 /dev/stdin "$AGENT_DIR/$fname"
+        log "  Installed $fname (0755, LF-only)"
+    done
+    log "Agent installed to $AGENT_DIR"
+else
+    log "WARNING: igloo-agent directory not found on OEMDRV"
+fi
+
+# ── 3. Copy the migration manifest ──────────────────────────────────────────
+if [ -n "$OEMDRV" ] && [ -f "$OEMDRV/migration-manifest.json" ]; then
+    cp "$OEMDRV/migration-manifest.json" "$SYSIMAGE/var/lib/igloo/manifest.json"
+    chmod 0600 "$SYSIMAGE/var/lib/igloo/manifest.json"
+    log "Manifest copied to /var/lib/igloo/manifest.json"
+else
+    log "WARNING: migration-manifest.json not found on OEMDRV"
+fi
+
+# ── 3b. Copy the migrated wallpaper and avatar (optional) ───────────────────
+if [ -n "$OEMDRV" ]; then
+    for wp in "$OEMDRV"/igloo-wallpaper.* "$OEMDRV"/igloo-avatar.*; do
+        [ -f "$wp" ] || continue
+        cp "$wp" "$AGENT_DIR/$(basename "$wp")"
+        log "Copied: $(basename "$wp")"
+    done
+fi
+
+# ── 4. Copy user files ───────────────────────────────────────────────────────
+#   USB mode:    OEMDRV/files/<FolderName>/
+#   Direct mode: no files/ dir → mount the Windows NTFS partition and copy
+
+copy_user_files_done=0
+
+if [ -d "$USER_HOME" ]; then
+    if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/files" ]; then
+        log "Copying staged user files from OEMDRV/files/ to $USER_HOME"
+        for folder_src in "$OEMDRV/files"/*/; do
+            [ -d "$folder_src" ] || continue
+            folder_name=$(basename "$folder_src")
+            folder_dst="$USER_HOME/$folder_name"
+            mkdir -p "$folder_dst"
+            cp -a "$folder_src/." "$folder_dst/"
+            log "  Copied $folder_name"
+        done
+        copy_user_files_done=1
+    else
+        log "OEMDRV/files not present - attempting direct copy from Windows NTFS partition"
+        NTFS_MNT="/tmp/igloo_ntfs_src"
+        mkdir -p "$NTFS_MNT"
+
+        for ntfs_dev in /dev/sd?[0-9]* /dev/nvme?n?p* /dev/vd?[0-9]*; do
+            [ -b "$ntfs_dev" ] || continue
+            blkid "$ntfs_dev" 2>/dev/null | grep -q 'TYPE="ntfs"' || continue
+
+            # The netinstall environment ships ntfs-3g; the kernel's ntfs3 driver
+            # is the fallback.
+            mount -t ntfs-3g "$ntfs_dev" "$NTFS_MNT" -o ro 2>/dev/null \
+                || mount -t ntfs3 "$ntfs_dev" "$NTFS_MNT" -o ro 2>/dev/null \
+                || continue
+            WIN_HOME="$NTFS_MNT/Users/$WINDOWS_USERNAME"
+
+            if [ -d "$WIN_HOME" ]; then
+                log "Found Windows home at $ntfs_dev : $WIN_HOME"
+                # One "DestName|source/relative/path" per line, resolved on the
+                # Windows side so OneDrive redirection is honoured.
+                while IFS='|' read -r fname frel; do
+                    [ -n "$fname" ] || continue
+                    src="$WIN_HOME/$frel"
+                    dst="$USER_HOME/$fname"
+                    if [ ! -d "$src" ]; then
+                        log "  Skipping $fname (source '$frel' not found)"
+                        continue
+                    fi
+                    mkdir -p "$dst"
+                    cp -a "$src/." "$dst/" 2>/dev/null \
+                        || log "  WARNING: some files in $fname could not be copied"
+                    log "  Copied $fname from $frel"
+                done <<'FOLDERMAP'
+{{FOLDER_MAP}}
+FOLDERMAP
+
+                # Gecko profiles (Firefox / Zen / Waterfox): "source|dest".
+                # Bazzite ships Firefox as a Flatpak; the agent moves the profile
+                # into the Flatpak's home once it is installed.
+                while IFS='|' read -r bsrc bdst; do
+                    [ -n "$bsrc" ] || continue
+                    src="$WIN_HOME/$bsrc"
+                    dst="$USER_HOME/$bdst"
+                    if [ ! -d "$src" ]; then
+                        log "  Skipping browser '$bsrc' (source not found)"
+                        continue
+                    fi
+                    mkdir -p "$dst"
+                    cp -a "$src/." "$dst/" 2>/dev/null \
+                        || log "  WARNING: some files in browser profile '$bsrc' could not be copied"
+                    log "  Copied browser profile $bsrc -> $bdst"
+                done <<'BROWSERMAP'
+{{BROWSER_MAP}}
+BROWSERMAP
+
+                # Chromium profiles: staged for the agent, which places them once
+                # it knows whether the browser is a Flatpak.
+                while IFS='|' read -r cname csrc; do
+                    [ -n "$cname" ] || continue
+                    src="$WIN_HOME/$csrc/Default"
+                    if [ ! -d "$src" ]; then
+                        log "  Skipping $cname (no Default profile under '$csrc')"
+                        continue
+                    fi
+                    stage="$SYSIMAGE/var/lib/igloo/chromium/$cname"
+                    install -d -m 0700 "$stage" "$stage/Network"
+                    staged_any=0
+                    for f in Bookmarks History Favicons "Top Sites" "Network/Cookies"; do
+                        [ -f "$src/$f" ] || continue
+                        if cp -p "$src/$f" "$stage/$f" 2>/dev/null; then
+                            chmod 0600 "$stage/$f"
+                            staged_any=1
+                        else
+                            log "  WARNING: could not stage $f for $cname"
+                        fi
+                    done
+                    if [ -d "$src/Sessions" ]; then
+                        if cp -a "$src/Sessions" "$stage/" 2>/dev/null; then
+                            staged_any=1
+                        else
+                            log "  WARNING: could not stage Sessions for $cname"
+                        fi
+                    fi
+                    [ "$staged_any" = "1" ] \
+                        && log "  Staged $cname profile files for the first-boot agent" \
+                        || rmdir "$stage/Network" "$stage" 2>/dev/null || true
+                done <<'CHROMIUMMAP'
+{{CHROMIUM_MAP}}
+CHROMIUMMAP
+
+                umount "$NTFS_MNT"
+                copy_user_files_done=1
+                break
+            fi
+
+            umount "$NTFS_MNT"
+        done
+
+        [ "$copy_user_files_done" = "1" ] || \
+            log "WARNING: Windows home directory not found on any NTFS partition"
+    fi
+else
+    log "WARNING: $USER_HOME does not exist - user files not copied"
+fi
+
+if [ "$copy_user_files_done" = "1" ] && [ -d "$USER_HOME" ]; then
+    USER_UID=$(grep "^${USERNAME}:" "$SYSIMAGE/etc/passwd" 2>/dev/null | cut -d: -f3 || true)
+    USER_GID=$(grep "^${USERNAME}:" "$SYSIMAGE/etc/passwd" 2>/dev/null | cut -d: -f4 || true)
+    if [ -n "${USER_UID:-}" ] && [ -n "${USER_GID:-}" ]; then
+        chown -R "${USER_UID}:${USER_GID}" "$USER_HOME"
+        log "Ownership set to ${USER_UID}:${USER_GID} on $USER_HOME"
+    else
+        log "WARNING: could not determine uid:gid for $USERNAME - skipping chown"
+    fi
+fi
+
+# ── 5. Register the igloo-first-boot systemd service ────────────────────────
+# /etc is writable and kept across image updates.
+cat > "$SYSIMAGE/etc/systemd/system/igloo-first-boot.service" <<'UNIT'
+[Unit]
+Description=Igloo first-boot migration agent
+Documentation=https://github.com/gillesduif/iGloo
+After=network-online.target
+Wants=network-online.target
+# bazzite-hardware-setup sets kernel arguments on the first boot and reboots
+# when it changed any. Running after it keeps that reboot from cutting the
+# agent off half way.
+After=bazzite-hardware-setup.service
+# Hold the login screen until the migration is applied.
+Before=display-manager.service
+ConditionPathExists=/var/lib/igloo/manifest.json
+ConditionPathExists=!/var/lib/igloo/.done
+
+[Service]
+Type=oneshot
+ExecStart=/opt/igloo/first-boot.sh
+StandardOutput=append:/var/log/igloo/first-boot.log
+StandardError=append:/var/log/igloo/first-boot.log
+# Flatpak installs over the network are the slow part; no kernel module builds.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+chroot "$SYSIMAGE" systemctl enable igloo-first-boot.service 2>/dev/null || {
+    mkdir -p "$SYSIMAGE/etc/systemd/system/multi-user.target.wants"
+    ln -sf /etc/systemd/system/igloo-first-boot.service \
+           "$SYSIMAGE/etc/systemd/system/multi-user.target.wants/igloo-first-boot.service"
+}
+log "igloo-first-boot.service registered"
+
+# ── 6. Password login to the Plasma desktop ─────────────────────────────────
+# Bazzite DX is built on the Bazzite "deck" images: bazzite-autologin logs the
+# first user in at every boot, without a password, straight into Steam Gaming
+# Mode. The Windows account this machine is migrated from had a password, so
+# the migrated one keeps asking for it: mask the unit that writes the SDDM
+# autologin, and preselect Plasma so the greeter does not default to Gaming
+# Mode. Gaming Mode stays in the greeter's session list.
+ln -sf /dev/null "$SYSIMAGE/etc/systemd/system/bazzite-autologin.service"
+rm -f "$SYSIMAGE"/etc/sddm.conf.d/zz-*autologin.conf "$SYSIMAGE/etc/sddm.conf.d/steamos.conf"
+install -d -m 0755 "$SYSIMAGE/var/lib/sddm"
+printf '[Last]\nUser=%s\nSession=/usr/share/wayland-sessions/plasma.desktop\n' "$USERNAME" \
+    > "$SYSIMAGE/var/lib/sddm/state.conf"
+chroot "$SYSIMAGE" chown sddm:sddm /var/lib/sddm /var/lib/sddm/state.conf 2>/dev/null || true
+log "Autologin disabled; Plasma preselected at the login screen"
+
+# ── 7. Remove EFI bootloader from installer partition (direct install only) ──
+if [ -n "$OEMDRV" ] && [ ! -d "$OEMDRV/files" ] && [ -d "$OEMDRV/EFI" ]; then
+    mount -o remount,rw "$OEMDRV" 2>/dev/null || true
+    rm -rf "$OEMDRV/EFI" 2>/dev/null || true
+    log "Removed EFI boot files from installer partition (direct-install cleanup)"
+fi
+
+if [ -n "$OEMDRV" ] && mountpoint -q "$OEMDRV" 2>/dev/null; then
+    umount "$OEMDRV" 2>/dev/null || true
+fi
+
+log "Post-install complete"
+%end
+
+# ── Signed updates ────────────────────────────────────────────────────────────
+# Record the signed image reference, as Bazzite's own installer does:
+# --mutate-in-place rewrites the deployment's origin without pulling anything,
+# and --enforce-container-sigpolicy makes every later update check the
+# Universal Blue cosign signature. Not --erroronfail: the system boots either
+# way, and the first-boot agent repeats the switch if this one did not land.
+#
+# restorecon: everything the nochroot %post above wrote was labelled by the
+# installer environment, not by the image's policy. Without this the user's
+# home and the agent can carry labels SELinux denies at first boot. Bazzite's
+# own installer relabels /etc/selinux for the same reason.
+%post --log=/var/log/igloo-bootc-switch.log
+bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registry {{CONTAINER_IMAGE}} \
+    || echo "[igloo-post] WARNING: bootc switch failed - the agent retries at first boot"
+restorecon -RF /etc/selinux /etc/systemd/system /var/home /var/opt /var/lib/igloo /var/lib/sddm /var/log \
+    || echo "[igloo-post] WARNING: restorecon failed"
+%end
+
+# ── Secure Boot key ───────────────────────────────────────────────────────────
+# Bazzite's kernel and modules are signed with the Universal Blue key. With
+# Secure Boot on, the firmware refuses them until the key is enrolled, so queue
+# it for MokManager, which asks the user to confirm at the next boot (password
+# "universalblue", announced by the preflight check). With Secure Boot off the
+# request is skipped: it would put a MokManager screen in front of an otherwise
+# unattended first boot for nothing.
+%post --nochroot --interpreter=/bin/bash --log=/mnt/sysimage/var/log/igloo-secureboot.log
+SYSIMAGE="/mnt/sysimage"
+SECURE_BOOT="{{SECURE_BOOT}}"
+ENROLLMENT_PASSWORD="universalblue"
+
+log() { echo "[igloo-sb] $*"; }
+
+if [ ! -d /sys/firmware/efi ]; then
+    log "Not booted in EFI mode - no key to enroll"
+    exit 0
+fi
+if [ "$SECURE_BOOT" != "1" ]; then
+    log "Secure Boot was off on Windows - key enrollment skipped"
+    exit 0
+fi
+
+KEY=""
+for candidate in \
+    "$SYSIMAGE/etc/pki/akmods/certs/akmods-ublue.der" \
+    "$SYSIMAGE/usr/etc/pki/akmods/certs/akmods-ublue.der" \
+    "$SYSIMAGE/usr/share/ublue-os/sb_pubkey.der"; do
+    [ -f "$candidate" ] && { KEY="$candidate"; break; }
+done
+if [ -z "$KEY" ]; then
+    log "WARNING: Universal Blue key not found in the image - the system will not boot with Secure Boot on"
+    exit 0
+fi
+
+# Prefer the installer's mokutil; the image's own copy, run in the chroot, is
+# the fallback (it sees the same efivars through Anaconda's /sys bind mount).
+if command -v mokutil >/dev/null 2>&1; then
+    MOKUTIL=(mokutil)
+    KEY_ARG="$KEY"
+else
+    MOKUTIL=(chroot "$SYSIMAGE" mokutil)
+    KEY_ARG="${KEY#"$SYSIMAGE"}"
+fi
+
+"${MOKUTIL[@]}" --timeout -1 || true
+if printf '%s\n%s\n' "$ENROLLMENT_PASSWORD" "$ENROLLMENT_PASSWORD" | "${MOKUTIL[@]}" --import "$KEY_ARG"; then
+    log "Queued $KEY for enrollment - confirm it in MokManager at the next boot"
+else
+    log "WARNING: mokutil --import failed - run 'ujust enroll-secure-boot-key' after disabling Secure Boot"
+fi
+%end

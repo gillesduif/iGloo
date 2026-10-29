@@ -177,14 +177,14 @@ The entire per-distro boot delta fits in one declarative record
 ([`InstallerBootSpec`](../src/Igloo.Core/Abstractions/IDistroPlugin.cs)); the
 pipeline never branches on distro identity, only on spec fields:
 
-| | Fedora KDE | Debian 13 | Mint Cinnamon | Ubuntu *(in dev)* |
-|---|---|---|---|---|
-| Installer | Anaconda | debian-installer | Ubiquity (casper) | subiquity (casper) |
-| Config format | kickstart | preseed | preseed | cloud-init autoinstall |
-| Config delivery | seed volume (`OEMDRV`) | injected into initrd | injected into initrd | seed volume (`CIDATA`) |
-| Boot payload | kernel+initrd+stage2 from ISO | **hd-media** kernel/initrd (downloaded) + full ISO | kernel/initrd + full ISO | kernel/initrd + full ISO (NTFS) + `toram` |
-| Free-space strategy | guarded `clearpart` + `%pre` | `biggest_free` (method **unset**!) | `biggest_free` (method **unset**!) | all-preserved table; root **pre-created by iGloo** |
-| Agent hand-off | `%post` | busybox partition scan | two-phase bootstrap | two-phase bootstrap |
+| | Fedora KDE | Bazzite DX | Debian 13 | Mint Cinnamon | Ubuntu *(in dev)* |
+|---|---|---|---|---|---|
+| Installer | Anaconda | Anaconda (Fedora netinstall) | debian-installer | Ubiquity (casper) | subiquity (casper) |
+| Config format | kickstart | kickstart, `ostreecontainer` payload (image pulled from ghcr.io) | preseed | preseed | cloud-init autoinstall |
+| Config delivery | seed volume (`OEMDRV`) | seed volume (`OEMDRV`) | injected into initrd | injected into initrd | seed volume (`CIDATA`) |
+| Boot payload | kernel+initrd+stage2 from ISO | kernel+initrd+stage2 from ISO | **hd-media** kernel/initrd (downloaded) + full ISO | kernel/initrd + full ISO | kernel/initrd + full ISO (NTFS) + `toram` |
+| Free-space strategy | guarded `clearpart` + `%pre` | guarded `clearpart` + `%pre` | `biggest_free` (method **unset**!) | `biggest_free` (method **unset**!) | all-preserved table; root **pre-created by iGloo** |
+| Agent hand-off | `%post` | `%post` (paths under `/var`) | busybox partition scan | two-phase bootstrap | two-phase bootstrap |
 
 Hard-won, non-obvious rules encoded in the code and templates (violating any of
 these caused a real failure - see the white paper's field-notes section):
