@@ -6,6 +6,15 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Each executable directory is an independently hashed runtime package.
+         Keep RID outputs beside the portable package, never nested inside it. -->
+    <OutputPath Condition="'$(RuntimeIdentifier)' == ''">bin\$(Configuration)\portable\</OutputPath>
+    <OutputPath Condition="'$(RuntimeIdentifier)' != ''">bin\$(Configuration)\$(RuntimeIdentifier)\</OutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <!-- A direct CLI publish must also stay outside its hashed build package.
+         Frontend publishing supplies its own adjacent CLI destination. -->
+    <PublishDir Condition="'$(PublishDir)' == '' and '$(RuntimeIdentifier)' == ''">bin\$(Configuration)\publish\portable\$(TargetFramework)\</PublishDir>
+    <PublishDir Condition="'$(PublishDir)' == '' and '$(RuntimeIdentifier)' != ''">bin\$(Configuration)\publish\$(RuntimeIdentifier)\$(TargetFramework)\</PublishDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,5 +25,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Igloo.Command.Tests" />
   </ItemGroup>
+
+  <Import Project="PackagedCli.targets" />
 
 </Project>

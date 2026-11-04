@@ -184,6 +184,52 @@ public sealed class CliBoundedTransportTests
     }
 
     [Fact]
+    public async Task NominatedOperationCanFailBeforeAdmissionButNotLoseIdentityAfterProgress()
+    {
+        var request = CliCommandClient.Request("iso.acquire", new { distroId = "debian" }) with
+        {
+            OperationId = Guid.NewGuid(),
+        };
+        var hello = new CommandStreamEvent("hello", CommandProtocol.Version,
+            Guid.Empty, Guid.Empty, "Igloo.Cli", "1.0.0.0");
+        var accepted = new CommandStreamEvent("accepted", CommandProtocol.Version,
+            request.RequestId, request.CorrelationId);
+        var progress = new CommandStreamEvent("progress", CommandProtocol.Version,
+            request.RequestId, request.CorrelationId,
+            Progress: new CommandProgress(request.RequestId, request.OperationId, "validating"));
+        var preAdmission = new CommandResult(CommandProtocol.Version, request.CapabilityId,
+            request.CapabilityVersion, request.RequestId, request.CorrelationId,
+            null, false, null,
+            new CommandError(CommandErrorCode.PreconditionFailed, "Admission failed."), [], []);
+        string Wire(CommandResult result, bool includeProgress = false) =>
+            string.Join("\n", new[]
+            {
+                hello, accepted,
+            }.Concat(includeProgress ? [progress] : [])
+                .Append(new CommandStreamEvent("result", CommandProtocol.Version,
+                    request.RequestId, request.CorrelationId, Result: result))
+                .Select(frame => JsonSerializer.Serialize(frame, CommandProtocol.JsonOptions))) + "\n";
+
+        var observed = await CliCommandClient.ReadStreamAsync(
+            new StringReader(Wire(preAdmission)), request, null);
+        Assert.False(observed.Succeeded);
+        Assert.Null(observed.OperationId);
+
+        foreach (var (result, withProgress) in new[]
+                 {
+                     (preAdmission with { Succeeded = true, Error = null }, false),
+                     (preAdmission, true),
+                     (preAdmission with { OperationId = Guid.NewGuid() }, false),
+                 })
+        {
+            var rejected = await Assert.ThrowsAsync<CliTransportException>(() =>
+                CliCommandClient.ReadStreamAsync(new StringReader(Wire(result, withProgress)),
+                    request, null));
+            Assert.Equal(CliTransportError.MalformedStream, rejected.Code);
+        }
+    }
+
+    [Fact]
     public async Task BlockedHelloHonorsCancellationWithoutWritingARequest()
     {
         using var source = new BlockingAfterContentReader(string.Empty);
@@ -278,6 +324,43 @@ public sealed class CliBoundedTransportTests
         }
         Assert.InRange(accepted, 1, 129);
         Assert.True(saturated);
+    }
+
+    [Fact]
+    public async Task ProgressBurstDoesNotSuppressRequiredTerminalResult()
+    {
+        var request = CliCommandClient.Request("fixture.mutation", new { });
+        using var output = new GatedLineWriter(3);
+        using var error = new StringWriter();
+        var dispatcher = new BurstProgressDispatcher();
+        var input = JsonSerializer.Serialize(request, CommandProtocol.JsonOptions) + "\n";
+        using var inputReader = new StringReader(input);
+
+        // The finally block releases the gated writer and awaits this task before disposal.
+#pragma warning disable CA2025
+        var run = CliApplication.RunAsync(["invoke", "--machine"], dispatcher,
+            inputReader, output, error,
+            machineOutputTimeout: TimeSpan.FromSeconds(5));
+#pragma warning restore CA2025
+        var exitCode = -1;
+        try
+        {
+            await dispatcher.BurstReported.WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        finally
+        {
+            output.Release();
+            exitCode = await run;
+        }
+
+        Assert.Equal(0, exitCode);
+        var wire = string.Join("\n", output.CompletedLines) + "\n";
+        var result = await CliCommandClient.ReadStreamAsync(new StringReader(wire),
+            request, null);
+        Assert.True(result.Succeeded);
+        Assert.Equal(dispatcher.OperationId, result.OperationId);
+        Assert.InRange(output.CompletedLines.Count, 3, 132);
+        Assert.Equal(string.Empty, error.ToString());
     }
 
     private sealed class ChunkReader(string content, int chunkSize) : TextReader
@@ -375,6 +458,48 @@ public sealed class CliBoundedTransportTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             else
                 CompletedLines.Add(buffer.ToString());
+        }
+    }
+
+    private sealed class GatedLineWriter(int gatedWrite) : TextWriter
+    {
+        private readonly TaskCompletionSource _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _writes;
+        public List<string> CompletedLines { get; } = [];
+        public override Encoding Encoding => Encoding.UTF8;
+
+        public void Release() => _release.TrySetResult();
+
+        public override async Task WriteLineAsync(ReadOnlyMemory<char> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _writes) == gatedWrite)
+                await _release.Task.WaitAsync(cancellationToken);
+            CompletedLines.Add(buffer.ToString());
+        }
+    }
+
+    private sealed class BurstProgressDispatcher : ICommandDispatcher
+    {
+        private readonly TaskCompletionSource _burstReported =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task BurstReported => _burstReported.Task;
+        public Guid OperationId { get; } = Guid.NewGuid();
+        public IReadOnlyList<CapabilityDescriptor> Capabilities => [];
+
+        public Task<CommandResult> ExecuteAsync(CommandRequest request,
+            IProgress<CommandProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            for (var i = 0; i < 2048; i++)
+                progress?.Report(new CommandProgress(request.RequestId,
+                    OperationId, "verifying", i, 2048));
+            _burstReported.TrySetResult();
+            return Task.FromResult(new CommandResult(CommandProtocol.Version,
+                request.CapabilityId, request.CapabilityVersion, request.RequestId,
+                request.CorrelationId, OperationId, true,
+                JsonSerializer.SerializeToElement(new { value = 1 }), null, [], []));
         }
     }
 

@@ -33,7 +33,7 @@ public static class CliExecutableLocator
                 foreach (var configuration in new[] { "Debug", "Release" })
                 {
                     var candidate = Path.Join(current.FullName, "src", "Igloo.Cli", "Igloo.Cli",
-                        "bin", configuration, "net10.0-windows10.0.19041.0", ExecutableName);
+                        "bin", configuration, "portable", "net10.0-windows10.0.19041.0", ExecutableName);
                     if (File.Exists(candidate)) return Validate(candidate);
                 }
                 break;

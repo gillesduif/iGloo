@@ -19,6 +19,8 @@ internal static class Program
         };
         try
         {
+            if (CliApplication.IsHelpCommand(args))
+                return await CliApplication.WriteHelpAsync(Console.Out).ConfigureAwait(false);
             var backend = await IglooHost.CreateAsync(FindDistrosDirectory(),
                 cancellation.Token).ConfigureAwait(false);
             await using var backendDisposal = backend.ConfigureAwait(false);
@@ -64,11 +66,15 @@ internal static class Program
                 foreach (var configuration in new[] { "Debug", "Release" })
                 {
                     var build = Path.Join(current.FullName, "src", "Igloo.Cli", "Igloo.Cli",
-                        "bin", configuration, "net10.0-windows10.0.19041.0");
+                        "bin", configuration, "portable", "net10.0-windows10.0.19041.0");
                     if (string.Equals(Path.TrimEndingDirectorySeparator(build),
                             Path.TrimEndingDirectorySeparator(executableDirectory.FullName),
                             StringComparison.OrdinalIgnoreCase))
-                        return Path.Join(current.FullName, "distros");
+                    {
+                        var builtProviders = Path.Join(build, "distros");
+                        VerifyPackagedProviders(builtProviders);
+                        return builtProviders;
+                    }
                 }
                 break;
             }
@@ -123,6 +129,28 @@ internal static class CliApplication
 {
     private static readonly JsonSerializerOptions HumanJson = new(CommandProtocol.JsonOptions) { WriteIndented = true };
 
+    internal static bool IsHelpCommand(string[] args) =>
+        args is ["help"] or ["--help"] or ["--", "help"];
+
+    internal static async Task<int> WriteHelpAsync(TextWriter output)
+    {
+        await output.WriteLineAsync("iGloo CLI commands:").ConfigureAwait(false);
+        await output.WriteLineAsync("  capabilities list").ConfigureAwait(false);
+        await output.WriteLineAsync("  inspect [detail]").ConfigureAwait(false);
+        await output.WriteLineAsync("  distros list | inspect <distro> | compatibility <distro>").ConfigureAwait(false);
+        await output.WriteLineAsync("  artifacts acquire <distro> | status <artifact-id>").ConfigureAwait(false);
+        await output.WriteLineAsync("  iso acquire <distro> | operations <distro>").ConfigureAwait(false);
+        await output.WriteLineAsync("  operations status <operation-id>").ConfigureAwait(false);
+        await output.WriteLineAsync("  migration plan <distro> [linux-bytes]").ConfigureAwait(false);
+        await output.WriteLineAsync("  migration plans read <plan-id>").ConfigureAwait(false);
+        await output.WriteLineAsync("  migration target bind <plan-id>").ConfigureAwait(false);
+        await output.WriteLineAsync("  migration target allocate <plan-id> <target-id> <shrink-bytes>").ConfigureAwait(false);
+        await output.WriteLineAsync("  migration layout plan <distro> <plan-id> <target-id> <allocation-id> <artifact-id> <linux-bytes> <staging-directory>").ConfigureAwait(false);
+        await output.WriteLineAsync("  migration status <operation-id> | recovery inspect").ConfigureAwait(false);
+        await output.WriteLineAsync("Add --json to return the typed command result. Layout planning is advisory; it does not prepare a disk.").ConfigureAwait(false);
+        return 0;
+    }
+
     public static Task<int> RunAsync(string[] args, ICommandDispatcher dispatcher,
         TextReader input, TextWriter output, TextWriter error,
         CancellationToken cancellationToken = default) =>
@@ -137,6 +165,7 @@ internal static class CliApplication
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(error);
+        if (IsHelpCommand(args)) return await WriteHelpAsync(output).ConfigureAwait(false);
         if (args is ["invoke", "--machine"])
             return await RunMachineAsync(dispatcher, input, output, machineOutputTimeout,
                 cancellationToken).ConfigureAwait(false);
@@ -158,6 +187,7 @@ internal static class CliApplication
                 var capability = ResolveCapability(positional);
                 object value = positional is ["distros", "inspect" or "compatibility", _]
                     or ["iso", "acquire", _]
+                    or ["iso", "operations", _]
                     or ["artifacts", "acquire", _]
                     ? new DistroSelection(positional[2])
                     : positional is ["migration", "plan", _, ..]
@@ -170,6 +200,11 @@ internal static class CliApplication
                         ? new MigrationAllocationInput(Guid.Parse(positional[3]),
                             Guid.Parse(positional[4]), long.Parse(positional[5],
                                 System.Globalization.CultureInfo.InvariantCulture))
+                    : positional is ["migration", "layout", "plan", _, _, _, _, _, _, _]
+                        ? new MigrationLayoutPlanInput(positional[3], Guid.Parse(positional[4]),
+                            Guid.Parse(positional[5]), Guid.Parse(positional[6]),
+                            positional[7], long.Parse(positional[8],
+                                System.Globalization.CultureInfo.InvariantCulture), positional[9])
                     : positional is ["operations", "status", _] or ["migration", "status", _]
                         ? new OperationSelection(Guid.Parse(positional[2]))
                     : positional is ["artifacts", "status", _]
@@ -177,7 +212,8 @@ internal static class CliApplication
                     : positional is ["capabilities", "describe", _]
                         ? new CapabilitySelection(positional[2]) : new { };
                 request = new(CommandProtocol.Version, capability,
-                    capability == "migration.plan" ? 2 : 1, Guid.NewGuid(), Guid.NewGuid(),
+                    capability is "migration.plan" or "iso.acquire" ? 2 : 1,
+                    Guid.NewGuid(), Guid.NewGuid(),
                     JsonSerializer.SerializeToElement(value, CommandProtocol.JsonOptions));
             }
         }
@@ -189,12 +225,9 @@ internal static class CliApplication
             await RenderAsync(bad, json, output, error).ConfigureAwait(false);
             return 2;
         }
-        IProgress<CommandProgress>? progress = dispatcher.Capabilities.Any(c =>
+        IProgress<CommandProgress>? progress = !json && dispatcher.Capabilities.Any(c =>
             c.Id == request.CapabilityId && c.Kind == CommandKind.Mutation)
-            ? new Progress<CommandProgress>(p =>
-            {
-                if (!json) error.WriteLine(p.Phase);
-            })
+            ? new HumanCommandProgress(error)
             : null;
         var result = await dispatcher.ExecuteAsync(request, progress, cancellationToken).ConfigureAwait(false);
         await RenderAsync(result, json, output, error).ConfigureAwait(false);
@@ -311,17 +344,17 @@ internal static class CliApplication
     {
         private readonly object _gate = new();
         private bool _complete;
-        private bool _overflow;
 
         public void Report(CommandProgress value)
         {
             lock (_gate)
             {
                 if (_complete) return;
-                if (!writer.TryWriteProgress(JsonSerializer.Serialize(new CommandStreamEvent("progress",
+                // Progress is advisory. A burst may fill the bounded queue while the
+                // reader catches up; the required terminal result still has to arrive.
+                writer.TryWriteProgress(JsonSerializer.Serialize(new CommandStreamEvent("progress",
                     CommandProtocol.Version, request.RequestId, request.CorrelationId,
-                    Progress: value), CommandProtocol.JsonOptions)))
-                    _overflow = true;
+                    Progress: value), CommandProtocol.JsonOptions));
             }
         }
 
@@ -330,8 +363,6 @@ internal static class CliApplication
             lock (_gate)
             {
                 _complete = true;
-                if (_overflow)
-                    throw new IOException("The bounded machine progress stream overflowed.");
             }
             await writer.WriteRequiredAsync(JsonSerializer.Serialize(new CommandStreamEvent("result",
                 CommandProtocol.Version, request.RequestId, request.CorrelationId,
@@ -362,6 +393,7 @@ internal static class CliApplication
             ["distros", "inspect", _] => "distro.inspect",
             ["distros", "compatibility", _] => "distro.compatibility",
             ["iso", "acquire", _] => "iso.acquire",
+            ["iso", "operations", _] => "iso.operations",
             ["artifacts", "acquire", _] => "artifact.acquire",
             ["artifacts", "status", _] => "artifact.status",
             ["migration", "inspect"] => "migration.inspect",
@@ -369,6 +401,7 @@ internal static class CliApplication
             ["migration", "plans", "read", _] => "migration.plan.read",
             ["migration", "target", "bind", _] => "migration.target.bind",
             ["migration", "target", "allocate", _, _, _] => "migration.target.allocate",
+            ["migration", "layout", "plan", _, _, _, _, _, _, _] => "migration.layout.plan",
             ["migration", "status", _] => "migration.status",
             ["operations", "status", _] => "operation.status",
             ["recovery", "inspect"] => "recovery.inspect",
@@ -441,9 +474,30 @@ internal static class CliApplication
                     await output.WriteLineAsync($"{finding.Severity}: {finding.Code}").ConfigureAwait(false);
                 break;
             case "iso.acquire":
-                var iso = result.Data!.Value.Deserialize<IsoAcquired>(CommandProtocol.JsonOptions)!;
-                await output.WriteLineAsync($"{iso.DistroId}: acquired {iso.SizeBytes} bytes; SHA-256 verified: {iso.Sha256Verified}; GPG verified: {iso.GpgVerified}")
-                    .ConfigureAwait(false);
+                if (result.CapabilityVersion == 2)
+                {
+                    var iso = result.Data!.Value.Deserialize<IsoAcquiredV2>(CommandProtocol.JsonOptions)!;
+                    await output.WriteLineAsync($"{iso.DistroId}: acquired {iso.SizeBytes} bytes; " +
+                        $"SHA-256 {iso.VerifiedSha256}; GPG verified: {iso.GpgVerified}")
+                        .ConfigureAwait(false);
+                    await output.WriteLineAsync(iso.LocalPath).ConfigureAwait(false);
+                }
+                else
+                {
+                    var iso = result.Data!.Value.Deserialize<IsoAcquired>(CommandProtocol.JsonOptions)!;
+                    await output.WriteLineAsync($"{iso.DistroId}: acquired {iso.SizeBytes} bytes; " +
+                        $"SHA-256 verified: {iso.Sha256Verified}; GPG verified: {iso.GpgVerified}")
+                        .ConfigureAwait(false);
+                }
+                break;
+            case "iso.operations":
+                var operations = result.Data!.Value.Deserialize<IsoOperations>(CommandProtocol.JsonOptions)!;
+                if (operations.Operations.Count == 0)
+                    await output.WriteLineAsync("No installation image operation needs review.")
+                        .ConfigureAwait(false);
+                foreach (var operation in operations.Operations)
+                    await output.WriteLineAsync($"{operation.OperationId:D}: {operation.State} " +
+                        $"({operation.CurrentStage})").ConfigureAwait(false);
                 break;
             case "artifact.acquire":
                 var acquired = result.Data!.Value.Deserialize<ArtifactAcquired>(CommandProtocol.JsonOptions)!;
@@ -506,6 +560,18 @@ internal static class CliApplication
                     $"installer layout unbound; executable: {allocation.Executable}")
                     .ConfigureAwait(false);
                 break;
+            case "migration.layout.plan":
+                var layout = result.Data!.Value.Deserialize<MigrationLayoutPlanResult>(
+                    CommandProtocol.JsonOptions)!;
+                await output.WriteLineAsync($"Reviewed layout {layout.GenerationId}: " +
+                    $"{layout.State}, {layout.Disposition}; requires {layout.RequiredBytes} bytes within " +
+                    $"{layout.PlannedShrinkBytes} bytes selected; executable: {layout.Executable}")
+                    .ConfigureAwait(false);
+                foreach (var extent in layout.Extents)
+                    await output.WriteLineAsync($"  {extent.Role}: {extent.SizeBytes} bytes at " +
+                        $"{extent.OffsetBytes}; filesystem {extent.FileSystem}")
+                        .ConfigureAwait(false);
+                break;
             case "system.capabilities":
                 var catalogue = result.Data!.Value.Deserialize<CapabilityDescriptor[]>(CommandProtocol.JsonOptions)!;
                 foreach (var capability in catalogue)
@@ -515,6 +581,44 @@ internal static class CliApplication
             default:
                 await output.WriteLineAsync(JsonSerializer.Serialize(result.Data, HumanJson)).ConfigureAwait(false);
                 break;
+        }
+    }
+}
+
+/// <summary>Bounded human display; machine progress retains structured values.</summary>
+internal sealed class HumanCommandProgress(TextWriter error) : IProgress<CommandProgress>
+{
+    private readonly object _gate = new();
+    private string? _phase;
+    private int _lastPercentBucket = -1;
+
+    public void Report(CommandProgress value)
+    {
+        if (string.IsNullOrWhiteSpace(value.Phase)) return;
+        lock (_gate)
+        {
+            var changedPhase = !string.Equals(_phase, value.Phase, StringComparison.Ordinal);
+            if (changedPhase)
+            {
+                _phase = value.Phase;
+                _lastPercentBucket = -1;
+            }
+
+            int? percentBucket = value is { Completed: >= 0, Total: > 0 }
+                ? (int)Math.Min(100, (double)value.Completed.Value /
+                    value.Total.Value * 100) / 10 * 10
+                : null;
+            if (changedPhase)
+            {
+                _lastPercentBucket = percentBucket ?? -1;
+                error.WriteLine(percentBucket is > 0
+                    ? $"{value.Phase} {percentBucket}%" : value.Phase);
+            }
+            else if (percentBucket is { } bucket && bucket > _lastPercentBucket)
+            {
+                _lastPercentBucket = bucket;
+                if (bucket > 0) error.WriteLine($"{value.Phase} {bucket}%");
+            }
         }
     }
 }

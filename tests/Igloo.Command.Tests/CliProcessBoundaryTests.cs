@@ -19,7 +19,16 @@ public sealed class CliProcessBoundaryTests
         return directory?.FullName ?? throw new DirectoryNotFoundException();
     }
 
-    private static string Executable() => CliExecutableLocator.Resolve(RepositoryRoot());
+    private static string Executable()
+    {
+        // These process tests must exercise the CLI built in the same configuration
+        // as this assembly. The development locator prefers Debug when both exist.
+        var framework = Path.GetFileName(Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory));
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name
+            ?? throw new DirectoryNotFoundException();
+        return CliExecutableLocator.Validate(Path.Join(RepositoryRoot(), "src", "Igloo.Cli",
+            "Igloo.Cli", "bin", configuration, "portable", framework, CliExecutableLocator.ExecutableName));
+    }
 
     private static string StreamFixtureExecutable()
     {
@@ -31,6 +40,59 @@ public sealed class CliProcessBoundaryTests
             CliExecutableLocator.ExecutableName);
         Assert.True(File.Exists(executable), "The isolated stream fixture must be built with the command tests.");
         return executable;
+    }
+
+    [Fact]
+    public void BuiltCliCarriesTheProviderFirstBootPayload()
+    {
+        var cliDistros = Path.Join(Path.GetDirectoryName(Executable())!, "distros");
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name
+            ?? throw new DirectoryNotFoundException();
+        foreach (var distro in new[] { "debian", "linuxmint-cinnamon", "fedora-kde" })
+        {
+            var sourceAgent = Path.Join(RepositoryRoot(), "distros",
+                distro == "fedora-kde" ? "fedora-kde" : "_debian-family", "agent");
+            var builtAgent = Path.Join(RepositoryRoot(), "distros", distro, "bin",
+                configuration, "net8.0", distro is "fedora-kde" or "linuxmint-cinnamon"
+                    ? distro : string.Empty, "agent");
+            var packagedAgent = Path.Join(cliDistros, distro, "agent");
+            var names = new List<string> { "agent.py", "first-boot.sh", "igloo_boot.py",
+                "grub-theme-stylish-1080p.tar.gz", "grub-theme-stylish-4k.tar.gz" };
+            if (distro == "linuxmint-cinnamon")
+                names.Add("igloo-verify-seed.py");
+            foreach (var name in names)
+            {
+                var built = Path.Join(builtAgent, name);
+                var packaged = Path.Join(packagedAgent, name);
+                Assert.True(File.Exists(built), $"Provider build payload is missing {distro}/{name}.");
+                Assert.True(File.Exists(packaged), $"CLI package payload is missing {distro}/{name}.");
+                if (name is "agent.py" or "first-boot.sh")
+                    Assert.Equal(File.ReadAllBytes(Path.Join(sourceAgent, name)), File.ReadAllBytes(built));
+                if (name == "igloo_boot.py")
+                    Assert.Equal(File.ReadAllBytes(Path.Join(RepositoryRoot(), "distros", "_shared",
+                        "agent", name)), File.ReadAllBytes(built));
+                Assert.Equal(File.ReadAllBytes(built), File.ReadAllBytes(packaged));
+            }
+            Assert.Empty(Directory.EnumerateFiles(packagedAgent, "*.pyc",
+                SearchOption.AllDirectories));
+            if (distro is "debian" or "linuxmint-cinnamon")
+            {
+                // Keep the executable installer's inputs adjacent to the provider
+                // that renders the configuration and declares its initrd extras.
+                var builtPreseed = Path.Join(RepositoryRoot(), "distros", distro, "bin",
+                    configuration, "net8.0", distro, "preseed");
+                var packagedPreseed = Path.Join(cliDistros, distro, "preseed");
+                var preseedNames = distro == "debian"
+                    ? new[] { "igloo-bound-free-setup.sh", "igloo-bound-free-choices.sh",
+                        "igloo-bound-free-do-option.sh" }
+                    : new[] { "igloo-bootstrap.sh", "igloo-bootstrap.service",
+                        "igloo-partman.sh.template", "igloo-bound-free-choices.sh",
+                        "igloo-bound-free-do-option.sh", "igloo-bound-efi-fstab.sh" };
+                foreach (var name in preseedNames)
+                    Assert.Equal(File.ReadAllBytes(Path.Join(builtPreseed, name)),
+                        File.ReadAllBytes(Path.Join(packagedPreseed, name)));
+            }
+        }
     }
 
     [Fact]
@@ -46,7 +108,7 @@ public sealed class CliProcessBoundaryTests
 
         Assert.Equal(new[] { "Igloo.Command.Contracts" }, References(
             "src/Igloo.Cli.Client/Igloo.Cli.Client.csproj"));
-        Assert.Equal(new[] { "Igloo.Cli.Client", "Igloo.Command.Contracts" }, References(
+        Assert.Equal(new[] { "Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Mascot.Wpf" }, References(
             "Igloo.One.App/Igloo.One.App.csproj"));
         Assert.Equal(new[] { "Igloo.Command.Contracts", "Igloo.Core.Host" }, References(
             "src/Igloo.Cli/Igloo.Cli/Igloo.Cli.csproj"));
@@ -186,7 +248,7 @@ public sealed class CliProcessBoundaryTests
     }
 
     [Fact]
-    public async Task FailedMutationKeepsItsAssignedOperationAcrossTheRealMachineProcess()
+    public async Task UnknownProviderIsRejectedBeforeOperationAdmissionAcrossTheRealMachineProcess()
     {
         // An unknown provider fails before acquisition or any storage effect.
         var progress = new CapturedProgress();
@@ -195,10 +257,8 @@ public sealed class CliProcessBoundaryTests
             progress);
         Assert.False(result.Succeeded);
         Assert.Equal(CommandErrorCode.NotSupported, result.Error!.Code);
-        Assert.NotNull(result.OperationId);
-        var validating = Assert.Single(progress.Events,
-            item => item.Phase == "validating");
-        Assert.Equal(result.OperationId, validating.OperationId);
+        Assert.Null(result.OperationId);
+        Assert.Empty(progress.Events);
     }
 
     [Fact]
@@ -260,13 +320,33 @@ public sealed class CliProcessBoundaryTests
         try
         {
             Assert.Throws<InvalidDataException>(() => Program.FindDistrosDirectory(cli));
-            Assert.Equal(Path.Join(RepositoryRoot(), "distros"),
-                Program.FindDistrosDirectory(Path.GetDirectoryName(Executable())!));
+            var build = Path.GetDirectoryName(Executable())!;
+            var adjacent = Path.Join(build, "distros");
+            Assert.Equal(adjacent, Program.FindDistrosDirectory(build));
+            Assert.Equal(File.ReadAllBytes(Path.Join(RepositoryRoot(), "distros", "debian",
+                    "bin", new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name,
+                    "net8.0", "Igloo.Distro.Debian.dll")),
+                File.ReadAllBytes(Path.Join(adjacent, "debian", "Igloo.Distro.Debian.dll")));
         }
         finally
         {
             Directory.Delete(package, recursive: true);
         }
+    }
+
+    [Fact]
+    public void DevelopmentBackendAcceptsOnlyTheIsolatedPortablePackage()
+    {
+        var build = Path.GetDirectoryName(Executable())!;
+        Assert.Equal(Path.Join(build, "distros"), Program.FindDistrosDirectory(build));
+        var framework = new DirectoryInfo(build).Name;
+        var configurationRoot = new DirectoryInfo(build).Parent!.Parent!.FullName;
+        // Historical RID output trees can still exist beside this build. They
+        // must not regain provider authority merely because a new layout exists.
+        Assert.Throws<InvalidDataException>(() =>
+            Program.FindDistrosDirectory(Path.Join(configurationRoot, framework)));
+        Assert.Throws<InvalidDataException>(() =>
+            Program.FindDistrosDirectory(Path.Join(build, "win-x64")));
     }
 
     [Fact]
@@ -519,6 +599,29 @@ public sealed class CliProcessBoundaryTests
             // A direct human CLI invocation has the same packaged-provider
             // boundary even if an inherited override points at the checkout.
             File.Delete(Path.Join(packagedDistros, "debian", "distro.json"));
+            foreach (var helpArgs in new[]
+                     {
+                         new[] { "help" },
+                         new[] { "--help" },
+                         new[] { "--", "help" },
+                     })
+            {
+                var helpStart = new ProcessStartInfo(expected)
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                };
+                foreach (var argument in helpArgs) helpStart.ArgumentList.Add(argument);
+                using var helpProcess = Process.Start(helpStart)!;
+                var helpOutput = await helpProcess.StandardOutput.ReadToEndAsync();
+                var helpError = await helpProcess.StandardError.ReadToEndAsync();
+                await helpProcess.WaitForExitAsync();
+                Assert.Equal(0, helpProcess.ExitCode);
+                Assert.StartsWith("iGloo CLI commands:", helpOutput, StringComparison.Ordinal);
+                Assert.Equal(string.Empty, helpError);
+            }
             var start = new ProcessStartInfo(expected)
             {
                 UseShellExecute = false,
@@ -684,6 +787,31 @@ public sealed class CliProcessBoundaryTests
             var rejected = await Assert.ThrowsAsync<CliTransportException>(() =>
                 client.ExecuteAsync(CliCommandClient.Request("system.version", new { })));
             Assert.Equal(CliTransportError.IdentityMismatch, rejected.Code);
+        }
+        finally
+        {
+            Directory.Delete(package, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void PackagedClientReportsOversizedFileSetInsteadOfGenericVerificationFailure()
+    {
+        var package = Path.Join(Path.GetTempPath(), "igloo-cli-oversized-" +
+            Guid.NewGuid().ToString("N"));
+        var cli = Path.Join(package, "cli");
+        var distros = Path.Join(package, "distros");
+        Directory.CreateDirectory(cli);
+        Directory.CreateDirectory(distros);
+        try
+        {
+            File.Copy(Executable(), Path.Join(cli, CliExecutableLocator.ExecutableName));
+            for (var i = 0; i < 1024; i++)
+                File.WriteAllBytes(Path.Join(distros, $"padding-{i:D4}"), []);
+            var rejected = Assert.Throws<CliTransportException>(() =>
+                CliCommandClient.ForApplication(package));
+            Assert.Equal(CliTransportError.IdentityMismatch, rejected.Code);
+            Assert.Equal("The packaged CLI file set exceeds its bound.", rejected.Message);
         }
         finally
         {

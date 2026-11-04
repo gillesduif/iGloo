@@ -3,7 +3,7 @@
   <PropertyGroup>
     <_IglooCliProject>$(MSBuildThisFileDirectory)Igloo.Cli.csproj</_IglooCliProject>
     <_IglooCliFramework>net10.0-windows10.0.19041.0</_IglooCliFramework>
-    <_IglooCliBuildOutput>$(MSBuildThisFileDirectory)bin\$(Configuration)\$(_IglooCliFramework)\</_IglooCliBuildOutput>
+    <_IglooCliBuildOutput>$(MSBuildThisFileDirectory)bin\$(Configuration)\portable\$(_IglooCliFramework)\</_IglooCliBuildOutput>
     <_IglooDistrosRoot>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', '..', 'distros'))</_IglooDistrosRoot>
   </PropertyGroup>
 
@@ -29,8 +29,11 @@
   </ItemGroup>
 
   <Target Name="PreparePackagedIglooProviders">
+    <!-- Publish properties are inherited by nested MSBuild calls unless removed.
+         The declared provider DLL and agent payload paths below are RIDless. -->
     <MSBuild Projects="@(_IglooProviderProject)" Targets="Restore;Build"
-             Properties="Configuration=$(Configuration)" />
+             Properties="Configuration=$(Configuration)"
+             RemoveProperties="TargetFramework;TargetFrameworks;RuntimeIdentifier;SelfContained;PublishDir;PublishProfile;PublishProfileFullPath;PublishProtocol;_TargetId;PublishSingleFile;PublishReadyToRun;PublishTrimmed" />
     <Error Condition="!Exists('%(_IglooProviderDll.Identity)')"
            Text="A declared iGloo provider binary is unavailable for packaging." />
     <ItemGroup>
@@ -39,23 +42,81 @@
                                  $(_IglooDistrosRoot)\**\*.csproj;
                                  $(_IglooDistrosRoot)\**\*.dll;
                                  $(_IglooDistrosRoot)\**\*.pdb;
+                                 $(_IglooDistrosRoot)\**\*.pyc;
+                                 $(_IglooDistrosRoot)\**\__pycache__\**;
                                  $(_IglooDistrosRoot)\**\bin\**;
                                  $(_IglooDistrosRoot)\**\obj\**;
                                  $(_IglooDistrosRoot)\**\README.md" />
+      <!-- Shared Debian-family and common assets are linked into each provider's
+           build output. The source-tree wildcard above does not put those files
+           beside the provider DLL, which is where GetAgentPayloadAsync reads them. -->
+      <_IglooProviderAgent Include="$(_IglooDistrosRoot)\debian\bin\$(Configuration)\net8.0\agent\**\*"
+                           Exclude="$(_IglooDistrosRoot)\debian\bin\$(Configuration)\net8.0\agent\**\__pycache__\**;
+                                    $(_IglooDistrosRoot)\debian\bin\$(Configuration)\net8.0\agent\**\*.pyc">
+        <DistroId>debian</DistroId>
+      </_IglooProviderAgent>
+      <_IglooProviderAgent Include="$(_IglooDistrosRoot)\linuxmint-cinnamon\bin\$(Configuration)\net8.0\linuxmint-cinnamon\agent\**\*"
+                           Exclude="$(_IglooDistrosRoot)\linuxmint-cinnamon\bin\$(Configuration)\net8.0\linuxmint-cinnamon\agent\**\__pycache__\**;
+                                    $(_IglooDistrosRoot)\linuxmint-cinnamon\bin\$(Configuration)\net8.0\linuxmint-cinnamon\agent\**\*.pyc">
+        <DistroId>linuxmint-cinnamon</DistroId>
+      </_IglooProviderAgent>
+      <_IglooProviderAgent Include="$(_IglooDistrosRoot)\fedora-kde\bin\$(Configuration)\net8.0\fedora-kde\agent\**\*"
+                           Exclude="$(_IglooDistrosRoot)\fedora-kde\bin\$(Configuration)\net8.0\fedora-kde\agent\**\__pycache__\**;
+                                    $(_IglooDistrosRoot)\fedora-kde\bin\$(Configuration)\net8.0\fedora-kde\agent\**\*.pyc">
+        <DistroId>fedora-kde</DistroId>
+      </_IglooProviderAgent>
+      <_IglooProviderAgent Include="$(_IglooDistrosRoot)\ubuntu\bin\$(Configuration)\net8.0\agent\**\*"
+                           Exclude="$(_IglooDistrosRoot)\ubuntu\bin\$(Configuration)\net8.0\agent\**\__pycache__\**;
+                                    $(_IglooDistrosRoot)\ubuntu\bin\$(Configuration)\net8.0\agent\**\*.pyc">
+        <DistroId>ubuntu</DistroId>
+      </_IglooProviderAgent>
     </ItemGroup>
+  </Target>
+
+  <!-- A source-tree CLI invocation must use the provider revision just built,
+       not the historical DLLs checked into distros/. Keep that development
+       closure adjacent to the CLI exactly as deployed frontends do. -->
+  <Target Name="StageIglooDevProviders" AfterTargets="Build"
+          DependsOnTargets="PreparePackagedIglooProviders"
+          Condition="'$(MSBuildProjectName)' == 'Igloo.Cli' and '$(DesignTimeBuild)' != 'true'">
+    <Copy SourceFiles="@(_IglooDistroData)"
+          DestinationFiles="@(_IglooDistroData->'$(TargetDir)distros\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_IglooProviderDll)"
+          DestinationFiles="@(_IglooProviderDll->'$(TargetDir)distros\%(DistroId)\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_IglooProviderAgent)"
+          DestinationFiles="@(_IglooProviderAgent->'$(TargetDir)distros\%(DistroId)\agent\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <!-- Excluded Python caches can survive a prior build in the same output. -->
+    <ItemGroup>
+      <_IglooStalePythonCache Include="$(TargetDir)distros\**\__pycache__\**\*;$(TargetDir)distros\**\*.pyc" />
+    </ItemGroup>
+    <Delete Files="@(_IglooStalePythonCache)" />
   </Target>
 
   <Target Name="StageIglooCliForBuild" AfterTargets="Build"
           DependsOnTargets="PreparePackagedIglooProviders"
-          Condition="'$(DesignTimeBuild)' != 'true'">
+          Condition="'$(MSBuildProjectName)' != 'Igloo.Cli' and '$(DesignTimeBuild)' != 'true'">
     <MSBuild Projects="$(_IglooCliProject)" Targets="Build"
-             Properties="Configuration=$(Configuration)" />
+             Properties="Configuration=$(Configuration)"
+             RemoveProperties="TargetFramework;TargetFrameworks;RuntimeIdentifier;SelfContained;PublishDir;PublishProfile;PublishProfileFullPath;PublishProtocol;_TargetId;PublishSingleFile;PublishReadyToRun;PublishTrimmed" />
     <Error Condition="!Exists('$(_IglooCliBuildOutput)Igloo.Cli.exe')"
            Text="The built Igloo.Cli executable is unavailable for packaging." />
     <ItemGroup>
       <_IglooCliBuildFiles Include="$(_IglooCliBuildOutput)**\*"
-                           Exclude="$(_IglooCliBuildOutput)**\*.pdb" />
+                           Exclude="$(_IglooCliBuildOutput)**\*.pdb;$(_IglooCliBuildOutput)distros\**" />
     </ItemGroup>
+    <!-- Copy never removes files, and the CLI client hashes every leftover in cli\ and distros\. -->
+    <ItemGroup>
+      <_IglooPackageExpected Include="@(_IglooCliBuildFiles->'$(TargetDir)cli\%(RecursiveDir)%(Filename)%(Extension)')" />
+      <_IglooPackageExpected Include="@(_IglooDistroData->'$(TargetDir)distros\%(RecursiveDir)%(Filename)%(Extension)')" />
+      <_IglooPackageExpected Include="@(_IglooProviderDll->'$(TargetDir)distros\%(DistroId)\%(Filename)%(Extension)')" />
+      <_IglooPackageExpected Include="@(_IglooProviderAgent->'$(TargetDir)distros\%(DistroId)\agent\%(RecursiveDir)%(Filename)%(Extension)')" />
+      <_IglooPackageStale Include="$(TargetDir)cli\**\*;$(TargetDir)distros\**\*"
+                          Exclude="@(_IglooPackageExpected)" />
+    </ItemGroup>
+    <Delete Files="@(_IglooPackageStale)" />
     <Copy SourceFiles="@(_IglooCliBuildFiles)"
           DestinationFiles="@(_IglooCliBuildFiles->'$(TargetDir)cli\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
@@ -65,13 +126,17 @@
     <Copy SourceFiles="@(_IglooProviderDll)"
           DestinationFiles="@(_IglooProviderDll->'$(TargetDir)distros\%(DistroId)\%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_IglooProviderAgent)"
+          DestinationFiles="@(_IglooProviderAgent->'$(TargetDir)distros\%(DistroId)\agent\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="StageIglooCliForPublish" AfterTargets="Publish"
           DependsOnTargets="PreparePackagedIglooProviders"
-          Condition="'$(DesignTimeBuild)' != 'true'">
-    <MSBuild Projects="$(_IglooCliProject)" Targets="Publish"
-             Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$(PublishDir)cli\" />
+          Condition="'$(MSBuildProjectName)' != 'Igloo.Cli' and '$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="$(_IglooCliProject)" Targets="Restore;Publish"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(PublishDir)', 'cli'))\"
+             RemoveProperties="TargetFramework;TargetFrameworks;PublishProfile;PublishProfileFullPath;PublishProtocol;_TargetId;PublishSingleFile;PublishReadyToRun;PublishTrimmed" />
     <Error Condition="!Exists('$(PublishDir)cli\Igloo.Cli.exe')"
            Text="The published Igloo.Cli executable is unavailable for packaging." />
     <Copy SourceFiles="@(_IglooDistroData)"
@@ -80,5 +145,12 @@
     <Copy SourceFiles="@(_IglooProviderDll)"
           DestinationFiles="@(_IglooProviderDll->'$(PublishDir)distros\%(DistroId)\%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_IglooProviderAgent)"
+          DestinationFiles="@(_IglooProviderAgent->'$(PublishDir)distros\%(DistroId)\agent\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <_IglooStalePythonCache Include="$(PublishDir)distros\**\__pycache__\**\*;$(PublishDir)distros\**\*.pyc" />
+    </ItemGroup>
+    <Delete Files="@(_IglooStalePythonCache)" />
   </Target>
 </Project>

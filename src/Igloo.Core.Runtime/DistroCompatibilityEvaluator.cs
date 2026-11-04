@@ -18,7 +18,7 @@ public sealed class DistroCompatibilityEvaluator(DistroRegistry registry, Distro
         if (report.SecureBootEnabled && !tags.Contains("secure-boot-supported",
                 StringComparer.OrdinalIgnoreCase))
             findings.Add(new(FindingSeverity.Blocker, "SecureBootUnsupported",
-                "Requires Secure Boot to be disabled"));
+                "Turn off Secure Boot in firmware settings before installing this distribution."));
         findings.AddRange(plugin.CheckCompatibility(report));
         return findings;
     }

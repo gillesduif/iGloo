@@ -211,8 +211,9 @@ public sealed class FileMigrationAllocationRegistry(string directory,
         return true;
     }
 
-    internal static string LayoutRevision(CanonicalAllocationObservation observed)
+    public static string LayoutRevision(CanonicalAllocationObservation observed)
     {
+        ArgumentNullException.ThrowIfNull(observed);
         if (!Valid(observed)) throw new CommandPreconditionException();
         return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
         {

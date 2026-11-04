@@ -9,7 +9,7 @@ namespace Igloo.Cli.Client;
 public enum CliTransportError
 {
     ExecutableUnavailable, IdentityMismatch, IncompatibleProtocol,
-    MalformedStream, ProcessFailed, TimedOut, Cancelled,
+    MalformedStream, ProcessFailed, ProcessStartFailed, TimedOut, Cancelled,
 }
 
 /// <summary>A transport failure does not establish whether an operation was cancelled.</summary>
@@ -118,15 +118,15 @@ public sealed class CliCommandClient
         using var process = new Process { StartInfo = start };
         try
         {
-            if (!process.Start()) throw new CliTransportException(CliTransportError.ProcessFailed,
+            if (!process.Start()) throw new CliTransportException(CliTransportError.ProcessStartFailed,
                 "The iGloo CLI process could not start.", request.RequestId,
-                request.CorrelationId, request.OperationId);
+                request.CorrelationId);
         }
         catch (System.ComponentModel.Win32Exception)
         {
-            throw new CliTransportException(CliTransportError.ProcessFailed,
+            throw new CliTransportException(CliTransportError.ProcessStartFailed,
                 "The iGloo CLI process could not start.", request.RequestId,
-                request.CorrelationId, request.OperationId);
+                request.CorrelationId);
         }
 
         using var lifetime = new CancellationTokenSource();
@@ -307,7 +307,8 @@ public sealed class CliCommandClient
             }
             return hash.GetHashAndReset();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is (IOException and not CliTransportException) or
+            UnauthorizedAccessException)
         {
             throw new CliTransportException(CliTransportError.IdentityMismatch,
                 "The packaged CLI files could not be verified.");
@@ -385,7 +386,7 @@ public sealed class CliCommandClient
                 result.RequestId == request.RequestId && result.CorrelationId == request.CorrelationId &&
                 result.Succeeded == (result.Error is null))
             {
-                correlation.ObserveTerminal(result.OperationId);
+                correlation.ObserveTerminal(result);
                 using var terminal = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 terminal.CancelAfter(terminalGrace);
                 try
@@ -409,6 +410,7 @@ public sealed class CliCommandClient
     {
         private readonly object _gate = new();
         private Guid? _knownOperationId = nominatedOperationId;
+        private bool _sawProgress;
 
         internal Guid? KnownOperationId
         {
@@ -422,16 +424,27 @@ public sealed class CliCommandClient
                 if (_knownOperationId is { } known && operationId != known)
                     throw BadStream();
                 if (operationId is not null) _knownOperationId = operationId;
+                _sawProgress = true;
             }
         }
 
-        internal void ObserveTerminal(Guid? operationId)
+        internal void ObserveTerminal(CommandResult result)
         {
             lock (_gate)
             {
-                if (_knownOperationId is { } known && operationId != known)
+                // The dispatcher intentionally omits even a caller-nominated ID
+                // when validation or durable admission failed before execution.
+                // Once progress was emitted, the operation identity must persist
+                // through the terminal result, including failures.
+                if (result.OperationId is null && _knownOperationId is not null)
+                {
+                    if (_sawProgress || result.Succeeded)
+                        throw BadStream();
+                    return;
+                }
+                if (_knownOperationId is { } known && result.OperationId != known)
                     throw BadStream();
-                _knownOperationId = operationId;
+                _knownOperationId = result.OperationId;
             }
         }
     }

@@ -56,8 +56,19 @@ public sealed class CommandDispatcher : ICommandDispatcher
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            effective = handler!.Descriptor.Kind == CommandKind.Mutation && request.OperationId is null
+            var candidate = handler!.Descriptor.Kind == CommandKind.Mutation && request.OperationId is null
                 ? request with { OperationId = Guid.NewGuid() } : request;
+            // A journaled mutation must persist its operation identity before it
+            // can appear in progress or a terminal result. Failed admission leaves
+            // effective at the original request, with no newly issued identity.
+            if (handler is IDurableCommandAdmission admission)
+            {
+                // Even a caller-nominated ID is not evidence that admission
+                // persisted; hide it in any pre-admission failure result.
+                effective = request with { OperationId = null };
+                await admission.AdmitAsync(candidate, cancellationToken).ConfigureAwait(false);
+            }
+            effective = candidate;
             progress?.Report(new(effective.RequestId, effective.OperationId, "validating"));
             var data = await handler.ExecuteAsync(effective, progress, cancellationToken).ConfigureAwait(false);
             var observed = data as ObservedPayload;
@@ -87,6 +98,33 @@ public sealed class CommandDispatcher : ICommandDispatcher
         {
             return Failure(effective, new(CommandErrorCode.ResourceBusy, "A conflicting local operation is running."));
         }
+        catch (IsoAcquisitionFailureException ex)
+        {
+            // Only fixed codes and copy cross the command boundary. The local
+            // exception may contain mirror URLs, cache paths or HTTP details.
+            var isoError = ex.Kind switch
+            {
+                IsoAcquisitionFailureKind.NetworkUnavailable => new CommandError(
+                    CommandErrorCode.InternalFailure,
+                    "The distribution image or verification data could not be fetched. Check the connection and retry.",
+                    "IsoNetworkUnavailable"),
+                IsoAcquisitionFailureKind.CacheUnavailable => new CommandError(
+                    CommandErrorCode.InternalFailure,
+                    "The local image cache could not be used. Check available storage and retry.",
+                    "IsoCacheUnavailable"),
+                IsoAcquisitionFailureKind.VerificationFailed => new CommandError(
+                    CommandErrorCode.VerificationFailed,
+                    "The installer image or signed metadata failed verification.",
+                    "IsoVerificationFailed"),
+                IsoAcquisitionFailureKind.SourceMetadataUnavailable => new CommandError(
+                    CommandErrorCode.VerificationFailed,
+                    "Trusted installer image information is unavailable for this distribution.",
+                    "IsoSourceMetadataUnavailable"),
+                _ => new CommandError(CommandErrorCode.InternalFailure,
+                    "The local operation failed. Consult protected local diagnostics."),
+            };
+            return Failure(effective, isoError);
+        }
         catch (ArtifactVerificationException)
         {
             return Failure(effective, new(CommandErrorCode.VerificationFailed,
@@ -111,6 +149,11 @@ public sealed class CommandDispatcher : ICommandDispatcher
         {
             return Failure(effective, new(CommandErrorCode.PreconditionFailed,
                 "Required endpoint preconditions are unavailable."));
+        }
+        catch (OperationJournalUnavailableException)
+        {
+            return Failure(effective, new(CommandErrorCode.RecoveryRequired,
+                "Inspect operation status before retrying; iGloo could not confirm the local operation state."));
         }
         catch (NotSupportedException)
         {
@@ -200,6 +243,20 @@ public interface ICommandHandler
     CapabilityDescriptor Descriptor { get; }
     Task<object> ExecuteAsync(CommandRequest request, IProgress<CommandProgress>? progress,
         CancellationToken cancellationToken);
+}
+
+/// <summary>Persist a mutation identity before the dispatcher reports it to a client.</summary>
+public interface IDurableCommandAdmission
+{
+    Task AdmitAsync(CommandRequest request, CancellationToken cancellationToken);
+}
+
+public sealed class OperationJournalUnavailableException : Exception
+{
+    public OperationJournalUnavailableException() : base("Operation journal unavailable.") { }
+    public OperationJournalUnavailableException(string message) : base(message) { }
+    public OperationJournalUnavailableException(string message, Exception innerException)
+        : base(message, innerException) { }
 }
 
 internal sealed class CapabilitiesHandler(Func<IReadOnlyList<CapabilityDescriptor>> catalogue) : ICommandHandler

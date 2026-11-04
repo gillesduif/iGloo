@@ -18,16 +18,18 @@ public sealed class FileArtifactRegistry(string directory, string cacheRoot)
         ArgumentException.ThrowIfNullOrWhiteSpace(distroId);
         ArgumentNullException.ThrowIfNull(acquired);
         if (!acquired.Sha256Verified || acquired.VerifiedSha256 is not { Length: 64 } digest ||
-            !digest.All(Uri.IsHexDigit) || acquired.SizeBytes < 0)
+            !digest.All(Uri.IsHexDigit) || acquired.SizeBytes <= 0)
             throw new ArtifactVerificationException();
         var path = RequireCachePath(acquired.LocalPath);
-        if (!File.Exists(path) || new FileInfo(path).Length != acquired.SizeBytes)
+        if (!File.Exists(path) || IsRedirected(path))
             throw new ArtifactVerificationException();
         var normalizedHash = digest.ToUpperInvariant();
         // Close the verification-to-registration gap. Later uses must still reverify.
         using (var current = new FileStream(path, FileMode.Open, FileAccess.Read,
                    FileShare.Read, 81_920, FileOptions.Asynchronous | FileOptions.SequentialScan))
         {
+            if (current.Length != acquired.SizeBytes)
+                throw new ArtifactVerificationException();
             var actual = Convert.ToHexString(await SHA256.HashDataAsync(current, cancellationToken)
                 .ConfigureAwait(false));
             if (!string.Equals(actual, normalizedHash, StringComparison.Ordinal))
@@ -43,9 +45,14 @@ public sealed class FileArtifactRegistry(string directory, string cacheRoot)
         var destination = RecordPath(id);
         if (File.Exists(destination))
         {
-            var prior = await ReadAsync(id, cancellationToken).ConfigureAwait(false)
-                ?? throw new ArtifactVerificationException();
-            if (prior.DistroId != distroId || prior.Sha256 != normalizedHash)
+            if ((File.GetAttributes(destination) & FileAttributes.ReparsePoint) != 0)
+                throw new ArtifactVerificationException();
+            ArtifactRecord? prior;
+            try { prior = await ReadAsync(id, cancellationToken).ConfigureAwait(false); }
+            catch (ArtifactVerificationException) { prior = null; }
+            // A fresh hash-verified acquisition can replace a corrupt cache index.
+            // A valid index for a different identity remains an error.
+            if (prior is not null && (prior.DistroId != distroId || prior.Sha256 != normalizedHash))
                 throw new ArtifactVerificationException();
         }
         var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -71,20 +78,44 @@ public sealed class FileArtifactRegistry(string directory, string cacheRoot)
         if (record is null) return null;
         using var lease = await ResourceLock.AcquireAsync("iso:" + record.DistroId,
             cancellationToken).ConfigureAwait(false);
-        if (!File.Exists(record.LocalPath))
+        if (!File.Exists(record.LocalPath) || IsRedirected(record.LocalPath))
             return new(record.ArtifactId, record.DistroId, record.Sha256,
                 record.GpgVerified, record.SizeBytes, false, false);
-        var size = new FileInfo(record.LocalPath).Length;
-        if (size != record.SizeBytes)
-            return new(record.ArtifactId, record.DistroId, record.Sha256,
-                record.GpgVerified, record.SizeBytes, true, false);
         using var stream = new FileStream(record.LocalPath, FileMode.Open, FileAccess.Read,
             FileShare.Read, 81_920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        if (stream.Length != record.SizeBytes)
+            return new(record.ArtifactId, record.DistroId, record.Sha256,
+                record.GpgVerified, record.SizeBytes, true, false);
         var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken)
             .ConfigureAwait(false));
         return new(record.ArtifactId, record.DistroId, record.Sha256,
             record.GpgVerified, record.SizeBytes, true,
             string.Equals(hash, record.Sha256, StringComparison.Ordinal));
+    }
+
+    // First-party layout planning consumes only an acquired artifact ID. Never
+    // trust a caller-supplied path or a previous verification bit.
+    public async Task<IsoAcquisitionResult> ResolveVerifiedAsync(string artifactId,
+        string distroId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(distroId);
+        var record = await ReadAsync(artifactId, cancellationToken).ConfigureAwait(false)
+            ?? throw new KeyNotFoundException("The acquired artifact is unavailable.");
+        if (!string.Equals(record.DistroId, distroId, StringComparison.Ordinal))
+            throw new ArtifactVerificationException();
+        using var lease = await ResourceLock.AcquireAsync("iso:" + record.DistroId,
+            cancellationToken).ConfigureAwait(false);
+        if (!File.Exists(record.LocalPath) || IsRedirected(record.LocalPath))
+            throw new ArtifactVerificationException();
+        using var stream = new FileStream(record.LocalPath, FileMode.Open, FileAccess.Read,
+            FileShare.Read, 81_920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        if (stream.Length != record.SizeBytes)
+            throw new ArtifactVerificationException();
+        var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken)
+            .ConfigureAwait(false));
+        if (!string.Equals(hash, record.Sha256, StringComparison.Ordinal))
+            throw new ArtifactVerificationException();
+        return new(record.LocalPath, true, record.GpgVerified, record.SizeBytes, hash);
     }
 
     private async Task<ArtifactRecord?> ReadAsync(string artifactId, CancellationToken cancellationToken)
@@ -106,7 +137,7 @@ public sealed class FileArtifactRegistry(string directory, string cacheRoot)
         }
         if (record is null || record.SchemaVersion != 1 || record.DistroId is null ||
             record.Sha256 is not { Length: 64 } || !record.Sha256.All(Uri.IsHexDigit) ||
-            record.LocalPath is null || record.SizeBytes < 0 ||
+            record.LocalPath is null || record.SizeBytes <= 0 ||
             record.ArtifactId != artifactId ||
             record.ArtifactId != IdFor(record.DistroId, record.Sha256) ||
             !string.Equals(record.IntegritySha256, Integrity(record with { IntegritySha256 = null }),
@@ -132,6 +163,10 @@ public sealed class FileArtifactRegistry(string directory, string cacheRoot)
             throw new ArtifactVerificationException();
         }
     }
+
+    private static bool IsRedirected(string path) =>
+        (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0 ||
+        (File.GetAttributes(Path.GetDirectoryName(path)!) & FileAttributes.ReparsePoint) != 0;
 
     private string RecordPath(string id) => Path.Join(directory, id + ".json");
 

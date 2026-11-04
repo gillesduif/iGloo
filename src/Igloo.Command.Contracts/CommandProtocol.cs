@@ -89,6 +89,8 @@ public sealed record DistroCompatibility(string DistroId,
     IReadOnlyList<InspectionFinding> Findings, bool HasBlockers);
 public sealed record IsoAcquired(string DistroId, bool Sha256Verified,
     bool GpgVerified, long SizeBytes);
+public sealed record IsoAcquiredV2(string DistroId, string LocalPath,
+    string VerifiedSha256, bool Sha256Verified, bool GpgVerified, long SizeBytes);
 public sealed record ArtifactAcquired(string ArtifactId, string DistroId, string Sha256,
     bool GpgVerified, long SizeBytes);
 public sealed record ArtifactSelection(string ArtifactId);
@@ -122,9 +124,22 @@ public sealed record MigrationAllocationResult(Guid PlanId, Guid TargetId, Guid 
     long NewFreeOffsetBytes, string ObservedLayoutRevision,
     MigrationCapacityDisposition CapacityState, IReadOnlyList<string> WarningCodes,
     bool Executable);
+/// <summary>Read-only installer layout request over durable advisory IDs and an acquired artifact.</summary>
+public sealed record MigrationLayoutPlanInput(string DistroId, Guid PlanId, Guid TargetId,
+    Guid AllocationId, string ArtifactId, long RequestedLinuxBytes,
+    string StagingDirectory);
+public sealed record MigrationLayoutExtent(string Role, long OffsetBytes,
+    long SizeBytes, string FileSystem, bool CreateInWindows);
+/// <summary>Informational Planned checkpoint summary; it carries no private checkpoint reference.</summary>
+public sealed record MigrationLayoutPlanResult(Guid PlanId, Guid TargetId,
+    Guid AllocationId, Guid GenerationId, string ArtifactId, string ArtifactSha256,
+    long PlannedShrinkBytes, long RequiredBytes, long StagedBytes,
+    IReadOnlyList<MigrationLayoutExtent> Extents, string State,
+    bool Executable, string Disposition);
 public sealed record RecoveryInspection(string Support, string ReasonCode,
     bool HasExactSnapshot);
 public sealed record OperationSelection(Guid OperationId);
 public sealed record OperationStatus(Guid OperationId, string CapabilityId, string State,
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, string CurrentStage,
     IReadOnlyList<string> EvidenceCodes, string? FailureCode, string? ContinuationCode);
+public sealed record IsoOperations(string DistroId, IReadOnlyList<OperationStatus> Operations);

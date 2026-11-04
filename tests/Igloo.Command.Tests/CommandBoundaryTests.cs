@@ -9,6 +9,7 @@ using Igloo.Core.Runtime.Execution;
 using Igloo.Core.Host;
 using Igloo.Core.Models;
 using Igloo.Core.Services;
+using Igloo.Migration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -16,6 +17,9 @@ using Xunit;
 
 namespace Igloo.Command.Tests;
 
+// These tests intentionally hold production-named ISO leases. Serialize them
+// with the layout/installation fixtures that acquire those same global leases.
+[Collection("RecoveryState")]
 public sealed class CommandBoundaryTests
 {
     private sealed class Checker : IPreflightChecker
@@ -31,6 +35,48 @@ public sealed class CommandBoundaryTests
                     "GPT", [new(1, "NTFS", 100, "PRIVATE_LABEL", false, true)])],
                 Findings = [new(FindingSeverity.Warning, "LOW_RAM", "PRIVATE_MESSAGE", "PRIVATE_PATH")],
             });
+        }
+    }
+
+    private sealed class FixedChecker(PreflightReport report) : IPreflightChecker
+    {
+        public Task<PreflightReport> RunAsync(CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(report);
+        }
+    }
+
+    private sealed class CheckerWithInstallerLeftover : IPreflightChecker
+    {
+        public async Task<PreflightReport> RunAsync(CancellationToken ct = default)
+        {
+            var report = await new Checker().RunAsync(ct);
+            return report with
+            {
+                SeedLeftovers = [new SeedLeftover(0, "fixture disk",
+                    new PartitionInfo(2, "FAT32", 512 * 1024 * 1024, "OEMDRV", false, false))],
+            };
+        }
+    }
+
+    private sealed class RecordingRemoval : ILinuxRemovalService
+    {
+        public int Calls { get; private set; }
+
+        public Task RemoveAsync(IReadOnlyList<LinuxInstallation> installations,
+            IReadOnlyList<SeedLeftover> seedLeftovers, bool removingAllLinux,
+            IProgress<string>? progress = null, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.CompletedTask;
+        }
+
+        public Task<long> ReclaimFreeSpaceAsync(uint diskNumber,
+            IProgress<string>? progress = null, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(0L);
         }
     }
 
@@ -94,6 +140,33 @@ public sealed class CommandBoundaryTests
             (await new Checker().RunAsync(ct)) with
             {
                 Findings = [new(FindingSeverity.Warning, "PRIVATE_PASSWORD", "PRIVATE_MESSAGE")],
+            };
+    }
+
+    [Fact]
+    public async Task ReviewedDistroBlockersKeepTheirCodesAcrossThePublicBoundary()
+    {
+        var dispatcher = new CommandDispatcher(new DebianBlockerChecker(),
+            new DistroLoader(NullLogger<DistroLoader>.Instance),
+            new DistroRegistry(NullLogger<DistroRegistry>.Instance));
+        var result = await dispatcher.ExecuteAsync(Request("system.inspect.detail"));
+        var detail = result.Data!.Value.Deserialize<DetailedSystemInspection>(CommandProtocol.JsonOptions)!;
+        Assert.Equal(new[] { "DEBIAN_INSTALL_RAM_BELOW_MINIMUM",
+                "FEDORA_NVIDIA_SECURE_BOOT_UNSUPPORTED", "BITLOCKER_UNAVAILABLE" },
+            detail.Summary.Findings.Select(f => f.Code));
+    }
+
+    private sealed class DebianBlockerChecker : IPreflightChecker
+    {
+        public async Task<PreflightReport> RunAsync(CancellationToken ct = default) =>
+            (await new Checker().RunAsync(ct)) with
+            {
+                Findings =
+                [
+                    new(FindingSeverity.Blocker, "DEBIAN_INSTALL_RAM_BELOW_MINIMUM", "Not enough memory"),
+                    new(FindingSeverity.Blocker, "FEDORA_NVIDIA_SECURE_BOOT_UNSUPPORTED", "NVIDIA module unverified"),
+                    new(FindingSeverity.Blocker, "BITLOCKER_UNAVAILABLE", "Run the BitLocker check again"),
+                ],
             };
     }
 
@@ -323,9 +396,9 @@ public sealed class CommandBoundaryTests
         Assert.Equal(["Igloo.Command.Contracts", "Igloo.Core.Host"],
             Refs(Path.Join(root.FullName, "src", "Igloo.Cli", "Igloo.Cli", "Igloo.Cli.csproj"))
                 .Order(StringComparer.Ordinal));
-        Assert.Equal(["Igloo.Command.Contracts", "Igloo.Core.Host"],
+        Assert.Equal(["Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Core.Host"],
             Refs(Project("Igloo.Community.App")).Order(StringComparer.Ordinal));
-        Assert.Equal(["Igloo.Cli.Client", "Igloo.Command.Contracts"],
+        Assert.Equal(["Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Mascot.Wpf"],
             Refs(Path.Join(root.FullName, "Igloo.One.App", "Igloo.One.App.csproj"))
                 .Order(StringComparer.Ordinal));
         Assert.Equal(new[] { "Igloo.Command.Contracts" }, Refs(Project("Igloo.Cli.Client")));
@@ -436,6 +509,23 @@ public sealed class CommandBoundaryTests
     }
 
     [Fact]
+    public async Task CommunityPreflightDoesNotRemoveLeftoversOrResizeWindows()
+    {
+        var removal = new RecordingRemoval();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddLocalBackend(includeIsoAcquisition: false);
+        services.Replace(ServiceDescriptor.Singleton<IPreflightChecker>(new CheckerWithInstallerLeftover()));
+        services.Replace(ServiceDescriptor.Singleton<ILinuxRemovalService>(removal));
+        using var provider = services.BuildServiceProvider();
+
+        var report = await provider.GetRequiredService<IPreflightWorkflow>().InspectAsync();
+
+        Assert.Single(report.SeedLeftovers);
+        Assert.Equal(0, removal.Calls);
+    }
+
+    [Fact]
     public async Task CatalogueSecureBootRuleIsSharedByCompatibilityAndAdvisoryPlan()
     {
         var fixture = Path.Join(Path.GetTempPath(), "igloo-compatibility-" + Guid.NewGuid().ToString("N"));
@@ -454,6 +544,11 @@ public sealed class CommandBoundaryTests
             var registry = new DistroRegistry(NullLogger<DistroRegistry>.Instance);
             await registry.LoadAsync(Path.Join(root, "distros"));
             var checker = new CheckerWithSecureBoot();
+            var directFindings = new DistroCompatibilityEvaluator(registry, loader)
+                .Evaluate(distro.Id, await checker.RunAsync());
+            Assert.Contains(directFindings, f => f.Code == "SecureBootUnsupported" &&
+                f.Severity == FindingSeverity.Blocker &&
+                f.Message.StartsWith("Turn off Secure Boot", StringComparison.Ordinal));
             var dispatcher = new CommandDispatcher(checker, loader, registry);
             var selection = JsonSerializer.SerializeToElement(new DistroSelection(distro.Id),
                 CommandProtocol.JsonOptions);
@@ -471,7 +566,7 @@ public sealed class CommandBoundaryTests
         }
         finally
         {
-            DeleteFixtureDirectory(fixture);
+            await DeleteFixtureDirectoryAsync(fixture);
         }
     }
 
@@ -558,7 +653,7 @@ public sealed class CommandBoundaryTests
         }
         finally
         {
-            DeleteFixtureDirectory(directory);
+            await DeleteFixtureDirectoryAsync(directory);
         }
     }
 
@@ -597,10 +692,39 @@ public sealed class CommandBoundaryTests
             Assert.True(cliResult.Data!.Value.Deserialize<IsoAcquired>(CommandProtocol.JsonOptions)!.GpgVerified);
             Assert.DoesNotContain("PRIVATE_PATH", JsonSerializer.Serialize(cliResult, CommandProtocol.JsonOptions),
                 StringComparison.Ordinal);
+            var v2 = await commands.ExecuteAsync(request with
+            {
+                RequestId = Guid.NewGuid(), CapabilityVersion = 2,
+            });
+            Assert.True(v2.Succeeded);
+            var acquired = v2.Data!.Value.Deserialize<IsoAcquiredV2>(CommandProtocol.JsonOptions)!;
+            Assert.Equal(Path.Join(Path.GetTempPath(), "PRIVATE_PATH"), acquired.LocalPath);
+            Assert.Equal(new string('A', 64), acquired.VerifiedSha256);
+            Assert.True(acquired.GpgVerified);
+
+            using var humanOutput = new StringWriter();
+            using var humanError = new StringWriter();
+            var humanExit = await CliApplication.RunAsync(["iso", "acquire", distro.Id],
+                commands, new StringReader(string.Empty), humanOutput, humanError);
+            Assert.Equal(0, humanExit);
+            Assert.Contains(acquired.LocalPath, humanOutput.ToString(), StringComparison.Ordinal);
+            Assert.Contains(acquired.VerifiedSha256, humanOutput.ToString(), StringComparison.Ordinal);
+
+            using var jsonOutput = new StringWriter();
+            using var jsonError = new StringWriter();
+            var jsonExit = await CliApplication.RunAsync(["iso", "acquire", distro.Id, "--json"],
+                commands, new StringReader(string.Empty), jsonOutput, jsonError);
+            Assert.Equal(0, jsonExit);
+            Assert.Equal(string.Empty, jsonError.ToString());
+            var humanJson = JsonSerializer.Deserialize<CommandResult>(jsonOutput.ToString(),
+                CommandProtocol.JsonOptions)!;
+            Assert.Equal(2, humanJson.CapabilityVersion);
+            Assert.Equal(acquired.LocalPath, humanJson.Data!.Value.Deserialize<IsoAcquiredV2>(
+                CommandProtocol.JsonOptions)!.LocalPath);
         }
         finally
         {
-            DeleteFixtureDirectory(directory);
+            await DeleteFixtureDirectoryAsync(directory);
         }
     }
 
@@ -662,6 +786,13 @@ public sealed class CommandBoundaryTests
             Assert.DoesNotContain(path, JsonSerializer.Serialize(corrupt, CommandProtocol.JsonOptions),
                 StringComparison.OrdinalIgnoreCase);
 
+            await File.WriteAllBytesAsync(path, bytes);
+            var repaired = await reopened.RecordAsync("fedora-kde",
+                new IsoAcquisitionResult(path, true, true, bytes.Length, digest));
+            Assert.Equal(identity.ArtifactId, repaired.ArtifactId);
+            status = await statusDispatcher.ExecuteAsync(selected);
+            Assert.True(status.Data!.Value.Deserialize<ArtifactStatus>(CommandProtocol.JsonOptions)!.VerifiedNow);
+
             var badAcquisition = new CommandDispatcher(new Checker(), loader,
                 new DistroRegistry(NullLogger<DistroRegistry>.Instance),
                 [new IsoAcquireHandler(loader, new IsoAcquisitionCoordinator(
@@ -674,7 +805,85 @@ public sealed class CommandBoundaryTests
         }
         finally
         {
-            DeleteFixtureDirectory(root);
+            await DeleteFixtureDirectoryAsync(root);
+        }
+    }
+
+    [Fact]
+    public async Task ArtifactRegistryRejectsEmptyAndRedirectedCacheFiles()
+    {
+        var root = Path.Join(Path.GetTempPath(), "igloo-artifact-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var cache = Path.Join(root, "cache", "fedora-kde");
+            Directory.CreateDirectory(cache);
+            var empty = Path.Join(cache, "empty.iso");
+            await File.WriteAllBytesAsync(empty, []);
+            var registry = new FileArtifactRegistry(Path.Join(root, "records"), Path.Join(root, "cache"));
+            await Assert.ThrowsAsync<ArtifactVerificationException>(() => registry.RecordAsync("fedora-kde",
+                new IsoAcquisitionResult(empty, true, true, 0, Convert.ToHexString(
+                    System.Security.Cryptography.SHA256.HashData([])))));
+
+            var target = Path.Join(root, "target.iso");
+            var bytes = System.Text.Encoding.UTF8.GetBytes("verified fixture bytes");
+            await File.WriteAllBytesAsync(target, bytes);
+            var link = Path.Join(cache, "redirected.iso");
+            File.CreateSymbolicLink(link, target);
+            await Assert.ThrowsAsync<ArtifactVerificationException>(() => registry.RecordAsync("fedora-kde",
+                new IsoAcquisitionResult(link, true, true, bytes.Length, Convert.ToHexString(
+                    System.Security.Cryptography.SHA256.HashData(bytes)))));
+        }
+        finally
+        {
+            await DeleteFixtureDirectoryAsync(root);
+        }
+    }
+
+    [Fact]
+    public async Task FixtureCleanupRetriesATransientWindowsFileLock()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var root = Path.Join(Path.GetTempPath(), "igloo-cleanup-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var path = Path.Join(root, "locked.iso");
+        await File.WriteAllTextAsync(path, "fixture");
+        using var held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        try
+        {
+            var cleanup = DeleteFixtureDirectoryAsync(root);
+            Assert.False(cleanup.IsCompleted, "The held handle must prevent the initial deletion.");
+            await held.DisposeAsync();
+            await cleanup;
+
+            Assert.False(Directory.Exists(root));
+        }
+        finally
+        {
+            await held.DisposeAsync();
+            await DeleteFixtureDirectoryAsync(root);
+        }
+    }
+
+    [Fact]
+    public async Task FixtureCleanupDoesNotSuppressAPersistentWindowsFileLock()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var root = Path.Join(Path.GetTempPath(), "igloo-cleanup-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var path = Path.Join(root, "locked.iso");
+        await File.WriteAllTextAsync(path, "fixture");
+        using var held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        try
+        {
+            var error = await Assert.ThrowsAsync<IOException>(() => DeleteFixtureDirectoryAsync(root));
+
+            Assert.Contains(error.HResult, new[] { unchecked((int)0x80070020), unchecked((int)0x80070021) });
+            Assert.True(File.Exists(path));
+        }
+        finally
+        {
+            await held.DisposeAsync();
+            await DeleteFixtureDirectoryAsync(root);
         }
     }
 
@@ -715,7 +924,7 @@ public sealed class CommandBoundaryTests
         }
         finally
         {
-            DeleteFixtureDirectory(directory);
+            await DeleteFixtureDirectoryAsync(directory);
         }
     }
 
@@ -749,21 +958,32 @@ public sealed class CommandBoundaryTests
         var direct = await coordinator.AcquireAsync(distro, null);
         Assert.True(direct.Sha256Verified);
         var first = fake.LastSpec;
-        var dispatcher = new CommandDispatcher(new Checker(), loader,
-            new DistroRegistry(NullLogger<DistroRegistry>.Instance),
-            [new IsoAcquireHandler(loader, coordinator)]);
-        var request = new CommandRequest(1, "iso.acquire", 1, Guid.NewGuid(), Guid.NewGuid(),
-            JsonSerializer.SerializeToElement(new DistroSelection(distro.Id), CommandProtocol.JsonOptions));
-        var result = await dispatcher.ExecuteAsync(request);
-        Assert.True(result.Succeeded);
-        Assert.NotNull(result.OperationId);
-        Assert.Equal(first, fake.LastSpec);
-        Assert.DoesNotContain("PRIVATE_PATH", JsonSerializer.Serialize(result, CommandProtocol.JsonOptions), StringComparison.Ordinal);
-        var data = result.Data!.Value.Deserialize<IsoAcquired>(CommandProtocol.JsonOptions)!;
-        Assert.True(data.GpgVerified);
-        using var lease = await ResourceLock.AcquireAsync("iso:" + distro.Id);
-        var busy = await dispatcher.ExecuteAsync(request with { RequestId = Guid.NewGuid() });
-        Assert.Equal(CommandErrorCode.ResourceBusy, busy.Error!.Code);
+        var directory = Path.Join(Path.GetTempPath(), "igloo-command-iso-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var journal = new FileOperationJournal(directory);
+            var dispatcher = new CommandDispatcher(new Checker(), loader,
+                new DistroRegistry(NullLogger<DistroRegistry>.Instance),
+                [new IsoAcquireHandler(loader, coordinator, journal)]);
+            var request = new CommandRequest(1, "iso.acquire", 1, Guid.NewGuid(), Guid.NewGuid(),
+                JsonSerializer.SerializeToElement(new DistroSelection(distro.Id), CommandProtocol.JsonOptions));
+            var result = await dispatcher.ExecuteAsync(request);
+            Assert.True(result.Succeeded);
+            Assert.NotNull(result.OperationId);
+            Assert.Equal(first, fake.LastSpec);
+            Assert.DoesNotContain("PRIVATE_PATH", JsonSerializer.Serialize(result, CommandProtocol.JsonOptions), StringComparison.Ordinal);
+            var data = result.Data!.Value.Deserialize<IsoAcquired>(CommandProtocol.JsonOptions)!;
+            Assert.True(data.GpgVerified);
+            using var lease = await ResourceLock.AcquireAsync("iso:" + distro.Id);
+            var busy = await dispatcher.ExecuteAsync(request with { RequestId = Guid.NewGuid() });
+            Assert.Equal(CommandErrorCode.ResourceBusy, busy.Error!.Code);
+            Assert.Equal(LocalOperationState.Failed,
+                (await journal.ReadAsync(busy.OperationId!.Value))!.State);
+        }
+        finally
+        {
+            await DeleteFixtureDirectoryAsync(directory);
+        }
     }
 
     [Fact]
@@ -819,7 +1039,7 @@ public sealed class CommandBoundaryTests
     }
 
     [Fact]
-    public async Task StagingCoordinatorWritesPrivateManifestAfterCopyWithoutUiExecution()
+    public async Task StagingCoordinatorRejectsMissingProviderBeforeCopyOrManifest()
     {
         var directory = Path.Join(Path.GetTempPath(), "igloo-command-stage-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -827,25 +1047,21 @@ public sealed class CommandBoundaryTests
         {
             var service = new FakeStaging(directory);
             var hooks = new MigrationStagingHooks(
-                _ =>
-                {
-                    Assert.True(service.Called);
-                    return Task.FromResult<IReadOnlyList<WifiNetwork>>([]);
-                },
+                _ => Task.FromResult<IReadOnlyList<WifiNetwork>>([]),
                 (browsers, _, _) => Task.FromResult(browsers),
                 (manifest, _) => manifest,
                 (manifest, _) => manifest);
             var coordinator = new MigrationStagingCoordinator(service,
                 new DistroRegistry(NullLogger<DistroRegistry>.Instance),
-                NullLogger<MigrationStagingCoordinator>.Instance, hooks);
+                new Checker(), NullLogger<MigrationStagingCoordinator>.Instance, hooks);
             var user = new UserSetup { WindowsUsername = "fixture", LinuxUsername = "fixture",
                 LinuxPassword = "fixture-secret" };
-            var result = await coordinator.StageAsync(new(new FileStagingRequest("fixture-distro", []),
-                user, (await new Checker().RunAsync()), null, DiskInstallMode.ReplaceDisk, 0), null);
-            Assert.Equal(directory, result.StagingDirectory);
-            var manifest = await File.ReadAllTextAsync(Path.Join(directory, "migration-manifest.json"));
-            Assert.Contains("fixture-distro", manifest, StringComparison.Ordinal);
-            Assert.DoesNotContain("fixture-secret", manifest, StringComparison.Ordinal);
+            var report = await new Checker().RunAsync();
+            await Assert.ThrowsAsync<NotSupportedException>(() => coordinator.StageAsync(
+                new(new FileStagingRequest("fixture-distro", []), user,
+                    report, null, DiskInstallMode.ReplaceDisk, 0), null));
+            Assert.False(service.Called);
+            Assert.False(File.Exists(Path.Join(directory, "migration-manifest.json")));
         }
         finally
         {
@@ -855,6 +1071,119 @@ public sealed class CommandBoundaryTests
         }
     }
 
+    [Theory]
+    [InlineData("debian")]
+    [InlineData("linuxmint-cinnamon")]
+    [InlineData("fedora-kde")]
+    public async Task RealProviderStagesSelectedFilesAndBrowserForFirstBoot(string distroId)
+    {
+        var id = "igloo-test-stage-" + Guid.NewGuid().ToString("N");
+        var source = Path.Join(Path.GetTempPath(), id);
+        var browserSource = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), id);
+        var stagingParent = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Igloo", "staging", id);
+        Directory.CreateDirectory(Path.Join(source, "Cloud Backup"));
+        Directory.CreateDirectory(Path.Join(browserSource, "Firefox"));
+        await File.WriteAllTextAsync(Path.Join(source, "Cloud Backup", "selected.txt"), "selected files");
+        await File.WriteAllTextAsync(Path.Join(browserSource, "Firefox", "profiles.ini"), "selected browser");
+        try
+        {
+            var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name
+                ?? throw new DirectoryNotFoundException("Test build configuration is unavailable.");
+            var providers = Path.Join(RepositoryRoot(), "src", "Igloo.Cli", "Igloo.Cli", "bin",
+                configuration, "portable", "net10.0-windows10.0.19041.0", "distros");
+            var registry = new DistroRegistry(NullLogger<DistroRegistry>.Instance);
+            await registry.LoadAsync(providers);
+            Assert.True(registry.TryGet(distroId, out _), $"Built {distroId} provider is missing from {providers}.");
+
+            var relativeBrowser = Path.GetRelativePath(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                Path.Join(browserSource, "Firefox")).Replace('\\', '/');
+            var stagedBrowser = FileStagingService.BrowserProfileStagingPath(relativeBrowser);
+            var browser = new BrowserMigration
+            {
+                Name = "Mozilla Firefox", Engine = "gecko", SourceRelativePath = relativeBrowser,
+                DestRelativePath = ".mozilla/firefox"
+            };
+            var user = new UserSetup
+            {
+                WindowsUsername = "fixture", LinuxUsername = "fixture", LinuxPassword = "fixture-secret",
+                WindowsComputerName = "FIXTURE", SelectedFolderNames = ["Documents"],
+                SelectedFolders = [new MigrationFolder { Name = "Documents", SourceRelativePath = "Cloud Backup" }],
+                SelectedBrowsers = [browser], SelectedBrowserNames = [browser.Name]
+            };
+            var report = await new Checker().RunAsync();
+            var selectedTarget = new DiskInfo("virtual", "Virtual target", 40L << 30, 0, "GPT", [])
+            { GptDiskGuid = Guid.Parse("16ee3ea7-3453-4f3b-9183-1015d35dcaa0") };
+            var isolatedStaging = new IsolatedStaging(id);
+            var hooks = new MigrationStagingHooks(
+                _ => Task.FromResult<IReadOnlyList<WifiNetwork>>([]),
+                (browsers, _, _) => Task.FromResult(browsers),
+                (manifest, _) => manifest,
+                (manifest, _) => manifest);
+            var coordinator = new MigrationStagingCoordinator(isolatedStaging, registry,
+                new FixedChecker(report with { Disks = [selectedTarget] }),
+                NullLogger<MigrationStagingCoordinator>.Instance, hooks);
+            var result = await coordinator.StageAsync(new MigrationStagingInput(
+                new FileStagingRequest(distroId, [Path.Join(source, "Cloud Backup")])
+                { FolderNames = ["Documents"] }, user, report, selectedTarget,
+                distroId == "fedora-kde" ? DiskInstallMode.ReplaceDisk : DiskInstallMode.DualBoot,
+                25), null);
+
+            using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(
+                Path.Join(result.StagingDirectory, "migration-manifest.json")));
+            Assert.Equal(stagedBrowser, manifest.RootElement.GetProperty("browsers")[0]
+                .GetProperty("profileStagingPath").GetString());
+            Assert.Equal("selected browser", await File.ReadAllTextAsync(
+                Path.Join(result.StagingDirectory, stagedBrowser.Replace('/', Path.DirectorySeparatorChar),
+                    "profiles.ini")));
+            Assert.Equal("selected files", await File.ReadAllTextAsync(
+                Path.Join(result.StagingDirectory, "files", "Documents", "selected.txt")));
+            Assert.True(File.Exists(Path.Join(result.StagingDirectory, "igloo-agent", "first-boot.sh")));
+            Assert.True(File.Exists(Path.Join(result.StagingDirectory,
+                distroId == "fedora-kde" ? "ks.cfg" : "preseed.cfg")));
+        }
+        finally
+        {
+            foreach (var directory in new[] { source, browserSource, stagingParent })
+            {
+                Assert.StartsWith("igloo-test-stage-", Path.GetFileName(directory), StringComparison.Ordinal);
+                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task FedoraOrdinaryProviderRefusesDualBootWithoutOwnedRootHandoff()
+    {
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name
+            ?? throw new DirectoryNotFoundException("Test build configuration is unavailable.");
+        var providers = Path.Join(RepositoryRoot(), "src", "Igloo.Cli", "Igloo.Cli", "bin",
+            configuration, "portable", "net10.0-windows10.0.19041.0", "distros");
+        var registry = new DistroRegistry(NullLogger<DistroRegistry>.Instance);
+        await registry.LoadAsync(providers);
+        var fedora = registry.Get("fedora-kde");
+        var manifest = new MigrationManifest
+        {
+            DistroId = "fedora-kde",
+            User = new MigrationUser
+            {
+                WindowsUsername = "fixture", PreferredLinuxUsername = "fixture",
+            },
+            Files = new FileMigrationPlan { StagingPath = "files" },
+            Hardware = new HardwareProfile
+            {
+                InstallMode = "dual-boot",
+                TargetDiskGuid = Guid.Parse("16ee3ea7-3453-4f3b-9183-1015d35dcaa0"),
+                TargetDiskBytes = 40L << 30,
+            },
+        };
+
+        var refusal = await Assert.ThrowsAsync<NotSupportedException>(
+            () => fedora.RenderInstallerConfigAsync(manifest));
+        Assert.Contains("select Replace on a separate disk", refusal.Message, StringComparison.Ordinal);
+    }
+
     private static string RepositoryRoot()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
@@ -862,13 +1191,28 @@ public sealed class CommandBoundaryTests
         return root?.FullName ?? throw new DirectoryNotFoundException();
     }
 
-    private static void DeleteFixtureDirectory(string directory)
+    private static async Task DeleteFixtureDirectoryAsync(string directory)
     {
         var full = Path.GetFullPath(directory);
         var temp = Path.GetFullPath(Path.GetTempPath());
         Assert.StartsWith(temp, full, StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith("igloo-", Path.GetFileName(full), StringComparison.Ordinal);
-        if (Directory.Exists(full)) Directory.Delete(full, recursive: true);
+        // Windows scanners may briefly open a newly created ISO without delete
+        // sharing. Give only that transient condition a bounded cleanup retry;
+        // persistent handles and every other filesystem failure still fail.
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                if (Directory.Exists(full)) Directory.Delete(full, recursive: true);
+                return;
+            }
+            catch (IOException error) when (OperatingSystem.IsWindows() && attempt < 20 &&
+                error.HResult is unchecked((int)0x80070020) or unchecked((int)0x80070021))
+            {
+                await Task.Delay(100);
+            }
+        }
     }
 
     private sealed class FakeIsoAcquisition : IIsoAcquisitionService
@@ -878,7 +1222,8 @@ public sealed class CommandBoundaryTests
             IProgress<IsoAcquisitionProgress>? progress, CancellationToken ct = default)
         {
             LastSpec = spec;
-            return Task.FromResult(new IsoAcquisitionResult("PRIVATE_PATH", true, true, 123));
+            return Task.FromResult(new IsoAcquisitionResult(Path.Join(Path.GetTempPath(), "PRIVATE_PATH"), true, true, 123,
+                new string('A', 64)));
         }
     }
 
@@ -913,5 +1258,14 @@ public sealed class CommandBoundaryTests
             Called = true;
             return Task.FromResult(new FileStagingResult(directory, 0, 0));
         }
+    }
+
+    private sealed class IsolatedStaging(string id) : IFileStagingService
+    {
+        private readonly FileStagingService _inner = new(NullLogger<FileStagingService>.Instance);
+
+        public Task<FileStagingResult> StageAsync(FileStagingRequest request,
+            IProgress<FileStagingProgress>? progress, CancellationToken ct = default) =>
+            _inner.StageAsync(request with { DistroId = id }, progress, ct);
     }
 }

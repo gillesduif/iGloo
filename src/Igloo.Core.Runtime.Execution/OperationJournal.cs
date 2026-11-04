@@ -20,6 +20,8 @@ public sealed record LocalOperationRecord(Guid OperationId, string CapabilityId,
 public interface IOperationJournal
 {
     Task<LocalOperationRecord?> ReadAsync(Guid operationId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<LocalOperationRecord>> FindAsync(string capabilityId,
+        string targetIdentityHash, CancellationToken cancellationToken = default);
     Task CreateAsync(CommandRequest request, string targetIdentityHash,
         CancellationToken cancellationToken = default);
     Task TransitionAsync(Guid operationId, LocalOperationState state, string stage,
@@ -43,6 +45,35 @@ public sealed class FileOperationJournal(string directory) : IOperationJournal
         return await JsonSerializer.DeserializeAsync<LocalOperationRecord>(stream,
             CommandProtocol.JsonOptions, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidDataException("Invalid operation journal record.");
+    }
+
+    public async Task<IReadOnlyList<LocalOperationRecord>> FindAsync(string capabilityId,
+        string targetIdentityHash, CancellationToken cancellationToken = default)
+    {
+        ValidateCode(capabilityId);
+        ValidateCode(targetIdentityHash);
+        if (!Directory.Exists(directory)) return [];
+        var matching = new List<LocalOperationRecord>();
+        foreach (var path in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!Guid.TryParseExact(Path.GetFileNameWithoutExtension(path), "N", out var id))
+                throw new InvalidDataException("Invalid operation journal filename.");
+            var record = await ReadAsync(id, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidDataException("Operation journal record disappeared.");
+            if (record.OperationId != id || record.RequestId == Guid.Empty ||
+                record.CorrelationId == Guid.Empty ||
+                string.IsNullOrWhiteSpace(record.CapabilityId) ||
+                string.IsNullOrWhiteSpace(record.TargetIdentityHash) ||
+                record.EvidenceCodes is null)
+                throw new InvalidDataException("Operation journal record is incomplete.");
+            if (string.Equals(record.CapabilityId, capabilityId, StringComparison.Ordinal) &&
+                string.Equals(record.TargetIdentityHash, targetIdentityHash,
+                    StringComparison.Ordinal))
+                matching.Add(record);
+        }
+        return matching.OrderByDescending(record => record.CreatedAt)
+            .ThenBy(record => record.OperationId).ToArray();
     }
 
     public async Task CreateAsync(CommandRequest request, string targetIdentityHash,
