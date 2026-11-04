@@ -541,12 +541,19 @@ installation of that receipt. Production and all canonical scopes remain closed.
 
 ### Canonical selected-document continuation (implementation only)
 
-Current: [corrected-input attempt](../../../docs/architecture/debian-userdata-canonical-corrected-attempt-evidence.json)
-qualified the native wrong-operation rejection and reached verified Baseline, then
-failed before transfer. Its one positive/negative allocation is consumed.
-Post-failure constructor/journal-namespace corrections are fixture-tested, not
-native-qualified. Exact canonical teardown remains unverified. See the latest
-[handoff](../../../docs/architecture/debian-target-root-deployment.md#corrected-input-userdata-canonical-attempt--2026-10-01).
+Current: [context/journal qualification attempt](../../../docs/architecture/debian-userdata-context-qualification-evidence.json)
+qualified the real protected loader and EXT4 namespace join, then invoked the
+canonical producer on a fresh derivative. Its independently observed four-file,
+131,130-byte transfer completed, but the enclosing Transfer effect is
+OutcomeUnknown. No protected admission, final whole-root result or canonical
+Unmount/Close was produced. The one positive allocation and two small fixture
+passes are consumed. No replay or new dispatch is authorized by these instructions.
+See the latest [handoff](../../../docs/architecture/debian-target-root-deployment.md#userdata-context-and-journal-qualification--2026-10-01).
+The confirmed remaining observer mismatch is the selected `Documents/résumé.txt`
+path versus the inherited neutral-artifact walker's fixed path policy. The
+producer's supported names must be composed explicitly into successor observation
+without weakening the original artifact contract. The original native throw site
+was not retained; the read-only reproduction is separate diagnostic evidence.
 The paragraphs below describe earlier attempts and grant no replay authority.
 
 Latest: [2026-10-01 execution](../../../docs/architecture/debian-userdata-canonical-execution-evidence.json)
@@ -593,6 +600,16 @@ In Linux set `IGLOO_USERDATA_SESSION_WIRE`, `IGLOO_USERDATA_ADMISSION_WIRE` and
 `IGLOO_USERDATA_WIRE` to those actual exports. Load `test_userdata_session`,
 `test_userdata_admission.WireTests`, `test_userdata_producer.WireTests` and
 `test_configured_successor` with unittest and `tests/installer` on `sys.path`.
+Include `test_userdata_loader` to exercise the actual verified-byte loading order,
+exact `MountSession` constructor and namespace validator using that context.
+Filesystem/native-effect doubles in this cheap test are not ownership evidence.
+`userdata_namespace_rehearsal.run(stage, evidence)` is a separate opt-in fixture:
+only in an explicitly provisioned isolated runtime, with a new 64-MiB disposable
+journal disk carrying the exact bounded serial `IGLOO-UD-JOURNAL`. It uses the
+real static gate/private namespace, protected modules, fresh EXT4 observations,
+directory device/inode join, alias rejection and ordinary exact unmounts. It
+does not construct canonical receipts or authorize a transfer. Never invoke it
+on a retained target or outside separately authorized fixture provisioning.
 Set `IGLOO_USERDATA_ADMISSION_RETURN=1` there to export synthetic bundle/results.
 In Windows set that variable to the wire directory and run the rebuilt test
 `PythonTerminalAndAdmissionReturnToRealDotNetConsumer`.
@@ -623,3 +640,101 @@ path. In the native negative, the unmodified request must first pass readiness;
 changing only its operation must then reach
 `OperationBinding / UserDataOperationBindingRejected` before any session effects.
 An earlier rejection is not qualification of that guard.
+
+### Read-only first-boot UserData input composition
+
+`firstboot_retained_input.py <import-guest-evidence> <configuration-guest-evidence>
+<initramfs-guest-evidence> <userdata-guest-evidence>` reopens the original
+protected phase chains and their result/Close joins, validates the admitted
+UserData receipt with the real restricted worker
+validator, and emits a bounded base64 JSON packet on stdout. Pipe that packet
+to the current rebuilt qualification harness's
+`--inspect-firstboot-userdata-stdin` mode. The .NET mode uses
+`DebianFirstBootEvidence.InspectLabSelectedDocuments` and reports pending
+DeploymentContent/agent/boot/Enrollment requirements. Neither command creates
+a receipt or effect authorization. Run the bridge only against protected inputs
+already opened with the appropriate read authority; do not copy their bytes
+into a public fixture or confuse this read-only test with current target ownership.
+
+### Fixture-only offline agent stage
+
+`--export-offline-agent-stage <generation-id> <operation-id> <fixture-root-id>`
+exports the real .NET `DebianAgentProfiles.DeclareOfflineStage` declaration,
+embedded worker bytes and generated unit bytes. The resulting packet is for
+explicitly owned small fixtures only. `agent_offline_rehearsal.py PACKET` uses
+the fixed `/var/lib/igloo/agent-offline-fixtures/issue241-20261003` budget
+store: it durably consumes one of two task passes before invoking the real
+FD-relative publisher. Do not call it again after a successful pass or treat a
+new directory as a budget reset. A fresh process independently observes the
+whole fixture tree and emits `dotnet-return.json`; pipe that file to
+`--verify-offline-agent-stage-stdin` for the real .NET readback check.
+
+The accepted state is `StagedInputsPending`: exact worker and restricted unit
+installed, receipt-bound configuration and enable link absent. It provides no
+canonical installation authority, systemd activation or DeploymentContent
+receipt. The ordinary-file fixture does not prove effective runtime isolation.
+
+The current source also exposes `--export-lab-agent-stage-test-packet` for
+the actual .NET canonical-scope serializer and a read-only
+`--agent-stage-predecessor-readiness DIRECTORY` chain parser. These are
+source-level contract probes only. The readiness parser requires the existing
+protected-input reader and cannot turn a copied record, a fixture packet or
+the retained successful UserData disk into current effect authority. The
+successful UserData host directory presently has a UID-1000 ancestor rejected
+by the protected-path verifier; a root-owned byte-identical diagnostic copy
+established parser behavior only. The canonical session dispatch, result and
+teardown path is not wired yet. Do not run the fixture publisher against a
+canonical target or treat these probes as an agent staging receipt.
+
+### Canonical offline-agent source continuation
+
+The later source now has `--agent-stage-derived-lab` and the closed
+`StageOfflineAgent` MountSession action. It requires a verified UserData/Close
+predecessor, version-6 lab derivation, complete current module hash closure,
+external development pin, fresh block inventory and persistent journals.
+The native action executes Baseline, create-new Publication and Verify, while
+the .NET readback requires the complete effect and exact session/Unmount/Close
+chains. This is an integration entrypoint, not permission to dispatch it.
+
+The retained successful UserData **host export** has a UID-1000 run-directory
+ancestor. The protected predecessor reader rejects it at the original path;
+the root-owned diagnostic parser copy is never accepted as authority. A future
+operator must independently authenticate the original guest terminal records
+and their external anchors before fresh provisioning. Neither the fixture
+packet nor a current source build supplies that historical custody proof.
+
+For a **new**, independently authorized UserData run, `canonical_storage_lab.create`
+now writes protected `completion-launch.json` and `completion-process.json` in
+that run's external authorization directory. After the existing guest
+`prepare`/staging checks, invoke the host's closed
+`python3 -I -B /var/lib/igloo/userdata-authorizations/<AttemptId>/completion-tools/canonical_userdata_acquisition.py receive <run> <authorization>` entrypoint
+while that nominated guest is live. It checks QEMU's current arguments, start
+time, backing FDs and UNIX-console peer, then issues the single-use guest
+`--execute-and-capture` command. A verified result produces only a protected
+pending capture. After an independently observed normal guest shutdown, invoke
+the same protected script with `finalize <run> <authorization>`; it
+requires writer exclusion and stable backing hashes before producing the v2
+anchor. The existing completion publisher then requires a separately issued
+agent-stage authorization with the terminal digests. V1 synthetic anchors
+remain readable in parser fixtures but are rejected by the Python and .NET
+effect preflights. These commands do not create that later authorization,
+reserve an agent-stage operation, or replay an interrupted UserData attempt.
+
+The new `canonical_userdata_completion.py` provides a protected, exact-byte
+completion publication/readback primitive; `canonical_agent_stage_lab.py`
+joins it to an independently issued agent-stage authorization and the existing
+verified-copy primitive. `canonical_storage_lab.create` checks that join before
+creating a run or reservation and stages `input/userdata-completion/{raw,
+anchor.json,result.json,authorization.json}`. Pass that completion directory
+to `--agent-stage-derived-lab`; its reader rejects a bare root-owned parser
+copy. `--agent-stage-completion-readiness` is read-only and confers no effect
+authority. The old host export has no such independently protected terminal
+anchor. The test-only anchor in `test_userdata_completion.py` is synthesized
+from retained bytes to exercise parsing and cannot be used for a real run.
+
+`test_agent_stage_loader.py` checks a current .NET canonical-scope packet,
+root-owned small source staging, the actual protected loader and MountSession
+constructor, scope/manifest rejection and synthetic Baseline-to-result control
+flow. The effect doubles deliberately do not qualify native publication,
+canonical result persistence or teardown. The earlier accepted offline-agent
+ordinary-file fixture does not consume the unused canonical allocation.

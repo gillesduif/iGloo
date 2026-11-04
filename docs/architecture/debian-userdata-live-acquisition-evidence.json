@@ -1,0 +1,49 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "UserDataLiveCompletionAcquisitionSourceQualification",
+  "DateUtc": "2026-10-03",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "Branch": "refactor/community-fleet-foundation",
+  "HistoricalUserDataRun": "a1b883f4-179f-4846-b16b-9a91fb4bcf9d",
+  "HistoricalUserDataAuthority": "Blocked: protected authorization directory has no independently acquired terminal result/Close anchor; UID-1000 export remains fixture-only",
+  "ProposedFreshUserDataPredecessor": {
+    "RunId": "c5dc04e9-18f6-4b78-b60a-2346e2d70000",
+    "RunDirectoryObservedOwner": "1000:1000",
+    "ProtectedAuthorizationDirectoryObservedOwnerAndMode": "0:0 0700",
+    "ProtectedFilesObserved": ["authorization.json", "reservation.json"],
+    "CurrentSuccessorCustody": "Blocked: no independently protected initramfs terminal result/Close and backing anchor observed"
+  },
+  "AcquisitionImplementation": {
+    "GuestProducer": "canonical_userdata_guest.py --execute-and-capture invokes the existing create-new UserData execute path, then independently reopens terminal effects and exact Unmount/Close before emitting bounded raw records",
+    "TrustedHostReceiver": "canonical_userdata_acquisition.py receive runs from a create-new protected, hash-bound per-operation host module closure; it binds protected launch and process witnesses to current QEMU arguments, FD identities and UNIX peer credentials and accepts only a fixed challenge-bound serial frame",
+    "PendingCustody": "Protected create-new raw record store outside the UID-1000 working directory; no successor anchor until finalization",
+    "Finalization": "canonical_userdata_acquisition.py finalize requires stopped process, no open backing descriptors, stable identities, timestamps and hashes; computes v2 result/Close/backing anchor as output",
+    "PublicationAndConsumption": "Existing exact-byte protected publisher accepts final v2 anchor; Python and .NET effect preflight require live v2 capture; earlier v1 synthetic parser fixture cannot authorize a derivative",
+    "LaterAgentStageAuthorization": "Separate external one-use authorization still required"
+  },
+  "Validation": {
+    "Environment": "Windows dotnet build; Ubuntu-24.04 WSL root process and ordinary-file fixtures",
+    "PythonCommand": "PYTHONPATH=tests/installer:distros/debian/native IGLOO_USERDATA_UNTRUSTED_EXPORT=/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d python3 -m unittest -v test_userdata_acquisition test_userdata_completion",
+    "PythonResult": "14 passed; retained export used only as synthetic fixture data, never as authority",
+    "DotNetBuildCommand": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -v:q",
+    "DotNetBuildResult": "Passed, zero warnings and errors",
+    "ProcessFixture": "Actual UNIX socket peer credentials and fixed command/framing passed; no QEMU guest involved",
+    "ProtectedFixture": "Actual retained UserData chain parser, pending capture, output anchor, publisher and Python agent-stage preflight passed with mocked small-backing observation; not canonical authority",
+    "DotNetLinuxReaderExecution": "Not executed: no Linux dotnet runtime installed in WSL; current harness was rebuilt on Windows",
+    "LiveGuestAcceptancePassesUsed": 0,
+    "FullCanonicalAttemptsUsed": 0,
+    "LiveGuestQualification": "NotPerformed: no existing small launcher was nominated that combines a verified runtime, scratch-only disks and the protected controlled-console witness without a full derivative"
+  },
+  "CurrentSourceSha256": {
+    "canonical_userdata_acquisition.py": "B3EBB71E47FB2C4AC0ED3E0FC37D464FFE401316D4F8854D30C4CEB217D71019",
+    "canonical_userdata_guest.py": "9BD76F89527B614B0E66F8E573E2A3B6F2180CD4D1F45ADE7E9C13983B46A7B9",
+    "canonical_userdata_completion.py": "F7D6FBA28A5E7430E21935FC33D0D80C6ABD14D2B22749E90B298040663BAC08",
+    "canonical_agent_stage_lab.py": "FE47F44CA65AE529E10225EBF2192AC5D05F620F08F81CCC24B836C36DC62A64",
+    "canonical_storage_lab.py": "186E368D3B5429797FC849AEB61209DF8978CBC1DC97D09FD40EC665D7B14D5F",
+    "LabAgentStage.cs": "E5E59137CDB885E9C064EB2F255796735B22A9B13D838E363E5A12EBDB9DF5D3",
+    "BuiltHarnessDll": "CD5C26694095ABCCD75EC6E4D70FDB80A5B5EEE2694C9CD563A91F61BF786494"
+  },
+  "RetainedImagesOrAuthorizationsChanged": false,
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0
+}

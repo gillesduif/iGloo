@@ -1,0 +1,81 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "FixtureOnlyOfflineAgentStageV1",
+  "DateUtc": "2026-10-03",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "Branch": "refactor/community-fleet-foundation",
+  "PreviousFirstBootInputState": "PendingRequiredProducers",
+  "CanonicalTargetOperationsCreated": 0,
+  "RetainedTargetImagesMountedOrModified": false,
+  "NativeInstallationAcceptancePassesUsed": 1,
+  "NativeInstallationAcceptancePassesAuthorized": 2,
+  "BudgetRecord": "/var/lib/igloo/agent-offline-fixtures/issue241-20261003/attempts/00000000.json",
+  "EarlierOrdinaryFileInvocations": "Preserved under their earlier task as four invocations exceeding its two-pass authorization; not reclassified or modified",
+  "Fixture": {
+    "Root": "/var/lib/igloo/agent-offline-fixtures/issue241-20261003/9e2a94b2f4a1494b98f0836e726f23da/root",
+    "Journal": "/var/lib/igloo/agent-offline-fixtures/issue241-20261003/9e2a94b2f4a1494b98f0836e726f23da/journal",
+    "GenerationId": "19f3de05-1b1c-40ca-95a2-69f713597355",
+    "OperationId": "8d55ce2d-d775-4ce6-bef9-b2193451428e",
+    "FixtureTargetRootId": "90071cd5-a19e-4c80-b2bc-beeb1c36f165",
+    "PacketSha256": "6BC3E894D766AB186E5989BE01C9B8BF3B660E3CE75BFD8B400E07323A42DA5D",
+    "PlanSha256": "4C1939DE42D4A65EFA949DE5313B211DDB63BE2B7DF0C30A644FF249EB725428",
+    "IntentReference": "00000000-24EAF0552E18F0B0EC63A7B1216958A75D25C07FD0DE0CCA36C622D8B8BE5A6F.json",
+    "ResultReference": "00000001-9A5DB6537777153303BF74338FCBD4CC0E2D6D6B1A7F08E39240434EDC013A24.json",
+    "ObservationSha256": "0C549F9D79361206213E1FBC5E0418164CD85E1C718F280570AAF954D5FB028D",
+    "State": "StagedInputsPending",
+    "WholeTreeEntriesBefore": 12,
+    "WholeTreeEntriesAfter": 15,
+    "AddedPaths": [
+      "/etc/systemd/system/igloo-deployment.service",
+      "/usr/lib/igloo",
+      "/usr/lib/igloo/debian-agent.py"
+    ],
+    "Files": [
+      {
+        "Path": "/usr/lib/igloo/debian-agent.py",
+        "Length": 9342,
+        "Sha256": "FB0C5A5BB414F1798FEC664274C15D5C23D07FAC150935BEECFADF88DC4F6C32",
+        "Uid": 0,
+        "Gid": 0,
+        "Mode": "0644"
+      },
+      {
+        "Path": "/etc/systemd/system/igloo-deployment.service",
+        "Length": 684,
+        "Sha256": "FA7996FC798C8541EB024324BC661B0ECE546BCE1D41251C223D9193BD88B8FA",
+        "Uid": 0,
+        "Gid": 0,
+        "Mode": "0644"
+      }
+    ],
+    "ConfigurationAbsent": true,
+    "EnableLinkAbsent": true,
+    "SourceAndUnrelatedFixtureContentUnchanged": true,
+    "FreshIndependentObserverRerun": "Passed read-only on accepted fixture",
+    "DotNetReadback": "StagedInputsPending; all identity and absence fields accepted"
+  },
+  "ExecutionIdentities": {
+    "AgentOfflinePySha256": "004370772C6777046121503495D87773C4F128CF2DFB2937AB9D2CFB8C29670E",
+    "ObserverPySha256": "8AB5676B2B564CB3861F8AF927C3B0D2D37A0949E8FF2696B8D9AB6A06A749C5",
+    "RehearsalPySha256": "9FA98BE32993F144F22E2B3E5EF43BA9344D3E78448FF78A913D6400AA6D1492",
+    "DebianAgentProfileCsSha256": "B22FFD92E6DAAFEB4184F63BA7A1DE447011B57618D923B89127C44BECA12A6A",
+    "LabOfflineAgentCsSha256": "5081FA06648A9ACA52361C65016DB8ED68E6E80A6A6DA8D245F7D443986BD744",
+    "QualificationDllSha256": "85F4EB9E86D669B2415B99979B61F9E889C2070414D99978758877F5BDC67720"
+  },
+  "Validation": [
+    "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore --filter FullyQualifiedName~DebianNonFirmwareTests: 23 passed (overlaps full suite)",
+    "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore: passed, zero warnings",
+    "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-build --no-restore: 460 passed",
+    "WSL Ubuntu-24.04 root, python3 -m unittest -v test_agent_offline: 5 passed, including negative observation on disposable copies",
+    "deployment_journal.py read independently reopened the native result reference: passed",
+    "agent_offline_observer.py fresh-process read-only rerun on accepted fixture: passed",
+    "qualification harness --verify-offline-agent-stage-stdin on native readback: StagedInputsPending"
+  ],
+  "Limits": [
+    "Fixture root and synthetic target identifier do not establish canonical target ownership",
+    "No receipt-bound deployment.json or enable link was published",
+    "No service or first-boot worker was executed; systemd restrictions were validated as declared unit text only",
+    "DeploymentContent, Enrollment and FirstBootSucceeded remain absent",
+    "Canonical offline-agent authority, final configuration/input binding and activation are separate future work"
+  ]
+}

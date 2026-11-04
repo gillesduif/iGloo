@@ -1,0 +1,77 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "OfflineAgentCanonicalSourceAndPredecessorCustodyReview",
+  "DateUtc": "2026-10-03",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "IndexAtStart": "Empty",
+  "HistoricalEvidencePreserved": "debian-agent-stage-canonical-evidence.json unchanged",
+  "Predecessor": {
+    "RunId": "a1b883f4-179f-4846-b16b-9a91fb4bcf9d",
+    "HostExport": "/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d/",
+    "ExactRejectedComponent": "a1b883f4179f4846b16b9a91fb4bcf9d",
+    "OwnerUidGid": "1000:1000",
+    "Mode": "0755",
+    "DeviceInode": "2096:105926",
+    "LinkCount": 5,
+    "Parent": "initramfs-helper-labs root:root 0755",
+    "ChildEvidence": "guest-evidence root:root 0700; its protected mode does not cure the rejected ancestor",
+    "Filesystem": "/dev/sdd ext4, host WSL root mount",
+    "Acl": "basic owner/group/other entries only",
+    "SymlinksInNominatedChain": false,
+    "Creator": "canonical_storage_lab.create changed the run directory to the unprivileged gillesduif account for QEMU backing access",
+    "EarlierReaderContext": "guest execution and journal paths, later exported to the host",
+    "CurrentRejectedReaderContext": "host exported run passed to LabStorageSmoke.Read and DebianSessionToolProtection.Verify",
+    "DiagnosticCopy": "root-owned byte-identical parser copy; chain parsing passed, original-path authority not established",
+    "ExternalRecordLimitation": "protected authorization and reservation bind the attempt but do not independently establish the successful terminal UserData and Close bytes",
+    "OriginalPredecessorAuthority": "Blocked before effect authority"
+  },
+  "SourceIntegration": {
+    "LabOnlyDeclaration": "Version 6 OfflineAgentStage and exact worker/unit profile",
+    "SessionAction": "StageOfflineAgent behind lab-only MountSession authority",
+    "NativeFlow": "Baseline, durable publication intent, existing create-new publisher, independent Publication and Verify observations",
+    "ResultFlow": "schema-6 effect and session chains, installed-file and whole-root checks, exact Unmount and Close reader",
+    "RuntimeClosure": "agent, UserData and initramfs modules required by the .NET verifier and protected Python loader",
+    "Lifecycle": "StagedInputsPending only",
+    "ActualCanonicalExecution": "NotStarted",
+    "LiveAuthority": "Blocked by original host-export path custody",
+    "RemainingSourceOrchestrationGap": "The existing host provisioner has no safe agent-stage derivative branch using independently authenticated original guest terminal authority; copying the UID-1000 export into a root-owned tools input would launder a diagnostic copy"
+  },
+  "Validation": {
+    "DotnetHarnessBuild": "Passed, zero warnings and errors, current source",
+    "MigrationTests": "461 passed on rebuilt current source",
+    "ProtectedLoaderAndSyntheticControlFlow": "3 passed; real .NET canonical-scope packet and Python loader/MountSession, synthetic native effects",
+    "PredecessorParserAndOriginalPathRejection": "3 passed; original UID-1000 host export rejected and copied bytes retained as parser-only evidence",
+    "FilesystemAgentSuccessorTests": "3 passed against the previously accepted small offline-stage fixture; no publisher invoked",
+    "ExactStageCloseActionTest": "1 of the 461 Migration tests, incomplete or reordered chains rejected",
+    "ActualRuntimeToolPlacement": "Not established; root-owned small source-loader fixture is not a canonical runtime stage",
+    "HistoricalGuestPathProbe": "31 of 36 tool paths were guest /opt paths, so the previous 4-present/0-hash WSL probe does not show deletion or corruption"
+  },
+  "CurrentSourceIdentities": {
+    "DebianAgentStageContinuationCs": "0060425C807B0285FCE868B9C7BCB997D747D7DCF873B5ECBF4F9F8E968BF01A",
+    "DebianAgentStageReadbackCs": "2287B540BC2A3782C5590B12FAE43AAB8E4E94A55F851583DF7FDA83419D674D",
+    "DebianNativeMountSessionCs": "8D359E1827AF45B329D1D0E2E05E9CFC1BE68C657D76932FA54FDB02240ED95E",
+    "LabAgentStageCs": "C974DE1CF6663AD6AED0C17931E0E16DD4F5326AF065CEE9FC0AC2F9DF594DF4",
+    "SessionAgentOfflinePy": "6EA387FAD86B97BC82C17E3AC352E0351106318E507F849AAA10959A2D5E37AC",
+    "SessionEntryPy": "7F79CDDD75FA9A09D228EC775A83D5C9BF72383D3364746737C06DCD8DEA3783",
+    "BuiltHarnessDll": "7C6466A913E06835EDEA7ECAE0BE763A5E152D652D6CFB35370BCEA4588D41E8",
+    "BuiltDebianDll": "6D516E0AE139B058DFA7A4DCCE700B740A167F40BF1DBB5CB0B8B4381A0E480A"
+  },
+  "CapacityObservation": {
+    "ObservedAtUtc": "2026-10-03T13:31:58.6058948+00:00",
+    "HostAvailableBytes": 163492130816,
+    "RequiredAdditionalBytes": 193273528320,
+    "ShortfallBytes": 29781397504,
+    "GuestAvailableBytes": 576631365632,
+    "GateChanged": false
+  },
+  "BudgetConsumedThisTask": {
+    "NativeFixtures": 0,
+    "NativePreconditionNegative": 0,
+    "PositiveCanonicalAttempts": 0,
+    "Reservations": 0,
+    "FullDiskCopies": 0
+  },
+  "ProtectedRepairBoundary": "Independently authenticate original guest terminal UserData and Close records against external anchors through an approved read-only acquisition route; do not chown the QEMU host run, promote the diagnostic parser copy or self-issue an anchor.",
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0
+}

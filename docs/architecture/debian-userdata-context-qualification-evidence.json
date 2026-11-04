@@ -1,0 +1,535 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "CanonicalSelectedDocumentsContextQualification",
+  "RecordedAtUtc": "2026-10-01T06:12:58.515471+00:00",
+  "Outcome": "OutcomeUnknown",
+  "Qualified": false,
+  "StartingCheckout": {
+    "Branch": "refactor/community-fleet-foundation",
+    "Head": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+    "IndexEmpty": true,
+    "PreExistingModifiedTracked": 2,
+    "PreExistingUntrackedFiles": 4,
+    "ExcludedPaths": [
+      "Igloo.sln",
+      "docs/architecture.md",
+      "docs/assets/iGlooAI.svg",
+      "docs/assets/iGlooCLI.svg",
+      "src/Igloo.Cli/Igloo.Cli/Igloo.Cli.csproj",
+      "src/Igloo.Cli/Igloo.Cli/Program.cs"
+    ],
+    "ExcludedBytesPreserved": true,
+    "Inventory": {
+      "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/initial-source.json",
+      "Length": 172751,
+      "Sha256": "F4701915852F38CEEFA76A05B78A4F87C406CFF812423F7B0E34839B82F312EE"
+    },
+    "Status": {
+      "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/initial-status.txt",
+      "Length": 174,
+      "Sha256": "23C9572AE2DF24B4208977A33BCB3880C1C0CB534B9C6799D05AF1C11182543C"
+    }
+  },
+  "ChangesThisContinuation": {
+    "Production": [
+      "session_entry.load_verified_modules exposes the existing protected loading sequence without granting authority",
+      "session_userdata.verify_store_mount rejects a different-device stacked mount at the exact journal mountpoint"
+    ],
+    "Tests": [
+      "Actual .NET request through the real protected loader, exact MountSession constructor, source/root/home/store bindings and synthetic transfer/admission return",
+      "Wrong directory, namespace, mount ID/root/flags, aliases and stacked mounts",
+      "ImportError and AttributeError reach the bounded existing UserDataStopped path",
+      "Native EXT4 journal join fixture with a bounded virtio serial"
+    ],
+    "Unchanged": [
+      "Producer copy and independent selected-data observer",
+      "Admission publisher",
+      "Initramfs and core-configuration helpers",
+      "Production, Windows and recovery/readiness gates"
+    ]
+  },
+  "Capacity": {
+    "InitialWindowsAvailableBytes": 238428217344,
+    "InitialGuestAvailableBytes": 641234804736,
+    "RequiredBytes": 193273528320,
+    "PreProvisioningGate": {
+      "AvailableBytes": 237282111488,
+      "BackingVolume": "C:\\",
+      "Distribution": "Ubuntu-24.04",
+      "NativeMutationAuthorized": false,
+      "ObservedAtUtc": "2026-10-01T05:44:42.1415848+00:00",
+      "RequiredAdditionalBytes": 193273528320,
+      "SchemaVersion": 1,
+      "Scope": "HostCapacityObservationOnly",
+      "Sufficient": true
+    },
+    "ReserveChanged": false
+  },
+  "Readiness": {
+    "ProtectedReadOnlyReopen": {
+      "Path": "/var/lib/igloo/userdata-readiness/adapter-final-20261001/readiness.json",
+      "Length": 1124,
+      "Sha256": "76271B04AF93CCB01A9DE7C13A45C85B7BBD57AC0DB47092647FD341C698E559"
+    },
+    "ActualPositiveInputCheck": {
+      "ExitCode": 0,
+      "Result": {
+        "CloseSha256": "F0CB1447C24AF09EBC1A178E29E692AAB36C8AED0AAE130CE2A16CD23F8446F3",
+        "EffectAuthorization": false,
+        "Readiness": "Passed",
+        "ResultSha256": "9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8"
+      },
+      "StderrSha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    "PinExpiryUtc": "2026-10-05T09:32:27.464Z",
+    "PinRenewed": false,
+    "ManifestContentAndPersistedObservationChecksRetained": true,
+    "Toolchain": "Windows SDK 10.0.401; protected guest .NET 8.0.20; no dependency/workload changes"
+  },
+  "ExecutionRevision": {
+    "Head": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+    "UncommittedProductionChanges": true,
+    "FrozenHashes": {
+      "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/frozen-execution-files.json",
+      "Length": 7632,
+      "Sha256": "D01F98BAEC11174DBA1A39F4F7D66BB45C2BD70E8E76A2B56810F8086708BE99"
+    },
+    "ActualLoadedReadback": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/guest-evidence/execution/tested-revision-readback.json",
+      "Length": 4630,
+      "Sha256": "DD9C94E59AA941DEFBB11DE39CA705151F0E97E1A31AB8C6CA97017BD1A7499F"
+    },
+    "ProtectedClosure": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/guest-evidence/execution/positive-execution-closure.json",
+      "Length": 610694,
+      "Sha256": "5D46D57696C61F114246F4E399D51795273B5C557783D4A7C8B630164FD95F5B"
+    },
+    "Files": {
+      "harness/CanonicalImportQualification.dll": "C6DB7144A502FEECDC4ED61FCFD1B8C78A50140F7235AF5999925F6D65D2EF73",
+      "harness/Igloo.Distro.Debian.dll": "AF99DF3DE1382EA4CC2E8658AA3E31DCB6E40E647407779EEDA752ABC2984CC7",
+      "native/block_session.py": "38B7A31EFC3AB644B67AE59938DA29AF27FCCB2715B9AE135CA52BD5FB475B29",
+      "native/session_entry.py": "8AE26E78772BFB09BCBCA625621C407792E7225ED52EC268698AB1DFABEC4D8D",
+      "native/session_userdata.py": "4A63CDC12538D8FD2C735BEFABB16660E70993CB7331222FBC8A366C71BBAFC0",
+      "native/userdata_producer.py": "E1491A608B00015C63D30B55FCB217C7AD0404800737471FBD652666D23F295F",
+      "native/userdata_successor.py": "2DA0161806AD694FA159E97B33929B6116F962ED0F1D355F9E672238D50111D6"
+    },
+    "ProductionBytesUnchangedAfterDispatch": true
+  },
+  "NativeNamespaceFixtures": {
+    "PassesUsed": 2,
+    "Limit": 2,
+    "Pass1": {
+      "Directory": "/var/lib/igloo/userdata-adapter-fixtures/5a26e221c50e436fb43a04159d07dd7f",
+      "Outcome": "FailedBeforeFormat",
+      "Code": "FixtureDiskBinding",
+      "Cause": "Virtio truncated the overlong fixture disk serial; fail-closed rejection before format intent",
+      "SubsequentCorrection": "Fixture serial IGLOO-UD-JOURNAL fits the transport; regression added",
+      "RootReused": false,
+      "EvidenceLocation": "Protected runtime.qcow2:/root/userdata-namespace-fixture; console transport retained externally",
+      "StopConsole": {
+        "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/fixture-stop.console",
+        "Length": 159,
+        "Sha256": "351950826E00997193ED36958B903E8EEB30BCB1AA4CE4363E0295CDCADAAA10"
+      },
+      "Intent": {
+        "Path": "/var/lib/igloo/userdata-adapter-fixtures/5a26e221c50e436fb43a04159d07dd7f/intent.json",
+        "Length": 738,
+        "Sha256": "289F9A5DEC5C9A2E12D11749DA2A49870150FEE59AB1538A097B142031AD0929"
+      }
+    },
+    "Pass2": {
+      "Directory": "/var/lib/igloo/userdata-adapter-fixtures/eb6b2a16464b41c3b12fb15fd7d7f4e6",
+      "Result": {
+        "CanonicalAuthority": false,
+        "ChildIdentity": [
+          65040,
+          15,
+          238
+        ],
+        "ChildMountDeltaVerified": true,
+        "ChildNamespace": 4026532216,
+        "OrdinaryChildUnmount": true,
+        "ParentMountDeltaVerified": true,
+        "ParentNamespace": 4026531841,
+        "ParentOrdinaryUnmount": true,
+        "ParentWitness": {
+          "Device": 65040,
+          "FileSystem": "EXT4",
+          "Inode": 15,
+          "Major": 254,
+          "Minor": 16,
+          "MountId": 57,
+          "Path": "/lab-journal/userdata-fixture/effects"
+        },
+        "Qualified": true,
+        "Rejections": [
+          {
+            "Case": "WrongDirectory",
+            "Code": "UserDataJournalPathChanged"
+          },
+          {
+            "Case": "WrongNamespace",
+            "Code": "UserDataJournalPathChanged"
+          },
+          {
+            "Case": "ChangedMountId",
+            "Code": "UserDataJournalMountMissing"
+          },
+          {
+            "Case": "WrongMountRoot",
+            "Code": "UserDataJournalMountChanged"
+          },
+          {
+            "Case": "MissingNoexec",
+            "Code": "UserDataJournalMountChanged"
+          },
+          {
+            "Case": "StackedDifferentDevice",
+            "Code": "UserDataJournalMountChanged"
+          },
+          {
+            "Case": "NativeAliasMount",
+            "Code": "UserDataJournalMountChanged"
+          }
+        ],
+        "Scope": "NativeJournalJoinFixtureOnly"
+      },
+      "RawResult": {
+        "Path": "/var/lib/igloo/userdata-adapter-fixtures/eb6b2a16464b41c3b12fb15fd7d7f4e6/guest-evidence/result.json",
+        "Length": 6250,
+        "Sha256": "A13285A6865C4F9A6B829E6BEA78D03CD32A7B2F66075FCD7D8FB2368EC15764"
+      },
+      "ExecutedModules": {
+        "Path": "/var/lib/igloo/userdata-adapter-fixtures/eb6b2a16464b41c3b12fb15fd7d7f4e6/guest-evidence/execution.json",
+        "Length": 38703,
+        "Sha256": "85E43ED17EFD01B6DB0884EC5E9B82210AFB85EA21B46D7B01204B73A1FA2944"
+      },
+      "NormalRuntimeShutdownObserved": true,
+      "CanonicalAuthority": false
+    }
+  },
+  "Allocation": {
+    "AttemptId": "af4fafdb-99ee-48b5-81de-e5708b36173a",
+    "OperationId": "f0843ad0-1bf3-4f27-b6ee-311f98fd1d5f",
+    "SessionId": "b9e67721-bd99-48f7-bbba-ec908a2731e7",
+    "PositiveUsed": 1,
+    "PositiveLimit": 1,
+    "NewNegativeUsed": 0,
+    "HistoricalNegative": "3d520fa6-876d-4f47-881c-beb089d90aea / OperationBinding / UserDataOperationBindingRejected",
+    "HistoricalGuardUnchanged": {
+      "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/historical-negative-reuse.json",
+      "Length": 308,
+      "Sha256": "AA46E19D37A7EFB3F056BA892D5055A552193F269FEA8E23099C997EB770C0B8"
+    },
+    "ReplayAuthorized": false,
+    "AuthorizationDirectory": "/var/lib/igloo/userdata-authorizations/af4fafdb-99ee-48b5-81de-e5708b36173a/"
+  },
+  "DerivationAndStaging": {
+    "PredecessorRun": "c5dc04e9-18f6-4b78-b60a-2346e2d70000",
+    "Derivation": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/userdata-derivation.json",
+      "Length": 1866,
+      "Sha256": "0F66372CDDD15A9FFF95561C37FD21B0729EF3A3287CDC16A022B91C931969FD"
+    },
+    "InitialCopies": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/userdata-initial-copy.json",
+      "Length": 1686,
+      "Sha256": "FB933848FB4E14B313192449D8B24A9E56D8AF5C97A376BD40C9E3E5C99AD696"
+    },
+    "Delivery": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/userdata-delivery.json",
+      "Length": 2048,
+      "Sha256": "88227D4816A3E671D3A7D3FAC20483FA56BDF5EE972EA9F15F3EFC9FCF9B4EFD"
+    },
+    "SourcePrefix": "userdata/f0843ad0-1bf3-4f27-b6ee-311f98fd1d5f/source",
+    "PayloadUuid": "27DC-9688",
+    "StagedTargetSha256": "E99EFC0C52709E1B8640342FB980CC2D781730303B6B4D37FF7BB809F604BCEB",
+    "UnrelatedPayloadObjectsBeforeSha256": "39EB6CF4149C1E70FC0CFC14BA6CB5CD2E79432B818A81C01521D9D6A1F95606",
+    "UnrelatedPayloadObjectsAfterSha256": "39EB6CF4149C1E70FC0CFC14BA6CB5CD2E79432B818A81C01521D9D6A1F95606",
+    "CanonicalHostReadback": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/userdata-canonical-host-readback.json",
+      "Length": 796,
+      "Sha256": "496FB1D4F2CC43B42017C0F67A07F83C7E663698E5531766E5279499ACBE0338"
+    },
+    "SeparateBackingInodes": true
+  },
+  "CanonicalOutcome": {
+    "Admission": "NotInvoked",
+    "CanonicalSessionCreated": true,
+    "CanonicalTeardown": "NotVerified",
+    "Chains": {
+      "effects": {
+        "LastSha256": "13DCAA23846788E10BB1B696AA48629459FE20AEDC6EDA32807D153094E340A2",
+        "Records": 4
+      },
+      "session": {
+        "LastSha256": "A360743BE791B89BD233889C72AACCAC53488D1C311DEC6C1BBC3F00D5F4B683",
+        "Records": 11
+      }
+    },
+    "ExactObserverError": "NotRetained",
+    "FailureLocation": "After producer terminal records; before Transfer AppliedAndVerified checkpoint",
+    "LastCompletedEffectStep": "Baseline",
+    "NewNegativeDispatches": 0,
+    "OperationId": "f0843ad0-1bf3-4f27-b6ee-311f98fd1d5f",
+    "PlanSha256": "B01C728335CD74192B003E26905967BCC224D185A2BE386F3E304962E840CD29",
+    "PositiveDispatches": 1,
+    "PostFailureRootSemanticReadback": "NotInvoked",
+    "PreservedSha256": "0B1C5550B9FCBE8B9B234D04655BDE475DC0E70168E2F411D01E50740945AE17",
+    "PreservedTestObjectUnchanged": true,
+    "ProducerAuthoritySha256": "C3E7B219769B366454B1B57D2EF696770E22CE64BBB965498E88BD67565DA57C",
+    "ProducerObservation": {
+      "BindingSha256": "539E7985057C5B5988E1B4D9F18EFADD6C1A4A127E5BFEDFDD8675174668529C",
+      "Bytes": 131130,
+      "ContentAndOwnershipVerified": true,
+      "Files": 4,
+      "SourceUnchanged": true,
+      "UnrelatedDestinationUnchanged": true
+    },
+    "ProducerReceiptSha256": "A81FE9B9A2032143F75F10DE7F7A0661D1149C330181D9B53EB2A31F23FDA8CD",
+    "ProducerRecords": [
+      {
+        "Reference": "00000000-0605CB5EED7CA6ECF8997F256FE4E4AABFCDDEE1A26BBB0F9127E9263B1E4570.json",
+        "Sha256": "0605CB5EED7CA6ECF8997F256FE4E4AABFCDDEE1A26BBB0F9127E9263B1E4570"
+      },
+      {
+        "Reference": "00000001-B9AFB9292903C4CFA22D8CBCC4C253DB6EBEA5E3C21CBED3B2CCF10F8094BD9B.json",
+        "Sha256": "B9AFB9292903C4CFA22D8CBCC4C253DB6EBEA5E3C21CBED3B2CCF10F8094BD9B"
+      },
+      {
+        "Reference": "00000002-B5594524E73D37A520A9776DD864408674CCD9C8A722977CA9380DE39C064415.json",
+        "Sha256": "B5594524E73D37A520A9776DD864408674CCD9C8A722977CA9380DE39C064415"
+      }
+    ],
+    "ProducerTerminal": "AppliedAndVerified",
+    "ReadbackRejected": "UserDataIncompleteChains",
+    "ReplayAuthorized": false,
+    "RootPayloadMountsAbsentInRuntimeNamespace": true,
+    "SessionId": "b9e67721-bd99-48f7-bbba-ec908a2731e7",
+    "TransferEffect": "OutcomeUnknown",
+    "TransferIntent": true,
+    "UserData": "OutcomeUnknown"
+  },
+  "RemainingContract": {
+    "CallPath": "session_userdata.observe -> userdata_successor.compose_predecessor -> configured_successor.reconstruct_manifest -> session_configuration.entries -> configured_root.inspect_tree -> path_parts",
+    "ExecutedPolicyChanged": false,
+    "Interpretation": "Confirmed deterministic observer incompatibility with the actual selected plan; native discarded stderr is not recovered and the exact original throw site remains unavailable.",
+    "NativeRerun": false,
+    "ProducerPlanAccepted": true,
+    "Scope": "ReadOnlyPostFailureContractProbe",
+    "TargetMounted": false,
+    "TransferPlanSha256": "AABE581F18B3A155C316B9E3530AB73DFED9D170DDD6A9DB6EB9CB3F2FC398DD",
+    "WholeRootPathRejections": [
+      {
+        "Code": "UnsupportedPathEncoding",
+        "SyntheticDestination": "/home/iglootest/Documents/r\u00e9sum\u00e9.txt"
+      }
+    ]
+  },
+  "Retention": {
+    "Directory": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a",
+    "Records": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/guest-evidence-reopen.json",
+      "Length": 9152,
+      "Sha256": "F84B47ED9DDBC06C17CE115FF584116E7FBD6CCBC2DEC11785E2029C41E35A50"
+    },
+    "RawExecutionDirectory": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/guest-evidence/execution",
+    "RawJournalDirectory": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/guest-evidence/journals",
+    "RawRecordFiles": 42,
+    "RawRecordBytes": 1331283,
+    "RawRecordsIndependentReopen": true,
+    "ProvisioningJournalUnmount": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/guest-evidence/execution/provisioning-journal-unmount.json",
+      "Length": 5022,
+      "Sha256": "3D672A80B0D12C4B49062D9BB22620457C854CF6D8786542F7DA442F5BD05B87"
+    },
+    "CanonicalTeardown": "NotVerified",
+    "NormalRuntimeShutdown": "PowerDownConsoleAndProcessAbsent",
+    "EarlierShutdownObservation": "An initial immediate process check raced QEMU exit; later process absence and Power down console independently verified",
+    "PoweredOffPartialTarget": true,
+    "SuccessfulTargetProduced": false,
+    "BackingRetention": {
+      "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/retention-result.json",
+      "Length": 1752,
+      "Sha256": "723E794DF369F8C0AD51A7145CFFA2D9088672467484A9987A19A1B35846E025"
+    },
+    "Backings": [
+      {
+        "Device": 2096,
+        "Inode": 12660,
+        "Length": 42949672960,
+        "LinkCount": 1,
+        "Path": "/var/lib/igloo/initramfs-helper-labs/c5dc04e918f64b78b60a2346e2d70000/target.raw",
+        "Predecessor": true,
+        "Sha256": "55B7F3E69A742C1DC5F470D67207F415B847ADFC296D4B93BA619D809A8E942C"
+      },
+      {
+        "Device": 2096,
+        "Inode": 12666,
+        "Length": 8589934592,
+        "LinkCount": 1,
+        "Path": "/var/lib/igloo/initramfs-helper-labs/c5dc04e918f64b78b60a2346e2d70000/journal.raw",
+        "Predecessor": true,
+        "Sha256": "ED36D552AD275F96945A7D52870A039C0F1B097E9FA4853212E719DF9399109C"
+      },
+      {
+        "Device": 2096,
+        "Inode": 12256,
+        "Length": 25769803776,
+        "LinkCount": 1,
+        "Path": "/var/lib/igloo/initramfs-helper-labs/c5dc04e918f64b78b60a2346e2d70000/runtime.raw",
+        "Predecessor": true,
+        "Sha256": "DB2F8E3103312C9BED1FDEAFFA4EDCA71A7CC68184CEEDA491E7B6BAE80597BC"
+      },
+      {
+        "Device": 2096,
+        "Inode": 99748,
+        "Length": 42949672960,
+        "LinkCount": 1,
+        "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/target.raw",
+        "Predecessor": false,
+        "Sha256": "62409134CA85769A5C215F715AC297FB6021C77BCBDD9C2392122EA9F5B80853"
+      },
+      {
+        "Device": 2096,
+        "Inode": 99753,
+        "Length": 8589934592,
+        "LinkCount": 1,
+        "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/journal.raw",
+        "Predecessor": false,
+        "Sha256": "18FEBDA9C2D44F32A9D52D80069AE99AAC3819B2CE176DC1C7E8EADB2723005E"
+      },
+      {
+        "Device": 2096,
+        "Inode": 99755,
+        "Length": 25769803776,
+        "LinkCount": 1,
+        "Path": "/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/runtime.raw",
+        "Predecessor": false,
+        "Sha256": "E41505EFEDE479805DC7CB9AC995F3E8F9BE5E7326E25F47583BDB15805DE964"
+      }
+    ],
+    "PredecessorTargetJournalRuntimeRehashedUnchanged": true,
+    "HistoricalFailuresNotModifiedOrRequalified": true,
+    "PostFailureWholeRootReadback": false,
+    "NoCompressedEvidenceArchiveCreated": true
+  },
+  "Validation": {
+    "Commands": [
+      {
+        "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -m:1 -warnaserror --filter 'FullyQualifiedName~DebianUserData|FullyQualifiedName~DebianConfigurationContinuationTests'",
+        "Platform": "Windows, SDK 10.0.401",
+        "Passed": 41,
+        "Log": {
+          "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/dotnet-tests.log",
+          "Length": 978,
+          "Sha256": "BB8D076C8C139D14B5DEACF9C5CC419CECCC937A3668D53505B6244102935EC6"
+        }
+      },
+      {
+        "Command": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -m:1 -warnaserror",
+        "Platform": "Windows, current net8.0 harness",
+        "Warnings": 0,
+        "Errors": 0,
+        "Log": {
+          "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/final-harness-build.log",
+          "Length": 490,
+          "Sha256": "ED6798857A91F14BD8E1A672E700C860CFA61A2163684EDCAAAC32C7262D03C5"
+        }
+      },
+      {
+        "Command": "python3 -B -m unittest -v test_userdata_loader test_userdata_session test_userdata_admission.WireTests test_userdata_producer.WireTests test_configured_successor test_block_session test_storage_smoke test_session_import",
+        "Environment": "WSL, tests/installer on sys.path; IGLOO_USERDATA_SESSION_WIRE=session-wire, IGLOO_USERDATA_ADMISSION_WIRE=admission-wire, IGLOO_USERDATA_WIRE=fixture-wire under the external task directory; actual .NET exports, native effects synthetic",
+        "Passed": 75,
+        "Log": {
+          "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/focused-tests.log",
+          "Length": 179,
+          "Sha256": "8138163698390F65C9F3D57E606E1619E78BE11FB53A2BD9BD47254CDCDBAEFD"
+        }
+      },
+      {
+        "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-build --no-restore -m:1 --filter FullyQualifiedName~PythonTerminalAndAdmissionReturnToRealDotNetConsumer",
+        "Passed": 1,
+        "Overlap": "Subset of the affected .NET suite; synthetic Python producer/admission return",
+        "Log": {
+          "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/wire-return.log",
+          "Length": 977,
+          "Sha256": "334A42B20918828AD3E101CD9ECC73C934DC1AAC3B8979305FDE22FFA53DC25A"
+        }
+      },
+      {
+        "Command": "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-build --no-restore -m:1 --filter FullyQualifiedName~ActualDeclarationSerializerPreservesCanonicalNumericLeaseContract",
+        "Passed": 1,
+        "Purpose": "Export actual new-operation plan through the current .NET serializer; not a new native attempt",
+        "Log": {
+          "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/canonical-plan-export.log",
+          "Length": 342,
+          "Sha256": "53D3375A3C46CBB9B587FCDCC353188EA370B8F808D563CFB1D59BB57C9BE741"
+        }
+      },
+      {
+        "Command": "python3 -B -m unittest -v test_userdata_loader test_userdata_session",
+        "Passed": 17,
+        "Overlap": "Subset of the 75 Python tests after final bounded-stop assertions",
+        "Log": {
+          "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/final-loader-tests.log",
+          "Length": 121,
+          "Sha256": "4CEFB7E9DEF3FDE349C26061E6E2FAB22383376241B2F6037939DC46232D0F11"
+        }
+      }
+    ],
+    "InitialRedRegression": {
+      "Failed": 1,
+      "Reason": "The new exact-path stacked-other-device test initially exposed missing rejection",
+      "Log": {
+        "Path": "/mnt/c/igloo-lab-runtime/userdata-adapter-20261001/first-adapter-tests.log",
+        "Length": 758,
+        "Sha256": "69A4159B68F08E6B501B5C5158F62F465BFFBF5BE2E2FFF8BF943E9158A4A066"
+      }
+    },
+    "Omitted": [
+      "Full solution and unrelated project suites; no shared .NET contract changes",
+      "Unchanged admission fixture campaign, copier campaign, configuration/initramfs generation",
+      "Native negative repeated count; unchanged historical guard reused",
+      "Post-failure whole-root remount/recovery; surviving authority did not authorize replay"
+    ],
+    "HistoricalJsonFilesBytePreserved": 30,
+    "FinalSourcePreservation": {
+      "Path": "C:\\igloo-lab-runtime\\userdata-adapter-20261001\\final-source-preservation.json",
+      "Sha256": "2982CE174E6BBA0266ABADB8113CB5F416E1315B517EBE23DF2689945A3AEDAF",
+      "ComparedInitialFiles": 918,
+      "ChangedPaths": [
+        "distros/debian/native/session_entry.py",
+        "distros/debian/native/session_userdata.py",
+        "docs/architecture/debian-target-root-deployment.md",
+        "tests/installer/CanonicalImportQualification/README.md",
+        "tests/installer/test_userdata_session.py"
+      ],
+      "NewPathsChecked": [
+        "tests/installer/test_userdata_loader.py",
+        "tests/installer/userdata_namespace_rehearsal.py",
+        "docs/architecture/debian-userdata-context-qualification-evidence.json"
+      ],
+      "UnrelatedBytesUnchanged": true,
+      "HistoricalJsonUnchanged": true
+    },
+    "GitDiffCheck": "Passed; existing line-ending conversion warnings only",
+    "NewUntrackedSourceSyntaxAndWhitespace": "Passed",
+    "FinalIndexEmpty": true
+  },
+  "Boundaries": {
+    "TransferScope": "SelectedDocumentTreesV1",
+    "MaximumBytes": 33554432,
+    "MaximumSelectedEntries": 1024,
+    "Source": "Lab-authored documents from nominated read-only canonical FAT32 payload only",
+    "WindowsOrNtfsAcquisitionQualified": false,
+    "WholeMigrationQualified": false,
+    "FirstBootSucceeded": false,
+    "DeploymentContentOrEnrollmentManufactured": false,
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "TargetBoot": false,
+    "CommitOrPush": false,
+    "CleanupOrStorageMaintenance": false
+  }
+}

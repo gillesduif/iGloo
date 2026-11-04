@@ -1,0 +1,107 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "BoundedUserDataLiveAcquisitionFixtureQualification",
+  "DateUtc": "2026-10-03",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "Branch": "refactor/community-fleet-foundation",
+  "RuntimeSource": {
+    "Path": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/runtime.raw",
+    "Length": 25769803776,
+    "FreshSha256": "AEA60285A9362B01C11E9BC110F8CF30CC38F1083EB936482D6DE5787DD13519",
+    "HistoricalReadbackSha256": "AEA60285A9362B01C11E9BC110F8CF30CC38F1083EB936482D6DE5787DD13519",
+    "KernelSha256": "2B2358B37674D2505350528875BB17AFAE2A36522A9E8A9417EACA65A7DA0E08",
+    "InitrdSha256": "C0105164A3398CE7A1CDEA19F21B7BE938493EBC170E277B8531875E3C12200D",
+    "Use": "Read-only QCOW2 backing in a fixture guest; no migration target or journal attached"
+  },
+  "LinuxRuntime": {
+    "Archive": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/inputs/dotnet.tar.gz",
+    "Length": 31276415,
+    "VerifiedSha512": "4B801177E009EC710D5E2511500AA60BEC95811ADD50FDC59B00A5C486840C66F00C48F272CF7A2F8129ED158EC5B887D1DD60594E612F749BA48FCF48AF9CD2",
+    "Version": "8.0.20 linux-x64",
+    "ProtectedStage": "/var/lib/igloo/userdata-live-fixture-tools/20261003/dotnet",
+    "DotnetExecutableSha256": "37674A9F73C1F531B7DCB26F569692F2C85419C0BA4FB7622D5BFC65BB0F5810",
+    "CurrentHarnessDllSha256": "CD5C26694095ABCCD75EC6E4D70FDB80A5B5EEE2694C9CD563A91F61BF786494"
+  },
+  "Capacity": {
+    "WindowsAvailableBytesAtObservation": 159523405824,
+    "FixtureRequiredBytes": 79456894976,
+    "FixtureGate": "Passed",
+    "FullDerivativeRequirementBytesUnchanged": 193273528320,
+    "FullDerivativeGateAtObservation": "Insufficient",
+    "GuestAvailableBytesAtObservation": 576548073472
+  },
+  "FixtureTransport": {
+    "Machine": "QEMU q35/KVM, no NIC, exact serial UNIX channel, unprivileged process",
+    "Runtime": "Verified original read-only through fresh QCOW2 overlay",
+    "AdditionalDisk": "Fresh 67108864-byte scratch raw image",
+    "Tools": "Read-only ISO with current guest module and historical codec records",
+    "HistoricalCodecRecords": "a1b883f4 export supplied only as parser fixture data; no historical authority inferred",
+    "ProtectedReceiverStageManifestSha256ForPass2": "F6672932F432E23C07375C3131C2C31631DA875F61DB744C550AC088B9149BD4"
+  },
+  "Passes": [
+    {
+      "Pass": 1,
+      "RunId": "f909adcc-3ea0-4d0d-8293-0212cfad32f6",
+      "WorkingResources": "/var/lib/igloo/userdata-live-fixtures/f909adcc3ea04d0d82930212cfad32f6",
+      "ProtectedWitness": "/var/lib/igloo/userdata-live-fixture-tools/20261003/witnesses/f909adcc3ea04d0d82930212cfad32f6",
+      "Outcome": "FailedBeforeCaptureCommand",
+      "Code": "CapturePeerChanged",
+      "ConfirmedPeer": "PID matched QEMU; SO_PEERCRED UID 0; current process UID 1000 after -runas",
+      "Disposition": "Guest ordinary poweroff requested; later process absence and closed backing descriptors separately recorded",
+      "AllocatedLinuxBytesAtInventory": 28430336
+    },
+    {
+      "Pass": 2,
+      "RunId": "0750dff7-9127-4730-a2c4-da001bf7fb69",
+      "WorkingResources": "/var/lib/igloo/userdata-live-fixtures/0750dff791274730a2c4da001bf7fb69",
+      "ProtectedWitness": "/var/lib/igloo/userdata-live-fixture-tools/20261003/witnesses/0750dff791274730a2c4da001bf7fb69",
+      "ExecutedReceiverSha256": "8D1275F6A63F78D9B17431DEB4C71A480730E11C5965FC937935BFFC1E39408F",
+      "Outcome": "FailedBeforeCompleteProtectedCapture",
+      "Code": "CaptureIncomplete",
+      "DiagnosticAfterReconnect": {
+        "Bytes": 1779237,
+        "BeginMarkers": 0,
+        "EndMarkers": 1,
+        "ExitZeroLines": 1,
+        "Interpretation": "The fixed command reached guest output; this later tail is not a complete capture or independent terminal proof"
+      },
+      "ConfirmedSourceDefect": "Receiver searched for an exit-marker substring and could stop on the serial shell echo of its own command",
+      "OriginalFailureTranscriptRetained": false,
+      "Disposition": "Guest ordinary poweroff requested; later process absence, closed backing descriptors and unchanged retained runtime bytes separately recorded in shutdown-late.json",
+      "AllocatedLinuxBytesAtInventory": 31838208
+    }
+  ],
+  "FinalSourceCorrection": {
+    "Code": "Require an exact completed zero-exit line before parsing the bounded frame",
+    "AcquisitionSourceSha256": "BCEF03265EDA45DD1A4708175FA5F26D69EDE19A3D5C4D1234DA4913F1CAAF1B",
+    "CapacitySourceSha256": "035A509423DE249A0F99A1ED758FDC66FB55C30A83972BFF5F648865276EE8B8",
+    "LiveRetest": "NotAuthorized: both live acceptance passes consumed"
+  },
+  "LinuxReader": {
+    "Command": "<protected-dotnet>/dotnet <protected-harness>/CanonicalImportQualification.dll --agent-stage-completion-readiness <protected-ordinary-file-fixture> <fixture-authorization>",
+    "Environment": "Ubuntu-24.04 WSL root; authenticated .NET 8.0.20 runtime; rebuilt and protected current harness",
+    "Outcome": "Passed on protected ordinary-file fixture; EffectAuthorization=false",
+    "EffectfulV1Gate": "Rejected at ProtectedPredecessor in current .NET reader",
+    "LiveCapturedStoreRead": "NotPerformed: no complete live capture was accepted"
+  },
+  "ResourceFootprint": {
+    "BothFixtureRunsAllocatedLinuxBytes": 60268544,
+    "ProtectedToolsAndWitnessesAllocatedLinuxBytes": 80924672,
+    "TotalMeasuredNewLinuxBytes": 141193216,
+    "WindowsPhysicalReclaimEstimate": "NotMeasured"
+  },
+  "StartingPoint": {
+    "InitramfsC5dc": "Historical success; no independently protected terminal/backing anchor observed",
+    "Configuration6006": "Historical success; present full backing identity not reverified here",
+    "ImportCheckpointDaa72": "Protected 0700 root-owned checkpoint result currently hashes to 518AF140A5D7241948FE4C1C5B054BB35E732349524FAA74297863ED7EDA3486; root-owned 0400 single-link raw files present; full bytes and journal chains not freshly reverified",
+    "ArtifactChunks": "Historically authenticated descriptor/manifest/chunks; no fresh byte or pin check here",
+    "LatestImmediatelyAdmissibleSuccessor": "None established among nominated candidates",
+    "FiniteCandidateForSeparateDecision": "Import checkpoint daa72a8f, subject to present-day full verification and explicit trust decision; that cannot establish missing historical custody of later exports"
+  },
+  "LiveAcceptancePassesUsed": 2,
+  "LiveAcceptancePassesRemaining": 0,
+  "CanonicalUserDataOrAgentStageAttemptsUsed": 0,
+  "CanonicalCloseClaimedForFixture": false,
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0
+}

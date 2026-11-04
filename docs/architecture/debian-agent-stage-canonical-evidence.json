@@ -1,0 +1,97 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "CanonicalOfflineAgentStageImplementationCapacityBlocked",
+  "DateUtc": "2026-10-03",
+  "Branch": "refactor/community-fleet-foundation",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "StartingIndex": "Empty",
+  "PredecessorRun": "a1b883f4-179f-4846-b16b-9a91fb4bcf9d",
+  "PredecessorEvidence": "debian-userdata-path-policy-canonical-evidence.json",
+  "HistoricalFixtureEvidence": "debian-offline-agent-stage-evidence.json",
+  "HostCapacity": {
+    "Command": "powershell.exe -NoProfile -NonInteractive -File tests/installer/Test-CanonicalLabHostCapacity.ps1 -DistributionName Ubuntu-24.04 -RequiredAdditionalBytes 193273528320",
+    "ObservedAtUtc": "2026-10-03T12:41:00.1786853+00:00",
+    "BackingVolume": "C:\\",
+    "AvailableBytes": 163645120512,
+    "RequiredAdditionalBytes": 193273528320,
+    "ShortfallBytes": 29628407808,
+    "Sufficient": false
+  },
+  "AuthenticatedBeforeState": {
+    "OriginalManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+    "UsrLib": "Directory root:root 0755",
+    "EtcSystemdSystem": "Directory root:root 0755",
+    "EtcSystemdWants": "Directory root:root 0755",
+    "UsrLibIgloo": "Absent",
+    "EtcIgloo": "Absent",
+    "WorkerUnitConfigurationEnableLink": "Absent",
+    "ConfiguredAndUserDataChanges": "None of these agent destinations were declared additions"
+  },
+  "ReadOnlyPredecessorProbe": {
+    "OriginalHostPath": "/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d/",
+    "OriginalHostPathResult": "Rejected by existing protected-path verifier because an ancestor is UID 1000; not used as canonical authority",
+    "DiagnosticCopy": "/var/lib/igloo/agent-stage-parser-fixtures/20261003-userdata-bytes-unqualified/",
+    "DiagnosticCopyStatus": "Root-owned byte-identical selected protected record copy used only for parser regression; original-path authority not established",
+    "DiagnosticChainResult": "Passed read-only UserData effect, admission, result and exact Close parser",
+    "UserDataResultSha256": "DA59655DBA6BB524BBA288F34D333A3A74E6E1E128A2DAC97C4831E26C3BFBBF",
+    "UserDataCloseSha256": "6F6663700278F96FC8FC9FF1324CDC8FF32B3D5B1C579D2C0A6F23D9F16DD567",
+    "ObservedFilesystemSha256": "3587142C11ABD7E1AE03AEC91C312921C1163F89C952C95CCD9D6EF6224C98DD",
+    "ObservedPackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B"
+  },
+  "ProtectedInputAndToolInspection": {
+    "ExternalPinShape": "Complete retained schema, including ManifestSha256 and ContentSha256",
+    "ExternalPinNotAfterUtc": "2026-10-05T09:32:27.464+00:00",
+    "ExternalPinTimeWindowAtInspection": "Open",
+    "ExternalPinCurrentProtectedAuthentication": "Not established; original retained host ancestor fails protected-path verification",
+    "HistoricalRuntimeToolPathsDeclared": 36,
+    "HistoricalRuntimeToolPathsPresent": 4,
+    "HistoricalRuntimeToolHashesMatching": 0,
+    "CurrentExecutionToolClosure": "Unavailable until a fresh protected stage and independent hash verification"
+  },
+  "SourceWork": [
+    "Explicit lab-only offline-stage scope and .NET plan/derivation binding",
+    "Read-only successful UserData effect/admission/Close chain reopener",
+    "Complete configured-plus-initramfs-plus-selected-UserData baseline and exact agent-file delta observer",
+    "Actual .NET canonical-scope packet source-level serializer probe",
+    "Read-only protected predecessor readiness probe"
+  ],
+  "ExecutionIdentities": {
+    "AgentOfflinePySha256": "158CD3E8D447948C7C8D29879568CED0E00DDFE56DB0F25ED1BA81B1769AA37D",
+    "AgentOfflineObserverPySha256": "8AB5676B2B564CB3861F8AF927C3B0D2D37A0949E8FF2696B8D9AB6A06A749C5",
+    "AgentOfflineSuccessorPySha256": "FF876148221C3571E8DA3E67EBD7C85291E0AE331B8A3415C9AF12F879CB8D6B",
+    "DebianAgentProfileCsSha256": "99CE7052B4AC1258DB84092496256E89B1C10E5E596E46B0646345627FA9F7B1",
+    "DebianAgentStageContinuationCsSha256": "F8CA75EBC8084C94892812522E59FEAB00543793C757601C1C4AD06E0CB80346",
+    "RebuiltQualificationDllSha256": "C88046D47D46A098EE0ADE14715D5EBD94E89AA6323E54ADFFA1D0714253AA84",
+    "TestOnlyCanonicalPacketSha256": "E5B94845AD52087ED1CE5F96CAFBD88FF2E1B62DCFBB071D298FECD5897AA406",
+    "CanonicalExecutedRevision": null
+  },
+  "Validation": [
+    "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -v:q: passed, zero warnings/errors",
+    "dotnet test tests/Igloo.Migration.Tests/Igloo.Migration.Tests.csproj --no-restore -v:q: 460 passed after correcting a test-only ImmutableArray equality assertion",
+    "WSL Ubuntu-24.04 root, python3 -m unittest -v test_agent_offline_successor with PYTHONPATH=tests/installer:distros/debian/native, IGLOO_AGENT_CANONICAL_TEST_PACKET=/mnt/c/igloo-lab-runtime/agent-canonical-source-rebuild-20261003.json, IGLOO_AGENT_OFFLINE_RESULT=/var/lib/igloo/agent-offline-fixtures/issue241-20261003/9e2a94b2f4a1494b98f0836e726f23da, IGLOO_AGENT_USERDATA_TRANSFER=/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d/input/userdata-plan.json: 3 passed on a small filesystem-backed source-level test, no installer invoked",
+    "WSL Ubuntu-24.04 root, python3 -m unittest -v test_agent_stage_predecessor with PYTHONPATH=tests/installer, IGLOO_AGENT_HARNESS=current rebuilt DLL, IGLOO_AGENT_DOTNET_RUNTIME=/var/lib/igloo/userdata-readiness/adapter-final-20261001/dotnet/dotnet, IGLOO_AGENT_PREDECESSOR_PARSER_COPY=/var/lib/igloo/agent-stage-parser-fixtures/20261003-userdata-bytes-unqualified: 2 passed, with four tamper subcases on a diagnostic copy",
+    "WSL Ubuntu-24.04 root, python3 -m unittest -v test_agent_offline: 5 passed without an installer invocation",
+    "git diff --check: no whitespace errors; new untracked content checked separately"
+  ],
+  "BudgetConsumptionThisTask": {
+    "AdditionalNativeFixturePasses": 0,
+    "NativePreconditionNegative": 0,
+    "PositiveCanonicalAttempts": 0,
+    "NewReservations": 0,
+    "NewFullDerivatives": 0
+  },
+  "CanonicalOutcomes": {
+    "Stage": "NotStarted",
+    "WholeRootVerification": "NotStarted",
+    "DurableResult": "NotStarted",
+    "ExactTeardown": "NotStarted",
+    "NewRetainedTarget": false,
+    "PredecessorPreservation": "No write access by this task; fresh full-byte equality was not asserted",
+    "ConfigurationCreated": false,
+    "EnableLinkCreated": false,
+    "WorkerExecuted": false
+  },
+  "RemainingBoundary": "Host capacity must pass unchanged gate; original protected predecessor-path authority, current tool staging and canonical MountSession dispatch, protected loader, durable stage/result readback and exact Close integration remain unqualified implementation work. The diagnostic copy and source-level packet must never authorize effects.",
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0
+}

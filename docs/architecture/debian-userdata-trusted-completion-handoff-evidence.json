@@ -1,0 +1,46 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "UserDataTrustedCompletionHandoffSourceQualification",
+  "DateUtc": "2026-10-03",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "IndexAtStart": "Empty",
+  "HistoricalRunId": "a1b883f4-179f-4846-b16b-9a91fb4bcf9d",
+  "HistoricalAuthority": {
+    "ExternalAuthorizationDirectory": "/var/lib/igloo/userdata-authorizations/a1b883f4-179f-4846-b16b-9a91fb4bcf9d/",
+    "ProtectedFilesObserved": ["authorization.json", "reservation.json"],
+    "TerminalUserDataResultAndCloseIndependentlyAnchoredThere": false,
+    "HostExportRunDirectoryOwner": "1000:1000",
+    "HostExportRunDirectoryMode": "0755",
+    "OriginalPathProtectedReader": "Rejected",
+    "GuestTerminalRecordsReadOnlyParser": "AppliedAndVerified effect and exact teardown reopened; this is not host custody authority",
+    "TerminalResultSha256FromUntrustedExport": "DA59655DBA6BB524BBA288F34D333A3A74E6E1E128A2DAC97C4831E26C3BFBBF",
+    "CloseSha256FromUntrustedExport": "6F6663700278F96FC8FC9FF1324CDC8FF32B3D5B1C579D2C0A6F23D9F16DD567",
+    "Status": "BlockedBeforeSuccessorAuthority",
+    "MissingInput": "Independently acquired and protected terminal UserData result/Close anchor from the trusted guest verifier, bound to the actual run and backings"
+  },
+  "CurrentSourceConnection": {
+    "CompletionPublication": "Exact raw-byte inventory, separate protected anchor and external one-use authorization, terminal verifier, create-new fsync and independent reopen",
+    "Provisioner": "Agent-stage branch checks completion before run creation/reservation/copy/launch; existing verified-copy primitive for target and journal",
+    "SuccessorReader": "Canonical RunAsync requires completion envelope and actual UserData/Close/retention bindings; parser-only readiness remains non-authorizing",
+    "GuestToHostLiveAcquisition": "Not qualified or invoked; a trusted live verifier must supply the independent anchor and protected raw source for a future completion",
+    "ActualCanonicalAgentStage": "NotStarted"
+  },
+  "FocusedValidation": {
+    "WindowsHarnessBuild": "dotnet build tests/installer/CanonicalImportQualification/CanonicalImportQualification.csproj --no-restore -v:q: passed, zero warnings/errors",
+    "WSLSyntheticHandoffTests": "python3 -m unittest -v test_userdata_completion: 5 passed; real retained record parser, protected publication, staged readback, .NET completion reader and provisioner preflight, with fixture-only synthesized anchor and native copy boundary substituted",
+    "HistoricalExportUsedAsFixtureOnly": true,
+    "NativeDeploymentQualification": "NotPerformed",
+    "FullDiskCopyOrReservation": "NotPerformed"
+  },
+  "TestedSourceSha256": {
+    "canonical_userdata_completion.py": "237445241615D06C8D1D9373CB3715D445DBE98ECEE28C2807B24A48E104A252",
+    "canonical_agent_stage_lab.py": "7E29C734F5743036810C81F97DBD8D49E031103E4746A8128DC9D8326A9ECEA8",
+    "canonical_storage_lab.py": "423DA2E1BD1F5871718967E9C14C87E33B587E5ABA1DA5E27BDEF015CA630AB5",
+    "LabAgentStage.cs": "887AD5059CA9A9034EB7A6F4BB5DEAE71308F0180C84444EEF89C55E3C8EA370",
+    "Program.cs": "2BFE3E133E54C1A59380FE5034D2391BB19F02CF889E65F215BADD1BF3296890",
+    "BuiltHarnessDll": "9BCF46308971807576218749C9C5028B0012E90EDBAB0D6C4B69527BDB08DCD4"
+  },
+  "NoNewNativeAllocationsOrAttemptConsumption": true,
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0
+}

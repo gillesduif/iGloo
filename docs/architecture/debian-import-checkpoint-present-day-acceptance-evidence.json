@@ -1,0 +1,108 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "PresentDayReadOnlyImportCheckpointLabInputQualification",
+  "DateUtc": "2026-10-04",
+  "Branch": "refactor/community-fleet-foundation",
+  "Head": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "HistoricalPendingAssessmentPreserved": "debian-import-checkpoint-present-day-evidence.json and its protected pending record remain unchanged",
+  "Candidate": "/var/lib/igloo/config-checkpoints/import-daa72a8f-20260929/",
+  "HistoricalImportRunId": "daa72a8f-914a-4574-92ef-4d39ffb0c1e1",
+  "SmallMountReproducer": {
+    "Source": "New disposable 32-MiB EXT4 ordinary-file fixture, no checkpoint backing",
+    "Requested": "private namespace; loop,ro,noload,nosuid,nodev,noexec",
+    "KernelMountinfo": "EXT4, ro mount options, ro,norecovery super-options, loop block device read-only",
+    "FindmntJson": "Reported ro,nosuid,nodev,noexec,relatime,norecovery",
+    "Correction": "Use parsed mountinfo, sysfs loop identity/read-only/extent, mount descriptor and namespace; require norecovery as the observed EXT4 form of requested noload. Preserve each predicate and exact failure name.",
+    "LiveFixturePredicates": "All 12 passed",
+    "NegativeCoverage": "Writable or missing no-replay, wrong filesystem/device/source/extent, namespace/root, alias, child and stacked mounts"
+  },
+  "CurrentPrerequisites": {
+    "CheckpointIntentSha256": "44E9F5C6F6F27AD7B1C82A72B0E48A624F372869392435BC63560F0EAC8D01D1",
+    "CheckpointResultSha256": "518AF140A5D7241948FE4C1C5B054BB35E732349524FAA74297863ED7EDA3486",
+    "BackingIdentitiesAndTimestampsUnchangedSinceCompletePreviousHash": true,
+    "ExpensiveBackingHashRepeated": false,
+    "Target": {
+      "Device": 2096,
+      "Inode": 77587,
+      "Length": 42949672960,
+      "MtimeNs": 1790659264051148352,
+      "Sha256FromPreviousCompleteVerifiedRead": "1C63ADEECBAE295E87766D02503F7D7704BE28036832D64FA3FA66738549AE4C"
+    },
+    "Journal": {
+      "Device": 2096,
+      "Inode": 77592,
+      "Length": 8589934592,
+      "MtimeNs": 1790659338096509469,
+      "Sha256FromPreviousCompleteVerifiedRead": "4B501D7FDA872A3E785F077548D40B38FD524B33DBD3062DC172E1A1B57906BB"
+    },
+    "ProtectedPinSha256": "0029CB409F537807E91B1DF39AE2B2A0491AA4487294CDBA77674C207A022D8F",
+    "PinNotAfterUtc": "2026-10-05T09:32:27.464+00:00",
+    "PinValidDuringInspection": true,
+    "DescriptorSha256": "4936F2FBC669253A93CB9004D3EF4E268B995AC30479CBEF1C1E83F5B8234A20",
+    "ManifestSha256": "5BE0814960F7D87B3FB3379688D60873028921D4D8F0BF504DD4C0EB6AE3B9B2",
+    "NoCheckpointWriterOrAttachmentBeforeInspection": true
+  },
+  "ExecutedToolStage": {
+    "Path": "/var/lib/igloo/import-checkpoint-inspection-tools-20261004-v2/",
+    "ProtectedManifestSha256": "F15FC588474FD8760737146C438496A27F0F6FFEB2B53D0132A0A023854BD4F1",
+    "VerifiedSourceFiles": 128,
+    "RunnerSha256": "8F019C4D3D6E0DD6175B02689B62F768012F69B2E8C3B53821F0078F93FD4CC2",
+    "MountObserverSha256": "A8DBF9B29A9E3EBCCDF3B382E1247F0E33F25FB4EFA1C1C6AD8059E7057E4D70",
+    "RootObserverSha256": "D6BD0A229D2483EA14C6E62B2BD9658B75CC883B1143853F6FF9B5B3B9E87F35"
+  },
+  "Inspection": {
+    "ProtectedStore": "/var/lib/igloo/import-checkpoint-inspection-20261004-v2/",
+    "AuthorizedSessionsUsed": "1/1",
+    "BudgetSha256": "E10DF5DDEAB03DBE6E1EFA9B627D55C3F1AF1FBF45AB0266BB8EA0E77CD9685D",
+    "JournalMountObservationSha256": "6A714DEDCBDF05EC61E495ABDFFD936BC10FA1CE101EB49205870B05E7DFC39F",
+    "TargetMountObservationSha256": "930D2A67DD76CA33632A81FD462C5337E9F0F6639BB7D35F9C9C36F6DDA456F5",
+    "DirectJournalReadbackSha256": "15847E663D1AED86A813B1BC62D6A7B0255F039ED6D166DCFE5D097AB8091DCA",
+    "DirectCurrentImportRecords": 1823,
+    "DirectCurrentSessionRecords": 18,
+    "ImportResultSha256": "A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9",
+    "HistoricalCloseSha256": "F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A",
+    "ExactHistoricalTeardownChain": "Passed from directly mounted journal",
+    "CompleteRootReadbackSha256": "E2771D5163245C75600E0D9D0BAF1D5810AA51F08690DD02441316AE4DAADFAD",
+    "ManifestEntriesVerified": 144911,
+    "PackagesVerified": 1594,
+    "FilesystemSha256": "1F842DC9D53C5C57B2CD9D77FE5731C29E777C4599C445CC8A3892222687BF13",
+    "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B",
+    "NeutralStateSha256": "751CDEE71BF90671367B5B95F8FB17C660A5595E69F8AD6658EA600288FDD358",
+    "InspectionTeardownSha256": "1DAA1D3EDE36A842A20F6E6509E167C59535A81A249260DDD390E548324",
+    "OrdinaryReverseUnmount": "Passed",
+    "IndependentHostContextAbsenceAndWriterExclusion": "Passed",
+    "BackingIdentityPreserved": true,
+    "ResultSha256": "FF78F89B703CFF5785D18F696B4BD78606B1FFD193E84565E98D972409690381",
+    "ProtectedResultIndependentReopen": "Passed"
+  },
+  "PresentDayDecision": {
+    "Accepted": true,
+    "ProtectedRecord": "/var/lib/igloo/import-checkpoint-acceptance-daa72a8f-20261004-v1/acceptance.json",
+    "Sha256": "2516C1D52CE0882FF9F6F11825D8B186303A01AC8268610D81ED7A218D81C369",
+    "AcceptedAtUtc": "2026-10-04T05:15:38.136978+00:00",
+    "IndependentReopen": "Passed with exact inspection references and bounded lab-only scope",
+    "Meaning": "This exact current checkpoint is a development-lab starting input for a separately authorized future lineage",
+    "EffectAuthorization": false,
+    "HistoricalCustodyOfLaterSuccessorsProven": false,
+    "NewImportOrCanonicalClose": false,
+    "ProductionAuthentication": "Unsupported"
+  },
+  "FocusedValidation": {
+    "LinuxCommand": "PYTHONPATH=tests/installer:distros/debian/native python3 -m unittest test_checkpoint_readonly_inspection test_checkpoint_acceptance test_canonical_import_readback -q",
+    "Result": "7 tests passed",
+    "SmallRealExt4Fixture": "All structured mount predicates passed",
+    "NoFullDeploymentOrQemu": true
+  },
+  "LaterFullDerivativeCapacity": {
+    "ObservedAtUtc": "2026-10-04T05:16:18.4663412+00:00",
+    "AvailableBytes": 146186768384,
+    "RequiredBytes": 193273528320,
+    "ShortfallBytes": 47086759936,
+    "GateChanged": false
+  },
+  "NextRequiredAdapters": [
+    "Trusted configuration result/Close and retained-backing completion capture for a new initramfs successor",
+    "Trusted initramfs result/Close and retained-backing completion capture for a new UserData successor"
+  ],
+  "NoDeploymentOrHistoricalRewrite": true
+}

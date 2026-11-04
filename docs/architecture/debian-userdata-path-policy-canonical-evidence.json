@@ -1,0 +1,122 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "CanonicalLabSelectedDocumentsV1",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "CanonicalDispatchDateUtc": "2026-10-01",
+  "PostInterruptionIndependentReadbackDateUtc": "2026-10-03",
+  "HistoricalEvidencePreserved": true,
+  "Interruption": {
+    "AttemptId": "047f64d6-8321-43d0-8b6f-8daaf6146c83",
+    "OperationId": "c2cce02b-1e46-4e71-9a03-cfa5d74fef31",
+    "AuthorizationReservation": "ConsumedAndIndependentlyReopened",
+    "TargetAndJournalCopies": "RecordedAndReopened",
+    "RuntimeCopy": "IncompleteAndExcluded",
+    "CanonicalDispatch": "NotRecorded",
+    "CanonicalTeardown": "NotEstablished",
+    "ResourceDirectory": "/var/lib/igloo/initramfs-helper-labs/047f64d6832143d08b6f8daaf6146c83/",
+    "ProtectedAssessment": "C:\\igloo-lab-runtime\\userdata-path-resumption-20261001\\interruption-assessment.json",
+    "PartialBackingContentRehashed": false
+  },
+  "QualificationReused": {
+    "FixtureDirectory": "/var/lib/igloo/userdata-path-fixtures/eedc174d36e14aa28cc74ab81ae06d34/",
+    "FixtureOnly": true,
+    "NativeFixturePassesUsed": 1,
+    "Files": 4,
+    "Bytes": 131130,
+    "PreAndPostAdmissionWholeRootObservation": "Passed",
+    "ActualConsumer": "Passed",
+    "NegativeMutationCases": 11,
+    "FrozenExecutionFilesMatched": 46,
+    "FixtureExecutionSha256": "010357A08BE8839A64BC634BB1635C5F4EAFB4EAEDDC9F558D080A45B44A8450"
+  },
+  "CanonicalExecutedFiles": {
+    "HarnessDllSha256": "C6DB7144A502FEECDC4ED61FCFD1B8C78A50140F7235AF5999925F6D65D2EF73",
+    "SessionEntrySha256": "AA33F8401D8B957BECC5B06C4FBC8A883BABE4957604E37654FB7D075B0BC83B",
+    "SessionUserDataSha256": "836CDD6099098910F529163A4CD5A2CEE4095EFA0BC9FCEE372D3E1515A6D847",
+    "ConfiguredRootSha256": "D6BD0A229D2483EA14C6E62B2BD9658B75CC883B1143853F6FF9B5B3B9E87F35",
+    "UserDataSuccessorSha256": "9AF03ACDD614776D344034D189F250A7C8663C1603CEEB82A448611C18758580",
+    "IdentityRecord": "/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d/guest-evidence/execution/tested-revision-readback.json"
+  },
+  "FreshPreflight": {
+    "WindowsBackingVolume": "C:\\",
+    "WindowsAvailableBytes": 200550567936,
+    "WindowsRequiredBytes": 193273528320,
+    "ProvisioningAvailableBytes": 200425058304,
+    "GuestAvailableBytesAtInspection": 599133462528,
+    "PersistedPredecessorAndProtectedPinReadiness": "Passed",
+    "PinnedRuntimeAndToolClosure": "Verified",
+    "SuccessfulInitramfsPredecessorRun": "c5dc04e9-18f6-4b78-b60a-2346e2d70000",
+    "SuccessfulInitramfsResultSha256": "9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8",
+    "SuccessfulInitramfsCloseSha256": "F0CB1447C24AF09EBC1A178E29E692AAB36C8AED0AAE130CE2A16CD23F8446F3"
+  },
+  "CanonicalAttempt": {
+    "AttemptId": "a1b883f4-179f-4846-b16b-9a91fb4bcf9d",
+    "OperationId": "6a079a17-5178-4feb-8826-c226ae73fa13",
+    "SessionId": "1d5c9ba5-c903-4585-b0d9-9f84484ec05f",
+    "ResourceDirectory": "/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d/",
+    "PositiveDispatches": 1,
+    "NewNegativeDispatches": 0,
+    "PlanSha256": "73A18248005FB4B77C4D0C393E74DF19917C98D44B19F9EF9B58D36E7446F1CE",
+    "Staging": "BoundedSyntheticFAT32DeliveryIndependentlyVerified",
+    "Source": "NominatedCanonicalReadOnlyFAT32Payload",
+    "Account": "VerifiedExistingIglootestUidGid1000",
+    "Transfer": {
+      "Outcome": "AppliedAndVerified",
+      "Files": 4,
+      "Bytes": 131130,
+      "SelectedFilename": "Documents/résumé.txt",
+      "SourceAndUnselectedData": "Unchanged",
+      "ExistingHomeContent": "Unchanged",
+      "ProducerResultSha256": "6A3FB8F2C8E52868D24A3BE67344F92CA2979087B5149651AC2AC59F6E5FA22B"
+    },
+    "ProtectedAdmission": {
+      "Outcome": "AppliedAndVerified",
+      "Scope": "CanonicalLabSelectedDocumentsV1",
+      "ResultSha256": "6A3FB8F2C8E52868D24A3BE67344F92CA2979087B5149651AC2AC59F6E5FA22B",
+      "ReceiptSha256": "C0A57DC157A719F1B4D3389ED35DE5C0356ABD6E88F0D49080DB60C043A5406B",
+      "EvidenceSha256": "FC004C13CB09DC0600069C438464910869E41FCF49A11B67C7E48827B08EF24B",
+      "ProducerRecordsReopened": 3
+    },
+    "WholeRoot": {
+      "Outcome": "AppliedAndVerified",
+      "DeclaredDeltaOnly": true,
+      "ConfiguredAndInitramfsPreserved": true,
+      "MachineIdentity": "FirstBootPending",
+      "FilesystemSha256": "3587142C11ABD7E1AE03AEC91C312921C1163F89C952C95CCD9D6EF6224C98DD",
+      "PackageStateSha256": "FE0F441041764FEF253382BCD6BD93933CF4EF63E8F086B10D93363B2B44719B"
+    },
+    "EffectRecordsReopened": 8,
+    "SessionRecordsReopened": 18,
+    "CloseReference": "00000017-6F6663700278F96FC8FC9FF1324CDC8FF32B3D5B1C579D2C0A6F23D9F16DD567.json",
+    "CloseSha256": "6F6663700278F96FC8FC9FF1324CDC8FF32B3D5B1C579D2C0A6F23D9F16DD567",
+    "CanonicalTeardown": "AppliedAndVerified",
+    "ProvisioningJournalUnmount": "OrdinaryExactMountDeltaVerifiedSeparately",
+    "NormalRuntimeShutdown": "ObservedSeparately",
+    "ProtectedRawEvidenceDirectory": "/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d/guest-evidence/",
+    "IndependentHostReadbackSha256": "A4B892C1ED4BDEFA8C1D0F90B371A19255A45C8B3178EB9B6494A90B63430F6F",
+    "RetentionRecordSha256": "9C516A0DBFFBFAD2D1CA547891AD968254F30222F6C52A365533D59A2B267F9A",
+    "RetentionIndependentReopenSha256": "6E0F3A51CB9BD731EFF6C111F277F5C7FFAE78B858C7AEF9A9F5A57CEAE3426E",
+    "PredecessorTargetJournalRuntimeHashesUnchanged": true,
+    "InterruptedAttemptRecordsAndBackingIdentitiesUnchanged": true,
+    "ConfiguredTargetRetainedPoweredOff": true
+  },
+  "Validation": {
+    "PriorFrozenFixture": "TransferObservationAdmissionFinalAndConsumerPassed",
+    "PriorFocusedDotNet": "41Passed",
+    "PriorRelevantLinux": "207Run13Skipped",
+    "PriorFinalFocusedLinux": "33Passed",
+    "CurrentDotNetAdmissionContract": "2Passed",
+    "CurrentHarness": "FrozenHashMatchedSuccessfulFixture",
+    "CurrentCanonicalHostReadback": "Passed"
+  },
+  "Limits": {
+    "SelectedDocumentTreesV1Bytes": 33554432,
+    "SelectedEntries": 1024,
+    "WindowsNtfsOrCloudAcquisition": "NotQualified",
+    "DeploymentContentEnrollmentFirstBoot": "NotProduced",
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "TargetBoot": "NotPerformed",
+    "EarlierFailurePathTeardown": "StillUnqualified"
+  }
+}

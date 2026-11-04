@@ -1,0 +1,76 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "BoundedUserDataLiveFixtureFramingContinuation",
+  "DateUtc": "2026-10-03",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "Branch": "refactor/community-fleet-foundation",
+  "HistoricalLiveAllocation": "2/2 consumed before this continuation; historical records unchanged",
+  "NewLiveAllocation": "2/2 consumed; no further invocation authorized",
+  "Capacity": {
+    "FixtureRequiredBytes": 79456894976,
+    "FullDerivativeRequirementBytesUnchanged": 193273528320,
+    "Pass1WindowsAvailableBytes": 158987075584,
+    "Pass1GuestAvailableBytes": 576485433344,
+    "Pass2WindowsAvailableBytes": 158888603648,
+    "Pass2GuestAvailableBytes": 576455815168
+  },
+  "TestedAndExecutedClosures": [
+    {
+      "Pass": 1,
+      "RunId": "cca7e696-e626-4b5c-bf7c-644686dc5b3d",
+      "Stage": "/var/lib/igloo/userdata-live-fixture-tools/20261003/host-v4",
+      "ManifestSha256": "E7E359813A8404DE1F2A8AD6D357ED249C8B5F736973B13C22B26F58BD82E3F3",
+      "ReceiverSha256": "CC99FDE365EDEC7F3235C51115E85A15861A0A5F27377BE25CD093D674FA1248",
+      "Failure": "CaptureUnexpectedData",
+      "ConfirmedBoundary": "Controlled QEMU guest and nominated peer passed; a DATA-line predicate failed before a complete frame",
+      "Unknown": "The original line and failed predicate were not retained",
+      "FailureDispositionSha256": "30FDE082F9AE7C003348BC1275E5BE8012748CCFEBFDE98AF94BAC02FE58B06C",
+      "LateDispositionSha256": "1BC898ABA66352B8311076264168C064B1A846F0808462A6A7CE72B7DAD3E392"
+    },
+    {
+      "Pass": 2,
+      "RunId": "21f57f2a-f111-494d-9911-44fe534f030e",
+      "Stage": "/var/lib/igloo/userdata-live-fixture-tools/20261003/host-v5",
+      "ManifestSha256": "A1175F24A5DBED5975C11E38E219FC1A886A5FAD09EAE7DD36BA2DA9B948F1A1",
+      "ReceiverSha256": "B00E0D799043C2A35E555396562A2D6F93979780A4C4A21C48751E1C664C71E9",
+      "GuestEmitterSha256": "ABB356D0253057FD87AB1D8520083828F668F2C73859DBE22269A542C50AD76B",
+      "AdapterSha256": "7B5642A504E5E93509168C96DFDA6254DAA35D75BF21B8622A400AE98CF934B7",
+      "Failure": "CaptureUnknownRecord",
+      "ConfirmedBoundary": "Controlled QEMU guest and nominated peer passed; a protocol-prefixed line was rejected before a complete frame",
+      "Unknown": "The raw line and exact parser state were not retained",
+      "FailureDispositionSha256": "E806EFCAC97219A8A8B46C442F90D967B0C9B70C4546641ED54888156FC99E52",
+      "LastObservedWriter": "QEMU PID 393, start time 21040, still active with fixture overlay and scratch open",
+      "OrdinaryPoweroff": "Requested on separate diagnostic connection; shutdown not independently verified"
+    }
+  ],
+  "CommonInputs": {
+    "RuntimeSource": "/var/lib/igloo/canonical-labs/28df6134bff54f94a07e3ed442caac64/runtime.raw",
+    "RuntimeSourceSha256AtEachPreflight": "AEA60285A9362B01C11E9BC110F8CF30CC38F1083EB936482D6DE5787DD13519",
+    "SourceUse": "Read-only QCOW2 backing; no migration target or journal attached",
+    "DotnetExecutableSha256": "37674A9F73C1F531B7DCB26F569692F2C85419C0BA4FB7622D5BFC65BB0F5810",
+    "HarnessDllSha256": "CD5C26694095ABCCD75EC6E4D70FDB80A5B5EEE2694C9CD563A91F61BF786494"
+  },
+  "Validation": {
+    "Command": "PYTHONPATH=tests/installer:distros/debian/native python3 -m unittest test_userdata_acquisition test_userdata_live_fixture test_userdata_completion -q",
+    "Platform": "Ubuntu-24.04 WSL root",
+    "Result": "24 tests, OK, 1 skipped on final source",
+    "DiffCheck": "Passed on changed code; Git warned that the guest source working copy has CRLF conversion attributes"
+  },
+  "ProtectedCapture": "None in either new pass",
+  "ProtectedPublication": "Not invoked",
+  "LinuxDotnetOnNewCapture": "Not invoked: no complete accepted capture",
+  "EffectfulAgentStage": "Not invoked",
+  "FixtureProvenance": "Historical UserData records were codec inputs only; no canonical successor authority established",
+  "AdditionalConfirmedIntegrationDefect": "Post-capture fixture FD validation compared a writable QCOW2 overlay's grown length to its creation length, causing FixtureBackingIdentityChanged during pass-2 diagnosis",
+  "PostFailureSourceCorrectionsNotLiveQualified": {
+    "ReceiverSha256": "A474D9A6E2753407EE17C8B56DBBE5E6B86421423552C68D59AD4A49C269DED6",
+    "AdapterSha256": "18B7F8F7ADF4B9FE7813416762695F1149F49745AB43A6A9914DBD716A7D9847",
+    "Details": "Exact literal shell-echo line is ignored only before BEGIN; unknown protocol records expose bounded state/counts; post-capture writable overlay growth is bounded while device/inode, scratch, source and ISO bindings remain exact",
+    "NativeQualification": "Not performed: new live budget exhausted"
+  },
+  "WriterExclusionAndPostRunSourcePreservation": "Not established for pass 2 while QEMU remains active",
+  "CanonicalUserDataOrAgentStageAttemptsUsed": 0,
+  "CanonicalCloseClaimedForFixture": false,
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0
+}

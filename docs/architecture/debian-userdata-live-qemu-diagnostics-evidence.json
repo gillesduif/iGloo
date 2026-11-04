@@ -1,0 +1,91 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "BoundedUserDataLiveFixtureDiagnosticContinuation",
+  "DateUtc": "2026-10-03",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "Branch": "refactor/community-fleet-foundation",
+  "PreviousWriter": {
+    "RunId": "21f57f2a-f111-494d-9911-44fe534f030e",
+    "HistoricalPid": 393,
+    "HistoricalStartTime": 21040,
+    "CurrentIdentity": "Reopened protected launch/process records and reverified PID, start time, exact QEMU arguments, UID 1000 and scratch-only file descriptors before lifecycle control",
+    "NormalPoweroffRequested": true,
+    "NormalGuestShutdownVerified": false,
+    "BoundedLateConsoleBytesPreserved": 0,
+    "Disposition": "After bounded normal-shutdown wait, SIGTERM was sent through the verified pidfd; process exit, writer exclusion, final fixture backing identities and unchanged read-only runtime source were observed independently",
+    "ProtectedWriterDisposition": "/var/lib/igloo/userdata-live-fixture-tools/20261003/witnesses-v2/21f57f2af111494d991144fe534f030e/writer-disposition.json",
+    "WriterDispositionSha256": "66C2B6D3E458326A32FFF4FDD38162714EB2830943A568BF1E9BF0F6EBA86785",
+    "CanonicalCloseClaimed": false
+  },
+  "ImplementedDiagnostics": "The sole protected receiver records bounded exact incoming bytes before parsing, rejected line bytes, parser state and offsets, chunk counts/timing, terminal-marker state and executed identities. Diagnostic existence never authorizes completion publication.",
+  "FocusedTests": {
+    "Platform": "Ubuntu-24.04 WSL root",
+    "Command": "PYTHONPATH=tests/installer:distros/debian/native python3 -m unittest test_userdata_acquisition test_userdata_live_fixture test_userdata_completion -q",
+    "Result": "31 tests, OK, 1 skipped",
+    "Coverage": "Process/socket and pseudo-terminal emitter/receiver, strict framing and peer identity, diagnostic timeout/error paths, writable-overlay binding, retained first-pass raw-trace replay",
+    "RetainedTraceReplay": "Exact first-pass raw bytes replayed in bounded chunks with matching SHA-256; the corrected diagnostic writer completed the replay and avoided per-chunk fsync"
+  },
+  "NewLiveAllocation": "2/2 consumed; no third invocation authorized",
+  "Passes": [
+    {
+      "Invocation": 1,
+      "RunId": "edc2969b-596a-4dc4-aefc-a346ff0b5241",
+      "ProtectedWitness": "/var/lib/igloo/userdata-live-fixture-tools/20261003/witnesses-v3/edc2969b596a4dc4aefca346ff0b5241/",
+      "ExecutedStage": "/var/lib/igloo/userdata-live-fixture-tools/20261003/host-v6/",
+      "StageManifestSha256": "7092C4497B650B8A6039FA4B6F6ECB725A5C86982448550E9EEDF42DD491B9D8",
+      "ReceiverSha256": "5F03398538BAB8CF57A28D84461EA99D99BE97C886432FF213C99F337CE76882",
+      "AdapterSha256": "89EC6F2558C867FCDE7D31AD30C7B58368EFE5C73DD4C9C480BAF0CE8816AD7D",
+      "Outcome": "CaptureTimeout before END or terminal exit",
+      "RawBytes": 8772608,
+      "RawSha256": "415A0523EF5052775CD6B6DB1C3E571F487D2B6F69CC1D4443038DCEC98A07AB",
+      "ReceiveDiagnosticSha256": "6DEC5B992A3C2F323183C89CD96888DEB4A8A2AFE4D514FDD1FA5E11B26A4C43",
+      "CompleteDataLines": 8459,
+      "WriterDispositionSha256": "B88CDC4BFBA5CA219A5B31A940FED383A556C8A8860D23AEB98460B378821678",
+      "GuestShutdown": "Normal poweroff requested but not verified; host SIGTERM via exact pidfd; process exit and writer exclusion verified"
+    },
+    {
+      "Invocation": 2,
+      "RunId": "0196fe1d-e48b-4e95-9cca-2ccb81867071",
+      "ProtectedWitness": "/var/lib/igloo/userdata-live-fixture-tools/20261003/witnesses-v3/0196fe1de48b4e959cca2ccb81867071/",
+      "ExecutedStage": "/var/lib/igloo/userdata-live-fixture-tools/20261003/host-v7/",
+      "StageManifestSha256": "07E884449C83F9719A019130B8B2786A20CDEA3CFEC2DD10083557A4B0B206DE",
+      "ReceiverSha256": "17935DFE11487A9853A750D6EB162DA2BCC45058B74C91268EA69D9DAE86F465",
+      "GuestEmitterSha256": "ABB356D0253057FD87AB1D8520083828F668F2C73859DBE22269A542C50AD76B",
+      "AdapterSha256": "1A9E7A6B34B2FA3E38F74DCBBD8B460C99F50EC7B42CEB75ADFD473011FFD520",
+      "CorrectiveQualificationSha256": "B3A0BAEFB75ED43726FF782B9141A5325863C3E6D115A5E7E5DAB17E8A5A499D",
+      "Outcome": "CaptureTimeout at the declared 120-second fixture deadline; parser accepted the exact retained prefix but END and terminal exit had not arrived",
+      "RawBytes": 6256078,
+      "RawSha256": "E223EC8DFD7992CF90CCA712EE9251DF27A0E567192578134475736D60DA3703",
+      "ReceiveDiagnosticSha256": "514D449556AD1E47FD6791D42A0B3EC6031A29D77609B09C2BC08C3B12FB41ED",
+      "ReceiveChunks": 5707411,
+      "CompleteDataLines": 6032,
+      "ObservedBase64Bytes": 6176768,
+      "ExpectedBase64Bytes": 11254128,
+      "PartialLineBytesAtDeadline": 417,
+      "RejectedRecord": "None; the bounded deadline expired during a partial DATA line",
+      "WriterDispositionSha256": "8E48A15D5A03F7D9B7D86A1F4C70370D449F44EF90128C38DC03C3DEF25343D4",
+      "GuestShutdown": "Normal poweroff requested but not verified; host SIGTERM via exact pidfd; process exit and writer exclusion verified"
+    }
+  ],
+  "Capacity": {
+    "FixtureRequiredBytes": 79456894976,
+    "Pass1WindowsAvailableBytes": 158088974336,
+    "Pass2WindowsAvailableBytes": 157903106048,
+    "FullDerivativeRequirementBytesUnchanged": 193273528320
+  },
+  "CommonInputs": {
+    "ReadOnlyRuntimeSourceSha256BeforeAndAfter": "AEA60285A9362B01C11E9BC110F8CF30CC38F1083EB936482D6DE5787DD13519",
+    "LinuxDotnetExecutableSha256": "37674A9F73C1F531B7DCB26F569692F2C85419C0BA4FB7622D5BFC65BB0F5810",
+    "HarnessDllSha256": "CD5C26694095ABCCD75EC6E4D70FDB80A5B5EEE2694C9CD563A91F61BF786494",
+    "AttachedMigrationTargetOrJournal": false
+  },
+  "CaptureAccepted": false,
+  "ProtectedFixturePublication": "Not invoked",
+  "LinuxDotnetOnNewLiveCapture": "Not invoked; no complete live capture exists",
+  "EffectfulAgentStage": "Not invoked; fixture provenance remains inadmissible",
+  "CurrentBlocker": "The exact 120-second fixture deadline expired before the observed one-byte-heavy QEMU serial stream delivered the declared 11254128-byte Base64 body. The next performance/deadline correction needs separate live authorization and acceptance.",
+  "HistoricalFramingCauses": "Earlier CaptureUnexpectedData and CaptureUnknownRecord exact causes remain unconfirmed; neither historical failure is reclassified by these new timeout traces",
+  "CanonicalUserDataOrAgentStageAttemptsUsed": 0,
+  "ProductionAuthentication": "Unsupported",
+  "NativeSupported": 0
+}

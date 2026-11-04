@@ -1,8 +1,10 @@
 # Debian Trixie target-root deployment — issue #241
 
-Latest UserData status: the [selected-document producer fixture](debian-userdata-producer-evidence.json)
-below passed on 2026-09-30. Canonical source acquisition/admission and agent/Enrollment
-integration remain closed. This does not supersede the historical results below.
+Latest UserData status: the bounded [canonical selected-document result](debian-userdata-path-policy-canonical-evidence.json)
+passed independent transfer, protected admission, whole-root readback and exact
+teardown on 2026-10-01; its protected chains reopened again on 2026-10-03.
+Agent installation, DeploymentContent, Enrollment and first-boot completion remain
+pending. Historical results below retain their original meanings.
 
 Status: **DEBIAN CONTENT DEPLOYMENT FOUNDATION BLOCKED** (2026-09-28 continuation).
 The [configured-root artifact continuation](debian-configured-root-artifact.md)
@@ -1061,6 +1063,531 @@ and still complete transfer, admission, independent whole-root delta, durable
 handoff and exact canonical teardown. SelectedDocumentTreesV1 remains limited to
 32 MiB / 1,024 selected entries and the existing filename/metadata policy.
 No general Windows migration, first-boot, agent or production readiness follows.
+
+## UserData context and journal qualification — 2026-10-01
+
+Starting source checkpoint: `5e4ebe846b488d8609612d37665aaefd4d203c88`.
+The existing real `MountSession` constructor and namespace-local journal join
+were reused. The protected loader's existing verified-byte load sequence is now
+directly testable. A new rejection test exposed an extra-device stacked mount
+at `/lab-journal`; the validator now rejects that exact-path ambiguity as well
+as its existing same-device aliases, child mounts, altered flags and identities.
+See [this continuation's evidence](debian-userdata-context-qualification-evidence.json).
+
+The actual .NET context, protected loader order and constructor-to-transfer setup
+passed deterministic tests. Two small isolated native fixture passes were used.
+The first failed before formatting because its fixture serial exceeded the
+virtio transport's length; it remains retained. The corrected fresh fixture
+passed the real private-namespace EXT4 journal join and native alias rejection,
+with independently verified ordinary child and parent unmounts. Numeric mount
+IDs are observations, not an equality/inequality identity rule. Neither fixture
+grants canonical authority. All source and tool hashes were frozen before the
+positive canonical dispatch; no generator, copier or admission policy changed.
+
+Fresh capacity, protected predecessor/pin readiness, full copy verification,
+staging, inventory, ownership and journal placement passed. The unchanged
+wrong-operation guard reuses the earlier successful native negative; no new
+negative ran. Fresh attempt `af4fafdb-99ee-48b5-81de-e5708b36173a`, operation
+`f0843ad0-1bf3-4f27-b6ee-311f98fd1d5f`, session
+`b9e67721-bd99-48f7-bbba-ec908a2731e7` consumed the one positive allocation.
+
+Baseline passed, the actual `CanonicalContext` completed, Transfer intent was
+persisted, and the real selected-document producer ran. Its separate terminal
+chain records **AppliedAndVerified: four files, 131,130 bytes**, independently
+checking contents, account ownership, source preservation and unrelated home
+content. Exact raw producer records and its unadmitted receipt were independently
+reopened after failure. This is not protected input-store admission or a complete
+UserData session result.
+
+The enclosing Transfer effect ended **OutcomeUnknown** before its successful
+whole-root checkpoint. There is no Admission intent, final filesystem-delta
+result, canonical Unmount or Close. Independent `canonical_userdata_readback.verify`
+rejects the eleven session/four effect records with `UserDataIncompleteChains`.
+The original child error was not retained. A separate read-only probe of the
+actual persisted transfer plan confirms a deterministic mismatch:
+`Documents/résumé.txt` is valid SelectedDocumentTreesV1 input, but
+`configured_root.path_parts` rejects it with `UnsupportedPathEncoding` while
+`userdata_successor.compose_predecessor` calls the inherited complete-tree walker.
+This is a confirmed observer contract gap, not a recovered native traceback.
+No path restriction was relaxed and no second operation was dispatched.
+
+The partial target and journals remain powered off at
+`/var/lib/igloo/initramfs-helper-labs/af4fafdb99ee48b581dee5708b36173a/`.
+Protected raw exports are in `guest-evidence/`; `retention-result.json` binds the
+powered-off backings. The successful predecessor target, journal and runtime
+were fully rehashed unchanged. The preserved test object also matched. There
+is **no post-failure whole-root preservation claim** for the partial target.
+Runtime-namespace root/payload absence and ordinary provisioning-journal unmount
+were observed separately; normal runtime power-down is not canonical teardown.
+Earlier failed runs, reservations and their missing teardown evidence remain intact.
+
+Next implementation boundary: compose precisely the validated selected-path
+policy into successor filesystem observation while preserving the neutral
+artifact validator, and retain bounded observer failure codes. Prove that join
+with the actual .NET plan and fresh-process observer before any separately
+authorized fresh canonical attempt. Do not replay this operation. Protected
+admission, final whole-root readback, durable handoff and exact canonical teardown
+still need native qualification. The 32-MiB/1,024-entry scope, production gates,
+missing mandatory first-boot producers and all downstream restrictions are unchanged.
+
+### Selected-document path policy and canonical lab completion — 2026-10-01
+
+The successor whole-root observer now takes an exact, immutable set of selected
+destinations from the validated `SelectedDocumentTreesV1` transfer bytes. This
+allows the existing selection's `Documents/résumé.txt` spelling during complete
+filesystem traversal and its unchanged-complement comparison. The neutral
+artifact/import observer retains its strict default path policy. Missing,
+additional, substituted and incorrectly typed selected paths still fail. The
+four-file native fixture passed transfer, pre-admission whole-root observation,
+protected admission, post-admission observation and the real result consumer;
+its eleven mutation cases rejected unexpected content or metadata. This fixture
+never supplied canonical ownership authority.
+
+An intervening host shutdown interrupted provisioning attempt
+`047f64d6-8321-43d0-8b6f-8daaf6146c83`. Its external one-use reservation was
+independently reopened. Target and journal copy results exist, while its
+runtime copy is incomplete. It has no launch, dispatch or canonical result
+record. Its resources remain excluded from reuse. The separate interruption
+assessment is retained at
+`C:\igloo-lab-runtime\userdata-path-resumption-20261001\interruption-assessment.json`.
+
+Fresh authorized attempt `a1b883f4-179f-4846-b16b-9a91fb4bcf9d`, operation
+`6a079a17-5178-4feb-8826-c226ae73fa13`, and session
+`1d5c9ba5-c903-4585-b0d9-9f84484ec05f` consumed the verified successful
+initramfs predecessor. Its independent derivative and bounded FAT32 staging
+passed fresh trust, capacity, hash, ownership and journal checks. Canonical
+transfer copied four selected files, 131,130 bytes, into the authenticated
+`iglootest` home, including the original accented filename. The actual
+producer, fresh whole-root observers, protected admission and .NET consumer
+verified the exact selected content, numeric ownership, configured state,
+kernel/initramfs, packages and unchanged complement. The protected first-boot
+input store contains only the validated bounded UserData receipt and evidence.
+
+All eight effect records and eighteen session records independently reopened;
+the final Close is `00000017-6F6663700278F96FC8FC9FF1324CDC8FF32B3D5B1C579D2C0A6F23D9F16DD567.json`.
+Root and payload received ordinary exact canonical unmounts before Close. The
+provisioning journal unmount and normal runtime power-off were observed
+separately. The canonical dispatch completed on October 1; after the task
+interruption, the protected raw chains, independent host handoff and retained
+backings were reopened on October 3 without another transfer dispatch. The
+target and journals remain powered off at
+`/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d/`;
+its `userdata-retention.json` binds the resulting backings and protected raw
+records. See [the new execution evidence](debian-userdata-path-policy-canonical-evidence.json).
+
+This completes **only** the lab-authored `SelectedDocumentTreesV1` scope:
+32 MiB, 1,024 selected entries and the existing name/metadata policy. It is
+not Windows/NTFS or cloud acquisition, general profile migration, agent
+deployment, Enrollment or first-boot completion. `ProductionAuthentication`
+remains Unsupported; `NativeSupported` remains 0. Earlier failed runs and
+their unverified failure-path teardown remain unchanged.
+
+### First-boot input composition after bounded UserData qualification — 2026-10-03
+
+`DeploymentContent` is a required, generation-bound completion receipt in
+`DebianFirstBootEvidence` and the restricted Python worker. The worker checks
+its protected filename, exact byte hash and receipt envelope; it does not
+verify deployment content or produce a missing receipt. The existing detailed
+deployment contract requires an independently read-back ordered stage trace,
+package and installed-file evidence, installed agent identity, bootloader
+files, firmware finalization and preserved target evidence. No retained
+DeploymentContent producer/result chain establishes those requirements. The
+final `DebianInstallationReceipts.Assess` also requires first-boot success when
+first-boot work is planned, so using that *final* assessment as a prerequisite
+for the worker's DeploymentContent input would be circular. A later producer
+must define and prove its pre-first-boot content boundary explicitly; the
+current bounded UserData result cannot stand in for it.
+
+`DebianFirstBootEvidence.InspectLabSelectedDocuments` now composes the exact
+lab-only admitted UserData bytes with their declared initramfs predecessor,
+generation, operation and account binding. It uses the existing admission
+validator and returns only a read-only pending-input finding. The qualification
+harness's stdin bridge accepts independently reopened protected input bytes,
+then runs that same .NET composition. The read-only Python bridge first reopens
+the original protected import, configuration, initramfs and UserData chains, checks the
+predecessor result/Close join, and passes the actual retained receipt through
+the restricted worker's validator. Its ordinary-file test also exercises the
+worker's no-follow, owner and mode checks. The observed UserData receipt and
+bundle hashes match the protected admission result. This path issues no
+DeploymentContent receipt, creates no worker configuration or agent installation,
+and confers no current target-write authority.
+
+The next executable integration boundary is an independently observed agent
+installation and pre-first-boot deployment-content stage/boot evidence producer,
+with an exact protected DeploymentContent receipt. Enrollment remains a separate
+required producer. Stable worker and unit files can be staged independently;
+receipt-bound configuration, enablement and invocation require their inputs and
+separate authorization. The current first-boot outcome is pending, not a
+qualified service run. See
+[the composition evidence](debian-firstboot-input-composition-evidence.json).
+
+### Offline agent materialization fixture — 2026-10-03
+
+The stable worker payload and exact restricted systemd unit can be materialized
+before future receipt hashes exist. `DebianAgentProfiles.DeclareOfflineStage`
+defines a distinct **fixture-only** `StagedInputsPending` state: the root-owned
+0644 `/usr/lib/igloo/debian-agent.py` and
+`/etc/systemd/system/igloo-deployment.service` are present and independently
+read back, while `/etc/igloo/deployment.json` and the enable link are absent.
+The stage binds generation, operation, target-root identifier, exact embedded
+payload, unit bytes and source identities. It does not satisfy the existing
+v1 `InstalledFirstBootPending` profile or authorize service execution.
+
+The dependency order is stable worker/unit materialization and readback;
+independently verified pre-first-boot deployment-content and Enrollment
+producers; final receipt-bound configuration; exact enable-link publication;
+then separately authorized service execution and observation. The eventual
+DeploymentContent producer may use stable installed-file evidence without
+requiring the hash of the future configuration that will consume its receipt.
+This does not relax DeploymentContent's agent, boot, firmware or ordered-stage
+requirements. Canonical stage authority, final configuration binding,
+enablement and effective runtime isolation remain unimplemented and unqualified.
+
+One small native fixture pass used the actual .NET generated stage, protected
+create-new files, durable intent/result records and a separate-process
+whole-tree observer. It passed exact worker/unit readback and unchanged
+sentinels, with configuration and enablement still absent. Five focused Python
+tests and the 460-test Migration suite passed. No canonical target was derived
+or mounted; no worker or systemd manager ran. See
+[the offline-stage evidence](debian-offline-agent-stage-evidence.json).
+
+### Canonical offline-agent successor work — 2026-10-03
+
+The current source adds a closed lab-only stage declaration and independent
+configured-plus-initramfs-plus-UserData baseline/delta observer. The accepted
+worker and unit bytes remain the intended two outputs. The observer retains
+the selected-document path policy, including `Documents/résumé.txt`, and
+requires configuration and enablement to remain absent. A read-only reopener
+checks the successful UserData effect and session chains, protected admission,
+package observation and exact Close. A source-level test exercises the actual
+.NET stage packet and a complete small filesystem walk; it does not confer
+canonical authority.
+
+The host capacity gate currently rejects a new derivative: 163645120512 bytes
+available versus the unchanged 193273528320-byte requirement at the latest
+measurement. The successful UserData run's retained host directory also has a
+UID-1000 ancestor, so the existing protected-path verifier rejects it. A
+root-owned byte-identical diagnostic copy passed the read-only chain parser,
+but that copy is not a replacement for protected original-path authority.
+The retained external pin has a complete schema and its recorded time window
+is open at inspection time, but full protected-path authentication was not
+established. The earlier 4-of-36 tool-path probe was made in WSL: 31 declared
+paths belong to the guest's `/opt/igloo-userdata-canonical`, so that result
+does not show guest tools were removed or corrupted. A future native closure
+must still be freshly staged and verified in its actual execution context.
+The canonical MountSession dispatch, protected loader, durable stage result,
+whole-root handoff and Close integration are still implementation work. No new
+reservation, negative native case, positive canonical operation or fixture
+acceptance invocation occurred in this continuation. The successful UserData
+target remains untouched. See
+[the canonical-stage work evidence](debian-agent-stage-canonical-evidence.json).
+
+### Offline-agent canonical source integration and custody boundary — 2026-10-03
+
+The current uncommitted source connects the lab-only offline stage to the
+existing `DebianMountSessionAuthority` and `DebianNativeMountSession` action,
+the protected Python loader and real `MountSession`, the qualified create-new
+worker/unit publisher, a separate-process configured-plus-initramfs-plus-UserData
+whole-root observer, durable effect/session checkpoints, and a strict
+`DebianVerifiedAgentStage.Reopen` result/Unmount/Close reader. The publisher
+adds only `/usr/lib/igloo`, the worker and the restricted unit. Configuration,
+enablement, worker execution and `DeploymentContent` remain absent. The .NET
+runtime closure now requires the agent modules and all their predecessor
+dependencies when this stage is requested. Source-level loader/control-flow
+tests use explicit synthetic native effects; the earlier accepted ordinary-file
+publisher fixture remains separate evidence. No new canonical or native
+acceptance invocation occurred.
+
+The original host export at
+`/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d/`
+has a **UID/GID 1000:1000, mode 0755 run directory** (ext4 device:inode
+`2096:105926`). Its root-owned `guest-evidence` child does not repair that
+ancestor. The existing no-follow protected-path reader correctly rejects the
+run directory. The storage provisioner deliberately changed it to the
+unprivileged QEMU account so that the VM could open its backings. Earlier
+successful readback ran in the guest against its journal and execution paths;
+the newer reader instead treats the host export as a protected authority
+store. Root-owned copied bytes passed chain parsing, but no independently
+protected original terminal authority was established. The external
+authorization/reservation binds the attempt, not the successful terminal
+result. Historical paths under guest `/opt/igloo-userdata-canonical` cannot
+be judged by probing that pathname in WSL.
+
+The source-level stage is therefore **not native-qualified or currently
+dispatchable**. A narrow, independently authenticated acquisition of the
+original guest terminal records and their external result/Close anchors is
+needed before the new operation can be reserved. No host directory permissions
+were changed and the diagnostic copy is not authority. The current one-time
+host capacity observation is also below the unchanged 180-GiB provisioning
+threshold. See [the new source/provenance report](debian-agent-stage-source-integration-evidence.json).
+
+### UserData protected completion handoff and offline-agent derivative — 2026-10-03
+
+The future-successor path now has an explicit protected completion store,
+separate from the UID-1000 QEMU run directory. `canonical_userdata_completion`
+requires a separately protected terminal anchor and the external one-use
+agent-stage authorization, then reopens the original raw UserData records,
+independently validates the terminal effect and exact Unmount/Close chains,
+and publishes exact bytes create-new with file/directory flush and readback.
+The anchor binds result, Close, retention, generation, operation, session,
+source run, target/journal identities and an exact raw-file inventory. The
+publisher cannot mint its own anchor from a QEMU export. Failed publication
+remains partial and cannot be replayed as a successful handoff.
+
+`canonical_storage_lab.create` now invokes this read-only join before run
+creation, reservation, copying or launch; its new agent-stage branch then uses
+the existing independent-copy primitive and stages the verified raw completion
+and authorization into the protected tools input. The .NET canonical entry
+requires that completion envelope before reopening the UserData predecessor.
+The older parser-only readiness command remains non-authorizing. Synthetic
+tests exercised the actual retained record parser, protected handoff publisher,
+Python provisioner preflight and current .NET completion reader; the test
+anchor was deliberately generated from an untrusted export and has **fixture
+scope only**. No new native stage or full-disk copy was run.
+
+The historical `a1b883f4-179f-4846-b16b-9a91fb4bcf9d` export remains
+blocked: its protected external authorization and reservation precede, and do
+not independently anchor, the later UserData result and Close. The new code
+cannot retrospectively establish that custody. A future run needs an
+independently captured, protected terminal anchor from the trusted live guest
+verifier and a protected acquisition of its raw records, followed by a new
+external one-use agent-stage authorization. The trusted live guest-to-host
+acquisition/call site has not itself been exercised or qualified; copying this
+old export into a root-owned directory is still insufficient. The existing
+capacity, development-pin, ownership, journal and native budgets remain gates
+for a separately authorized run. See
+[the handoff implementation record](debian-userdata-trusted-completion-handoff-evidence.json).
+
+### Live UserData completion acquisition for a future run — 2026-10-03
+
+The missing producer is now connected in source. A **new** UserData launch
+records its exact QEMU arguments, tool-image hash, backing identities and
+authorization digest in a root-protected witness outside the UID-1000 run
+directory; a second protected witness binds the process ID and start time.
+The host receiver and its exact Python dependency closure are copied create-new
+into that protected authorization directory, hashed in a manifest bound by the
+launch witness, and loaded with Python isolated mode after no-follow ownership
+and byte checks. Mutable checkout modules are not read at live dispatch.
+`canonical_userdata_acquisition.receive_live` checks those witnesses against
+the current process arguments, open backing descriptors and UNIX console peer.
+It sends only the fixed `--execute-and-capture` command and a fresh challenge
+on that run's existing serial channel. The guest's real `execute` path must
+finish with exit zero; `capture_completed` then independently reopens all
+UserData effects and exact Unmount/Close records, checks the preserved volume,
+retains the journals and ordinarily unmounts the provisioning journal. It
+emits a bounded, fixed-kind, exact-byte frame. The host independently verifies
+its terminal chains and stores raw records as `PendingBackingReadback` in a
+root-protected completion directory. Guest-supplied paths never select host
+destinations, and a saved console transcript is not accepted as acquisition.
+
+After the guest has stopped, `finalize_retention` checks process absence,
+open descriptors, backing identity, link count, timestamps and complete
+backing hashes before writing the retention record and a **v2 live anchor as
+an output**. The separate agent-stage authorization still nominates the later
+operation and exact result/Close/backing digests. The existing protected
+publisher copies the captured raw bytes and anchor create-new; Python and
+.NET effect preflight require the v2 capture binding. The old v1 synthetic
+anchor remains parser-fixture evidence and cannot authorize an agent-stage
+derivative. Any interrupted pending capture or publication is incomplete and
+cannot be replayed into success. Canonical Close, VM shutdown, capture and
+retention remain separate observations.
+
+Process-level socket and ordinary-file tests passed, including a fixture-only
+terminal chain reused to exercise the finalizer, publisher and provisioner
+join. No QEMU guest was launched for this acquisition task; native live
+channel qualification remains pending. The earlier `a1b883f4` UserData export
+cannot gain historical custody from this code. The nominated `c5dc04e9`
+initramfs predecessor also has only authorization/reservation in its
+root-protected directory, while its exported run directory is UID 1000.
+The current successor trust rule therefore still needs an independently
+captured initramfs result/Close and backing anchor, or a separately approved
+trust decision, before a fresh UserData derivative can be authorized. See
+[the acquisition evidence](debian-userdata-live-acquisition-evidence.json).
+
+### Bounded live-channel fixture and Linux reader — 2026-10-03
+
+A small fixture adapter now boots a verified retained lab runtime through a
+fresh QCOW2 overlay, with one 64-MiB scratch disk and a read-only tools ISO.
+It never attaches a migration target or journal. The ISO carries the current
+guest framing module and explicitly labelled historical **codec** records;
+transmitting those records cannot create historical custody. The protected
+host closure, QEMU process/start-time witness, exact command line, open backing
+descriptors, serial peer PID and per-run challenge are checked by the same
+acquisition transport. Fixture output is restricted to a protected fixture
+store and a v1 read-only parser path; the agent-stage effect path still
+requires a canonical v2 live anchor.
+
+The two authorized QEMU invocations were consumed without a complete accepted
+capture. Pass 1 reached the guest console, then exposed a real Linux credential
+join: QEMU creates the serial listener as root before `-runas` changes its
+current UID to 1000. The receiver now accepts only that exact root-created,
+unprivileged QEMU case after PID, start-time, command and FD validation. Pass 2
+passed that join, but `read_controlled_channel` stopped on the shell's echo of
+`IGLOO_CAPTURE_EXIT:$?` before the actual frame's terminal line. A later
+diagnostic connection observed an END marker and zero-exit line, but missed
+the frame beginning; it is **not** an accepted capture. The receiver now waits
+for an exact zero-exit line, with focused regression coverage. This final
+correction has not had a live acceptance pass. Both failed fixture resources
+and their consumed budget records are retained. Neither is a canonical
+UserData result or an exact canonical teardown. The independent Linux .NET
+8.0.20 reader did execute against a protected ordinary-file fixture and
+returned `Readiness=Passed`, `EffectAuthorization=false`; no live-captured
+handoff reached it. [The new evidence](debian-userdata-live-qemu-evidence.json)
+records the exact inputs, observed failures and current revision boundary.
+
+The nominated lineage has a finite checkpoint to review, without granting
+new authority to the unanchored successors:
+
+| Nominated input | Historical execution | Present observation in this task | Current successor authority |
+| --- | --- | --- | --- |
+| `c5dc04e9` initramfs | Successful published image and Close in the retained summary | Root-protected authorization and reservation exist; full backing hashes were not repeated | Missing independently protected terminal result/Close and backing anchor |
+| `60068939` configuration | Successful v5 configuration and Close | UID-1000 run directory observed; no fresh full backing hash | No new independently protected successor completion established here |
+| `import-daa72a8f-20260929` checkpoint | Successful import with exact Close; configuration ancestry names it | Root-owned 0700 checkpoint, 0400 single-link target/journal, and result bytes hash to `518AF140…`; disk bytes were not rehashed | Protected checkpoint result is a finite candidate, pending fresh complete byte/chain verification and an explicit trust decision for a new lineage |
+| Authenticated artifact/chunks | Original descriptor, manifest and five chunk hashes were verified in the import campaign | No fresh chunk-byte campaign here | Original artifact acceptance remains historical; fresh acquisition/authentication is required for a new lineage |
+
+No nominated configured/initramfs successor was established as currently
+admissible. A later authorized run must either start a fresh lineage from an
+independently authenticated artifact or obtain a separately approved,
+present-day checkpoint revalidation/trust decision. Revalidation can establish
+the checkpoint's **current** bytes, ownership and chains; it cannot prove
+unrecorded historical custody of the later UID-1000 exports. The 180-GiB
+full-derivative gate, production rejection and all earlier outcomes remain
+unchanged.
+
+### Bounded live-channel framing continuation — 2026-10-03
+
+The receiver now parses bounded lines across socket reads and requires the
+nominated current unprivileged QEMU UID as well as the exact PID/start-time
+join. Focused tests passed for echoed commands, fragmented CR/LF, trailing
+output, nonzero exit, timeout and a still-root peer. The guest emitter now
+starts the frame on a separate line and uses shorter DATA lines. The two
+**new** authorized live passes were consumed, separate from the earlier 2/2
+campaign. Pass 1 rejected a DATA line with `CaptureUnexpectedData` before
+protected pending custody; its failed conjunct and original serial line were
+not retained. Pass 2 ran the corrected guest and receiver but rejected a
+protocol-prefixed line with `CaptureUnknownRecord`. No complete frame was
+accepted, and the Linux .NET reader did not run on live-captured records.
+
+At the last observation, pass-2 QEMU remained active despite separate-channel
+ordinary poweroff requests; its writable overlay and scratch backings remain
+open. The live budget is exhausted. A later run needs separate authorization,
+bounded protocol-state diagnostics and a supported disposition for that
+writer. After the failed pass, source-level tests added exact handling for a
+wrapped literal shell echo, bounded unknown-record state, and the observed
+post-capture QCOW2 length-growth case while preserving device/inode identity.
+These later changes have **not** run in a guest and are not a successful live
+capture. The protected import
+checkpoint remains the previously identified finite candidate for a
+separately approved real lineage. [Continuation evidence](debian-userdata-live-qemu-framing-evidence.json)
+keeps these failures distinct from canonical UserData completion.
+
+### Live fixture writer disposition and raw receive diagnostics — 2026-10-03
+
+The outstanding `21f57f2a` QEMU writer was reidentified from its protected
+launch/process records, current PID/start time, exact arguments, unprivileged
+identity and open scratch-only descriptors. A bounded ordinary `poweroff`
+request did not establish guest shutdown. The exact process was then sent
+SIGTERM through a revalidated pidfd. Its exit, writer exclusion, final fixture
+backing identities and unchanged read-only runtime source were observed. This
+is **host-controlled termination**, not guest shutdown or canonical Close.
+
+The sole receiver now retains bounded, create-new protected incoming bytes
+before decoding, a bounded rejected-line record, parser offsets/state,
+chunk timing, terminal markers and executed identities. These records are
+untrusted diagnostics and cannot authorize completion. Process/socket and
+pseudo-terminal tests, including an exact replay of the first new live
+failure's raw bytes, passed. The replay exposed the cost of fsync on every
+receive chunk; the protected diagnostic writer now syncs at bounded byte
+intervals and at completion.
+
+Two separately authorized **new** live QEMU passes were consumed. Pass 1
+timed out after BEGIN and 8,459 complete DATA lines, without END or terminal
+exit. After the diagnosed diagnostic-write correction and focused tests,
+pass 2 also timed out at its 120-second fixture deadline. Its exact protected
+prefix parsed without a malformed record: 6,176,768 of the declared
+11,254,128 Base64 body bytes had arrived, in 5,707,411 mostly tiny socket
+receives; END and terminal exit had not arrived. This establishes a bounded
+transport/deadline failure, not a newly proven cause for the older
+`CaptureUnexpectedData` or `CaptureUnknownRecord` failures. Both new guests
+were host-terminated after bounded normal shutdown requests failed; both
+writers are excluded and the runtime source is unchanged.
+
+Neither pass produced a complete capture, protected fixture publication or
+Linux .NET readback on newly captured records. The old ordinary-file reader
+test remains distinct. The live budget is exhausted; another invocation
+requires separate authorization and a measured correction for the current
+one-byte-heavy serial transfer/deadline, with focused regression coverage.
+No canonical UserData or agent-stage allocation was consumed. The earlier
+protected import-checkpoint starting-point decision is unchanged. [The new
+diagnostic evidence](debian-userdata-live-qemu-diagnostics-evidence.json)
+references protected raw observations without publishing console bytes.
+
+### Full-size live fixture capture and Linux reader — 2026-10-03
+
+The protected 120-second trace showed a steadily progressing 11,254,128-byte
+Base64 body delivered mostly in tiny serial reads. The receiver now avoids
+repeated partial-line scans/copies, batches its bounded protected diagnostic
+stream, and samples chunk timing without making millions of metadata objects.
+Its diagnostic fsync policy is 1 MiB or one second, plus completion. The
+fixture-only absolute capture ceiling is 360 seconds, derived from the
+observed approximately 219-second body extrapolation with explicit margin.
+Separate boot, BEGIN, valid-progress and terminal-status bounds remain in
+force; the canonical execution deadline is unchanged.
+
+The complete 8,440,594-byte fixture packet passed the actual emitter,
+receiver and diagnostic path under one-byte, coalesced and simulated-slow
+delivery. The one-byte local regression processed 11,397,319 wire bytes in
+about 11 seconds with 180 diagnostic writes; the 222-second simulated stream
+also completed. Focused tests passed, including distinct deadline failures,
+real peer/PTY tests, and normal versus host-controlled lifecycle fixtures.
+
+Two new small QEMU passes were consumed. Pass 1 accepted a complete frame
+in 249 seconds and independently reopened the fixture terminal chain, but
+its adapter closed the serial connection after requesting `poweroff` and
+treated the unverified 30-second shutdown as a terminal failure. Its exact
+failure, accepted capture and writer exclusion are retained. The corrected
+adapter keeps the sole connection open for bounded shutdown observation. It
+then uses a PID/start/FD-revalidated pidfd SIGTERM request when normal exit
+is unverified, preserving that distinction before final backing readback.
+
+Pass 2 accepted the complete real-guest frame in 247 seconds, verified all
+11,254,128 body bytes, END and zero exit, reopened the eight effect and
+eighteen session codec records, published the protected fixture store and
+independently reopened its exact raw bytes and anchor. The authenticated
+Linux .NET 8.0.20 reader ran on **those newly captured records** and returned
+`Readiness=Passed`, `EffectAuthorization=false`. The effectful agent-stage
+entrypoint rejected fixture provenance at `ProtectedPredecessor` before any
+effect. The read-only runtime source remained byte-identical; both new QEMU
+writers exited and their scratch/overlay identities were retained.
+
+Normal guest shutdown was **not** verified in either pass. The second pass
+retained bounded console diagnostics, requested targeted SIGTERM after the
+normal wait, then established process exit and writer exclusion. Exit code
+zero does not retroactively prove that `poweroff` completed before the signal.
+This is live fixture capture-to-reader qualification, not canonical UserData
+completion, historical custody, clean guest shutdown or canonical Close.
+The prior protected import-checkpoint starting-point decision is unchanged.
+
+### Nominated import checkpoint present-day read-only assessment — 2026-10-04
+
+The only nominated checkpoint, `import-daa72a8f-20260929`, remains a **candidate**, not an accepted new lab input. Its root-protected original-path records and single-link, read-only 40-GiB target and 8-GiB journal were inspected without a current writer or attachment. Complete current backing hashes matched the checkpoint bindings. The protected development pin was still valid, and the retained descriptor, transport, manifest and all five content chunks passed the existing authenticated per-file source verifier. The historical guest export's 1,823 import and 18 session records passed the independent chain reader, including its import terminal and exact Close references; that export parse alone is not direct present-day journal-filesystem verification or a new custody anchor.
+
+One private read-only `noload` filesystem inspection session ended before its observers: the inspection script required `findmnt` to display both `ro` and `noload` for the journal mount, and its combined assertion failed. The exact failed predicate was not retained. The journal mount was ordinarily unmounted; the target was never mounted. The scratch directory was removed, and no nominated writer or attachment remained. The complete current root, package, neutral-state and direct journal observations are therefore **incomplete**. A create-new root-protected **pending** assessment was fsynced and independently reopened at `/var/lib/igloo/import-checkpoint-assessment-daa72a8f-20261004/assessment.json`; it is not an acceptance or effect authorization. No protected successful acceptance record was issued. [The new public summary](debian-import-checkpoint-present-day-evidence.json) records measured hashes, this precise stop and the unchanged historical-custody limit.
+
+At this earlier assessment, the finite later path first needed an explicitly accepted current import input, followed by a freshly authorized configuration continuation through `ContinueLabCheckpoint` / `--configure-derived-lab`, fresh initramfs and UserData successors, and canonical agent staging. That pending assessment did not authorize those phases. The current protected live completion publisher and agent-stage preflight are specifically `TrustedLiveUserDataTerminalV2`; no corresponding configuration or initramfs trusted host-acquisition adapter was identified in the scoped implementation review. Their existing result-chain readers do not by themselves supply that successor-input custody. The single Windows capacity observation for a later full derivative was 137,106,751,488 bytes available against the unchanged 193,273,528,320-byte gate, a 56,166,776,832-byte shortfall.
+[Execution evidence](debian-userdata-live-qemu-throughput-evidence.json)
+references protected diagnostics and records without adding raw console bytes
+to Git.
+
+### Nominated import checkpoint accepted as a present-day lab input — 2026-10-04
+
+The newly authorized **read-only** inspection completed the previously missing boundary for the exact `import-daa72a8f-20260929` checkpoint. A small disposable EXT4 mount first showed that the kernel records requested `noload` as `norecovery` in mount super-options. The corrected observer requires a private namespace, exact loop source/offset/size and device, read-only loop and EXT4 mount, `norecovery`, exact mount root, and no child, stacked or alias mount. Focused rejection tests and the real small fixture passed before the one checkpoint session.
+
+The checkpoint files retained their previously fully hashed identities and timestamps, so the 40-GiB target and 8-GiB journal were not rehashed again. Current protected checkpoint bytes, externally pinned development artifact inputs, pin validity and activity checks passed. The present-day journal filesystem was attached read-only with journal replay disabled; its **actual mounted records**, not the historical host export, passed the 1,823-record import and 18-record session chain reader, terminal import result and exact historical Unmount/Close checks. Only then was the root attached read-only. The existing complete observer matched all 144,911 manifest entries, 1,594 configured packages and neutral imported state. The target and journal inspection mounts were ordinarily unmounted in reverse order; fresh host-context checks found no writer or loop attachment and the checkpoint identities unchanged. Inspection teardown is a new observation, not a new canonical Close.
+
+The protected observation store at `/var/lib/igloo/import-checkpoint-inspection-20261004-v2/` was independently reopened. A separate create-new, root-protected `PresentDayReadOnlyImportCheckpointLabInput` record at `/var/lib/igloo/import-checkpoint-acceptance-daa72a8f-20261004-v1/acceptance.json` was independently reopened with SHA-256 `2516C1D52CE0882FF9F6F11825D8B186303A01AC8268610D81ED7A218D81C369`. It accepts **only this verified current checkpoint state** as a development-lab starting input under the user's conditional approval. It neither proves historical custody of later UID-1000 exports nor grants a one-use configuration authorization or permission to write the checkpoint.
+
+A later separately authorized lineage can use `ContinueLabCheckpoint` through `--configure-derived-lab` with the protected predecessor, continuation, runtime, journals, current external pin and a new external one-use authorization. The existing configuration and initramfs readers verify result chains, but stage-specific trusted host completion-capture/admission adapters are still needed before each can authorize its successor; `TrustedLiveUserDataTerminalV2` is UserData-specific. No phase was executed here. Windows had 146,186,768,384 bytes available against the unchanged 193,273,528,320-byte full-derivative gate, a 47,086,759,936-byte shortfall. [The new acceptance evidence](debian-import-checkpoint-present-day-acceptance-evidence.json) gives the protected raw references and exact scope.
 
 ### Configuration/initramfs closed host lifecycle source join — 2026-10-12
 

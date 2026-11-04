@@ -1,0 +1,90 @@
+{
+  "SchemaVersion": 1,
+  "Scope": "ReadOnlyLabFirstBootInputComposition",
+  "DateUtc": "2026-10-03",
+  "StartingHead": "5e4ebe846b488d8609612d37665aaefd4d203c88",
+  "CanonicalOperationsCreated": 0,
+  "TargetImagesMountedOrModified": false,
+  "GuestWorkspaceAvailableBytesAtStart": 576656146432,
+  "DeploymentContentReceiptProduced": false,
+  "FirstBootWorkerInvoked": false,
+  "ProtectedInputs": {
+    "ImportRun": "daa72a8f-914a-4574-92ef-4d39ffb0c1e1",
+    "ImportEvidence": "/var/lib/igloo/canonical-labs/daa72a8f914a457492ef4d39ffb0c1e1/guest-evidence",
+    "ImportRecordsReopened": 1823,
+    "ImportSessionRecordsReopened": 18,
+    "ImportResultSha256": "A18E09649CD6E97EE8257EBF46F74CD0FFBF3A19E6EB49EDEF358133B2CEDDE9",
+    "ImportCloseSha256": "F102D92819EC0D42C6DEA88C475583E2707C2B65214BA610B2FFC1AF6164817A",
+    "ConfigurationRun": "60068939-1509-4b7c-99da-560446fbbc53",
+    "ConfigurationEvidence": "/var/lib/igloo/canonical-labs/6006893915094b7c99da560446fbbc53/guest-evidence",
+    "ConfigurationEffectRecordsReopened": 20,
+    "ConfigurationSessionRecordsReopened": 18,
+    "ConfigurationResultSha256": "54EC121627C7D45BCCB47621CFD6C05F1C22C91E0C17241ED2329F9D0DD6443D",
+    "ConfigurationCloseSha256": "D21FE8A94119D47270A91CED0962F6CF6637ADAE0C0825F453CC9AFAEF964001",
+    "InitramfsRun": "c5dc04e9-18f6-4b78-b60a-2346e2d70000",
+    "InitramfsEvidence": "/var/lib/igloo/initramfs-helper-labs/c5dc04e918f64b78b60a2346e2d70000/guest-evidence",
+    "InitramfsEffectRecordsReopened": 10,
+    "InitramfsSessionRecordsReopened": 18,
+    "InitramfsResultSha256": "9F380583A49B1A6F44E42B2D40692745C477D97A959E3C82CE842C317927F0B8",
+    "InitramfsCloseSha256": "F0CB1447C24AF09EBC1A178E29E692AAB36C8AED0AAE130CE2A16CD23F8446F3",
+    "UserDataRun": "a1b883f4-179f-4846-b16b-9a91fb4bcf9d",
+    "UserDataOperation": "6a079a17-5178-4feb-8826-c226ae73fa13",
+    "UserDataEvidence": "/var/lib/igloo/initramfs-helper-labs/a1b883f4179f4846b16b9a91fb4bcf9d/guest-evidence",
+    "UserDataEffectRecordsReopened": 8,
+    "UserDataSessionRecordsReopened": 18,
+    "UserDataResultSha256": "DA59655DBA6BB524BBA288F34D333A3A74E6E1E128A2DAC97C4831E26C3BFBBF",
+    "UserDataCloseSha256": "6F6663700278F96FC8FC9FF1324CDC8FF32B3D5B1C579D2C0A6F23D9F16DD567",
+    "AdmittedReceiptSha256": "C0A57DC157A719F1B4D3389ED35DE5C0356ABD6E88F0D49080DB60C043A5406B",
+    "AdmittedEvidenceSha256": "FC004C13CB09DC0600069C438464910869E41FCF49A11B67C7E48827B08EF24B",
+    "OriginalProtectedChains": "IndependentlyReopenedAndJoined",
+    "ActualPythonReceiptValidator": "Passed"
+  },
+  "Composition": {
+    "ActualDotNetConsumer": "PendingRequiredProducers",
+    "OperationAndGenerationBinding": "Passed",
+    "InitramfsResultAndCloseBinding": "Passed",
+    "SelectedDocumentAdmissionStructure": "Passed",
+    "SubstitutedInitramfsResult": "Rejected",
+    "CompletionReceiptProduced": false,
+    "MissingRequirements": [
+      "DeploymentContentStageTraceAndReadback",
+      "AgentInstallationAndReadback",
+      "BootloaderAndFirmwareFinalization",
+      "EnrollmentProducer"
+    ],
+    "FinalInstallationAssessmentIsCircularAsWorkerInput": true
+  },
+  "TestedSourceSha256": {
+    "DebianFirstBootEvidenceCs": "CA39F750B73FC583F1B31002E94A4778F53881AF6A1F868412854934D68C0276",
+    "HarnessProgramCs": "53A974BFDD00C9925A7E266092816593F4C04D99D20F8C6766AA956531EEC07E",
+    "RetainedInputBridgePy": "57B89AD74D0E57B976E73C6AF2366EC93DA3DF5632D95F5E361D1B60B9C203EC",
+    "CompositionTestsPy": "4DA4581DF22E3EC898CF0F465EA1AAA392D7A978F6D59FEB2B6451DABC52AC9F"
+  },
+  "BuiltBinarySha256": {
+    "CanonicalQualificationDll": "1C02CAF6D4DF918E613A929C570322DFA68FEF4A9DBF6EA3377630FE7A0B090E",
+    "DebianDistroDll": "2A5F78C37DB8717E69716A0CAC081FB78823A41B228910EE93070A4AAA4272CE"
+  },
+  "Validation": {
+    "MigrationDotNetTests": "459Passed",
+    "ExistingPythonFirstBootTests": "31Passed",
+    "RetainedChainAndOrdinaryFileFixtureTests": "3PassedPerInvocation",
+    "PythonCompositionModuleInvocations": 4,
+    "OrdinaryFileReaderFixtureInvocations": 4,
+    "DeploymentContentProducerPublicationFixturePasses": 0,
+    "ActualPythonToDotNetRetainedBytes": "Passed",
+    "SubstitutedDotNetInput": "Rejected",
+    "UnknownOuterField": "Rejected",
+    "ChangedAdmittedReceiptBytes": "Rejected",
+    "DeploymentContentPublicationFailureAndReplayTests": "NotApplicableNoAuthorizedProducerOrReceipt",
+    "CompleteFirstBootOutcome": "Pending"
+  },
+  "Limits": {
+    "LabSelectedDocumentBytes": 33554432,
+    "LabSelectedEntries": 1024,
+    "ProductionAuthentication": "Unsupported",
+    "NativeSupported": 0,
+    "TargetBoot": "NotPerformed",
+    "AgentInstallation": "NotPerformed",
+    "Enrollment": "NotPerformed"
+  }
+}
