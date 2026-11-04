@@ -96,7 +96,7 @@ public sealed partial class DirectInstallService
             var saved = document.RootElement.Deserialize<SeedIdentityV1>(ExistingSeedJson);
             if (saved is null || saved.Version != 1 || saved.DiskGuid != target.Disk.GptDiskGuid ||
                 saved.PartitionGuid != target.PartitionGuid || saved.Files is null ||
-                saved.Files.Count is < 4 or > 10_256 ||
+                saved.Files.Count is < 4 or > 1_000_256 ||
                 saved.Files.Any(file => file is null || string.IsNullOrEmpty(file.Path) ||
                     file.Sha256 is not { Length: 64 } || !file.Sha256.All(Uri.IsHexDigit)) ||
                 saved.Files.Select(file => file.Path).Distinct(StringComparer.OrdinalIgnoreCase).Count() != saved.Files.Count ||

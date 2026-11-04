@@ -760,6 +760,10 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
                 throw ExistingSeedOwnershipUnavailable();
 
             var partition = matches[0].Number.Value;
+            // A volume that fails target admission (protected partition, wrong type,
+            // not FAT32) stops the run; only content failures below make it disposable.
+            _ = RequireReusableSeedTarget(observed, checked((uint)diskNumber), partition, letter,
+                _bootSpec.VolumeLabel);
             CanonicalVolumeIdentityV1 identity;
             try
             {
@@ -789,7 +793,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
     // iGloo's own seed volumes carry the seed identity file and the boot directory;
     // a vendor's OEMDRV driver disk carries neither.
-    private static bool IsIglooSeedVolume(string root) =>
+    internal static bool IsIglooSeedVolume(string root) =>
         File.Exists(Path.Join(root, SeedIdentityWriter.FileName)) ||
         File.Exists(Path.Join(root, SeedReuseReceiptFileName)) ||
         Directory.Exists(Path.Join(root, BootDir));
