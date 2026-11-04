@@ -59,4 +59,10 @@ internal static partial class NativeMethods
         int nNumberOfBytesToWrite,
         out int lpNumberOfBytesWritten,
         nint lpOverlapped);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GetVolumeNameForVolumeMountPointW",
+        StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetVolumeNameForVolumeMountPoint(
+        string mountPoint, [Out] char[] volumeName, uint capacity);
 }

@@ -15,6 +15,7 @@ public sealed partial class UsbWriterService
 
     private Task PatchGrubConfigAsync(
         UsbDriveInfo drive,
+        bool unattendedKickstart,
         IProgress<UsbWriteProgress>? progress)
     {
         progress?.Report(new UsbWriteProgress(UsbWritePhase.PatchingGrub, 0, 0, null));
@@ -34,6 +35,8 @@ public sealed partial class UsbWriterService
         {
             using var invalid = handle;
             var err = Marshal.GetLastWin32Error();
+            if (unattendedKickstart)
+                throw new IOException($"Cannot bind the Fedora installer boot menu to kickstart (Win32 error {err}).");
             _logger.LogWarning(
                 "GRUB patch - cannot open {Dev} (Win32 {Err})", drive.DeviceId, err);
             progress?.Report(new UsbWriteProgress(
@@ -53,7 +56,8 @@ public sealed partial class UsbWriterService
             {
                 _logger.LogInformation(
                     "GRUB patch - EFI partition at LBA {L}, patching via raw FAT32", efiLba);
-                PatchGrubCfgsOnFatVolume(handle, efiLba, patchedPaths, skippedPaths);
+                PatchGrubCfgsOnFatVolume(handle, efiLba, unattendedKickstart,
+                    patchedPaths, skippedPaths);
             }
             else
             {
@@ -62,13 +66,27 @@ public sealed partial class UsbWriterService
             }
 
             //   Path 2: ISO9660 (BIOS/legacy boot)              ─
-            PatchIso9660GrubCfg(handle, patchedPaths, skippedPaths);
+            try
+            {
+                PatchIso9660GrubCfg(handle, unattendedKickstart, patchedPaths, skippedPaths);
+            }
+            catch (InvalidDataException ex) when (unattendedKickstart)
+            {
+                _logger.LogInformation(ex, "The optional legacy BIOS installer menu could not be bound");
+                skippedPaths.Add("/boot/grub2/grub.cfg (unsupported legacy menu)");
+            }
         }
+
+        if (unattendedKickstart && !patchedPaths.Contains("efi/boot/grub.cfg", StringComparer.Ordinal))
+            throw new InvalidOperationException(
+                "The Fedora EFI installer boot entry could not be bound to kickstart.");
 
         // Build a human-readable summary for the UI.
         string note = patchedPaths.Count > 0
             ? $"✓ GRUB boot parameters applied ({string.Join(", ", patchedPaths)}).\n" +
-              "nomodeset added; rd.live.check removed - media check will be skipped."
+              (unattendedKickstart
+                  ? "Fedora's install entry now loads the staged kickstart; media check is skipped."
+                  : "nomodeset added; rd.live.check removed - media check will be skipped.")
             : $"⚠ No grub.cfg files were modified ({string.Join("; ", skippedPaths)}).\n" +
               "You may need to remove 'rd.live.check' manually at the GRUB prompt.";
 
@@ -136,6 +154,7 @@ public sealed partial class UsbWriterService
     private void PatchGrubCfgsOnFatVolume(
         SafeFileHandle disk,
         long partLba,
+        bool unattendedKickstart,
         List<string> patchedPaths,
         List<string> skippedPaths)
     {
@@ -275,7 +294,8 @@ public sealed partial class UsbWriterService
             }
 
             var text = Encoding.UTF8.GetString(data);
-            var patched = PatchGrubCfgContent(text);
+            var patched = PatchGrubCfgContent(text,
+                unattendedKickstart && label == "efi/boot/grub.cfg");
 
             if (patched == text)
             {
@@ -303,13 +323,18 @@ public sealed partial class UsbWriterService
             if ((uint)patchedBytes.Length != fileSize)
             {
                 var dirSec = new byte[512];
-                if (ReadSector(disk, dirEntLba, dirSec))
-                {
-                    BitConverter.TryWriteBytes(
-                        dirSec.AsSpan(dirEntOff + 28, 4), (uint)patchedBytes.Length);
-                    WriteSector(disk, dirEntLba, dirSec);
-                }
+                if (!ReadSector(disk, dirEntLba, dirSec))
+                { skippedPaths.Add($"{label} (directory readback failed)"); continue; }
+                BitConverter.TryWriteBytes(
+                    dirSec.AsSpan(dirEntOff + 28, 4), (uint)patchedBytes.Length);
+                if (!WriteSector(disk, dirEntLba, dirSec))
+                { skippedPaths.Add($"{label} (directory update failed)"); continue; }
             }
+
+            var reopened = FatReadFile(disk, fileCluster, patchedBytes.Length,
+                secsPerClust, fatLba, dataLba, isFat32);
+            if (reopened is null || !reopened.AsSpan().SequenceEqual(patchedBytes))
+            { skippedPaths.Add($"{label} (content readback failed)"); continue; }
 
             _logger.LogInformation(
                 "FAT: {Path} patched ({Old} → {New} bytes)",
@@ -322,6 +347,7 @@ public sealed partial class UsbWriterService
 
     private void PatchIso9660GrubCfg(
         SafeFileHandle disk,
+        bool unattendedKickstart,
         List<string> patchedPaths,
         List<string> skippedPaths)
     {
@@ -390,7 +416,7 @@ public sealed partial class UsbWriterService
         }
 
         var text = Encoding.UTF8.GetString(data);
-        var patched = PatchGrubCfgContent(text);
+        var patched = PatchGrubCfgContent(text, unattendedKickstart);
 
         if (patched == text)
         {
@@ -428,8 +454,12 @@ public sealed partial class UsbWriterService
         }
 
         // Update Data Length in the directory entry (LE at +10, BE at +14).
-        if ((uint)patchedBytes.Length != fileSize)
-            Iso9660UpdateEntrySize(disk, fileEntryBlock, fileEntryOff, (uint)patchedBytes.Length);
+        if ((uint)patchedBytes.Length != fileSize &&
+            !Iso9660UpdateEntrySize(disk, fileEntryBlock, fileEntryOff, (uint)patchedBytes.Length))
+        { skippedPaths.Add("/boot/grub2/grub.cfg (directory update failed)"); return; }
+        var reopened = Iso9660ReadFile(disk, fileLba, patchedBytes.Length);
+        if (reopened is null || !reopened.AsSpan().SequenceEqual(patchedBytes))
+        { skippedPaths.Add("/boot/grub2/grub.cfg (content readback failed)"); return; }
 
         _logger.LogInformation(
             "ISO9660: /boot/grub2/grub.cfg patched ({Old} → {New} bytes)",
@@ -818,8 +848,10 @@ public sealed partial class UsbWriterService
     /// <remarks>
     /// <c>internal</c> for unit-testing without a real USB drive.
     /// </remarks>
-    internal static string PatchGrubCfgContent(string content)
+    internal static string PatchGrubCfgContent(string content, bool unattendedKickstart = false)
     {
+        if (unattendedKickstart)
+            content = BindFedoraKickstart(content);
         // Match: [indent] linuxefi|linux [path] [params...] [line-end]
         // Group 1 = whole line body (no trailing whitespace or line-end).
         // Group 2 = line terminator (\r\n or \n or end-of-string).
@@ -848,6 +880,55 @@ public sealed partial class UsbWriterService
                 return line.TrimEnd() + " nomodeset" + newline;
             },
             RegexOptions.Multiline);
+    }
+
+    private static string BindFedoraKickstart(string content)
+    {
+        const string kickstartArg = "inst.ks=hd:LABEL=OEMDRV:/ks.cfg";
+        var lines = content.Split('\n');
+        var installEntries = 0;
+        var defaultLines = 0;
+        var installKernelLines = 0;
+        var insideInstallEntry = false;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (Regex.IsMatch(line, "^[ \\t]*menuentry[ \\t]+['\\\"]Install Fedora [0-9]+['\\\"]"))
+            {
+                installEntries++;
+                insideInstallEntry = true;
+            }
+            else if (Regex.IsMatch(line, "^[ \\t]*menuentry[ \\t]+"))
+            {
+                insideInstallEntry = false;
+            }
+            if (Regex.IsMatch(line, @"^[ \t]*set[ \t]+default[ \t]*="))
+            {
+                defaultLines++;
+                lines[i] = Regex.Replace(line, @"^([ \t]*set[ \t]+default[ \t]*=).*$",
+                    "${1}\"0\"");
+            }
+            if (insideInstallEntry && Regex.IsMatch(line, @"^[ \t]*linux(?:efi)?[ \t]+"))
+            {
+                installKernelLines++;
+                if (!line.Contains("inst.stage2=", StringComparison.Ordinal) ||
+                    line.Contains("inst.rescue", StringComparison.Ordinal) ||
+                    (line.Contains("inst.ks=", StringComparison.Ordinal) &&
+                     !line.Contains(kickstartArg, StringComparison.Ordinal)))
+                    throw new InvalidDataException("The Fedora install entry has unsupported kernel arguments.");
+                if (!line.Contains(kickstartArg, StringComparison.Ordinal))
+                {
+                    var body = line.TrimEnd('\r');
+                    lines[i] = body.TrimEnd() + " " + kickstartArg +
+                        (line.EndsWith('\r') ? "\r" : "");
+                }
+            }
+            if (insideInstallEntry && line.Trim() == "}")
+                insideInstallEntry = false;
+        }
+        if (installEntries != 1 || defaultLines != 1 || installKernelLines != 1)
+            throw new InvalidDataException("The Fedora EFI install entry was not uniquely identified.");
+        return string.Join('\n', lines);
     }
 
 }

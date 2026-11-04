@@ -5,10 +5,12 @@ using System.IO;
 using System.Management;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
+using Igloo.Core.Preparation;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 
@@ -35,7 +37,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         var drives = new List<UsbDriveInfo>();
 
         using var searcher = new ManagementObjectSearcher(
-            "SELECT DeviceID, Index, Model, Size FROM Win32_DiskDrive " +
+            "SELECT DeviceID, PNPDeviceID, Index, Model, Size, BytesPerSector FROM Win32_DiskDrive " +
             "WHERE InterfaceType='USB'");
 
         foreach (ManagementObject obj in searcher.Get())
@@ -47,8 +49,12 @@ public sealed partial class UsbWriterService : IUsbWriterService
             var model = obj["Model"]?.ToString() ?? "Unknown USB Drive";
             var sizeStr = obj["Size"]?.ToString();
             var sizeBytes = sizeStr is not null ? long.Parse(sizeStr, CultureInfo.InvariantCulture) : 0L;
+            var pnpDeviceId = obj["PNPDeviceID"]?.ToString();
+            var logicalSectorBytes = obj["BytesPerSector"] is { } sector
+                ? Convert.ToInt32(sector, CultureInfo.InvariantCulture) : (int?)null;
 
-            drives.Add(new UsbDriveInfo(index, model, sizeBytes, deviceId));
+            drives.Add(new UsbDriveInfo(index, model, sizeBytes, deviceId,
+                pnpDeviceId, logicalSectorBytes));
             _logger.LogDebug("USB drive found: [{Index}] {Model} ({Size:N0} bytes)", index, model, sizeBytes);
         }
 
@@ -61,22 +67,51 @@ public sealed partial class UsbWriterService : IUsbWriterService
         UsbDriveInfo drive,
         string isoPath,
         string stagingDirectory,
+        string expectedIsoSha256,
         IProgress<UsbWriteProgress>? progress,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(drive);
+
+        if (drive.LogicalSectorBytes != 512)
+            throw new InvalidOperationException(
+                "The selected USB drive must report 512-byte logical sectors for this installer image.");
 
         if (!IsCurrentProcessElevated())
             throw new UnauthorizedAccessException(
                 "Writing to a physical drive requires administrator rights. " +
                 "Please restart iGloo as Administrator and repeat the process from this step.");
 
+        RequireSourceOutsideSelectedDrive(drive, isoPath);
+        RequireSourceOutsideSelectedDrive(drive, stagingDirectory);
+        RequireNonSystemUsbDisk(drive);
+        await EnsureCurrentDriveAsync(drive, ct).ConfigureAwait(false);
+
+        // Hold a read-only handle through the raw copy so the authenticated image
+        // cannot be replaced or modified between verification and use.
+        if ((File.GetAttributes(isoPath) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("The verified installer image identity is unavailable.");
+        using var isoStream = new FileStream(isoPath, FileMode.Open, FileAccess.Read,
+            FileShare.Read, BufferSize, useAsync: true);
+        await VerifyIsoAsync(isoStream, expectedIsoSha256, ct).ConfigureAwait(false);
+        await RequireGptInstallerImageAsync(isoStream, ct).ConfigureAwait(false);
         // Compute sizes upfront so we can fail before touching the drive.
-        var isoSize = new FileInfo(isoPath).Length;
-        var stagingSize = GetDirectorySize(stagingDirectory);
+        var isoSize = isoStream.Length;
+        var stagingSize = InspectStagingDirectory(stagingDirectory);
+        var unattendedKickstart = File.Exists(Path.Join(stagingDirectory, "ks.cfg"));
+        if (unattendedKickstart)
+            throw new NotSupportedException(
+                "This raw Fedora installer image cannot load its kickstart from an appended " +
+                "partition. USB preparation is unavailable until a bootable layout is verified.");
+        var pinnedAgent = await OpenObservedAgentArtifactsAsync(stagingDirectory, ct)
+            .ConfigureAwait(false);
+        await using var pinnedAgentLease = pinnedAgent.ConfigureAwait(false);
 
         // Partition must hold all staging files plus a 256 MB buffer; minimum 512 MB.
-        var partSizeMb = (int)Math.Max(512L, stagingSize / (1024 * 1024) + 256);
+        var partSizeMbLong = Math.Max(512L, stagingSize / (1024 * 1024) + 256);
+        if (partSizeMbLong > int.MaxValue)
+            throw new InvalidOperationException("The migration staging directory is too large for USB preparation.");
+        var partSizeMb = (int)partSizeMbLong;
 
         //   Pre-flight: does the drive have enough room?            
         ValidateFit(drive, isoSize, partSizeMb);
@@ -98,7 +133,10 @@ public sealed partial class UsbWriterService : IUsbWriterService
             progress?.Report(new UsbWriteProgress(
                 UsbWritePhase.WritingIso, 0, isoSize, "Writing installer image…"));
 
-            await WriteIsoRawAsync(drive.DeviceId, isoPath, isoSize, progress, ct).ConfigureAwait(false);
+            await WriteIsoRawAsync(drive.DeviceId, isoStream, isoSize, progress, ct).ConfigureAwait(false);
+            await EnsureCurrentDriveAsync(drive, ct).ConfigureAwait(false);
+            await VerifyRawImageReadbackAsync(drive.DeviceId, isoSize, expectedIsoSha256,
+                ct).ConfigureAwait(false);
 
             // Cancellation point: checked between Phase 1 and Phase 2.
             ct.ThrowIfCancellationRequested();
@@ -110,13 +148,17 @@ public sealed partial class UsbWriterService : IUsbWriterService
             // to \\.\PhysicalDriveN are blocked by the volume manager.
             // Patching here, right after the raw ISO write, means Windows still
             // has no idea the partition layout has changed - raw writes always succeed.
+            await EnsureCurrentDriveAsync(drive, ct).ConfigureAwait(false);
             try
             {
-                await PatchGrubConfigAsync(drive, progress).ConfigureAwait(false);
+                await PatchGrubConfigAsync(drive, unattendedKickstart, progress).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                 or Win32Exception or InvalidOperationException)
             {
+                if (unattendedKickstart)
+                    throw new InvalidOperationException(
+                        "The installer boot menu could not be bound to its kickstart. The USB preparation is incomplete.", ex);
                 _logger.LogWarning(ex,
                     "GRUB config patch failed (non-fatal) - boot may require " +
                     "manual kernel parameters: nomodeset rd.live.check=0");
@@ -131,7 +173,11 @@ public sealed partial class UsbWriterService : IUsbWriterService
             // a valid GPT at LBA 1.  Replace the hybrid MBR partition entries
             // with a single protective-MBR entry (type 0xEE) so Windows exposes
             // the GPT view and diskpart gains room to add the OEMDRV partition.
+            // The raw write may trigger a device rescan. Recheck before each
+            // following operation reopens the target by its Windows ordinal.
+            await EnsureCurrentDriveAsync(drive, ct).ConfigureAwait(false);
             await EnsureProtectiveMbrAsync(drive.DeviceId, drive.SizeBytes).ConfigureAwait(false);
+            await EnsureCurrentDriveAsync(drive, ct).ConfigureAwait(false);
 
             //   Phase 2: create OEMDRV partition - atomic (not cancelable)   
 
@@ -151,7 +197,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
             // Verify that diskpart actually created and mounted the partition.
             // diskpart returns exit code 0 even when individual commands fail silently.
-            ValidateOemDrvMounted(driveLetter);
+            var seedIdentity = ValidateOemDrvMounted(drive, driveLetter, partSizeMb);
 
             // Cancellation point: checked between Phase 2 and Phase 3.
             ct.ThrowIfCancellationRequested();
@@ -165,7 +211,19 @@ public sealed partial class UsbWriterService : IUsbWriterService
             progress?.Report(new UsbWriteProgress(
                 UsbWritePhase.CopyingFiles, 0, stagingSize, "Copying migration files…"));
 
-            await CopyStagingFilesAsync(driveLetter, stagingDirectory, stagingSize, progress, ct).ConfigureAwait(false);
+            await CopyStagingFilesAsync($"{driveLetter}:\\", stagingDirectory, stagingSize,
+                progress, ct).ConfigureAwait(false);
+            await VerifyProviderAgentCopyAsync(stagingDirectory, $"{driveLetter}:\\",
+                pinnedAgent, ct).ConfigureAwait(false);
+            await EnsureCurrentDriveAsync(drive, ct).ConfigureAwait(false);
+            var currentSeed = ValidateOemDrvMounted(drive, driveLetter, partSizeMb);
+            if (currentSeed != seedIdentity)
+                throw new InvalidOperationException("The installer seed partition changed while files were copied.");
+            await SeedIdentityWriter.WriteAsync($"{driveLetter}:\\", seedIdentity.DiskGuid,
+                seedIdentity.PartitionGuid, pinnedAgent.RelativePaths, ct)
+                .ConfigureAwait(false);
+            _logger.LogInformation("Staging copy complete: {Written:N0} bytes copied to {Root}",
+                stagingSize, $"{driveLetter}:\\");
 
             progress?.Report(new UsbWriteProgress(UsbWritePhase.Complete, 0, 0, "USB drive is ready."));
             _logger.LogInformation("USB write complete - drive {Index} is ready", drive.DriveIndex);
@@ -174,10 +232,189 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
     //   Pre-flight validation                         ─
 
+    internal static bool SameObservedDrive(UsbDriveInfo selected, UsbDriveInfo current) =>
+        selected.DriveIndex >= 0 && selected.DriveIndex == current.DriveIndex &&
+        selected.LogicalSectorBytes == 512 && current.LogicalSectorBytes == 512 &&
+        selected.SizeBytes > 0 && selected.SizeBytes == current.SizeBytes &&
+        !string.IsNullOrWhiteSpace(selected.PnpDeviceId) &&
+        string.Equals(selected.PnpDeviceId, current.PnpDeviceId, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(selected.DeviceId, @"\\.\PHYSICALDRIVE" + selected.DriveIndex.ToString(CultureInfo.InvariantCulture),
+            StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(selected.DeviceId, current.DeviceId, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(selected.Model, current.Model, StringComparison.Ordinal);
+
+    internal static bool UniqueObservedDrive(UsbDriveInfo selected,
+        IReadOnlyList<UsbDriveInfo> current) =>
+        current.Count(d => d.DriveIndex == selected.DriveIndex) == 1 &&
+        current.Count(d => !string.IsNullOrWhiteSpace(selected.PnpDeviceId) &&
+            string.Equals(d.PnpDeviceId, selected.PnpDeviceId,
+                StringComparison.OrdinalIgnoreCase)) == 1 &&
+        current.Any(d => SameObservedDrive(selected, d));
+
+    internal static async Task VerifyIsoAsync(Stream source, string expectedSha256,
+        CancellationToken ct = default)
+    {
+        if (expectedSha256 is null || expectedSha256.Length != 64 ||
+            !expectedSha256.All(Uri.IsHexDigit) || !source.CanRead || !source.CanSeek ||
+            source.Length <= 0)
+            throw new InvalidDataException("The verified installer image identity is unavailable.");
+        source.Position = 0;
+        var hash = Convert.ToHexString(await SHA256.HashDataAsync(source, ct).ConfigureAwait(false));
+        if (!string.Equals(hash, expectedSha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The installer image changed after acquisition; acquire it again.");
+        source.Position = 0;
+    }
+
+    private static async Task VerifyRawImageReadbackAsync(string deviceId, long isoSize,
+        string expectedSha256, CancellationToken ct)
+    {
+        const uint GENERIC_READ = 0x80000000u;
+        const uint FILE_SHARE_READ = 0x00000001u;
+        const uint FILE_SHARE_WRITE = 0x00000002u;
+        const uint OPEN_EXISTING = 3u;
+        using var handle = NativeMethods.CreateFileW(deviceId, GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nint.Zero, OPEN_EXISTING, 0u, nint.Zero);
+        if (handle.IsInvalid)
+            throw new IOException($"The written installer image could not be reopened for verification (Win32 {Marshal.GetLastWin32Error()}).");
+        using var stream = new FileStream(handle, FileAccess.Read, BufferSize, isAsync: false);
+        await VerifyWrittenImageAsync(stream, isoSize, expectedSha256, ct).ConfigureAwait(false);
+    }
+
+    internal static async Task VerifyWrittenImageAsync(Stream stream, long length,
+        string expectedSha256, CancellationToken ct = default)
+    {
+        if (length <= 0 || expectedSha256 is null || expectedSha256.Length != 64 ||
+            !expectedSha256.All(Uri.IsHexDigit) || !stream.CanRead)
+            throw new InvalidDataException("The written installer image cannot be verified.");
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = new byte[BufferSize];
+        var remaining = length;
+        while (remaining > 0)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(0,
+                (int)Math.Min(buffer.Length, remaining)), ct).ConfigureAwait(false);
+            if (read == 0)
+                throw new IOException("The written installer image ended before its verified length.");
+            hash.AppendData(buffer, 0, read);
+            remaining -= read;
+        }
+        if (!string.Equals(Convert.ToHexString(hash.GetHashAndReset()), expectedSha256,
+            StringComparison.OrdinalIgnoreCase))
+            throw new IOException("The USB installer image differs from the acquired image after writing.");
+    }
+
+    internal static async Task RequireGptInstallerImageAsync(Stream source,
+        CancellationToken ct = default)
+    {
+        if (!source.CanRead || !source.CanSeek || source.Length < 1024)
+            throw new InvalidDataException("The installer image has no valid GPT header for the USB workflow.");
+        var header = new byte[512];
+        source.Position = 512;
+        try
+        {
+            await source.ReadExactlyAsync(header, ct).ConfigureAwait(false);
+            var headerSize = BitConverter.ToUInt32(header, 12);
+            var expectedCrc = BitConverter.ToUInt32(header, 16);
+            if (!header.AsSpan(0, 8).SequenceEqual("EFI PART"u8) ||
+                headerSize < 92 || headerSize > 512 || expectedCrc == 0)
+                throw new InvalidDataException("The installer image has no valid GPT header for the USB workflow.");
+            Array.Clear(header, 16, 4);
+            if (GptCrc32(header, (int)headerSize) != expectedCrc)
+                throw new InvalidDataException("The installer image GPT header checksum is invalid.");
+
+            // The physical writer currently copies 512-byte sectors from LBA 2.
+            // Validate the image's complete table and backup before any USB write;
+            // ISO hybrids can carry a GPT signature while still having a broken or
+            // differently placed entry table.
+            var imageSectors = (ulong)(source.Length / 512);
+            var alternateLba = BitConverter.ToUInt64(header, 32);
+            var firstUsableLba = BitConverter.ToUInt64(header, 40);
+            var lastUsableLba = BitConverter.ToUInt64(header, 48);
+            var entryLba = BitConverter.ToUInt64(header, 72);
+            var entryCount = BitConverter.ToUInt32(header, 80);
+            var entrySize = BitConverter.ToUInt32(header, 84);
+            if (BitConverter.ToUInt64(header, 24) != 1 || entryLba != 2 ||
+                entryCount is < 1 or > 4096 || entrySize != 128 ||
+                alternateLba >= imageSectors)
+                throw new InvalidDataException("The installer image GPT layout is unsupported for the USB workflow.");
+            var entryBytes = checked((int)(entryCount * entrySize));
+            var entrySectors = (ulong)((entryBytes + 511) / 512);
+            if (firstUsableLba < entryLba + entrySectors ||
+                lastUsableLba < firstUsableLba ||
+                alternateLba <= entrySectors ||
+                lastUsableLba >= alternateLba - entrySectors)
+                throw new InvalidDataException("The installer image GPT layout is invalid.");
+
+            var entries = new byte[entryBytes];
+            source.Position = checked((long)entryLba * 512);
+            await source.ReadExactlyAsync(entries, ct).ConfigureAwait(false);
+            if (GptCrc32(entries, entries.Length) != BitConverter.ToUInt32(header, 88))
+                throw new InvalidDataException("The installer image GPT partition table checksum is invalid.");
+
+            ValidateGptPartitionEntries(entries, entryCount, (int)entrySize,
+                firstUsableLba, lastUsableLba);
+
+            var backup = new byte[512];
+            source.Position = checked((long)alternateLba * 512);
+            await source.ReadExactlyAsync(backup, ct).ConfigureAwait(false);
+            var backupSize = BitConverter.ToUInt32(backup, 12);
+            var backupCrc = BitConverter.ToUInt32(backup, 16);
+            if (!backup.AsSpan(0, 8).SequenceEqual("EFI PART"u8) ||
+                backupSize != headerSize || backupCrc == 0 ||
+                BitConverter.ToUInt64(backup, 24) != alternateLba ||
+                BitConverter.ToUInt64(backup, 32) != 1 ||
+                BitConverter.ToUInt64(backup, 72) != alternateLba - entrySectors ||
+                BitConverter.ToUInt64(backup, 40) != firstUsableLba ||
+                BitConverter.ToUInt64(backup, 48) != lastUsableLba ||
+                !backup.AsSpan(56, 16).SequenceEqual(header.AsSpan(56, 16)) ||
+                BitConverter.ToUInt32(backup, 80) != entryCount ||
+                BitConverter.ToUInt32(backup, 84) != entrySize ||
+                BitConverter.ToUInt32(backup, 88) != BitConverter.ToUInt32(header, 88))
+                throw new InvalidDataException("The installer image backup GPT is invalid.");
+            Array.Clear(backup, 16, 4);
+            if (GptCrc32(backup, (int)backupSize) != backupCrc)
+                throw new InvalidDataException("The installer image backup GPT checksum is invalid.");
+            var backupEntries = new byte[entryBytes];
+            source.Position = checked((long)(alternateLba - entrySectors) * 512);
+            await source.ReadExactlyAsync(backupEntries, ct).ConfigureAwait(false);
+            if (GptCrc32(backupEntries, backupEntries.Length) !=
+                BitConverter.ToUInt32(header, 88) ||
+                !backupEntries.AsSpan().SequenceEqual(entries))
+                throw new InvalidDataException("The installer image backup GPT partition table is invalid.");
+        }
+        finally
+        {
+            source.Position = 0;
+        }
+    }
+
+    private static void ValidateGptPartitionEntries(byte[] entries, uint entryCount,
+        int entrySize, ulong firstUsableLba, ulong lastUsableLba)
+    {
+        var occupied = new List<(ulong First, ulong Last)>();
+        for (var i = 0; i < entryCount; i++)
+        {
+            var entry = entries.AsSpan(i * entrySize, entrySize);
+            if (entry[..16].IndexOfAnyExcept((byte)0) < 0)
+                continue;
+            var first = BitConverter.ToUInt64(entry[32..40]);
+            var last = BitConverter.ToUInt64(entry[40..48]);
+            if (first < firstUsableLba || last < first || last > lastUsableLba)
+                throw new InvalidDataException("The installer image GPT partition range is invalid.");
+            occupied.Add((first, last));
+        }
+        occupied.Sort((left, right) => left.First.CompareTo(right.First));
+        for (var i = 1; i < occupied.Count; i++)
+            if (occupied[i].First <= occupied[i - 1].Last)
+                throw new InvalidDataException("The installer image GPT partitions overlap.");
+    }
+
     internal static void ValidateFit(UsbDriveInfo drive, long isoSize, int partSizeMb)
     {
         if (drive.SizeBytes <= 0)
-            return; // WMI returned unknown size - skip check, let the write attempt proceed.
+            throw new InvalidOperationException("The selected USB drive size is unavailable; writing cannot start.");
+        if (isoSize <= 0 || partSizeMb <= 0 || isoSize > long.MaxValue - (long)partSizeMb * 1024 * 1024)
+            throw new InvalidOperationException("The installer image or staging size is invalid.");
 
         var requiredBytes = isoSize + (long)partSizeMb * 1024 * 1024;
         if (drive.SizeBytes >= requiredBytes)
@@ -191,27 +428,56 @@ public sealed partial class UsbWriterService : IUsbWriterService
             "Use a larger drive (8 GB or more is recommended).");
     }
 
-    private void ValidateOemDrvMounted(char driveLetter)
+    private async Task EnsureCurrentDriveAsync(UsbDriveInfo drive, CancellationToken ct)
+    {
+        var current = await EnumerateDrivesAsync(ct).ConfigureAwait(false);
+        if (!UniqueObservedDrive(drive, current))
+            throw new InvalidOperationException(
+                "The selected USB drive identity changed; refresh the drive list before writing.");
+    }
+
+    private (Guid DiskGuid, Guid PartitionGuid) ValidateOemDrvMounted(UsbDriveInfo drive,
+        char driveLetter, int partSizeMb)
     {
         var root = $"{driveLetter}:\\";
-        if (Directory.Exists(root))
-        {
-            _logger.LogInformation("OEMDRV partition confirmed at {Root}", root);
-            return;
-        }
-
-        throw new InvalidOperationException(
-            $"diskpart reported success but the OEMDRV partition did not mount at {driveLetter}:\\. " +
-            "The partition table may be in an inconsistent state. " +
-            "To recover: open diskpart manually, run 'select disk N' then 'clean', " +
-            "and re-run the writer from the beginning.");
+        using var query = new ManagementObjectSearcher(@"root\Microsoft\Windows\Storage",
+            FormattableString.Invariant($"SELECT DiskNumber, PartitionNumber, DriveLetter, Size, Guid FROM MSFT_Partition WHERE DiskNumber = {drive.DriveIndex}"));
+        using var results = query.Get();
+        var matches = results.Cast<ManagementObject>().Where(partition =>
+            string.Equals(partition["DriveLetter"]?.ToString(),
+                driveLetter.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (matches.Length != 1 || !Directory.Exists(root))
+            throw new InvalidOperationException("The OEMDRV letter is not uniquely bound to the selected USB disk.");
+        var size = Convert.ToInt64(matches[0]["Size"], CultureInfo.InvariantCulture);
+        var volume = new DriveInfo(root);
+        if (size < (long)partSizeMb * 1024 * 1024 - 1024 * 1024 ||
+            !volume.IsReady ||
+            !string.Equals(volume.DriveFormat, "FAT32", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(volume.VolumeLabel, "OEMDRV", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The selected USB disk has no verified FAT32 OEMDRV volume.");
+        if (!Guid.TryParse(matches[0]["Guid"]?.ToString(), out var partitionGuid) ||
+            partitionGuid == Guid.Empty)
+            throw new InvalidOperationException("The installer seed partition has no GPT identity.");
+        using var diskQuery = new ManagementObjectSearcher(@"root\Microsoft\Windows\Storage",
+            FormattableString.Invariant($"SELECT Number, Guid, PartitionStyle FROM MSFT_Disk WHERE Number = {drive.DriveIndex}"));
+        using var diskResults = diskQuery.Get();
+        var disks = diskResults.Cast<ManagementObject>().ToArray();
+        if (disks.Length != 1 ||
+            Convert.ToInt32(disks[0]["PartitionStyle"], CultureInfo.InvariantCulture) != 2 ||
+            !Guid.TryParse(disks[0]["Guid"]?.ToString(), out var diskGuid) ||
+            diskGuid == Guid.Empty)
+            throw new InvalidOperationException("The installer seed disk has no unique GPT identity.");
+        _logger.LogInformation("OEMDRV partition confirmed at {Root} on USB disk {Disk}",
+            root, drive.DriveIndex);
+        return (diskGuid, partitionGuid);
     }
 
     //   Phase 1 implementation                         
 
     private async Task WriteIsoRawAsync(
         string deviceId,
-        string isoPath,
+        Stream src,
         long isoSize,
         IProgress<UsbWriteProgress>? progress,
         CancellationToken ct)
@@ -247,9 +513,6 @@ public sealed partial class UsbWriterService : IUsbWriterService
         }
 
         using var dest = new FileStream(handle, FileAccess.Write, bufferSize: BufferSize, isAsync: true);
-        using var src = new FileStream(isoPath, FileMode.Open, FileAccess.Read,
-                                         FileShare.Read, bufferSize: BufferSize, useAsync: true);
-
         var buffer = new byte[BufferSize];
         var written = 0L;
         int bytesRead;
@@ -268,6 +531,9 @@ public sealed partial class UsbWriterService : IUsbWriterService
                 UsbWritePhase.WritingIso, written, isoSize,
                 $"Writing… {written / (1024 * 1024):N0} MB / {isoSize / (1024 * 1024):N0} MB"));
         }
+
+        if (written != isoSize)
+            throw new IOException("The installer image ended before all verified bytes were written.");
 
         await dest.FlushAsync(ct).ConfigureAwait(false);
         _logger.LogInformation("ISO write complete: {Written:N0} bytes written to {Device}", written, deviceId);
@@ -391,20 +657,32 @@ public sealed partial class UsbWriterService : IUsbWriterService
 
     //   Phase 3 implementation
 
-    private async Task CopyStagingFilesAsync(
-        char driveLetter,
+    internal static async Task CopyStagingFilesAsync(
+        string destRoot,
         string stagingDirectory,
         long totalBytes,
         IProgress<UsbWriteProgress>? progress,
         CancellationToken ct)
     {
-        var destRoot = $"{driveLetter}:\\";
         var written = 0L;
+
+        foreach (var srcDirectory in Directory.EnumerateDirectories(
+            stagingDirectory, "*", SearchOption.AllDirectories))
+        {
+            ct.ThrowIfCancellationRequested();
+            if ((File.GetAttributes(srcDirectory) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("The migration staging directory changed while copying.");
+            var relative = Path.GetRelativePath(stagingDirectory, srcDirectory);
+            Directory.CreateDirectory(ResolveDestinationPath(destRoot, relative));
+        }
 
         foreach (var srcPath in
             Directory.EnumerateFiles(stagingDirectory, "*", SearchOption.AllDirectories))
         {
             ct.ThrowIfCancellationRequested();
+
+            if ((File.GetAttributes(srcPath) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("A staged source file changed to a redirected path during the USB copy.");
 
             var fileSize = new FileInfo(srcPath).Length;
             var relative = Path.GetRelativePath(stagingDirectory, srcPath);
@@ -422,13 +700,17 @@ public sealed partial class UsbWriterService : IUsbWriterService
             await srcStream.CopyToAsync(destStream, ct).ConfigureAwait(false);
             await destStream.FlushAsync(ct).ConfigureAwait(false);
 
-            written += fileSize;
+            if (srcStream.Position != fileSize || destStream.Position != fileSize)
+                throw new IOException("A staged source file changed during the USB copy.");
+            written = checked(written + destStream.Position);
             progress?.Report(new UsbWriteProgress(
                 UsbWritePhase.CopyingFiles, written, totalBytes,
                 Path.GetFileName(srcPath)));
         }
 
-        _logger.LogInformation("Staging copy complete: {Written:N0} bytes copied to {Root}", written, destRoot);
+        if (written != totalBytes)
+            throw new IOException("The staging directory changed during the USB copy.");
+
     }
 
     //   Helpers                                ─
@@ -454,8 +736,44 @@ public sealed partial class UsbWriterService : IUsbWriterService
             "No free drive letter is available to assign to the OEMDRV partition.");
     }
 
-    private static long GetDirectorySize(string path) =>
-        Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)
-            .Sum(f => new FileInfo(f).Length);
+    internal static void ValidateFat32FileSize(long size)
+    {
+        if (size < 0 || size > uint.MaxValue)
+            throw new InvalidOperationException(
+                "A selected migration file exceeds FAT32's 4 GiB single-file limit.");
+    }
+
+    private static long InspectStagingDirectory(string path)
+    {
+        if (!Directory.Exists(path))
+            throw new DirectoryNotFoundException("The migration staging directory is unavailable.");
+
+        long total = 0;
+        var pending = new Stack<string>();
+        pending.Push(path);
+        while (pending.Count > 0)
+        {
+            var directory = pending.Pop();
+            if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("The migration staging directory contains a redirected directory.");
+            foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+            {
+                var attributes = File.GetAttributes(entry);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new IOException("The migration staging directory contains a redirected entry.");
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    pending.Push(entry);
+                    continue;
+                }
+
+                var size = new FileInfo(entry).Length;
+                ValidateFat32FileSize(size);
+                total = checked(total + size);
+            }
+        }
+
+        return total;
+    }
 
 }

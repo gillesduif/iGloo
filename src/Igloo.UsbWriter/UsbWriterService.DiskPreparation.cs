@@ -31,10 +31,8 @@ public sealed partial class UsbWriterService
         if (handle.IsInvalid)
         {
             using (handle)
-                _logger.LogWarning(
-                    "Cannot open {Dev} for MBR/GPT fix (Win32 error {Err}) - skipping",
-                    deviceId, Marshal.GetLastWin32Error());
-            return;
+                throw new IOException($"Cannot open {deviceId} for GPT preparation " +
+                    $"(Win32 error {Marshal.GetLastWin32Error()}).");
         }
 
         using (handle)
@@ -43,10 +41,7 @@ public sealed partial class UsbWriterService
             var buf = new byte[1024];
             if (!NativeMethods.ReadFile(handle, buf, 1024, out int bytesRead, nint.Zero)
                 || bytesRead < 1024)
-            {
-                _logger.LogWarning("Could not read MBR+GPT from {Dev} ({N} bytes read) - skipping", deviceId, bytesRead);
-                return;
-            }
+                throw new IOException($"Could not read MBR and GPT from {deviceId} ({bytesRead} bytes read).");
 
             // Verify GPT signature at LBA 1.
             // ReadOnlySpan<byte> cannot be a local in an async method (C# 12), use Encoding.
@@ -55,8 +50,7 @@ public sealed partial class UsbWriterService
                 throw new InvalidOperationException(
                     "The ISO does not contain a GPT partition table (LBA 1 has no 'EFI PART' signature) " +
                     "and all four MBR primary partition slots are occupied. " +
-                    "iGloo cannot create the OEMDRV partition on this ISO format. " +
-                    "Please use a Fedora Live ISO.");
+                    "iGloo cannot create the OEMDRV partition on this ISO format.");
             }
 
             //   Step 2: write protective MBR if needed             
@@ -99,15 +93,11 @@ public sealed partial class UsbWriterService
                 buf[511] = 0xAA;
 
                 if (!NativeMethods.SetFilePointerEx(handle, 0L, nint.Zero, 0u))
-                {
-                    _logger.LogWarning("SetFilePointerEx(0) failed on {Dev} (Win32 {Err})", deviceId, Marshal.GetLastWin32Error());
-                    return;
-                }
+                    throw new IOException($"Could not seek to the MBR on {deviceId} " +
+                        $"(Win32 error {Marshal.GetLastWin32Error()}).");
                 if (!NativeMethods.WriteFile(handle, buf, 512, out int written, nint.Zero) || written < 512)
-                {
-                    _logger.LogWarning("WriteFile LBA 0 failed on {Dev} (Win32 {Err})", deviceId, Marshal.GetLastWin32Error());
-                    return;
-                }
+                    throw new IOException($"Could not write the protective MBR on {deviceId} " +
+                        $"(Win32 error {Marshal.GetLastWin32Error()}).");
 
                 _logger.LogInformation("Protective MBR written to {Dev}", deviceId);
             }
@@ -117,7 +107,8 @@ public sealed partial class UsbWriterService
             // end of the ISO file (~4.5 M sectors for a 2.3 GB ISO), not at the
             // end of the 115 GB USB drive.  diskpart respects those boundaries
             // and reports "no free space" even though 112+ GB are unallocated.
-            TryExtendGptToFullDisk(handle, diskSizeBytes);
+            if (!TryExtendGptToFullDisk(handle, diskSizeBytes))
+                throw new IOException($"Could not extend the GPT on {deviceId}; OEMDRV creation is stopped.");
 
             //   Step 4: tell the driver to re-read the updated partition table ─
             NativeMethods.DeviceIoControl(
@@ -141,12 +132,8 @@ public sealed partial class UsbWriterService
             return false;
         }
 
-        const int BackupEntrySectors = 32; // 128 entries × 128 B = 32 × 512-B sectors
-
         long diskSectors = diskSizeBytes / 512;
         long newAlternateLBA = diskSectors - 1;
-        long newBackupEntryStart = diskSectors - 1 - BackupEntrySectors;
-        long newLastUsableLBA = diskSectors - 1 - BackupEntrySectors - 1;
 
         //   Read primary GPT header (LBA 1)                  ─
         var hdr = new byte[512];
@@ -181,8 +168,34 @@ public sealed partial class UsbWriterService
         // Restore the CRC field.
         BitConverter.TryWriteBytes(hdr.AsSpan(16, 4), storedCrc);
 
+        long entryLba = BitConverter.ToInt64(hdr, 72);
+        uint entryCount = BitConverter.ToUInt32(hdr, 80);
+        uint entrySize = BitConverter.ToUInt32(hdr, 84);
+        if (entryLba != 2 || entryCount is < 1 or > 4096 || entrySize != 128)
+        {
+            _logger.LogWarning("TryExtendGpt: unsupported partition table layout");
+            return false;
+        }
+        int entryBytes = checked((int)(entryCount * entrySize));
+        int backupEntrySectors = (entryBytes + 511) / 512;
+        long newBackupEntryStart = newAlternateLBA - backupEntrySectors;
+        long newLastUsableLBA = newBackupEntryStart - 1;
+        long firstUsableLBA = BitConverter.ToInt64(hdr, 40);
+        if (firstUsableLBA < entryLba + backupEntrySectors ||
+            newLastUsableLBA <= firstUsableLBA)
+        {
+            _logger.LogWarning("TryExtendGpt: target disk cannot hold the complete GPT table");
+            return false;
+        }
+
         long currentAlternate = BitConverter.ToInt64(hdr, 32);
         long currentLastUsable = BitConverter.ToInt64(hdr, 48);
+
+        if (currentAlternate > newAlternateLBA || currentLastUsable > newLastUsableLBA)
+        {
+            _logger.LogWarning("TryExtendGpt: target disk is smaller than the installer image GPT");
+            return false;
+        }
 
         if (currentAlternate == newAlternateLBA && currentLastUsable == newLastUsableLBA)
         {
@@ -194,9 +207,9 @@ public sealed partial class UsbWriterService
             "TryExtendGpt: extending GPT from AlternateLBA={Old} to {New} ({GB:F1} GB)",
             currentAlternate, newAlternateLBA, diskSizeBytes / 1073741824.0);
 
-        //   Read primary partition entries (LBA 2–33)             ─
-        var entries = new byte[BackupEntrySectors * 512];
-        for (int i = 0; i < BackupEntrySectors; i++)
+        // Read every entry sector declared by the ISO (Fedora 44 uses 62).
+        var entries = new byte[backupEntrySectors * 512];
+        for (int i = 0; i < backupEntrySectors; i++)
         {
             var sec = new byte[512];
             if (!ReadSector(diskHandle, 2L + i, sec))
@@ -205,6 +218,11 @@ public sealed partial class UsbWriterService
                 return false;
             }
             Buffer.BlockCopy(sec, 0, entries, i * 512, 512);
+        }
+        if (GptCrc32(entries, entryBytes) != BitConverter.ToUInt32(hdr, 88))
+        {
+            _logger.LogWarning("TryExtendGpt: partition table CRC mismatch");
+            return false;
         }
 
         //   Update primary GPT header                     ─
@@ -218,7 +236,7 @@ public sealed partial class UsbWriterService
         BitConverter.TryWriteBytes(hdr.AsSpan(16, 4), newPrimaryCrc);
 
         //   Write backup partition entries at new location           
-        for (int i = 0; i < BackupEntrySectors; i++)
+        for (int i = 0; i < backupEntrySectors; i++)
         {
             var sec = new byte[512];
             Buffer.BlockCopy(entries, i * 512, sec, 0, 512);
@@ -256,7 +274,7 @@ public sealed partial class UsbWriterService
 
         _logger.LogInformation(
             "TryExtendGpt: GPT successfully extended - {GB:F1} GB now usable",
-            (newLastUsableLBA - 34) * 512.0 / 1073741824.0);
+            (newLastUsableLBA - firstUsableLBA) * 512.0 / 1073741824.0);
         return true;
     }
 
