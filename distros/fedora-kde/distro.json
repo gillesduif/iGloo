@@ -2,14 +2,16 @@
   "$schema": "../_schema/distro.schema.json",
   "id": "fedora-kde",
   "displayName": "Fedora KDE",
-  "description": "Fedora 44 with the KDE Plasma desktop environment. Current upstream kernel and Mesa, signed Secure Boot support out of the box, official Fedora project release. Recommended for users who want a Windows-like desktop on a fast-moving, well-maintained distribution.",
+  "status": "available",
+  "description": "Fedora 44 with the KDE Plasma desktop environment. Current upstream kernel and Mesa from the official Fedora project release.",
   "logo": "logo/fedora-logo.png",
   "defaultDesktopEnvironment": "KDE Plasma",
   "installerType": "Anaconda",
+  "supportedInstallModes": ["dual-boot", "replace"],
 
   "iso": {
     "downloadUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-44-1.7.iso",
-    "sha256": "",
+    "sha256": "bd285201494dd0ba09b54d05ac707de1401668b8512a573edb5922dcf9d7067e",
     "gpgSignatureUrl": "https://download.fedoraproject.org/pub/fedora/linux/releases/44/Everything/x86_64/iso/Fedora-Everything-44-1.7-x86_64-CHECKSUM",
     "gpgKeyUrl": "https://fedoraproject.org/fedora.gpg",
     "gpgKeyFingerprint": "36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6",
@@ -33,7 +35,7 @@
   "minimumRequirements": {
     "minRamBytes": 4294967296,
     "minDiskBytes": 21474836480,
-    "requiresUefi": false,
+    "requiresUefi": true,
     "requires64Bit": true
   },
 

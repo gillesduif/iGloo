@@ -5,6 +5,7 @@
   "description": "Debian 13 \"Trixie\" with the GNOME desktop. The universal operating system: legendary stability, a vast package archive, and a volunteer project that has been the bedrock of the Linux world for three decades. Installed offline from the live image, so no network is needed until first boot.",
   "logo": "logo/debian-logo.png",
   "status": "available",
+  "supportedInstallModes": ["dual-boot"],
   "defaultDesktopEnvironment": "GNOME",
   "installerType": "DebianInstaller",
 
@@ -14,7 +15,7 @@
     "isoFilePattern": "^debian-live-\\d[\\d.]*-amd64-gnome\\.iso$",
     "gpgSignedDataUrl": "https://cdimage.debian.org/debian-cd/current-live/amd64/iso-hybrid/SHA256SUMS",
     "gpgSignatureUrl": "https://cdimage.debian.org/debian-cd/current-live/amd64/iso-hybrid/SHA256SUMS.sign",
-    "gpgKeyUrl": "https://keyring.debian.org/pks/lookup?op=get&options=mr&search=0xDF9B9C49EAA9298432589D76DA87E80D6294BE9B",
+    "gpgKeyUrl": "https://www.debian.org/CD/key-DA87E80D6294BE9B.txt",
     "gpgKeyFingerprint": "DF9B9C49EAA9298432589D76DA87E80D6294BE9B"
   },
 
@@ -26,14 +27,14 @@
   ],
 
   "minimumRequirements": {
-    "minRamBytes": 4294967296,
+    "minRamBytes": 6442450944,
     "minDiskBytes": 21474836480,
-    "requiresUefi": false,
+    "requiresUefi": true,
     "requires64Bit": true
   },
 
   "maintainer": {
     "github": "gillesduif",
-    "note": "debian-installer + live-installer plugin: installs offline from the Debian Live image (copies the squashfs), the casper-style path shared with the Linux Mint plugin. RAM minimum is 4 GiB because the ~3.5 GB Live ISO is copied into RAM (iso-scan/copy_iso_to_ram) so the same disk can be repartitioned."
+    "note": "debian-installer + live-installer plugin: installs offline from the Debian Live image (copies the squashfs), the casper-style path shared with the Linux Mint plugin. RAM minimum is 6 GiB: the ~3.5 GB Live ISO is copied into RAM (iso-scan/copy_iso_to_ram) so the same disk can be repartitioned, and the disposable installation succeeded with 6 GiB."
   }
 }

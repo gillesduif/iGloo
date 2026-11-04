@@ -5,6 +5,7 @@
   "description": "Linux Mint 22.3 with the Cinnamon desktop. The classic recommendation for Windows switchers: a familiar taskbar-and-menu layout, conservative updates on an Ubuntu LTS base, and multimedia support that works out of the box.",
   "logo": "logo/linuxmint-logo.png",
   "status": "available",
+  "supportedInstallModes": ["dual-boot"],
   "defaultDesktopEnvironment": "Cinnamon",
   "installerType": "Ubiquity",
 
@@ -28,7 +29,7 @@
   "minimumRequirements": {
     "minRamBytes": 4294967296,
     "minDiskBytes": 21474836480,
-    "requiresUefi": false,
+    "requiresUefi": true,
     "requires64Bit": true
   },
 

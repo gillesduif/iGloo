@@ -51,6 +51,13 @@
       "description": "Installer technology, e.g. Anaconda | Ubiquity | Calamares | AutoYaST | Subiquity | Custom."
     },
 
+    "supportedInstallModes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["dual-boot", "replace"] },
+      "description": "Modes implemented by this distribution's current unattended installer recipe."
+    },
+
     "iso": {
       "type": "object",
       "required": ["downloadUrl", "sha256"],
