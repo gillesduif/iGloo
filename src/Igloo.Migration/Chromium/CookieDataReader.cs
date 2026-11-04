@@ -28,27 +28,17 @@ public static class CookieDataReader
     }
 
     /// <summary>
-    /// Returns the cookie rows from the given Cookies file. The file is copied
-    /// to a temporary location first because a running browser holds it under a
-    /// lock; the copy is deleted afterwards. Session cookies (no encrypted
-    /// value) are skipped - they do not survive a browser restart anyway.
+    /// Returns cookie rows from a consistent SQLite snapshot, including
+    /// committed rows still in an open browser's write-ahead log. Session
+    /// cookies (no encrypted value) are skipped.
     /// </summary>
     public static IReadOnlyList<RawCookie> Read(string cookiesPath)
     {
         ArgumentException.ThrowIfNullOrEmpty(cookiesPath);
 
-        var tempPath = System.IO.Path.Join(
-            System.IO.Path.GetTempPath(), $"igloo-cookies-{Guid.NewGuid():N}.db");
-        try
+        return ChromiumSqliteSnapshot.Read(cookiesPath, connection =>
         {
-            File.Copy(cookiesPath, tempPath, overwrite: true);
-
             var rows = new List<RawCookie>();
-            using var connection = new SqliteConnection(
-                new SqliteConnectionStringBuilder { DataSource = tempPath, Mode = SqliteOpenMode.ReadOnly }
-                    .ToString());
-            connection.Open();
-
             using var command = connection.CreateCommand();
             // host_key, name and path are the cookie's identity, and the same
             // three columns the Linux side matches on to write the value back.
@@ -69,23 +59,6 @@ public static class CookieDataReader
                 rows.Add(new RawCookie(host, name, path, encrypted));
             }
             return rows;
-        }
-        finally
-        {
-            TryDelete(tempPath);
-        }
-    }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            if (File.Exists(path))
-                File.Delete(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // A leaked temp file in %TEMP% is harmless; the OS cleans it.
-        }
+        });
     }
 }

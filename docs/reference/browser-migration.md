@@ -3,6 +3,67 @@
 What iGloo moves from the Windows browsers to the Linux ones, and the eight
 places where a copy that looks correct still produces an empty browser.
 
+## Windows staging before installation
+
+The Community wizard supplies each selected browser's engine to the shared
+staging service. For Chromium, Windows stages the same `Default` profile files
+that the first-boot agents consume: Bookmarks, History, Favicons, Top Sites,
+Network/Cookies and Sessions. Machine state such as `first_party_sets.db`,
+Local State, caches and runtime locks is not part of that portable snapshot.
+Password extraction remains a separate operation.
+
+SQLite databases are captured with the SQLite backup API, including committed
+WAL data, into standalone database files. Space measurement reserves the main
+file plus its WAL and rollback journal; a snapshot that grows beyond that
+reservation is rejected. A sidecar without its main database is rejected too.
+
+SQLite PERSIST journals can remain nonempty after a successful commit. SQLite
+also initializes a journal with zero magic and nonzero metadata before it can
+write protected main-file pages. Both states are accepted under source locks;
+the journal's length alone does not identify an active transaction. A hot
+journal is validated, copied alongside an owned private main-file snapshot,
+and recovered by SQLite only in that private copy. Validation checks page and
+sector sizes, record bounds, checksums, duplicate page records, successive
+headers and the reserved recovery size. Super-journal footer markers are
+rejected before SQLite can follow an external pathname. The recovered copy
+must pass `quick_check`. Browser main databases, rollback journals and WAL
+files are opened read-only and never recovered in place. SQLite may update an
+existing SHM coordination file on the normal WAL read path. Temporary cleanup
+attempts every owned snapshot file even if an earlier deletion fails.
+
+An idle open Windows browser handle can prevent the locked file copy. Only
+that known sharing/locking failure enables a bounded read-only SQLite fallback
+with exclusive locking mode selected before its first database read. This
+avoids creating source WAL sidecars. Existing complete WAL sidecars are read
+through SQLite's normal snapshot protocol; an incomplete pair is rejected.
+
+Other selected files retain strict copy checks. Typed `BrowserInUse` failures
+show which selected browsers and background processes to close, with an
+explicit Task Manager action and retry that preserves the selection. Typed
+`RecoveryRequired` failures offer open/recover/close/retry guidance when safe
+private recovery is unavailable. Neither message displays raw source paths.
+No browser process is stopped automatically. Failed staging removes its own
+incomplete generation through the existing cleanup path.
+
+This path has synthetic Windows file-lock and SQLite snapshot regression tests;
+those checks do not establish a completed installation or a live-browser import
+on the user's VM. The NTFS routes described below also remain for older manifests
+without staged browser paths.
+
+The standalone `tests/installer/BrowserStagingProbe` runner exercises the same
+public staging service against the current Windows user's Edge profile. It
+compares source main/journal/WAL hashes and removes only its own generated test
+copies. It saves a result without browser contents beside the runner, then
+tries the optional writable `\\VBoxSvr\igloo-repair-evidence` share and
+`%LOCALAPPDATA%\Igloo\diagnostics\browser-probe` if necessary. The visible
+staging result survives evidence-save failures. Unreadable or changing source
+files produce an unverified result rather than a claim of unchanged data.
+Journal diagnostics contain header metadata and, only when a super-journal
+magic marker is present, footer metadata; page contents are not recorded.
+This is a browser-staging check, not an installer, credential-import or
+cross-reboot acceptance test. A live VM result requires the executed probe's
+report; building this runner does not establish that result.
+
 ## What migrates
 
 | Engine | Browsers | What moves |
@@ -28,8 +89,9 @@ master key encrypts only three things. Measured on a real Brave profile:
 
 So the plain files are simply copied off the NTFS partition by the first-boot
 agent, the way a Gecko profile root is. Passwords are decrypted on Windows and
-re-encrypted for transit (ADR-011), then written into `Login Data` at first
-login. Cookies ride the same envelope, but the jar itself is copied verbatim and
+re-encrypted for transit (ADR-011), then written into `Login Data` at a login
+after the installed browser has initialized its database. Cookies ride the same
+envelope, but the jar itself is copied verbatim and
 only its `encrypted_value` column is rewritten — the decrypted value travels as
 opaque bytes, never as text, because current Chromium prefixes it with a hash of
 the cookie's domain and copying the row wholesale keeps `host_key` matching
@@ -178,12 +240,29 @@ against a column that was already there. The migration failed,
 scratch. Measured on the Debian run of 2026-08-21: five logins written to the
 right path with the right ownership, and an empty password manager.
 
-The table is now Chromium's version 31 schema exactly, labelled 31. Every later
-step only adds columns (37, 39, 41, 42, 43), so any Brave from 31 onwards
-migrates it cleanly. `Init` creates the `logins` table before migrating and
-`insecure_credentials` / `password_notes` after it, so the tables iGloo does not
-write are created by Chromium itself. A harness check compares the created table
-against the expected column set, because the failure is silent otherwise.
+The later version-31 replacement was also incomplete. In a disposable Fedora
+guest on 2026-10-18, Chrome 155 logged `Unable to migrate database from 31 to
+43` and displayed no saved passwords. The iGloo-created file had only `logins`
+and `meta`; Chrome's own version-43 file also had sync metadata, insecure
+credential, password note and statistics tables. An independent read-only check
+decrypted the synthetic iGloo row, confirming that valid SQLite rows and v10
+ciphertext alone did not establish browser usability.
+
+The current importers wait for the installed browser to create a complete
+`Login Data` before inserting passwords. If it has not done so, they retain
+the encrypted envelope and password-attempt budget without prompting. A copied
+Cookies database can still be processed separately. WSL regression tests and
+an import into a copy of Chrome's native version-43 database pass. In the
+disposable Fedora guest, the next login imported one synthetic password after
+Chrome had created that database; Chrome's password manager displayed its site
+and username, revealed the expected synthetic value, and still listed it after
+a clean guest reboot. Disposable Debian and Mint guests then repeated the
+browser-created database retry with Flatpak Brave: each password manager
+displayed the synthetic site and username, revealed the expected synthetic
+password, and still listed it after reboot. A read-only v10 verifier matched
+each guest's schema-43 database against its independently recorded synthetic
+password digest. Debian's Google Chrome first launch required third-party
+terms; those terms were not accepted, so its Chrome UI was not tested.
 
 ## Trap 5: App-Bound Encryption
 
@@ -271,3 +350,7 @@ the version comparison in trap 2 calls for it.
 - **Zen and Waterfox on Fedora.** The kickstart `%post` copies those profiles, and
   the agent relocates them afterwards, so first boot is covered. A profile copied
   by any later path would not be.
+
+The [credential decision](../decisions/011-chromium-credential-migration.md)
+records the separate Chromium policy. These local migration data are outside
+Fleet's sanitized [evidence boundary](../fleet/security.md).

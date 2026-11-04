@@ -3,6 +3,7 @@ using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
+using Igloo.Core.Abstractions;
 using Igloo.Migration.Chromium;
 using Microsoft.Data.Sqlite;
 using Xunit;
@@ -81,14 +82,25 @@ public sealed class LoginDataReaderTests : IDisposable
         catch (IOException ex) { Debug.WriteLine($"Temp cleanup failed for {_dir}: {ex.Message}"); }
     }
 
-    [Fact]
-    public void Read_ReturnsNonBlacklistedRows()
+    [Theory]
+    [InlineData("DELETE")]
+    [InlineData("TRUNCATE")]
+    [InlineData("PERSIST")]
+    public void Read_ReturnsNonBlacklistedRowsWithoutSourceWrites(string journalMode)
     {
         var dbPath = Path.Join(_dir, "Login Data");
-        using (var connection = new SqliteConnection($"Data Source={dbPath}"))
+        using (var connection = new SqliteConnection($"Data Source={dbPath};Pooling=False"))
         {
             connection.Open();
             using var cmd = connection.CreateCommand();
+            switch (journalMode)
+            {
+                case "DELETE": cmd.CommandText = "PRAGMA journal_mode=DELETE"; break;
+                case "TRUNCATE": cmd.CommandText = "PRAGMA journal_mode=TRUNCATE"; break;
+                case "PERSIST": cmd.CommandText = "PRAGMA journal_mode=PERSIST"; break;
+                default: throw new ArgumentOutOfRangeException(nameof(journalMode));
+            }
+            cmd.ExecuteNonQuery();
             cmd.CommandText =
                 "CREATE TABLE logins (origin_url TEXT, username_value TEXT, " +
                 "password_value BLOB, blacklisted_by_user INTEGER);" +
@@ -98,12 +110,269 @@ public sealed class LoginDataReaderTests : IDisposable
             cmd.ExecuteNonQuery();
         }
 
+        var sourceFiles = Directory.GetFiles(_dir).ToDictionary(path => path, ChromiumTestFile.HashSharedFile);
         var rows = LoginDataReader.Read(dbPath);
 
         rows.Should().HaveCount(1);
         rows[0].Origin.Should().Be("https://a.example");
         rows[0].Username.Should().Be("alice");
         rows[0].EncryptedPassword.ToArray().Should().Equal([1, 2, 3]);
+        Directory.GetFiles(_dir).Should().BeEquivalentTo(sourceFiles.Keys);
+        foreach (var (path, hash) in sourceFiles)
+            ChromiumTestFile.HashSharedFile(path).Should().Equal(hash);
+    }
+
+    [Fact]
+    public void Read_IncludesCommittedLoginStillInActiveWal()
+    {
+        var dbPath = Path.Join(_dir, "Login Data");
+        using (var setup = new SqliteConnection($"Data Source={dbPath}"))
+        {
+            setup.Open();
+            using var command = setup.CreateCommand();
+            command.CommandText = "CREATE TABLE logins (origin_url TEXT, username_value TEXT, " +
+                                  "password_value BLOB, blacklisted_by_user INTEGER)";
+            command.ExecuteNonQuery();
+        }
+
+        using var activeBrowser = new SqliteConnection($"Data Source={dbPath}");
+        activeBrowser.Open();
+        using (var command = activeBrowser.CreateCommand())
+        {
+            command.CommandText = "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; " +
+                                  "INSERT INTO logins VALUES ('https://new.example', 'alice', X'010203', 0)";
+            command.ExecuteNonQuery();
+        }
+
+        File.Exists(dbPath + "-wal").Should().BeTrue();
+        File.Exists(dbPath + "-shm").Should().BeTrue();
+        var entriesBefore = Directory.GetFileSystemEntries(_dir);
+        var mainBefore = ChromiumTestFile.HashSharedFile(dbPath);
+        var walBefore = ChromiumTestFile.HashSharedFile(dbPath + "-wal");
+        var rows = LoginDataReader.Read(dbPath);
+
+        rows.Should().ContainSingle();
+        rows[0].Origin.Should().Be("https://new.example");
+        ChromiumTestFile.HashSharedFile(dbPath).Should().Equal(mainBefore);
+        ChromiumTestFile.HashSharedFile(dbPath + "-wal").Should().Equal(walBefore);
+        // SQLite updates its existing shared-memory coordination file while reading.
+        Directory.GetFileSystemEntries(_dir).Should().BeEquivalentTo(entriesBefore);
+    }
+
+    [Fact]
+    public void Read_RejectsMissingSharedMemorySidecarBeforeSqliteCanCreateIt()
+    {
+        var dbPath = Path.Join(_dir, "Login Data");
+        using (var setup = new SqliteConnection($"Data Source={dbPath};Pooling=False"))
+        {
+            setup.Open();
+            using var command = setup.CreateCommand();
+            command.CommandText = "CREATE TABLE logins (origin_url TEXT, username_value TEXT, " +
+                                  "password_value BLOB, blacklisted_by_user INTEGER)";
+            command.ExecuteNonQuery();
+        }
+
+        using var activeBrowser = new SqliteConnection($"Data Source={dbPath};Pooling=False");
+        activeBrowser.Open();
+        using (var command = activeBrowser.CreateCommand())
+        {
+            command.CommandText = "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; " +
+                                  "INSERT INTO logins VALUES ('https://new.example', 'alice', X'010203', 0)";
+            command.ExecuteNonQuery();
+        }
+
+        var isolated = Path.Join(_dir, "isolated-login");
+        ChromiumTestFile.CopySharedFile(dbPath, isolated);
+        ChromiumTestFile.CopySharedFile(dbPath + "-wal", isolated + "-wal");
+        File.Exists(isolated + "-shm").Should().BeFalse();
+
+        var act = () => LoginDataReader.Read(isolated);
+        act.Should().Throw<IOException>();
+        File.Exists(isolated + "-shm").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Read_ClosedWalDatabaseWithoutSidecarsKeepsDirectoryQuiet()
+    {
+        var dbPath = Path.Join(_dir, "Login Data");
+        using (var browser = new SqliteConnection($"Data Source={dbPath};Pooling=False"))
+        {
+            browser.Open();
+            using var command = browser.CreateCommand();
+            command.CommandText = "PRAGMA journal_mode=WAL; " +
+                                  "CREATE TABLE logins (origin_url TEXT, username_value TEXT, " +
+                                  "password_value BLOB, blacklisted_by_user INTEGER); " +
+                                  "INSERT INTO logins VALUES ('https://closed.example', 'alice', X'010203', 0)";
+            command.ExecuteNonQuery();
+        }
+
+        File.Exists(dbPath + "-wal").Should().BeFalse();
+        File.Exists(dbPath + "-shm").Should().BeFalse();
+        var entriesBefore = Directory.GetFileSystemEntries(_dir);
+
+        LoginDataReader.Read(dbPath).Should().ContainSingle()
+            .Which.Origin.Should().Be("https://closed.example");
+        Directory.GetFileSystemEntries(_dir).Should().BeEquivalentTo(entriesBefore);
+    }
+
+    [Fact]
+    public void Read_RefusesExclusivelyLockedMainFileWithoutCreatingSidecars()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var dbPath = Path.Join(_dir, "Login Data");
+        using (var setup = new SqliteConnection($"Data Source={dbPath};Pooling=False"))
+        {
+            setup.Open();
+            using var command = setup.CreateCommand();
+            command.CommandText = "CREATE TABLE logins (origin_url TEXT, username_value TEXT, " +
+                                  "password_value BLOB, blacklisted_by_user INTEGER)";
+            command.ExecuteNonQuery();
+        }
+
+        using var writer = new FileStream(dbPath, FileMode.Open, FileAccess.ReadWrite,
+            FileShare.None);
+        var timer = Stopwatch.StartNew();
+        var act = () => LoginDataReader.Read(dbPath);
+        var failure = act.Should().Throw<BrowserProfileStagingException>().Which;
+        failure.Reason.Should().Be(BrowserProfileStagingFailure.BrowserInUse);
+        failure.InnerException.Should().BeOfType<SqliteException>();
+        timer.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5));
+        File.Exists(dbPath + "-wal").Should().BeFalse();
+        File.Exists(dbPath + "-shm").Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Read_InterruptedRollbackJournalUsesCommittedRowsWithoutMutatingSource(bool spill)
+    {
+        var dbPath = Path.Join(_dir, "Login Data");
+        ChromiumRollbackFixture.CreateHotDatabase(dbPath, spill);
+        var originalMain = ChromiumTestFile.HashSharedFile(dbPath);
+        var originalJournal = ChromiumTestFile.HashSharedFile(dbPath + "-journal");
+
+        LoginDataReader.Read(dbPath).Should().ContainSingle().Which.Username.Should().Be("alice");
+        ChromiumTestFile.HashSharedFile(dbPath).Should().Equal(originalMain);
+        ChromiumTestFile.HashSharedFile(dbPath + "-journal").Should().Equal(originalJournal);
+        if (spill) ChromiumRollbackFixture.VerifyRecovery(dbPath);
+    }
+
+    [Fact]
+    public void Read_SharingFallbackRefusesHotRecoveryWithoutMutatingSource()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var dbPath = Path.Join(_dir, "Login Data");
+        ChromiumRollbackFixture.CreateHotDatabase(dbPath);
+        var originalMain = ChromiumTestFile.HashSharedFile(dbPath);
+        var originalJournal = ChromiumTestFile.HashSharedFile(dbPath + "-journal");
+        using (var holder = new FileStream(dbPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+        {
+            var act = () => LoginDataReader.Read(dbPath);
+            act.Should().Throw<BrowserProfileStagingException>()
+                .Which.Reason.Should().Be(BrowserProfileStagingFailure.RecoveryRequired);
+        }
+
+        ChromiumTestFile.HashSharedFile(dbPath).Should().Equal(originalMain);
+        ChromiumTestFile.HashSharedFile(dbPath + "-journal").Should().Equal(originalJournal);
+        ChromiumRollbackFixture.VerifyRecovery(dbPath);
+    }
+
+    [Fact]
+    public void Read_SharingFallbackAfterTransitionToColdWalCannotCreateOrChangeSidecars()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var dbPath = Path.Join(_dir, "Login Data");
+        using (var browser = new SqliteConnection($"Data Source={dbPath};Pooling=False"))
+        {
+            browser.Open();
+            using var command = browser.CreateCommand();
+            command.CommandText = "PRAGMA journal_mode=PERSIST; " +
+                "CREATE TABLE logins(origin_url TEXT, username_value TEXT, password_value BLOB, blacklisted_by_user INTEGER); " +
+                "INSERT INTO logins VALUES('https://committed.example', 'alice', X'010203', 0); " +
+                "PRAGMA journal_mode=WAL;";
+            command.ExecuteNonQuery();
+        }
+        File.Exists(dbPath + "-wal").Should().BeFalse();
+        File.Exists(dbPath + "-shm").Should().BeFalse();
+        var originalMain = ChromiumTestFile.HashSharedFile(dbPath);
+        var entries = Directory.GetFiles(_dir);
+        using var holder = new FileStream(dbPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+
+        var act = () => LoginDataReader.Read(dbPath);
+        act.Should().Throw<SqliteException>();
+
+        ChromiumTestFile.HashSharedFile(dbPath).Should().Equal(originalMain);
+        Directory.GetFiles(_dir).Should().BeEquivalentTo(entries);
+    }
+}
+
+public sealed class CookieDataReaderTests : IDisposable
+{
+    private readonly string _dir = Path.Join(
+        Path.GetTempPath(), $"igloo-cookies-{Guid.NewGuid():N}");
+
+    public CookieDataReaderTests() => Directory.CreateDirectory(_dir);
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_dir, recursive: true); }
+        catch (IOException ex) { Debug.WriteLine($"Temp cleanup failed for {_dir}: {ex.Message}"); }
+    }
+
+    [Fact]
+    public void Read_IncludesCommittedCookieStillInActiveWal()
+    {
+        var dbPath = Path.Join(_dir, "Cookies");
+        using (var setup = new SqliteConnection($"Data Source={dbPath}"))
+        {
+            setup.Open();
+            using var command = setup.CreateCommand();
+            command.CommandText = "CREATE TABLE cookies (host_key TEXT, name TEXT, path TEXT, encrypted_value BLOB)";
+            command.ExecuteNonQuery();
+        }
+
+        using var activeBrowser = new SqliteConnection($"Data Source={dbPath}");
+        activeBrowser.Open();
+        using (var command = activeBrowser.CreateCommand())
+        {
+            command.CommandText = "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; " +
+                                  "INSERT INTO cookies VALUES ('.new.example', 'session', '/', X'010203')";
+            command.ExecuteNonQuery();
+        }
+
+        File.Exists(dbPath + "-wal").Should().BeTrue();
+        File.Exists(dbPath + "-shm").Should().BeTrue();
+        var entriesBefore = Directory.GetFileSystemEntries(_dir);
+        var mainBefore = ChromiumTestFile.HashSharedFile(dbPath);
+        var walBefore = ChromiumTestFile.HashSharedFile(dbPath + "-wal");
+        var rows = CookieDataReader.Read(dbPath);
+
+        rows.Should().ContainSingle();
+        rows[0].HostKey.Should().Be(".new.example");
+        ChromiumTestFile.HashSharedFile(dbPath).Should().Equal(mainBefore);
+        ChromiumTestFile.HashSharedFile(dbPath + "-wal").Should().Equal(walBefore);
+        // SQLite updates its existing shared-memory coordination file while reading.
+        Directory.GetFileSystemEntries(_dir).Should().BeEquivalentTo(entriesBefore);
+    }
+}
+
+file static class ChromiumTestFile
+{
+    public static byte[] HashSharedFile(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+        return SHA256.HashData(stream);
+    }
+
+    public static void CopySharedFile(string source, string destination)
+    {
+        using var input = new FileStream(source, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+        using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write,
+            FileShare.None);
+        input.CopyTo(output);
     }
 }
 

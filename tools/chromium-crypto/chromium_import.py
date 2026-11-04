@@ -1,17 +1,16 @@
-"""Development copy of the Chromium credential import section for the agents.
+"""Standalone Chromium credential interoperability harness.
 
-The text between the SECTION markers is inlined verbatim into
-distros/_debian-family/agent/agent.py and distros/fedora-kde/agent/agent.py
-("keep in sync" convention, same as the Wi-Fi section). This copy exists so
-the section can be KAT- and integration-tested standalone.
+The distribution agents contain their own retry and seed-safety handling.
+This harness checks the shared credential format; never overwrite an agent
+with this file without reviewing those distribution-specific safeguards.
 """
 
 # === BEGIN AGENT SECTION =================================================
 # ---------------------------------------------------------------------------
 # Chromium credential import (browser migration Phase 2, ADR-011)
 #
-# KEEP IN SYNC between distros/_debian-family/agent/agent.py and
-# distros/fedora-kde/agent/agent.py (same convention as the Wi-Fi section).
+# Keep the envelope and Chromium encoding compatible with the Debian-family
+# and Fedora agents. Their installed copies add distinct retry safeguards.
 #
 # The Windows side decrypts the selected Chromium browsers' saved passwords
 # (DPAPI unlocks only in the user's logon session) and stages them inside the
@@ -304,8 +303,8 @@ def _chromium_config_homes(app_id: str, binaries: tuple[str, ...],
 
     Flatpak overrides XDG_CONFIG_HOME, so a Flatpak build never sees ~/.config
     and a packaged build never sees ~/.var/app. Picking one means guessing, and
-    a wrong guess writes the passwords where nothing reads them - so write to
-    each root that has a matching install, and to ~/.config when neither does.
+    a wrong guess writes the passwords where nothing reads them. Return only
+    roots backed by an observed install so an absent browser remains retryable.
     """
     base = home or Path.home()
     roots: list[Path] = []
@@ -315,63 +314,39 @@ def _chromium_config_homes(app_id: str, binaries: tuple[str, ...],
         roots.append(base / ".var" / "app" / app_id / "config")
     if any(shutil.which(b) for b in binaries):
         roots.append(_native_config_home(home))
-    return roots or [_native_config_home(home)]
+    return roots
 
 # Chromium timestamps count microseconds since 1601-01-01 UTC.
 _CHROMIUM_EPOCH_OFFSET_US = 11644473600 * 1_000_000
 
-# The logins table exactly as Chromium's own builder produces it at schema
-# version 31, and labelled 31 - the two must agree. Labelling a modern table as
-# an old version is what emptied Brave on 2026-08-21: the stored version drives
-# LoginDatabase::MigrateDatabase, which then runs "ALTER TABLE logins ADD COLUMN
-# possible_username_pairs" (a version 19 step) against a column that is already
-# there, the migration fails, Init returns false and the caller recreates the
-# file from scratch.
-#
-# 31 is chosen because every later step only ADDS columns (37, 39, 41, 42, 43),
-# so any Brave from 31 onwards migrates this table upwards cleanly. Chromium
-# creates the logins table before migrating and insecure_credentials /
-# password_notes after it, so the tables we leave out are not our problem.
-# See docs/reference/browser-migration.md.
-_LOGINS_SCHEMA_VERSION = 31
-_LOGINS_SCHEMA = f"""
-CREATE TABLE IF NOT EXISTS logins (
-    origin_url VARCHAR NOT NULL,
-    action_url VARCHAR,
-    username_element VARCHAR,
-    username_value VARCHAR,
-    password_element VARCHAR,
-    password_value BLOB,
-    submit_element VARCHAR,
-    signon_realm VARCHAR NOT NULL,
-    date_created INTEGER NOT NULL,
-    blacklisted_by_user INTEGER NOT NULL,
-    scheme INTEGER NOT NULL,
-    password_type INTEGER,
-    times_used INTEGER,
-    form_data BLOB,
-    display_name VARCHAR,
-    icon_url VARCHAR,
-    federation_url VARCHAR,
-    skip_zero_click INTEGER,
-    generation_upload_status INTEGER,
-    possible_username_pairs BLOB,
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date_last_used INTEGER NOT NULL DEFAULT 0,
-    moving_blocked_for BLOB,
-    date_password_modified INTEGER NOT NULL DEFAULT 0,
-    UNIQUE (origin_url, username_element, username_value, password_element,
-            signon_realm)
-);
-CREATE INDEX IF NOT EXISTS logins_signon ON logins (signon_realm);
-CREATE TABLE IF NOT EXISTS meta (
-    key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY,
-    value LONGVARCHAR
-);
-INSERT OR IGNORE INTO meta(key, value)
-    VALUES ('version', '{_LOGINS_SCHEMA_VERSION}'),
-           ('last_compatible_version', '{_LOGINS_SCHEMA_VERSION}');
-"""
+# The installed browser owns the full Login Data schema. A fabricated
+# version-31 logins/meta pair failed native Chrome 155 migration even though
+# SQLite accepted it, so the import waits for the browser-created database.
+_CHROMIUM_NATIVE_DB_TABLES = frozenset({
+    "logins", "meta", "insecure_credentials",
+    "sync_entities_metadata", "sync_model_metadata",
+})
+
+
+def _chromium_login_db_ready(db_path: Path) -> bool:
+    if db_path.is_symlink() or not db_path.is_file():
+        return False
+    try:
+        con = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            tables = {row[0] for row in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")}
+            if not _CHROMIUM_NATIVE_DB_TABLES.issubset(tables):
+                return False
+            meta = dict(con.execute("SELECT key, value FROM meta WHERE key IN "
+                                    "('version', 'last_compatible_version')"))
+            version = int(meta["version"])
+            compatible = int(meta["last_compatible_version"])
+            return version >= 31 and 0 < compatible <= version
+        finally:
+            con.close()
+    except (OSError, sqlite3.Error, ValueError, KeyError, TypeError):
+        return False
 
 
 def _chromium_v10_encrypt_bytes(data: bytes) -> bytes:
@@ -389,6 +364,12 @@ def _chromium_v10_encrypt(password: str) -> bytes:
 
 # The cookie jar moved under Network/ in Chromium 77; both layouts still exist.
 _COOKIE_DB_NAMES = ("Network/Cookies", "Cookies")
+
+
+def _chromium_credential_profile_ready(profile_dir: Path) -> bool:
+    if _chromium_login_db_ready(profile_dir / "Login Data"):
+        return True
+    return any((profile_dir / name).is_file() for name in _COOKIE_DB_NAMES)
 
 
 def _reencrypt_cookies(profile_dir: Path, cookies: list[dict]) -> int:
@@ -491,12 +472,11 @@ def _import_into_login_data(db_path: Path, logins: list[dict]) -> int:
     """Insert logins into a Chromium Login Data database. Returns the number
     of rows inserted. Existing (origin_url, username_value) pairs are kept,
     so re-running the agent never duplicates entries."""
-    is_new_db = not db_path.exists()
-    con = sqlite3.connect(db_path)
+    if not _chromium_login_db_ready(db_path):
+        raise RuntimeError(
+            f"Browser-created Login Data is unavailable or incomplete: {db_path}")
+    con = sqlite3.connect(db_path.resolve().as_uri() + "?mode=rw", uri=True)
     try:
-        if is_new_db:
-            con.executescript(_LOGINS_SCHEMA)
-
         # PRAGMA table_info: (cid, name, type, notnull, dflt_value, pk).
         table_cols = {row[1]: row for row in con.execute("PRAGMA table_info(logins)")}
         fillable_probe = _login_row_values("", "", b"", 0)
@@ -692,25 +672,40 @@ def run_user_credential_import() -> int:
         store.unlink(missing_ok=True)
         return 0
 
+    # Wait until an installed browser creates Login Data or a copied cookie jar
+    # is ready. Keep the encrypted envelope and the attempt budget meanwhile.
+    if not any(
+            (mapping := _CHROMIUM_LINUX_DIRS.get(entry.get("name", "")))
+            and any(_chromium_credential_profile_ready(
+                        root / mapping[1] / "Default")
+                    for root in _chromium_config_homes(mapping[0], mapping[2]))
+            for entry in entries):
+        logger.info("Open the selected browser once, close it, then sign in "
+                    "again to finish password import; encrypted credentials "
+                    "retained until its native Login Data is ready")
+        return 0
+
     asked, password = _ask_password()
     if not asked:
         logger.warning("Neither zenity nor kdialog is installed - cannot ask "
                        "for the password, leaving the envelopes in place")
         return 0
     if not password:
-        data["attempts"] = attempts
-        store.write_text(json.dumps(data), encoding="utf-8")
-        logger.info("Password prompt cancelled (attempt %d of %d)",
-                    attempts, _CRED_MAX_ATTEMPTS)
+        logger.info("Password prompt closed without a password; encrypted "
+                    "credentials retained for the next login")
         return 0
 
     imported = 0
     wrong_password = False
+    write_failed = False
+    remaining = []
     for entry in entries:
         name = entry.get("name", "")
         mapping = _CHROMIUM_LINUX_DIRS.get(name)
         if mapping is None:
-            logger.info("No Linux profile mapping for browser %r - skipping", name)
+            logger.warning("No Linux profile mapping for browser %r - retaining envelope", name)
+            write_failed = True
+            remaining.append(entry)
             continue
         app_id, config_rel, binaries = mapping
         try:
@@ -719,6 +714,7 @@ def run_user_credential_import() -> int:
             # A bad tag is indistinguishable from a corrupt envelope here, but
             # a wrong password is overwhelmingly the likelier cause.
             wrong_password = True
+            remaining.append(entry)
             logger.warning("Could not decrypt the envelope for %s", name)
             continue
 
@@ -726,10 +722,17 @@ def run_user_credential_import() -> int:
         cookies = payload.get("cookies", [])
         if not logins and not cookies:
             continue
+        roots = _chromium_config_homes(app_id, binaries)
+        if not roots:
+            logger.warning("Selected browser %s is not installed - retaining envelope", name)
+            write_failed = True
+            remaining.append(entry)
+            continue
         # Counted per browser, not per root: the same logins written to both a
         # Flatpak and a packaged install is one migration, not two.
         landed = 0
-        for root in _chromium_config_homes(app_id, binaries):
+        browser_failed = False
+        for root in roots:
             profile_dir = root / config_rel / "Default"
             try:
                 if logins:
@@ -738,6 +741,7 @@ def run_user_credential_import() -> int:
                                  _import_into_login_data(profile_dir / "Login Data", logins))
                     logger.info("Imported %s logins into %s", name, profile_dir)
             except Exception:
+                browser_failed = True
                 logger.exception("Failed to import credentials for %s into %s "
                                  "(non-fatal)", name, root)
             try:
@@ -745,18 +749,26 @@ def run_user_credential_import() -> int:
                 # must not cost the passwords that came from the same profile.
                 if cookies:
                     rewritten = _reencrypt_cookies(profile_dir, cookies)
+                    if rewritten != len(cookies):
+                        raise RuntimeError("Selected browser cookies are missing from the copied profile")
                     logger.info("Re-encrypted %d %s cookie(s) in %s",
                                 rewritten, name, profile_dir)
             except Exception:
+                browser_failed = True
                 logger.exception("Failed to re-encrypt cookies for %s in %s "
                                  "(non-fatal)", name, profile_dir)
         imported += landed
+        if browser_failed:
+            write_failed = True
+            remaining.append(entry)
 
-    if wrong_password and imported == 0:
-        data["attempts"] = attempts
+    if remaining:
+        data["browsers"] = remaining
+        if wrong_password and not write_failed:
+            data["attempts"] = attempts
         store.write_text(json.dumps(data), encoding="utf-8")
-        logger.info("Nothing decrypted (attempt %d of %d) - will ask again at "
-                    "the next login", attempts, _CRED_MAX_ATTEMPTS)
+        logger.info("Imported %d browser login(s); %d encrypted browser "
+                    "envelope(s) retained for retry", imported, len(remaining))
         return 0
 
     store.unlink(missing_ok=True)
@@ -789,6 +801,13 @@ if __name__ == "__main__":
         if not cond:
             failures.append(label)
 
+    browser_schema = Path(__file__).with_name("chrome155_login_data_schema.sql")
+
+    def create_browser_login_db(path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(path) as connection:
+            connection.executescript(browser_schema.read_text(encoding="utf-8"))
+
     _aes_self_test()
     print("PASS AES known-answer self-test")
 
@@ -812,47 +831,33 @@ if __name__ == "__main__":
     except ValueError:
         check(True, "wrong password rejected")
 
-    # Full import into a fresh Login Data database.
+    # Import into a complete database matching native Chrome 155's own schema.
     tmp = Path(tempfile.mkdtemp(prefix="igloo-chromium-test-"))
     try:
         db = tmp / "Login Data"
+        try:
+            _import_into_login_data(db, payload["logins"])
+            check(False, "absent Login Data is not fabricated")
+        except RuntimeError:
+            check(not db.exists(), "absent Login Data is not fabricated")
+        create_browser_login_db(db)
         inserted = _import_into_login_data(db, payload["logins"])
-        check(inserted == 2, "two rows inserted into fresh Login Data")
+        check(inserted == 2, "two rows inserted into browser-owned Login Data")
 
         con = sqlite3.connect(db)
         rows = list(con.execute(
             "SELECT origin_url, username_value, password_value, signon_realm "
             "FROM logins ORDER BY username_value"))
         meta = list(con.execute("SELECT value FROM meta WHERE key='version'"))
-        columns = {r[1] for r in con.execute("PRAGMA table_info(logins)")}
+        tables = {r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
         con.close()
-
-        # Chromium's logins table at schema version 31, reconstructed from
-        # InitializeBuilders in login_database.cc. If this drifts from what we
-        # declare in meta, MigrateDatabase runs an ALTER TABLE that fails and
-        # the caller recreates the file - which is how Brave came up empty.
-        expected_v31 = {
-            "origin_url", "action_url", "username_element", "username_value",
-            "password_element", "password_value", "submit_element", "signon_realm",
-            "date_created", "blacklisted_by_user", "scheme", "password_type",
-            "times_used", "form_data", "display_name", "icon_url", "federation_url",
-            "skip_zero_click", "generation_upload_status", "possible_username_pairs",
-            "id", "date_last_used", "moving_blocked_for", "date_password_modified",
-        }
-        check(columns == expected_v31,
-              "logins table matches Chromium's version 31 schema"
-              + ("" if columns == expected_v31 else
-                 f" (extra={sorted(columns - expected_v31)}"
-                 f" missing={sorted(expected_v31 - columns)})"))
-        # Dropped at version 31: present here means the version label is a lie.
-        check("date_synced" not in columns, "date_synced is gone (dropped at 31)")
+        check(_CHROMIUM_NATIVE_DB_TABLES.issubset(tables),
+              "related Chrome Login Data tables remain present")
 
         check(rows[0][0] == "https://example.com/login", "origin_url stored")
         check(rows[0][3] == "https://example.com/", "signon_realm derived")
-        # The stored version drives Chromium's migration, so it has to match the
-        # columns actually present - see _LOGINS_SCHEMA.
-        check(meta and meta[0][0] == str(_LOGINS_SCHEMA_VERSION),
-              f"meta version is {_LOGINS_SCHEMA_VERSION}")
+        check(meta and meta[0][0] == "43", "browser schema version stays 43")
 
         # v10 blob is deterministic (fixed key + IV): recompute and compare.
         expect = _chromium_v10_encrypt("s3cret!")
@@ -865,19 +870,17 @@ if __name__ == "__main__":
 
         # Import into a pre-existing DB with a NEWER schema (extra columns).
         db2 = tmp / "Login Data Newer"
-        con = sqlite3.connect(db2)
-        con.executescript(_LOGINS_SCHEMA +
-                          "ALTER TABLE logins ADD COLUMN sender_name VARCHAR;"
-                          "ALTER TABLE logins ADD COLUMN date_received "
-                          "INTEGER NOT NULL DEFAULT 0;")
-        con.close()
+        create_browser_login_db(db2)
+        with sqlite3.connect(db2) as con:
+            con.execute("ALTER TABLE logins ADD COLUMN future_column "
+                        "INTEGER NOT NULL DEFAULT 7")
         inserted3 = _import_into_login_data(db2, payload["logins"])
         check(inserted3 == 2, "newer-schema DB accepts the import")
         con = sqlite3.connect(db2)
         extra = list(con.execute(
-            "SELECT sender_name, date_received FROM logins"))
+            "SELECT sender_name, future_column FROM logins"))
         con.close()
-        check(extra[0] == ("", 0), "newer columns receive safe defaults")
+        check(extra[0] == ("", 7), "newer columns receive safe defaults")
 
         # File mode is owner-only (POSIX only; chmod is a read-only toggle on
         # Windows, so this check only runs where the agent will actually run).
@@ -900,6 +903,17 @@ if __name__ == "__main__":
             "browsers": [{"name": "Google Chrome", "blob": blob}],
         }), encoding="utf-8")
 
+        original_config_homes = _chromium_config_homes
+        globals()["_chromium_config_homes"] = (
+            lambda *_args, **_kwargs: [tmp2 / ".config"])
+        globals()["_ask_password"] = lambda: (_ for _ in ()).throw(
+            AssertionError("uninitialized browser must not prompt"))
+        run_user_credential_import()
+        check(store.is_file() and json.loads(store.read_text())["attempts"] == 0,
+              "browser without Login Data retains envelope without prompting")
+        _, config_rel, _ = _CHROMIUM_LINUX_DIRS["Google Chrome"]
+        db = tmp2 / ".config" / config_rel / "Default" / "Login Data"
+        create_browser_login_db(db)
         globals()["_ask_password"] = lambda: (True, "wrong password")
         run_user_credential_import()
         left = json.loads(store.read_text(encoding="utf-8"))
@@ -908,14 +922,22 @@ if __name__ == "__main__":
 
         globals()["_ask_password"] = lambda: (True, None)
         run_user_credential_import()
-        check(json.loads(store.read_text(encoding="utf-8"))["attempts"] == 2,
-              "cancelling counts as an attempt")
+        check(json.loads(store.read_text(encoding="utf-8"))["attempts"] == 1,
+              "cancelling preserves the attempt budget")
 
+        globals()["_chromium_config_homes"] = lambda *_args, **_kwargs: []
+        globals()["_ask_password"] = lambda: (_ for _ in ()).throw(
+            AssertionError("absent browser must not prompt for a password"))
+        run_user_credential_import()
+        check(store.exists() and
+              json.loads(store.read_text(encoding="utf-8"))["attempts"] == 1,
+              "missing browser retains its envelope without charging an attempt")
         globals()["_ask_password"] = lambda: (True, PASSWORD)
+        globals()["_chromium_config_homes"] = (
+            lambda *_args, **_kwargs: [tmp2 / ".config"])
         run_user_credential_import()
         check(not store.exists(), "successful import removes the store")
-        _, config_rel, _ = _CHROMIUM_LINUX_DIRS["Google Chrome"]
-        db = tmp2 / ".config" / config_rel / "Default" / "Login Data"
+        globals()["_chromium_config_homes"] = original_config_homes
         con = sqlite3.connect(db)
         rows = con.execute("SELECT COUNT(*) FROM logins").fetchone()[0]
         con.close()
@@ -990,7 +1012,7 @@ if __name__ == "__main__":
             stub(has_flatpak=True, has_native=True)
             check(roots() == [flatpak_root, native_root], "both installed -> both roots")
             stub(has_flatpak=False, has_native=False)
-            check(roots() == [native_root], "neither installed -> ~/.config")
+            check(roots() == [], "neither installed -> no destination")
         finally:
             shutil.which, subprocess.run = real_which, real_run
             if real_xdg is not None:
