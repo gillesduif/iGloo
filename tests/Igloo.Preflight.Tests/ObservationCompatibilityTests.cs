@@ -25,11 +25,13 @@ public sealed class ObservationCompatibilityTests
     }
 
     [Theory]
-    [InlineData(null, null, 0)]
-    [InlineData(100L, 90L, 0)]
-    [InlineData(100L, 200L, 100)]
-    public void ShrinkProjectionPreservesZeroFallback(long? minimum, long? maximum, long expected) =>
-        Assert.Equal(expected, WindowsPreflightChecker.ProjectShrinkable(minimum, maximum));
+    [InlineData(200L, null, null, 0)]
+    [InlineData(200L, 100L, 90L, 0)]
+    [InlineData(200L, 100L, 200L, 100)]
+    [InlineData(200L, 100L, 250L, 100)]
+    public void ShrinkProjectionUsesCurrentSizeRatherThanMaximum(long current, long? minimum,
+        long? maximum, long expected) =>
+        Assert.Equal(expected, WindowsPreflightChecker.ProjectShrinkable(current, minimum, maximum));
 
     [Theory]
     [InlineData(null, null, BitLockerState.Unknown)]
@@ -40,6 +42,79 @@ public sealed class ObservationCompatibilityTests
     [InlineData(1U, 0U, BitLockerState.SuspendedProtection)]
     public void BitLockerProjectionRetainsLegacyInterpretation(uint? conversion, uint? protection, BitLockerState expected) =>
         Assert.Equal(expected, WindowsPreflightChecker.ProjectBitLocker(conversion, protection));
+
+    [Theory]
+    [InlineData(BitLockerState.EncryptedAndUnlocked)]
+    [InlineData(BitLockerState.EncryptedAndLocked)]
+    [InlineData(BitLockerState.SuspendedProtection)]
+    [InlineData(BitLockerState.DecryptionInProgress)]
+    [InlineData(BitLockerState.Unknown)]
+    public void Unverified_or_incomplete_decryption_blocks_install_preflight(BitLockerState state)
+    {
+        var findings = WindowsPreflightChecker.BuildFindings(
+            isUefi: true, secureBoot: false, tpmPresent: true, bitLocker: state, totalRam: 8L << 30);
+
+        Assert.Contains(findings, finding => finding.Severity == FindingSeverity.Blocker &&
+            finding.Code.StartsWith("BITLOCKER_", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(2)]
+    [InlineData("0")]
+    public void UnknownSecureBootStateCannotBecomeDisabled(object? state) =>
+        Assert.Throws<InvalidOperationException>(() =>
+            WindowsPreflightChecker.RequireObservedSecureBootState(state));
+
+    [Theory]
+    [InlineData(true, 1, false)]
+    [InlineData(true, 2, true)]
+    public void ObservedFirmwareTypeDistinguishesBiosAndUefi(bool observed, int type, bool expected) =>
+        Assert.Equal(expected, WindowsPreflightChecker.RequireObservedUefiFirmware(observed, type));
+
+    [Theory]
+    [InlineData(false, 2)]
+    [InlineData(true, 0)]
+    [InlineData(true, 3)]
+    public void UnknownFirmwareTypeCannotBeReportedAsLegacyBios(bool observed, int type) =>
+        Assert.Throws<InvalidOperationException>(() =>
+            WindowsPreflightChecker.RequireObservedUefiFirmware(observed, type));
+
+    [Fact]
+    public void ObservedSecureBootStateUsesOnlyExplicitRegistryValues()
+    {
+        Assert.False(WindowsPreflightChecker.RequireObservedSecureBootState(0));
+        Assert.True(WindowsPreflightChecker.RequireObservedSecureBootState(1));
+    }
+
+    [Theory]
+    [InlineData((byte)0, false)]
+    [InlineData((byte)1, true)]
+    public void MissingRegistryStateCanUseObservedUefiSecureBootByte(byte value, bool expected) =>
+        Assert.Equal(expected, WindowsPreflightChecker.RequireObservedFirmwareSecureBootState(
+            new FirmwareVariableObservation([value], 0)));
+
+    [Fact]
+    public void MissingRegistryStateDoesNotTurnFailedOrMalformedFirmwareReadsIntoDisabled()
+    {
+        FirmwareVariableObservation[] unverified =
+        [
+            new(null, 203), // Variable undefined is different from an observed zero.
+            new(null, 1314), // Read privilege denied.
+            new(null, 50), // API unsupported is not an observed Secure Boot state.
+            new([2], 0),
+            new([0, 1], 0),
+            new([], 0),
+            new([0], 5), // Contradictory data/error is not a valid read.
+        ];
+
+        foreach (var state in unverified)
+        {
+            var failure = Assert.Throws<InvalidOperationException>(() =>
+                WindowsPreflightChecker.RequireObservedFirmwareSecureBootState(state));
+            Assert.Contains("check Secure Boot State", failure.Message, StringComparison.Ordinal);
+        }
+    }
 
     [Fact]
     public void ResizePolicyUsesLetterAndStrictlyLargerDeltaOnly()

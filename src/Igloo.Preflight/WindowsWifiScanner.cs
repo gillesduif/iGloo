@@ -27,19 +27,8 @@ public static class WindowsWifiScanner
 
             var connectedValues = GetConnectedValues();
 
-            var results = new List<WifiNetwork>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var net in Directory.EnumerateFiles(tmpDir, "*.xml")
-                         .Select(file => ParseProfile(file, connectedValues))
-                         .Where(profile => profile is not null))
-            {
-                bool isNewSsid = seen.Add(net!.Ssid);   // de-dupe per-adapter duplicates
-                if (isNewSsid)
-                    results.Add(net);
-            }
-
-            return results;
+            return DeduplicateProfiles(Directory.EnumerateFiles(tmpDir, "*.xml")
+                .Select(file => ParseProfile(file, connectedValues)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
@@ -68,6 +57,19 @@ public static class WindowsWifiScanner
 
     //   Private                                ─
 
+    internal static IReadOnlyList<WifiNetwork> DeduplicateProfiles(
+        IEnumerable<WifiNetwork?> profiles)
+    {
+        var results = new List<WifiNetwork>();
+        // Separate adapters may export the same profile, but SSIDs differing
+        // only in case identify different networks.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var profile in profiles)
+            if (profile is not null && seen.Add(profile.Ssid))
+                results.Add(profile);
+        return results;
+    }
+
     internal static WifiNetwork? ParseProfile(string path, HashSet<string> connectedValues)
     {
         try
@@ -80,8 +82,10 @@ public static class WindowsWifiScanner
             // SSIDConfig → SSID → name
             var ssidConfig = FirstLocal(root, "SSIDConfig");
             var ssidElem = FirstLocal(ssidConfig, "SSID");
-            var ssid = FirstLocal(ssidElem, "name")?.Value?.Trim();
-            if (string.IsNullOrWhiteSpace(ssid))
+            // SSID spaces are part of the network identity. Trimming here can
+            // silently migrate the credentials to a different network.
+            var ssid = FirstLocal(ssidElem, "name")?.Value;
+            if (string.IsNullOrEmpty(ssid))
                 return null;
 
             var hidden = string.Equals(
@@ -137,7 +141,7 @@ public static class WindowsWifiScanner
 
     private static HashSet<string> GetConnectedValues()
     {
-        var values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var values = new HashSet<string>(StringComparer.Ordinal);
         var text = RunNetsh("wlan show interfaces");
         if (text is null)
             return values;

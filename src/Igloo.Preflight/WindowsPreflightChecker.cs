@@ -29,7 +29,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
     {
         ct.ThrowIfCancellationRequested();
         var isUefi = QueryIsUefi();
-        var secureBoot = QuerySecureBoot();
+        var secureBoot = QuerySecureBoot(isUefi);
         var tpmPresent = QueryTpmPresent();
         var bitLocker = QueryBitLockerState();
         var disks = QueryDisks();
@@ -419,20 +419,57 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             ? char.ToUpperInvariant(description[0]) + description[1..]
             : description;
 
-    // Presence of this registry key is the reliable UEFI indicator on Windows 10+.
+    [DllImport("kernel32.dll", EntryPoint = "GetFirmwareType", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern bool GetFirmwareType(out int firmwareType);
+
+    // The Secure Boot registry state can be absent on a UEFI machine. Ask
+    // Windows for its boot mode independently of that optional registry value.
     private static bool QueryIsUefi()
     {
-        using var key = Registry.LocalMachine.OpenSubKey(
-            @"SYSTEM\CurrentControlSet\Control\SecureBoot\State");
-        return key != null;
+        var observed = GetFirmwareType(out var firmwareType);
+        return RequireObservedUefiFirmware(observed, firmwareType);
     }
 
-    private static bool QuerySecureBoot()
+    internal static bool RequireObservedUefiFirmware(bool observed, int firmwareType) =>
+        observed && firmwareType is 1 or 2
+            ? firmwareType == 2
+            : throw new InvalidOperationException(
+                "Check BIOS Mode in Windows System Information, then run the system check again.");
+
+    private static bool QuerySecureBoot(bool isUefi)
     {
+        // Legacy BIOS is already blocked by the UEFI finding. On UEFI, a missing
+        // registry state needs a second observation, not an assumed disabled state.
+        if (!isUefi)
+            return false;
         using var key = Registry.LocalMachine.OpenSubKey(
             @"SYSTEM\CurrentControlSet\Control\SecureBoot\State");
-        return key?.GetValue("UEFISecureBootEnabled") is int v && v == 1;
+        var registryState = key?.GetValue("UEFISecureBootEnabled");
+        return registryState is not null
+            ? RequireObservedSecureBootState(registryState)
+            : RequireObservedFirmwareSecureBootState(WindowsFirmwareReader.ReadVariable("SecureBoot", 1));
     }
+
+    internal static bool RequireObservedSecureBootState(object? state) => state switch
+    {
+        0 => false,
+        1 => true,
+        _ => throw SecureBootObservationUnavailable(),
+    };
+
+    internal static bool RequireObservedFirmwareSecureBootState(FirmwareVariableObservation variable)
+    {
+        // The UEFI SecureBoot variable is one byte. An undefined variable, failed
+        // privilege check, or malformed value does not prove that it is disabled.
+        if (variable.Availability != ObservationAvailability.Available ||
+            variable.NativeError != 0 || variable.Data is not { } bytes || bytes.Length != 1)
+            throw SecureBootObservationUnavailable();
+        return RequireObservedSecureBootState((int)bytes[0]);
+    }
+
+    private static InvalidOperationException SecureBootObservationUnavailable() => new(
+        "Open Windows System Information and check Secure Boot State, then run the system check again.");
 
     private bool QueryTpmPresent()
     {
@@ -474,9 +511,15 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
     {
         try
         {
-            var obj = _bitLocker.ReadByDriveLetter('C').RowsOrThrow().FirstOrDefault();
-            if (obj == null)
+            var systemDrive = Environment.GetEnvironmentVariable("SystemDrive");
+            if (systemDrive is not { Length: 2 } || !char.IsAsciiLetter(systemDrive[0]) ||
+                systemDrive[1] != ':')
                 return BitLockerState.Unknown;
+            var volumes = _bitLocker.ReadByDriveLetter(systemDrive[0]).RowsOrThrow()
+                .Take(2).ToArray();
+            if (volumes.Length != 1)
+                return BitLockerState.Unknown;
+            var obj = volumes[0];
 
             // ConversionStatus 0 = FullyDecrypted, 1 = FullyEncrypted, 2+ = in transition.
             // ProtectionStatus 0 = Off (protection suspended or no key protector), 1 = On.
@@ -499,8 +542,10 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
     internal static string? ProjectGptType(object? type) => (type as string)?.Trim();
     internal static List<PartitionInfo> OrderPartitions(IEnumerable<PartitionInfo> partitions) =>
         partitions.OrderBy(p => p.OffsetBytes >= 0 ? p.OffsetBytes : long.MaxValue).ToList();
-    internal static long ProjectShrinkable(long? minimum, long? maximum) =>
-        minimum.HasValue && maximum.HasValue ? Math.Max(0, maximum.Value - minimum.Value) : 0;
+    internal static long ProjectShrinkable(long current, long? minimum, long? maximum) =>
+        current >= 0 && minimum.HasValue && maximum.HasValue &&
+        minimum.Value >= 0 && maximum.Value >= current
+            ? Math.Max(0, current - minimum.Value) : 0;
     internal static BitLockerState ProjectBitLocker(uint? conversion, uint? protection) =>
         WindowsBitLockerReader.Project(conversion, protection);
 
@@ -511,6 +556,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         {
             foreach (var disk in _storage.ReadDisks().RowsOrThrow())
             {
+                var identity = StorageObservationProjection.Disk(disk);
                 var number = Convert.ToUInt32(disk["Number"], CultureInfo.InvariantCulture);
                 var model = (string?)disk["FriendlyName"] ?? "Unknown";
                 var total = Convert.ToInt64(disk["Size"], CultureInfo.InvariantCulture);
@@ -523,14 +569,25 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                     _ => "Unknown",
                 };
                 var partitions = QueryPartitionsForDisk(number);
-                disks.Add(ProjectDisk(number, model, total, allocated, style, partitions));
+                disks.Add(ProjectDisk(number, model, total, allocated, style, partitions) with
+                {
+                    GptDiskGuid = style == "GPT" &&
+                        identity.GptGuid.Availability == ObservationAvailability.Available &&
+                        identity.Size.Availability == ObservationAvailability.Available &&
+                        identity.Size.Value == (ulong)total
+                        ? identity.GptGuid.Value : null,
+                });
             }
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
             _logger.LogWarning(ex, "MSFT_Disk query failed");
+            // Partial WMI enumeration cannot prove uniqueness.
+            return disks.Select(d => d with { GptDiskGuid = null }).ToList();
         }
-        return disks;
+        return disks.Select(d => d.GptDiskGuid is { } id &&
+            disks.Count(candidate => candidate.GptDiskGuid == id) == 1
+                ? d : d with { GptDiskGuid = null }).ToList();
     }
 
     private List<PartitionInfo> QueryPartitionsForDisk(uint diskNumber)
@@ -550,7 +607,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 char dl = WmiValues.ToDriveLetter(p["DriveLetter"]);
 
                 var (fs, label) = QueryVolumeInfo(dl);
-                var shrinkable = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index) : 0L;
+                var shrinkable = fs == "NTFS" ? QueryShrinkableBytes(diskNumber, (uint)index, size) : 0L;
                 partitions.Add(new PartitionInfo(index, fs, size, label, isSystem, isBoot, shrinkable,
                                                  offset, gptType));
             }
@@ -563,7 +620,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         return OrderPartitions(partitions);
     }
 
-    private long QueryShrinkableBytes(uint diskNumber, uint partitionNumber)
+    private long QueryShrinkableBytes(uint diskNumber, uint partitionNumber, long currentSize)
     {
         try
         {
@@ -579,7 +636,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
             var sizeMin = Convert.ToInt64(outParams["SizeMin"], CultureInfo.InvariantCulture);
             var sizeMax = Convert.ToInt64(outParams["SizeMax"], CultureInfo.InvariantCulture);
-            return ProjectShrinkable(sizeMin, sizeMax);
+            return ProjectShrinkable(currentSize, sizeMin, sizeMax);
         }
         catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
         {
@@ -696,7 +753,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         }
     }
 
-    private static List<PreflightFinding> BuildFindings(
+    internal static List<PreflightFinding> BuildFindings(
         bool isUefi, bool secureBoot, bool tpmPresent, BitLockerState bitLocker, long totalRam)
     {
         var findings = new List<PreflightFinding>();
@@ -716,9 +773,19 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
                 "Disable BitLocker in Windows Settings › Privacy & Security › Device Encryption before proceeding."));
 
         if (bitLocker is BitLockerState.DecryptionInProgress)
-            findings.Add(new PreflightFinding(FindingSeverity.Warning, "BITLOCKER_DECRYPTING",
+            findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_DECRYPTING",
                 "BitLocker decryption is in progress. Wait for it to finish before proceeding.",
-                "You can monitor progress in Windows Settings › Privacy & Security › Device Encryption."));
+                "Run the system check again after Windows finishes decrypting the drive."));
+
+        if (bitLocker is BitLockerState.EncryptedAndLocked)
+            findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_LOCKED",
+                "The system volume is encrypted and locked; installation cannot proceed.",
+                "Unlock and fully decrypt the system volume in Windows before proceeding."));
+
+        if (bitLocker is BitLockerState.Unknown)
+            findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_UNAVAILABLE",
+                "The system volume's BitLocker state could not be verified.",
+                "Re-run the system check with access to the BitLocker provider before proceeding."));
 
         if (!tpmPresent)
             findings.Add(new PreflightFinding(FindingSeverity.Info, "NO_TPM",
@@ -728,7 +795,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         if (totalRam > 0 && totalRam < minRamBytes)
             findings.Add(new PreflightFinding(FindingSeverity.Warning, "LOW_RAM",
                 $"Only {totalRam / (1024 * 1024)} MB of RAM detected. Most Linux distributions require at least 2 GB.",
-                "Consider a lightweight distribution such as Debian netinstall or Alpine Linux."));
+                "Increase RAM to meet the selected distribution's minimum requirement, then rerun the system check."));
 
         return findings;
     }

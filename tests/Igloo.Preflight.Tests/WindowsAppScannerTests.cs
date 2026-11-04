@@ -60,15 +60,28 @@ public class WindowsAppScannerTests
     {
         WindowsAppScanner.FlatpakFor("Zen Browser").Should().Be("app.zen_browser.zen");
         WindowsAppScanner.FlatpakFor("Brave").Should().Be("com.brave.Browser");
+        WindowsAppScanner.FlatpakFor("Microsoft Edge").Should().Be("com.microsoft.Edge");
+        WindowsAppScanner.FlatpakFor("Waterfox").Should().Be("net.waterfox.waterfox");
     }
 
-    // Firefox ships with every distribution iGloo installs, so it has no mapping -
-    // GetSelectedSuggestions relies on null here to leave it out of the install list.
+    // Firefox ships with every distribution iGloo installs, so it has no mapping.
     [Fact]
-    public void Flatpak_lookup_returns_null_for_browsers_iGloo_does_not_install()
+    public void Flatpak_lookup_returns_null_for_preinstalled_or_unknown_browsers()
     {
         WindowsAppScanner.FlatpakFor("Mozilla Firefox").Should().BeNull();
-        WindowsAppScanner.FlatpakFor("Microsoft Edge").Should().BeNull();
+        WindowsAppScanner.FlatpakFor("Unknown Browser").Should().BeNull();
+    }
+
+    [Fact]
+    public void Edge_and_Waterfox_installs_are_suggested_with_their_profile_app_ids()
+    {
+        var results = WindowsAppScanner.Match(Installed(
+            "Microsoft Edge", "Waterfox (x64 en-US)"));
+
+        results.Should().Contain(r => r.LinuxAppName == "Microsoft Edge"
+            && r.FlatpakId == "com.microsoft.Edge");
+        results.Should().Contain(r => r.LinuxAppName == "Waterfox"
+            && r.FlatpakId == "net.waterfox.waterfox");
     }
 
     // Regression: iGloo publishes win-x86, so reading HKLM through the process view

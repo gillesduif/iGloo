@@ -102,6 +102,10 @@ public static class WindowsAppScanner
             "Opera",                "com.opera.Opera",                   null),
         new(["google chrome"],
             "Google Chrome",        "com.google.Chrome",                 null),
+        new(["microsoft edge"],
+            "Microsoft Edge",       "com.microsoft.Edge",               null),
+        new(["waterfox"],
+            "Waterfox",             "net.waterfox.waterfox",            null),
     ];
 
     //   Public API                               

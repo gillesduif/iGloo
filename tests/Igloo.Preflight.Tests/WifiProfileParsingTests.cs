@@ -56,6 +56,32 @@ public sealed class WifiProfileParsingTests : IDisposable
     }
 
     [Fact]
+    public void Ssid_spaces_are_preserved_as_part_of_the_network_identity()
+    {
+        const string ssid = " leading network ";
+
+        var net = WindowsWifiScanner.ParseProfile(
+            WriteProfile(ssid, "WPA2PSK", "s3cretpass"), []);
+
+        net!.Ssid.Should().Be(ssid);
+    }
+
+    [Fact]
+    public void Distinct_case_sensitive_ssids_are_both_migrated()
+    {
+        var upper = WindowsWifiScanner.ParseProfile(
+            WriteProfile("HomeNet", "WPA2PSK", "upper-key"), ["HomeNet"]);
+        var lower = WindowsWifiScanner.ParseProfile(
+            WriteProfile("homenet", "WPA2PSK", "lower-key"), ["HomeNet"]);
+
+        var migrated = WindowsWifiScanner.DeduplicateProfiles([upper, lower, upper]);
+
+        migrated.Select(profile => profile.Ssid).Should().Equal("HomeNet", "homenet");
+        migrated[0].IsPrimary.Should().BeTrue();
+        migrated[1].IsPrimary.Should().BeFalse();
+    }
+
+    [Fact]
     public void Open_network_has_no_key()
     {
         var net = WindowsWifiScanner.ParseProfile(
