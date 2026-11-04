@@ -76,8 +76,9 @@ public sealed class MigrationStagingCleanupTests
         }
     }
 
+    // v0.2-alpha behaviour restored on 25 Oct (B-00f): the primary saved network goes to %pre.
     [Fact]
-    public async Task FedoraSavedWifiPasswordRejectionRemovesNewStageBeforeManifestOrKickstartIsRetained()
+    public async Task FedoraSavedWifiPasswordIsCarriedIntoTheKickstart()
     {
         var parent = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Igloo", "staging", "fedora-kde");
@@ -94,7 +95,7 @@ public sealed class MigrationStagingCleanupTests
             Assert.True(registry.TryGet("fedora-kde", out _));
             var hooks = new MigrationStagingHooks(
                 _ => Task.FromResult<IReadOnlyList<WifiNetwork>>(
-                    [new WifiNetwork { Ssid = "synthetic-private", Psk = "synthetic-secret" }]),
+                    [new WifiNetwork { Ssid = "synthetic-private", Psk = "synthetic-secret", IsPrimary = true }]),
                 (browsers, _, _) => Task.FromResult(browsers),
                 (manifest, _) => manifest, (manifest, _) => manifest);
             var target = new DiskInfo("virtual", "Disposable target", 40L << 30, 0, "GPT", [])
@@ -115,12 +116,13 @@ public sealed class MigrationStagingCleanupTests
                     TotalRamBytes = 8_000_000_000, Findings = []
                 }, target, DiskInstallMode.ReplaceDisk, 0);
 
-            var error = await Assert.ThrowsAsync<InvalidDataException>(() =>
-                coordinator.StageAsync(input, null));
-            Assert.Contains("Turn off saved Wi-Fi migration", error.Message,
-                StringComparison.Ordinal);
-            Assert.NotNull(staging.Result);
-            Assert.False(Directory.Exists(staging.Result.StagingDirectory));
+            var result = await coordinator.StageAsync(input, null);
+
+            Assert.Same(staging.Result, result);
+            var kickstart = await File.ReadAllTextAsync(Path.Join(result.StagingDirectory, "ks.cfg"));
+            Assert.Contains("synthetic-private", kickstart, StringComparison.Ordinal);
+            Assert.Contains("synthetic-secret", kickstart, StringComparison.Ordinal);
+            Assert.True(File.Exists(Path.Join(result.StagingDirectory, "migration-manifest.json")));
             Assert.Equal("previous completed generation",
                 await File.ReadAllTextAsync(Path.Join(previous, "completed.txt")));
         }

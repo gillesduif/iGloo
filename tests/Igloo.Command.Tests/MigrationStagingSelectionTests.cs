@@ -30,10 +30,31 @@ public sealed class MigrationStagingSelectionTests
         Assert.Equal(0, staging.Calls);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ChangedOrAmbiguousTargetLayoutStopsBeforeCopy(bool ambiguous)
+    [Fact]
+    public async Task AmbiguousTargetIdentityStopsBeforeCopy()
+    {
+        var registry = await LoadProvidersAsync();
+        var staging = new CountingStaging();
+        var selected = new DiskInfo("selected", "Target", 40L << 30, 0, "GPT",
+            [new PartitionInfo(1, "NTFS", 20L << 30, "Data", false, true,
+                OffsetBytes: 1L << 20)]) { GptDiskGuid = Guid.NewGuid() };
+        var coordinator = new MigrationStagingCoordinator(staging, registry,
+            new FixedChecker(Report() with { Disks = [selected, selected] }),
+            NullLogger<MigrationStagingCoordinator>.Instance);
+        var user = new UserSetup
+        { WindowsUsername = "fixture", LinuxUsername = "fixture" };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.StageAsync(
+            new MigrationStagingInput(new FileStagingRequest("debian", []), user,
+                Report() with { Disks = [selected] }, selected,
+                DiskInstallMode.ReplaceDisk, 0), null));
+        Assert.Equal(0, staging.Calls);
+    }
+
+    // Only the disk identity has to hold before the copy; the layout is revalidated
+    // right before the NTFS resize (Beta Track B-00b).
+    [Fact]
+    public async Task ChangedTargetLayoutNoLongerStopsBeforeCopy()
     {
         var registry = await LoadProvidersAsync();
         var staging = new CountingStaging();
@@ -44,18 +65,18 @@ public sealed class MigrationStagingSelectionTests
         {
             Partitions = [selected.Partitions[0] with { SizeBytes = 21L << 30 }]
         };
-        var current = ambiguous ? new[] { selected, selected } : [changed];
         var coordinator = new MigrationStagingCoordinator(staging, registry,
-            new FixedChecker(Report() with { Disks = current }),
+            new FixedChecker(Report() with { Disks = [changed] }),
             NullLogger<MigrationStagingCoordinator>.Instance);
         var user = new UserSetup
         { WindowsUsername = "fixture", LinuxUsername = "fixture" };
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.StageAsync(
+        var reached = await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.StageAsync(
             new MigrationStagingInput(new FileStagingRequest("debian", []), user,
                 Report() with { Disks = [selected] }, selected,
                 DiskInstallMode.ReplaceDisk, 0), null));
-        Assert.Equal(0, staging.Calls);
+        Assert.Equal("Staging was reached unexpectedly.", reached.Message);
+        Assert.Equal(1, staging.Calls);
     }
 
     [Theory]

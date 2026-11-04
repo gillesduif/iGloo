@@ -1153,8 +1153,9 @@ public sealed class CommandBoundaryTests
         }
     }
 
+    // v0.2-alpha behaviour restored on 25 Oct (Beta Track B-00f): dual boot renders.
     [Fact]
-    public async Task FedoraOrdinaryProviderRefusesDualBootWithoutOwnedRootHandoff()
+    public async Task FedoraOrdinaryProviderRendersDualBootKickstart()
     {
         var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name
             ?? throw new DirectoryNotFoundException("Test build configuration is unavailable.");
@@ -1179,9 +1180,13 @@ public sealed class CommandBoundaryTests
             },
         };
 
-        var refusal = await Assert.ThrowsAsync<NotSupportedException>(
-            () => fedora.RenderInstallerConfigAsync(manifest));
-        Assert.Contains("select Replace on a separate disk", refusal.Message, StringComparison.Ordinal);
+        var config = await fedora.RenderInstallerConfigAsync(manifest);
+
+        Assert.Equal("ks.cfg", config.FileName);
+        var kickstart = System.Text.Encoding.UTF8.GetString(config.Contents.Span);
+        Assert.Contains("INSTALL_MODE=\"dual-boot\"", kickstart, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{", kickstart, StringComparison.Ordinal);
+        Assert.DoesNotContain("\r", kickstart, StringComparison.Ordinal);
     }
 
     private static string RepositoryRoot()

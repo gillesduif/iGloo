@@ -104,7 +104,9 @@ public sealed class UsbPreparationSafetyTests
             fixture.Iso, fixture.Files);
 
         Assert.Equal(["measure"], fixture.Events);
-        Assert.Equal(123L + fixture.AgentBytes + (64L << 20), fixture.Native.MeasuredStagedBytes);
+        // Debian reads selected folders from the Windows volume at first boot
+        // (MigrationDataOnSeed = false), so the 123-byte document takes no seed space.
+        Assert.Equal(fixture.AgentBytes + (64L << 20), fixture.Native.MeasuredStagedBytes);
         Assert.Same(fixture.Native.SpaceEstimate, result);
         Assert.Equal(29L << 30, result.ShrinkableBytes);
         Assert.Equal(2, fixture.Storage.ReadCount);
@@ -221,9 +223,10 @@ public sealed class UsbPreparationSafetyTests
             observed with { Number = Observations.Available(3U) }]));
     }
 
+    // Mint renders the alpha preseed with no partman extras since 25 Oct (B-00f), so
+    // its reviewed and ordinary artifacts coincide; only Debian keeps a bound helper.
     [Theory]
     [InlineData("debian", "igloo-initrd/igloo-bound-free-setup.sh")]
-    [InlineData("linuxmint-cinnamon", "igloo-partman.sh")]
     public async Task Reviewed_artifacts_use_the_exact_root_config_instead_of_the_unbound_preseed(
         string distroId, string reviewedHelper)
     {
@@ -461,11 +464,12 @@ public sealed class UsbPreparationSafetyTests
             Assert.Equal(readsBeforeRejectedMode, preflight.ReadCount);
             await WriteManifestAsync(targetGuid, 20);
 
-            var fedoraBlocked = await Assert.ThrowsAsync<NotSupportedException>(() =>
+            // Fedora is no longer refused in Core.Host (B-00f); the Debian-pinned image
+            // still fails Fedora's provider pin before the native service is reached.
+            var fedoraBlocked = await Assert.ThrowsAsync<InvalidDataException>(() =>
                 preparation.PrepareAsync("fedora-kde", target, 20L << 30,
                     acquired, stage, null, null));
-            Assert.Contains("installer-created root binding", fedoraBlocked.Message,
-                StringComparison.Ordinal);
+            Assert.Contains("provider pin", fedoraBlocked.Message, StringComparison.Ordinal);
             Assert.Empty(events);
 
             await File.AppendAllTextAsync(Path.Join(stage, "preseed.cfg"), "\n# altered\n");
