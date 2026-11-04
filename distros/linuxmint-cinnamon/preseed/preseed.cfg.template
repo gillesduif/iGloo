@@ -68,38 +68,66 @@ ubiquity ubiquity/poweroff boolean false
 ubiquity ubiquity/use_nonfree boolean true
 
 #   Bootstrap the Igloo first-boot agent                   
-# success_command runs at the end of the install with /target = installed system,
-# but in a chroot whose RUNNING kernel (the live/casper kernel) does NOT match
-# /target's installed-kernel modules  so `modprobe vfat` fails and the OEMDRV
-# (FAT32) cannot be mounted here AT ALL. (NTFS works because ntfs3 is built into
-# the kernel; vfat is a module that can't be loaded against the wrong modules dir.)
-#
-# Therefore we do NOT read the OEMDRV at install time. success_command only WRITES
-# a self-contained bootstrap script + oneshot service into /target (no mount
-# needed). On the first boot of the *installed* system  where the running kernel
-# matches its own modules and vfat mounts fine  that service mounts the OEMDRV,
-# copies agent.py + the manifest in, and runs the agent (before the display
-# manager). The script is written line-by-line with echo because the preseed
-# value is one backslash-joined line and cannot contain a heredoc.
+# success_command runs at the end of the install with /target = installed system.
+# It does NOT read the OEMDRV here: it records the seed identity from the kernel
+# command line (igloo.seedpartuuid / igloo.seeddiskguid, written by iGloo on
+# Windows) and WRITES a self-contained bootstrap script + oneshot service into
+# /target. On the first boot of the installed system that service mounts the
+# exact seed partition read-only, verifies it (igloo-verify-seed.py from the
+# seed's igloo-agent directory), copies agent + manifest + identity in, and runs
+# the agent before the display manager. Same two-phase design as v0.2-alpha
+# (ADR-012) and the same bootstrap body as the Debian late_command, which is
+# the path verified on 2026-10-25. Partitioning is stock Ubiquity biggest_free
+# into the free space iGloo left beside Windows; the firmware ESP is reused.
 ubiquity ubiquity/success_command string \
     exec > /target/var/log/igloo-install.log 2>&1 ; set -x ; \
+    set -eu ; umask 077 ; \
+    seed_partuuid='' ; seed_diskguid='' ; part_count=0 ; disk_count=0 ; \
+    for arg in $(cat /proc/cmdline) ; do \
+        case "$arg" in \
+            igloo.seedpartuuid=*) seed_partuuid=${arg#*=} ; part_count=$((part_count + 1)) ;; \
+            igloo.seeddiskguid=*) seed_diskguid=${arg#*=} ; disk_count=$((disk_count + 1)) ;; \
+        esac ; \
+    done ; \
+    [ "$part_count" -eq 1 ] || exit 1 ; [ "$disk_count" -eq 1 ] || exit 1 ; \
+    echo "$seed_partuuid" | grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$' || exit 1 ; \
+    echo "$seed_diskguid" | grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$' || exit 1 ; \
+    seed_partuuid=$(printf '%s' "$seed_partuuid" | tr '[:upper:]' '[:lower:]') ; \
+    seed_diskguid=$(printf '%s' "$seed_diskguid" | tr '[:upper:]' '[:lower:]') ; \
     mkdir -p /target/opt/igloo /target/var/lib/igloo /target/var/log/igloo /target/etc/systemd/system/multi-user.target.wants ; \
+    chmod 0755 /target/opt /target/opt/igloo ; \
+    echo "$seed_partuuid" > /target/var/lib/igloo/selected-seed-partuuid ; \
+    echo "$seed_diskguid" > /target/var/lib/igloo/selected-seed-diskguid ; \
+    chmod 0600 /target/var/lib/igloo/selected-seed-partuuid /target/var/lib/igloo/selected-seed-diskguid ; \
     echo "#!/bin/sh"                                                                       >  /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "set -eu ; umask 077"                                                            >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "mkdir -p /opt/igloo /var/lib/igloo /var/log/igloo /run/igloo-seed"               >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "chmod 0755 /opt /opt/igloo"                                                   >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "exec >> /var/log/igloo/bootstrap.log 2>&1 ; set -x"                              >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "if test -f /var/lib/igloo/.done ; then exec /opt/igloo/first-boot.sh ; fi"       >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "modprobe vfat 2>/dev/null || true"                                               >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "for d in /dev/disk/by-label/OEMDRV /dev/nvme*n*p* /dev/sd*[0-9]* /dev/vd*[0-9]* /dev/mmcblk*p* ; do umount /run/igloo-seed 2>/dev/null ; mount -t vfat -o ro \"\$d\" /run/igloo-seed 2>/dev/null && [ -d /run/igloo-seed/igloo-agent ] && { echo \"igloo: seed on \$d\" ; break ; } ; done" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "seed_partuuid=\$(cat /var/lib/igloo/selected-seed-partuuid)"                      >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "echo \"\$seed_partuuid\" | grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\$' || exit 1" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "if mountpoint -q /run/igloo-seed ; then"                                           >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "    findmnt -rn -o OPTIONS --mountpoint /run/igloo-seed | grep -Eq '(^|,)ro(,|\$)' || exit 1" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "else mount -t vfat -o ro /dev/disk/by-partuuid/\$seed_partuuid /run/igloo-seed ; fi" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "install -m 0700 /run/igloo-seed/igloo-agent/igloo-verify-seed.py /opt/igloo/igloo-verify-seed.py" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "selected_media=\$(python3 /opt/igloo/igloo-verify-seed.py /var/lib/igloo/selected-seed-partuuid /var/lib/igloo/selected-seed-diskguid /run/igloo-seed)" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "test -s /run/igloo-seed/migration-manifest.json"                                 >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "test -s /run/igloo-seed/igloo-seed-identity.json"                                >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "for file in agent.py first-boot.sh display-apply.py display-apply-gnome.py igloo_boot.py igloo-first-boot.service grub-theme-stylish-1080p.tar.gz grub-theme-stylish-4k.tar.gz ; do test -s \"/run/igloo-seed/igloo-agent/\$file\" ; done" >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "cp /run/igloo-seed/igloo-agent/agent.py      /opt/igloo/agent.py"                >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "cp /run/igloo-seed/igloo-agent/first-boot.sh /opt/igloo/first-boot.sh"           >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-agent/display-apply.py /opt/igloo/display-apply.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-agent/display-apply-gnome.py /opt/igloo/display-apply-gnome.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-agent/igloo_boot.py /opt/igloo/igloo_boot.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-agent/grub-theme-stylish-*.tar.gz /opt/igloo/ 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-wallpaper.* /opt/igloo/ 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-avatar.* /opt/igloo/ 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/migration-manifest.json   /var/lib/igloo/manifest.json"       >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "chmod 0755 /opt/igloo/agent.py /opt/igloo/first-boot.sh /opt/igloo/display-apply.py /opt/igloo/display-apply-gnome.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "umount /run/igloo-seed 2>/dev/null || true"                                      >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/display-apply.py /opt/igloo/display-apply.py"    >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/display-apply-gnome.py /opt/igloo/display-apply-gnome.py" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/igloo_boot.py /opt/igloo/igloo_boot.py"           >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/grub-theme-stylish-*.tar.gz /opt/igloo/"         >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "for file in \$selected_media ; do cp \"/run/igloo-seed/\$file\" \"/opt/igloo/\$file\" ; done" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "if test -s /var/lib/igloo/manifest.retry.json ; then install -m 0600 /var/lib/igloo/manifest.retry.json /var/lib/igloo/manifest.json ; else install -m 0600 /run/igloo-seed/migration-manifest.json /var/lib/igloo/manifest.json ; fi" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "install -m 0600 /run/igloo-seed/igloo-seed-identity.json /var/lib/igloo/seed-identity.json" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "chmod 0755 /opt/igloo/agent.py /opt/igloo/first-boot.sh /opt/igloo/display-apply.py /opt/igloo/display-apply-gnome.py" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "chmod 0644 /opt/igloo/igloo_boot.py"                                         >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "# Keep the seed mounted read-only while the agent copies staged user files."      >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "exec /opt/igloo/first-boot.sh"                                                   >> /target/opt/igloo/igloo-bootstrap.sh ; \
     chmod 0755 /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "[Unit]"                                          >  /target/etc/systemd/system/igloo-bootstrap.service ; \
@@ -107,7 +135,6 @@ ubiquity ubiquity/success_command string \
     echo "After=network-online.target local-fs.target"    >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "Wants=network-online.target"                    >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "Before=display-manager.service"                 >> /target/etc/systemd/system/igloo-bootstrap.service ; \
-    echo "ConditionPathExists=!/var/lib/igloo/.done"      >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo ""                                               >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "[Service]"                                      >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "Type=oneshot"                                   >> /target/etc/systemd/system/igloo-bootstrap.service ; \
@@ -117,5 +144,6 @@ ubiquity ubiquity/success_command string \
     echo ""                                               >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "[Install]"                                      >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "WantedBy=multi-user.target"                     >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    chmod 0644 /target/etc/systemd/system/igloo-bootstrap.service ; \
     ln -sf /etc/systemd/system/igloo-bootstrap.service /target/etc/systemd/system/multi-user.target.wants/igloo-bootstrap.service ; \
     echo "igloo: install-time bootstrap written"

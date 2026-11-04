@@ -1,0 +1,14 @@
+[Unit]
+Description=Igloo first-boot bootstrap
+After=network-online.target local-fs.target
+Wants=network-online.target
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/igloo/igloo-bootstrap.sh
+RemainAfterExit=yes
+TimeoutStartSec=2400
+
+[Install]
+WantedBy=multi-user.target

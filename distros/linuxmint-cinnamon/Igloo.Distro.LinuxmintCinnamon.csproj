@@ -13,17 +13,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="preseed\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="preseed\**\*"
+             Link="linuxmint-cinnamon\preseed\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\_debian-family\agent\**\*"
-             Link="agent\%(RecursiveDir)%(Filename)%(Extension)"
+             Exclude="..\_debian-family\agent\**\__pycache__\**;..\_debian-family\agent\**\*.pyc"
+             Link="linuxmint-cinnamon\agent\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\_shared\grub-theme\grub-theme-stylish-*.tar.gz"
-             Link="agent\%(Filename)%(Extension)"
+             Link="linuxmint-cinnamon\agent\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\_shared\agent\igloo_boot.py"
-             Link="agent\igloo_boot.py"
+             Link="linuxmint-cinnamon\agent\igloo_boot.py"
              CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="distro.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="distro.json" Link="linuxmint-cinnamon\distro.json"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="CopyPluginToDistroRoot" AfterTargets="Build">

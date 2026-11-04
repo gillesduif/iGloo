@@ -1,0 +1,135 @@
+#!/bin/sh
+# Run before partman inventories disks. The stock biggest_free choice considers
+# every disk; install a choice and action that are bound to the selected GPT disk.
+set -e
+umask 077
+trap 'code=$?; if [ "$code" -ne 0 ]; then printf "igloo-partman: failed status=%s\n" "$code" >&2; fi' EXIT
+
+choice_root=/lib/partman/automatically_partition
+[ "$(readlink -f /lib/partman)" = /usr/lib/partman ] || exit 99
+[ -s /lib/partman/lib/base.sh ] || exit 99
+[ -s "$choice_root/priority" ] && [ -s "$choice_root/question" ] || exit 99
+[ -s "$choice_root/50biggest_free/choices" ] &&
+    [ -s "$choice_root/50biggest_free/do_option" ] || exit 99
+[ -d "$choice_root" ] || exit 99
+install -m 0600 "$choice_root/priority" /run/igloo-partman-priority
+install -m 0600 "$choice_root/question" /run/igloo-partman-question
+printf 'igloo-partman: isolating %s on live tmpfs\n' "$choice_root" >&2
+
+# Hide every stock whole-disk and unbound choice in the ephemeral installer
+# mount namespace. Casper's live root is overlayfs, where renaming a lower
+# directory may fail with EXDEV. A tmpfs mount hides all lower choices even if
+# any later verification fails; only the guarded choice is installed below.
+mount -t tmpfs -o size=1M,mode=0755 tmpfs "$choice_root"
+install -m 0644 /run/igloo-partman-priority "$choice_root/priority"
+install -m 0644 /run/igloo-partman-question "$choice_root/question"
+mkdir -p "$choice_root/50biggest_free"
+
+seed_root=/run/igloo-seed
+printf 'igloo-partman: verifying mounted seed at %s\n' "$seed_root" >&2
+seed_partuuid=''
+seed_diskguid=''
+linux_esp_partuuid=''
+part_count=0
+disk_count=0
+esp_count=0
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in
+        igloo.seedpartuuid=*) seed_partuuid=${arg#*=}; part_count=$((part_count + 1)) ;;
+        igloo.seeddiskguid=*) seed_diskguid=${arg#*=}; disk_count=$((disk_count + 1)) ;;
+        igloo.linuxesppartuuid=*) linux_esp_partuuid=${arg#*=}; esp_count=$((esp_count + 1)) ;;
+    esac
+done
+[ "$part_count" -eq 1 ] && [ "$disk_count" -eq 1 ] && [ "$esp_count" -eq 1 ] || exit 99
+printf '%s\n' "$seed_partuuid" | grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$'
+printf '%s\n' "$seed_diskguid" | grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$'
+printf '%s\n' "$linux_esp_partuuid" | grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$'
+seed_partuuid=$(printf '%s' "$seed_partuuid" | tr '[:upper:]' '[:lower:]')
+seed_diskguid=$(printf '%s' "$seed_diskguid" | tr '[:upper:]' '[:lower:]')
+linux_esp_partuuid=$(printf '%s' "$linux_esp_partuuid" | tr '[:upper:]' '[:lower:]')
+printf '%s\n' "$seed_partuuid" > /run/igloo-selected-seed-partuuid
+printf '%s\n' "$seed_diskguid" > /run/igloo-selected-seed-diskguid
+chmod 0600 /run/igloo-selected-seed-partuuid /run/igloo-selected-seed-diskguid
+printf '%s\n' "$linux_esp_partuuid" > /run/igloo-selected-linux-esp-partuuid
+chmod 0600 /run/igloo-selected-linux-esp-partuuid
+printf '%s  %s\n' '{{IGLOO_SEED_VERIFIER_SHA256}}' \
+    "$seed_root/igloo-agent/igloo-verify-seed.py" | sha256sum --check --status -
+python3 "$seed_root/igloo-agent/igloo-verify-seed.py" \
+    /run/igloo-selected-seed-partuuid /run/igloo-selected-seed-diskguid "$seed_root"
+printf 'igloo-partman: seed identity verified\n' >&2
+
+expected_guid='{{TARGET_DISK_GUID}}'
+expected_bytes='{{TARGET_DISK_BYTES}}'
+guid_matches=0
+size_matches=0
+bound=''
+for sys in /sys/block/*; do
+    disk="/dev/${sys##*/}"
+    [ -b "$disk" ] || continue
+    guid=$(blkid -p -s PTUUID -o value "$disk" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    [ "$guid" = "$expected_guid" ] || continue
+    guid_matches=$((guid_matches + 1))
+    bytes=$(blockdev --getsize64 "$disk" 2>/dev/null || true)
+    [ "$bytes" = "$expected_bytes" ] || continue
+    size_matches=$((size_matches + 1))
+    bound=$disk
+done
+[ "$guid_matches" -eq 1 ] && [ "$size_matches" -eq 1 ] || exit 99
+printf 'igloo-partman: selected %s has the expected GPT identity and size\n' "$bound" >&2
+
+printf '%s\n' "$bound" > /tmp/igloo-bound-disk
+printf '%s %s\n' "$expected_guid" "$expected_bytes" > /tmp/igloo-bound-identity
+choice_dir="$choice_root/50biggest_free"
+fstab_entry=/lib/partman/fstab.d/efi
+[ -f "$fstab_entry" ] && [ -x "$fstab_entry" ] &&
+    [ ! -L "$fstab_entry" ] || exit 99
+# A second fstab renderer that mentions /boot/efi would make the mount
+# ambiguous. Leave the stock renderer's peers in place, but refuse that image.
+for peer in /lib/partman/fstab.d/*; do
+    [ "$peer" = "$fstab_entry" ] && continue
+    [ -x "$peer" ] || continue
+    if grep -q '/boot/efi' "$peer"; then
+        printf 'igloo-partman: another EFI fstab renderer exists: %s\n' "$peer" >&2
+        exit 99
+    else
+        [ "$?" -eq 1 ] || exit 99
+    fi
+done
+printf '%s  %s\n' '{{IGLOO_BOUND_EFI_FSTAB_SHA256}}' \
+    "$seed_root/igloo-bound-efi-fstab.sh" | sha256sum --check --status -
+efi_source=/lib/partman/igloo-bound-efi-fstab.sh
+[ ! -e "$efi_source" ] && [ ! -L "$efi_source" ] || exit 99
+# /run is mounted noexec in Mint's live installer. A bind from that tmpfs
+# remains noexec at fstab.d/efi even when the file has mode 0755.
+install -m 0755 "$seed_root/igloo-bound-efi-fstab.sh" "$efi_source"
+[ -f "$efi_source" ] && [ ! -L "$efi_source" ] && [ -x "$efi_source" ] || exit 99
+printf '%s  %s\n' '{{IGLOO_BOUND_EFI_FSTAB_SHA256}}' "$efi_source" |
+    sha256sum --check --status -
+# The live overlay and this read-only bind mount disappear on reboot.
+mount --bind "$efi_source" "$fstab_entry"
+mount -o remount,bind,ro "$fstab_entry"
+findmnt -rn --mountpoint "$fstab_entry" >/dev/null || exit 99
+findmnt -rn -o OPTIONS --mountpoint "$fstab_entry" | grep -Eq '(^|,)ro(,|$)' || exit 99
+[ -x "$fstab_entry" ] || exit 99
+printf '%s  %s\n' '{{IGLOO_BOUND_EFI_FSTAB_SHA256}}' "$fstab_entry" |
+    sha256sum --check --status -
+printf 'igloo-partman: bound EFI fstab selector installed\n' >&2
+printf '%s  %s\n' '{{IGLOO_BOUND_FREE_CHOICES_SHA256}}' \
+    "$seed_root/igloo-bound-free-choices.sh" | sha256sum --check --status -
+printf '%s  %s\n' '{{IGLOO_BOUND_FREE_DO_OPTION_SHA256}}' \
+    "$seed_root/igloo-bound-free-do-option.sh" | sha256sum --check --status -
+install -m 0755 "$seed_root/igloo-bound-free-choices.sh" "$choice_dir/choices"
+install -m 0755 "$seed_root/igloo-bound-free-do-option.sh" "$choice_dir/do_option"
+printf 'igloo-partman: guarded free-space choice installed\n' >&2
+
+# This value starts as an impossible device in the preseed. Until all checks
+# and both guarded scripts are installed, no stock global free-space choice
+# can be offered. Ubiquity's Mint 22.3 partman choice also honors this value.
+. /lib/partman/lib/base.sh
+db_set partman-auto/disk "$bound"
+
+# Ubiquity treats the mounted OEMDRV as an active user partition and forces
+# partman/unmount_active back to an interactive question. Keep the verified
+# seed mounted for the success hook and first-boot handoff. The only offered
+# automatic partition action is the exact-disk guarded choice installed above.
+db_set partman/filter_mounted false

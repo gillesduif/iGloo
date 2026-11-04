@@ -15,9 +15,11 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\..\docs\architecture\debian-root-chunk-transport-manifest.json" LogicalName="DebianRootTransportQualification.json" />
+    <EmbeddedResource Include="..\installer\FedoraDeferredReviewedFixture.ks" LogicalName="FedoraDeferredReviewedFixture.ks" />
     <ProjectReference Include="..\..\src\Igloo.Migration\Igloo.Migration.csproj" />
     <ProjectReference Include="..\..\distros\fedora-kde\Igloo.Distro.FedoraKde.csproj" />
     <ProjectReference Include="..\..\distros\debian\Igloo.Distro.Debian.csproj" />
+    <ProjectReference Include="..\..\distros\linuxmint-cinnamon\Igloo.Distro.LinuxmintCinnamon.csproj" />
     <Compile Include="..\Shared\InstallationOwnershipFixture.cs" Link="InstallationOwnershipFixture.cs" />
     <Compile Include="..\Shared\LabStorageFixture.cs" Link="LabStorageFixture.cs" />
     <Compile Include="..\Shared\TargetRootFixture.cs" Link="TargetRootFixture.cs" />
