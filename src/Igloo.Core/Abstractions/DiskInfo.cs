@@ -2,7 +2,13 @@ namespace Igloo.Core.Abstractions;
 
 
 public sealed record DiskInfo(string DeviceId, string Model, long TotalBytes, long FreeBytes,
-    string PartitionStyle, IReadOnlyList<PartitionInfo> Partitions);
+    string PartitionStyle, IReadOnlyList<PartitionInfo> Partitions)
+{
+    // Present only when the storage provider supplied a unique, valid GPT disk
+    // identity. The Windows ordinal and model are display facts, not installer
+    // target identities across a reboot.
+    public Guid? GptDiskGuid { get; init; }
+}
 
 
 /// <summary>One partition on a physical disk, as reported by the storage provider.</summary>

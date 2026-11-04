@@ -30,11 +30,24 @@ public sealed record ReviewedPreparationIntentV1(Guid PlanId, Guid TargetId, Gui
     string ArtifactSha256, string ProviderRevisionSha256, ReviewedMediaMeasurementsV1 Media,
     CanonicalVolumeIdentityV1 ShrinkSource,
     ImmutableArray<PreparedGptPartitionV1> BeforePartitions, ulong ShrinkBytes,
-    ulong ResultingSourceBytes, ulong FreeOffsetBytes, ulong FreeSizeBytes);
+    ulong ResultingSourceBytes, ulong FreeOffsetBytes, ulong FreeSizeBytes)
+{
+    // Pinned source tree bytes at plan time; older read-only fixtures may omit
+    // this, but the native entry requires it before any storage preparation.
+    public string? StagedInventorySha256 { get; init; }
+}
 public sealed record ReviewedMediaMeasurementsV1(ulong FullIsoBytes, ulong KernelBytes,
     ulong InitrdBytes, ulong Stage2Bytes);
+public sealed record ReviewedNtfsSizeV1(ulong SizeBytes, long VolumeSerialNumber,
+    uint BytesPerSector, uint BytesPerCluster);
 public sealed record ReviewedShrinkReceiptV1(Guid GenerationId, CanonicalVolumeIdentityV1 Before,
-    CanonicalVolumeIdentityV1 After);
+    CanonicalVolumeIdentityV1 After)
+{
+    // Null on older schema-v1 checkpoints. A native restore must reject those
+    // receipts because GPT geometry alone does not prove the NTFS size.
+    public ReviewedNtfsSizeV1? NtfsBefore { get; init; }
+    public ReviewedNtfsSizeV1? NtfsAfter { get; init; }
+}
 
 // This receipt must come from a successful provider CreatePartition result, fresh canonical
 // readback and durable persistence. A newly discovered partition or matching label is NOT a receipt.
@@ -102,6 +115,9 @@ public static class PreparedLayoutRules
 {
     public const string ShimPath = @"\EFI\iGloo\shimx64.efi";
     public const string GrubPath = @"\EFI\iGloo\grubx64.efi";
+    public const string GrubConfigPath = @"\EFI\iGloo\grub.cfg";
+    public const string DebianFamilyGrubConfigPath = @"\boot\grub\grub.cfg";
+    public const string FedoraGrubConfigPath = @"\EFI\BOOT\grub.cfg";
 
     // This is a structural, non-authorizing check. The caller must still reopen and compare
     // PlanId/TargetId/AllocationId, rehash the artifact and provider, and reobserve storage.
@@ -179,6 +195,32 @@ public static class PreparedLayoutRules
             return Observations.Failure<ReviewedShrinkReceiptV1>(ObservationAvailability.Ambiguous,
                 "ReviewedShrinkReceiptMismatch");
         return Observations.Available(new ReviewedShrinkReceiptV1(plan.GenerationId, before, expected));
+    }
+
+    // Structural validation only: callers must obtain both NTFS observations
+    // directly from the exact volume and compare them to a durable receipt.
+    public static Observation<bool> VerifyShrinkNtfs(PreparationPlanV1 plan,
+        ReviewedShrinkReceiptV1 receipt)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(receipt);
+        var geometry = VerifyShrink(plan, Observations.Available(receipt.After),
+            Observations.Available(receipt.After));
+        if (geometry.Availability != ObservationAvailability.Available ||
+            geometry.Value.GenerationId != receipt.GenerationId ||
+            geometry.Value.Before != receipt.Before ||
+            receipt.NtfsBefore is not { } before || receipt.NtfsAfter is not { } after ||
+            before.SizeBytes != receipt.Before.SizeBytes ||
+            after.SizeBytes != receipt.After.SizeBytes ||
+            before.VolumeSerialNumber != after.VolumeSerialNumber ||
+            before.BytesPerSector != plan.TargetDisk.LogicalSectorSize ||
+            after.BytesPerSector != before.BytesPerSector ||
+            before.BytesPerCluster == 0 ||
+            before.BytesPerCluster != after.BytesPerCluster ||
+            before.BytesPerCluster % before.BytesPerSector != 0)
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous,
+                "ReviewedShrinkNtfsReceiptIncomplete");
+        return Observations.Available(true);
     }
 
     public static bool IsValidPlan(PreparationPlanV1 plan)
@@ -293,8 +335,15 @@ public static class PreparedLayoutRules
             layout.BootFiles.Any(f => f.VolumeGuid != esp.VolumeGuid || !IsBootFile(f)) ||
             layout.BootFiles.Select(f => f.RelativePath).Distinct(StringComparer.OrdinalIgnoreCase).Count() != layout.BootFiles.Length ||
             !layout.BootFiles.Any(f => f.RelativePath == ShimPath) || !layout.BootFiles.Any(f => f.RelativePath == GrubPath) ||
-            !layout.BootFiles.Any(f => f.RelativePath.EndsWith("\\grub.cfg", StringComparison.Ordinal)))
+            !layout.BootFiles.Any(f => f.RelativePath == GrubConfigPath))
             return Observations.Failure<bool>(ObservationAvailability.Ambiguous, "PreparedBootChainIncomplete");
+        var primaryConfig = layout.BootFiles.Single(f => f.RelativePath == GrubConfigPath);
+        var compiledPrefixConfigs = layout.BootFiles.Where(f =>
+            f.RelativePath is DebianFamilyGrubConfigPath or FedoraGrubConfigPath).ToArray();
+        if (compiledPrefixConfigs.Length > 1 || compiledPrefixConfigs.Any(prefix =>
+                prefix.Length != primaryConfig.Length || prefix.Sha256 != primaryConfig.Sha256))
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous,
+                "PreparedBootChainIncomplete");
         if (independentlyReadFiles.Length != layout.BootFiles.Length ||
             !layout.BootFiles.OrderBy(f => f.RelativePath, StringComparer.Ordinal).SequenceEqual(independentlyReadFiles.OrderBy(f => f.RelativePath, StringComparer.Ordinal)))
             return Observations.Failure<bool>(ObservationAvailability.Ambiguous, "PreparedBootContentChanged");
@@ -307,8 +356,8 @@ public static class PreparedLayoutRules
         value.Where((_, i) => i != 4).All(Uri.IsHexDigit);
     private static bool IsBootFile(CanonicalFileIdentityV1 file) => file.Length > 0 &&
         file.Sha256 is { Length: 64 } && file.Sha256.All(Uri.IsHexDigit) &&
-        file.RelativePath.StartsWith(@"\EFI\iGloo\", StringComparison.Ordinal) &&
-        !file.RelativePath.Contains("..", StringComparison.Ordinal) && !file.RelativePath.Contains(':', StringComparison.Ordinal) && !file.RelativePath.Contains('/', StringComparison.Ordinal);
+        file.RelativePath is ShimPath or GrubPath or GrubConfigPath or
+            DebianFamilyGrubConfigPath or FedoraGrubConfigPath;
     private static bool Overlaps(ulong offset, ulong size, ulong otherOffset, ulong otherSize) =>
         offset >= otherOffset ? offset - otherOffset < otherSize : otherOffset - offset < size;
     private static ulong Align(ulong value) => checked((value + PreparationSpacePlanning.Alignment - 1) /

@@ -19,6 +19,8 @@ public sealed record DistroManifest
         string.IsNullOrEmpty(Status) || string.Equals(Status, "available", StringComparison.OrdinalIgnoreCase);
     [JsonPropertyName("defaultDesktopEnvironment")] public string? DefaultDesktopEnvironment { get; init; }
     [JsonPropertyName("installerType")] public string? InstallerType { get; init; }
+    [JsonPropertyName("supportedInstallModes")]
+    public IReadOnlyList<string> SupportedInstallModes { get; init; } = [];
     [JsonPropertyName("iso")] public required DistroIsoSpec Iso { get; init; }
     [JsonPropertyName("tags")] public IReadOnlyList<string> Tags { get; init; } = [];
     [JsonPropertyName("screenshots")] public IReadOnlyList<string> Screenshots { get; init; } = [];

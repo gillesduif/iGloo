@@ -200,6 +200,34 @@ public sealed class PreparedLayoutTests
     }
 
     [Theory]
+    [InlineData(PreparedLayoutRules.DebianFamilyGrubConfigPath)]
+    [InlineData(PreparedLayoutRules.FedoraGrubConfigPath)]
+    public void ReviewedCompiledPrefixConfigMustMatchThePrimaryEspConfig(string prefixPath)
+    {
+        var layout = Layout();
+        var prefix = layout.BootFiles[2] with
+        {
+            RelativePath = prefixPath,
+        };
+        var withPrefix = layout with { BootFiles = layout.BootFiles.Add(prefix) };
+        Assert.Equal(ObservationAvailability.Available,
+            PreparedLayoutRules.VerifyBootFiles(withPrefix, withPrefix.BootFiles).Availability);
+        var changed = withPrefix with { BootFiles = withPrefix.BootFiles.SetItem(3,
+            prefix with { Sha256 = new string('B', 64) }) };
+        Assert.Equal("PreparedBootChainIncomplete",
+            PreparedLayoutRules.VerifyBootFiles(changed, changed.BootFiles).Code);
+        var wrongPath = withPrefix with { BootFiles = withPrefix.BootFiles.SetItem(3,
+            prefix with { RelativePath = @"\boot\grub\grub-elsewhere.cfg" }) };
+        Assert.Equal("PreparedBootChainIncomplete",
+            PreparedLayoutRules.VerifyBootFiles(wrongPath, wrongPath.BootFiles).Code);
+        var bothPrefixes = withPrefix with { BootFiles = withPrefix.BootFiles.Add(
+            prefix with { RelativePath = prefixPath == PreparedLayoutRules.FedoraGrubConfigPath
+                ? PreparedLayoutRules.DebianFamilyGrubConfigPath : PreparedLayoutRules.FedoraGrubConfigPath }) };
+        Assert.Equal("PreparedBootChainIncomplete",
+            PreparedLayoutRules.VerifyBootFiles(bothPrefixes, bothPrefixes.BootFiles).Code);
+    }
+
+    [Theory]
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]

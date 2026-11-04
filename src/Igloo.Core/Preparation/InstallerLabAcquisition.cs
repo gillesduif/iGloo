@@ -32,9 +32,11 @@ public static class InstallerLabAcquisition
         ArgumentNullException.ThrowIfNull(guest);
         if (inventory.Availability != ObservationAvailability.Available)
             return Fail<InstallerLabAcquisitionV1>(inventory.Availability, "LabWholeInventoryUnavailable");
+
         if (guest.Availability != ObservationAvailability.Available)
             return Fail<InstallerLabAcquisitionV1>(guest.Availability, "LabGuestIdentityUnavailable");
         var valid = InstallerEspBinding.ValidateInventory(inventory.Value);
+
         if (valid.Availability != ObservationAvailability.Available)
             return Fail<InstallerLabAcquisitionV1>(valid.Availability, valid.Code!);
         if (runId == Guid.Empty || !Hash(hostObservationSha256) || created.IsDefaultOrEmpty || reopenedHost.IsDefault || guest.Value.IsDefault ||
@@ -46,11 +48,13 @@ public static class InstallerLabAcquisition
             guest.Value.Select(d => d.DevicePath).Distinct(StringComparer.Ordinal).Count() != guest.Value.Length ||
             guest.Value.Select(d => d.Serial).Distinct(StringComparer.Ordinal).Count() != guest.Value.Length)
             return Fail<InstallerLabAcquisitionV1>(ObservationAvailability.Ambiguous, "LabBackingOrLaunchChanged");
+
         var disks = ImmutableArray.CreateBuilder<InstallerLabDiskV1>();
+
         foreach (var disk in inventory.Value.Disks)
         {
             var observed = guest.Value.SingleOrDefault(g => g.DevicePath == disk.DevicePath);
-            var backing = created.SingleOrDefault(b => b.Serial == observed?.Serial);
+            var backing  = created.SingleOrDefault(b => b.Serial == observed?.Serial);
             if (observed is null || backing is null || backing.Length != disk.SizeBytes ||
                 observed.PhysicalSectorSize < disk.LogicalSectorSize || observed.PhysicalSectorSize % disk.LogicalSectorSize != 0)
                 return Fail<InstallerLabAcquisitionV1>(ObservationAvailability.Ambiguous, "LabGuestDiskChanged");
@@ -70,9 +74,11 @@ public static class InstallerLabAcquisition
         ArgumentNullException.ThrowIfNull(intended);
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
+
         if (before.Availability != ObservationAvailability.Available || after.Availability != ObservationAvailability.Available)
             return Fail<InstallerLabPartitionReceiptV1>(ObservationAvailability.Unavailable, "LabTransitionObservationUnavailable");
         var b = before.Value; var a = after.Value;
+
         if (acquisition.SchemaVersion != 1 || acquisition.LabRunId == Guid.Empty || acquisition.Disks.IsDefaultOrEmpty ||
             generation == Guid.Empty || !Hash(beforeSha256) || !Hash(intentSha256) || !Hash(readbackSha256) ||
             InstallerEspBinding.ValidateInventory(b).Availability != ObservationAvailability.Available ||
@@ -84,7 +90,9 @@ public static class InstallerLabAcquisition
             b.Partitions.Any(p => !a.Partitions.Contains(p)) || !a.Partitions.Contains(intended) ||
             intended.FileSystem.Availability != ObservationAvailability.Absent)
             return Fail<InstallerLabPartitionReceiptV1>(ObservationAvailability.Ambiguous, "LabCreationTransitionChanged");
+
         var parent = acquisition.Disks.SingleOrDefault(d => d.Disk.DevicePath == intended.DiskDevicePath);
+
         return parent is null ? Fail<InstallerLabPartitionReceiptV1>(ObservationAvailability.Ambiguous, "LabParentUnavailable") :
             Observations.Available(new InstallerLabPartitionReceiptV1(acquisition.LabRunId, generation, parent, intended,
                 beforeSha256, intentSha256, readbackSha256));

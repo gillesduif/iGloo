@@ -78,8 +78,6 @@ public static class PreparedStorageOwnership
             ownership is null || ownership.GenerationId != expectedGeneration || ownership.PreservedPartitions.IsDefaultOrEmpty ||
             ownership.CreatedPartitions.IsDefault || layout.Partitions.IsDefault)
             return Fail<bool>(ObservationAvailability.Unavailable, "CompletePartitionOwnershipUnavailable");
-        if (plan.Space.Allocations.Any(a => !a.CreateInWindows))
-            return Fail<bool>(ObservationAvailability.Unsupported, "InstallationRequiresPrecreatedPartitions");
         var preserved = ownership.PreservedPartitions;
         var created = ownership.CreatedPartitions;
         var expected = preserved.Concat(created.Select(r => r.Identity)).ToImmutableArray();
@@ -93,12 +91,13 @@ public static class PreparedStorageOwnership
         if (!ValidInventory(expected) ||
             !preserved.Select(p => p.PartitionGuid).Order().SequenceEqual(plan.BeforePartitionIds.Order()) ||
             !preserved.Contains(PartitionOf(plan.WindowsEsp)) ||
-            created.Length != plan.Space.Allocations.Length || created.Select(r => r.Role).Distinct().Count() != created.Length ||
+            created.Length != plan.Space.Allocations.Count(a => a.CreateInWindows) ||
+            created.Select(r => r.Role).Distinct().Count() != created.Length ||
             created.Any(r => r.GenerationId != expectedGeneration ||
                 VerifyCreation(plan, r.Role, Observations.Available(r.Identity), Observations.Available(r.Identity)).Availability != ObservationAvailability.Available))
             return Fail<bool>(ObservationAvailability.Ambiguous, "CompletePartitionOwnershipInvalid");
 
-        var formatted = plan.Space.Allocations.Where(a => a.FileSystem.Length != 0).ToArray();
+        var formatted = plan.Space.Allocations.Where(a => a.CreateInWindows && a.FileSystem.Length != 0).ToArray();
         if (layout.Partitions.Length != formatted.Length || layout.Partitions.Select(r => r.Role).Distinct().Count() != formatted.Length ||
             layout.Partitions.Select(r => r.Identity.VolumeGuid).Distinct().Count() != formatted.Length ||
             layout.Partitions.Any(r => !created.Any(c => c.Role == r.Role && c.Identity == PartitionOf(r.Identity)) ||

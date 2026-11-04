@@ -33,6 +33,30 @@ public interface IReviewedInstallerStorageProvider
 {
     Observation<string> RenderReviewedStorage(InstallationOwnershipV1 ownership,
         Guid expectedGeneration, Observation<InstallerRuntimeInventoryV1> inventory);
+
+    Task<Observation<InstallerConfig>> RenderReviewedInstallerConfigAsync(
+        MigrationManifest manifest, InstallationOwnershipV1 ownership,
+        Guid expectedGeneration, Observation<InstallerRuntimeInventoryV1> inventory,
+        CancellationToken ct = default);
+
+    // A Windows-side declaration for a receipted owned root. The generated
+    // installer must acquire and verify its own fresh device inventory before
+    // emitting any storage commands; rendering does not authorize execution.
+    Task<Observation<InstallerConfig>> RenderDeferredReviewedInstallerConfigAsync(
+        MigrationManifest manifest, InstallationOwnershipV1 ownership,
+        Guid expectedGeneration, CancellationToken ct = default);
+}
+
+// A read-only result from the reviewed Windows checkpoint and complete GPT
+// observation after Windows-created partitions have been receipted. The record
+// alone is not execution authority; the consumer must reobserve its checkpoint.
+public sealed record ReviewedInstallerFreeExtentV1(Guid GenerationId, Guid TargetDiskGuid,
+    Guid LinuxEspPartitionGuid, ulong OffsetBytes, ulong SizeBytes, ulong RootMinimumBytes);
+
+public interface IReviewedInstallerConfigProvider
+{
+    Task<InstallerConfig> RenderReviewedInstallerConfigAsync(MigrationManifest manifest,
+        ReviewedInstallerFreeExtentV1 installerRoot, CancellationToken ct = default);
 }
 
 public sealed record InstallerBootSpec
@@ -55,17 +79,40 @@ public sealed record InstallerBootSpec
 
     public string? InitrdConfigPath { get; init; }
 
+    // Provider-rendered InstallerConfig.Extras to append to an injected initrd.
+    // Each staging-relative source is placed at the initrd root by basename.
+    public IReadOnlyList<string> InitrdExtraPaths { get; init; } = Array.Empty<string>();
+
     public bool CopyFullIsoToVolume { get; init; }
+
+    // Bound by Core from the selected provider metadata for the final installer
+    // invocation. A caller-supplied path alone never identifies trusted media.
+    public string? IsoSha256 { get; init; }
 
     
     public string? IsoVolumeFileName { get; init; }
 
     public Uri? KernelUrl { get; init; }
 
+    public string? KernelSha256 { get; init; }
+
     
     public Uri? InitrdUrl { get; init; }
 
+    public string? InitrdSha256 { get; init; }
+
     public bool PreCreateRootPartition { get; init; }
+
+    /// <summary>
+    /// Whether the selected user folders and staged browser profiles (the
+    /// <c>files/</c> and <c>browser-profiles/</c> staging namespaces) are copied onto
+    /// the installer seed partition. The v0.2-alpha flow - and the Debian-family
+    /// first-boot agent - read them from the Windows NTFS volume instead, so the
+    /// seed holds only config, agent payload, media and the ISO. Providers whose
+    /// installer-time scripts copy user data from the seed (Fedora kickstart) keep
+    /// the default.
+    /// </summary>
+    public bool MigrationDataOnSeed { get; init; } = true;
 }
 
 

@@ -213,6 +213,8 @@ public sealed record HardwareProfile
 
     [JsonPropertyName("targetDiskBytes")] public long TargetDiskBytes { get; init; }
 
+    [JsonPropertyName("targetDiskGuid")] public Guid? TargetDiskGuid { get; init; }
+
     [JsonPropertyName("installMode")] public string InstallMode { get; init; } = "replace";
 
     [JsonPropertyName("linuxPartitionSizeGb")] public int LinuxPartitionSizeGb { get; init; }

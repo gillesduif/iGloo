@@ -26,14 +26,25 @@ public static class BcdMutationPlanning
     };
 
     public static Observation<BcdObjectSnapshot> ReplicateBootManager(BcdObjectSnapshot source, Guid destination,
-        CanonicalVolumeIdentityV1 target, string path, string description)
+        CanonicalVolumeIdentityV1 target, string path, string description) =>
+        ReplicateBootManagerCore(source, destination, target, path, description, installation: false);
+
+    // The legacy installer addresses the destination through GPT disk/partition GUIDs.
+    // Optional storage-provider hardware IDs are not required by that BCD device type.
+    public static Observation<BcdObjectSnapshot> ReplicateBootManagerForInstallation(BcdObjectSnapshot source,
+        Guid destination, CanonicalVolumeIdentityV1 target, string path, string description) =>
+        ReplicateBootManagerCore(source, destination, target, path, description, installation: true);
+
+    private static Observation<BcdObjectSnapshot> ReplicateBootManagerCore(BcdObjectSnapshot source, Guid destination,
+        CanonicalVolumeIdentityV1 target, string path, string description, bool installation)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentException.ThrowIfNullOrWhiteSpace(description);
         if (source.Id != BcdRecoveryGraphV1.WindowsBootManagerId || source.ObjectType != BcdRecoveryRoles.WindowsBootManagerType ||
-            destination == Guid.Empty || destination == source.Id || !CanonicalRecoveryIdentity.IsValid(target))
+            destination == Guid.Empty || destination == source.Id ||
+            !(installation ? CanonicalRecoveryIdentity.IsValidForInstallation(target) : CanonicalRecoveryIdentity.IsValid(target)))
             return Fail<BcdObjectSnapshot>(ObservationAvailability.Ambiguous, "BcdCloneIdentityInvalid");
         if (source.Elements.Availability != ObservationAvailability.Available)
             return Fail<BcdObjectSnapshot>(source.Elements.Availability, "BcdCloneSourceUnavailable");

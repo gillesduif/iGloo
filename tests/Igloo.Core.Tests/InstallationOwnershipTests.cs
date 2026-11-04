@@ -22,6 +22,37 @@ public sealed class InstallationOwnershipTests
         Assert.Equal(iso, InstallationOwnership.Resolve(binding, binding.Esp.GenerationId, A(inventory)).Value.IsoDevice is not null);
     }
 
+    [Fact]
+    public void PreparationOwnershipCanLeaveRootForTheLinuxInstaller()
+    {
+        var (binding, inventory) = Create();
+        var layout = binding.Layout;
+        var plan = layout.Plan with { Space = layout.Plan.Space with
+        {
+            Allocations = layout.Plan.Space.Allocations.Select(a =>
+                a.Role == PreparationRole.LinuxRoot ? a with { CreateInWindows = false } : a)
+                .ToImmutableArray()
+        } };
+        var ownership = layout.StorageOwnership! with
+        {
+            CreatedPartitions = layout.StorageOwnership.CreatedPartitions.Where(r =>
+                r.Role != PreparationRole.LinuxRoot).ToImmutableArray()
+        };
+        var prepared = layout with { Plan = plan, StorageOwnership = ownership };
+
+        Assert.Equal(ObservationAvailability.Available,
+            PreparedStorageOwnership.VerifyStructure(prepared).Availability);
+        var unexpectedRoot = layout.StorageOwnership.PreservedPartitions.Concat(
+            layout.StorageOwnership.CreatedPartitions.Select(r => r.Identity)).ToImmutableArray();
+        Assert.Equal("InstallationPartitionSetChanged",
+            PreparedStorageOwnership.Verify(prepared, plan.GenerationId, A(unexpectedRoot)).Code);
+        Assert.Equal(ObservationAvailability.Available,
+            InstallerEspBinding.Declare(prepared, A("2222-BBBB"), A("1111-AAAA")).Availability);
+        Assert.Equal("InstallerCreatedRootRequiresSeparateBinding",
+            InstallationOwnership.Resolve(binding with { Layout = prepared }, plan.GenerationId,
+                A(inventory)).Code);
+    }
+
     [Theory]
     [InlineData("root-guid")]
     [InlineData("root-extent")]

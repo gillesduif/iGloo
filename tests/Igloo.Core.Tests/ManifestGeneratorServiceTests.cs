@@ -33,15 +33,18 @@ public class ManifestGeneratorServiceTests
     [Fact]
     public void Dual_boot_mode_maps_to_dual_boot_string_and_keeps_linux_size()
     {
+        var selectedDiskGuid = Guid.Parse("eb29ce60-f02b-4515-a09d-1e438eac0276");
         var manifest = ManifestGeneratorService.Generate(
             "debian", MinimalUser(), UefiReport, Staging,
-            targetDisk: new DiskInfo("id", "Samsung SSD", 500_000_000_000L, 0, "GPT", []),
+            targetDisk: new DiskInfo("id", "Samsung SSD", 500_000_000_000L, 0, "GPT", [])
+            { GptDiskGuid = selectedDiskGuid },
             installMode: DiskInstallMode.DualBoot, linuxSizeGb: 80);
 
         manifest.Hardware.InstallMode.Should().Be("dual-boot");
         manifest.Hardware.LinuxPartitionSizeGb.Should().Be(80);
         manifest.Hardware.TargetDiskModel.Should().Be("Samsung SSD");
         manifest.Hardware.TargetDiskBytes.Should().Be(500_000_000_000L);
+        manifest.Hardware.TargetDiskGuid.Should().Be(selectedDiskGuid);
     }
 
     [Fact]
@@ -54,6 +57,7 @@ public class ManifestGeneratorServiceTests
         manifest.Hardware.InstallMode.Should().Be("replace");
         manifest.Hardware.LinuxPartitionSizeGb.Should().Be(0, "size only applies to dual-boot");
         manifest.Hardware.TargetDiskBytes.Should().Be(0, "no target disk was supplied");
+        manifest.Hardware.TargetDiskGuid.Should().BeNull();
     }
 
     [Fact]

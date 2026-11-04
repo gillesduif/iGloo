@@ -153,7 +153,7 @@ public sealed class InstallerEspBindingTests
     {
         var binding = Declare(Layout()).Value;
         var directive = InstallerEspBinding.FedoraExistingEspDirective(binding, A(Inventory(binding))).Value;
-        Assert.Equal("part /boot/efi --onpart=UUID=2222-BBBB --noformat\n", directive);
+        Assert.Equal($"part /boot/efi --onpart=PARTUUID={binding.LinuxEsp.Volume.PartitionGuid:D} --noformat\n", directive);
         Assert.DoesNotContain(binding.WindowsEsp.FileSystemUuid, directive, StringComparison.Ordinal);
         Assert.DoesNotContain("autopart", directive, StringComparison.Ordinal);
         Assert.DoesNotContain("clearpart", directive, StringComparison.Ordinal);

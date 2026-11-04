@@ -36,3 +36,30 @@ public sealed record IsoAcquisitionProgress(IsoAcquisitionPhase Phase, long Byte
     long? BytesTotal, string? Message);
 
 public enum IsoAcquisitionPhase { ResolvingMirror, Downloading, VerifyingSha256, VerifyingGpg, Complete }
+
+/// <summary>A classified image acquisition failure. The message and inner exception stay local;
+/// clients receive only the failure kind through the command boundary.</summary>
+public enum IsoAcquisitionFailureKind
+{
+    NetworkUnavailable,
+    CacheUnavailable,
+    VerificationFailed,
+    SourceMetadataUnavailable,
+}
+
+public sealed class IsoAcquisitionFailureException : InvalidOperationException
+{
+    public IsoAcquisitionFailureException() : this(IsoAcquisitionFailureKind.SourceMetadataUnavailable,
+        "ISO acquisition failed.") { }
+
+    public IsoAcquisitionFailureException(string message)
+        : this(IsoAcquisitionFailureKind.SourceMetadataUnavailable, message) { }
+
+    public IsoAcquisitionFailureException(string message, Exception innerException)
+        : this(IsoAcquisitionFailureKind.SourceMetadataUnavailable, message, innerException) { }
+
+    public IsoAcquisitionFailureException(IsoAcquisitionFailureKind kind, string message,
+        Exception? innerException = null) : base(message, innerException) => Kind = kind;
+
+    public IsoAcquisitionFailureKind Kind { get; }
+}

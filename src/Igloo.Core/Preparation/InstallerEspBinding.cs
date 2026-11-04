@@ -135,15 +135,15 @@ public static class InstallerEspBinding
         return Observations.Available(true);
     }
 
-    // Proven syntax in Fedora 44-1.7: Anaconda 44.30 + pykickstart 3.69. This is ONLY
-    // an ESP directive, not a complete root/storage recipe or enabled distro adapter.
-    // No directive is emitted unless the nominated UUID is unique in the fresh inventory.
+    // This is only an ESP directive, not a complete root/storage recipe or
+    // permission to install. Bind the verified GPT partition identity rather
+    // than the FAT serial, which can collide with another attached volume.
     public static Observation<string> FedoraExistingEspDirective(InstallerEspBindingV1 binding,
         Observation<InstallerRuntimeInventoryV1> inventory)
     {
         var resolved = Resolve(binding, inventory);
         return resolved.Availability == ObservationAvailability.Available
-            ? Observations.Available($"part /boot/efi --onpart=UUID={binding.LinuxEsp.FileSystemUuid} --noformat\n")
+            ? Observations.Available($"part /boot/efi --onpart=PARTUUID={binding.LinuxEsp.Volume.PartitionGuid:D} --noformat\n")
             : Failed<string>(resolved.Availability, resolved.Code!);
     }
 

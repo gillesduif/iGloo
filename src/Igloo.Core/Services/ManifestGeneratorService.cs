@@ -69,6 +69,7 @@ public static class ManifestGeneratorService
                 NeedsNonFreeCodecs = true,
                 TargetDiskModel = targetDisk?.Model,
                 TargetDiskBytes = targetDisk?.TotalBytes ?? 0,
+                TargetDiskGuid = targetDisk?.GptDiskGuid,
                 InstallMode = installMode == DiskInstallMode.DualBoot ? "dual-boot" : "replace",
                 LinuxPartitionSizeGb = installMode == DiskInstallMode.DualBoot ? linuxSizeGb : 0,
             },

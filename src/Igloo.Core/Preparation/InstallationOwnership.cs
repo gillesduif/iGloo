@@ -54,6 +54,11 @@ public static class InstallationOwnership
             return Fail(ObservationAvailability.Ambiguous, "InstallationGenerationOrBindingChanged");
         var structure = PreparedStorageOwnership.VerifyStructure(layout);
         if (structure.Availability != ObservationAvailability.Available) return Fail(structure.Availability, structure.Code!);
+        // This resolver controls a precreated root that it can bind and format by
+        // exact GPT identity. Installer-created roots have no creation receipt yet;
+        // their separate installer workflow must establish ownership first.
+        if (layout.Plan.Space.Allocations.Any(a => a.Role == PreparationRole.LinuxRoot && !a.CreateInWindows))
+            return Fail(ObservationAvailability.Unsupported, "InstallerCreatedRootRequiresSeparateBinding");
         var esp = InstallerEspBinding.Resolve(binding.Esp, inventory);
         if (esp.Availability != ObservationAvailability.Available) return Fail(esp.Availability, esp.Code!);
         var observed = inventory.Value;

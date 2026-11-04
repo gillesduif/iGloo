@@ -1,4 +1,5 @@
 using Igloo.Core.Abstractions;
+using Igloo.Core.Preparation;
 
 namespace Igloo.Core.Recovery;
 
@@ -22,7 +23,13 @@ public static class CanonicalRecoveryIdentity
 {
     public static bool IsValid(CanonicalVolumeIdentityV1? volume) => volume?.Disk is { } disk &&
         !string.IsNullOrWhiteSpace(disk.UniqueId) && disk.UniqueIdFormat is 2 or 3 or 8 &&
-        disk.BusType is not (0 or 14 or 15) && disk.GptDiskGuid != Guid.Empty && disk.SizeBytes > 0 &&
+        disk.BusType is not (0 or 14 or 15) && IsValidForInstallation(volume);
+
+    // Installation binds GPT disk/partition/volume identities and geometry.
+    // Missing hardware metadata does not become a fabricated provider identity,
+    // and IsValid/Bind still require that stronger identity for recovery.
+    public static bool IsValidForInstallation(CanonicalVolumeIdentityV1? volume) =>
+        volume?.Disk is { } disk && disk.GptDiskGuid != Guid.Empty && disk.SizeBytes > 0 &&
         disk.LogicalSectorSize > 0 && disk.PhysicalSectorSize >= disk.LogicalSectorSize &&
         disk.PhysicalSectorSize % disk.LogicalSectorSize == 0 && volume.PartitionGuid != Guid.Empty &&
         volume.VolumeGuid != Guid.Empty && volume.PartitionType != Guid.Empty && volume.SizeBytes > 0 &&
@@ -32,6 +39,14 @@ public static class CanonicalRecoveryIdentity
 
     // Ordinals join rows within one successful inventory only; they never enter authority.
     public static Observation<CanonicalVolumeIdentityV1> Bind(Observation<WindowsStorageSnapshot> observation, Guid volumeId)
+        => BindCore(observation, volumeId, requireProviderIdentity: true);
+
+    public static Observation<CanonicalVolumeIdentityV1> BindForInstallation(
+        Observation<WindowsStorageSnapshot> observation, Guid volumeId)
+        => BindCore(observation, volumeId, requireProviderIdentity: false);
+
+    private static Observation<CanonicalVolumeIdentityV1> BindCore(
+        Observation<WindowsStorageSnapshot> observation, Guid volumeId, bool requireProviderIdentity)
     {
         ArgumentNullException.ThrowIfNull(observation);
         if (observation.Availability != ObservationAvailability.Available)
@@ -56,21 +71,33 @@ public static class CanonicalRecoveryIdentity
         if (disks.Length != 1) return Failure(disks.Length > 1 ? ObservationAvailability.Ambiguous :
             ObservationAvailability.Unavailable, "DiskOwnerNotUnique");
         var disk = disks[0];
-        if (disk.IdentityStrength != StorageIdentityStrength.ProviderUniqueIdentity)
+        if (requireProviderIdentity && disk.IdentityStrength != StorageIdentityStrength.ProviderUniqueIdentity)
             return Failure(ObservationAvailability.Unsupported, "DiskIdentityReduced");
+        if (!requireProviderIdentity)
+        {
+            var installerDisk = InstallerDiskIdentity.Observe(inventory.Disks, partition.DiskNumber.Value);
+            if (installerDisk.Availability != ObservationAvailability.Available)
+                return Failure(installerDisk.Availability, installerDisk.Code!);
+        }
         if (!Available(disk.PartitionStyle)) return Failure(disk.PartitionStyle.Availability, "PartitionStyleUnavailable");
         if (disk.PartitionStyle.Value != 2) return Failure(ObservationAvailability.Unsupported, "GptRequired");
-        foreach (var state in new[] { disk.UniqueId.Availability, disk.UniqueIdFormat.Availability, disk.BusType.Availability,
-            disk.GptGuid.Availability, disk.Size.Availability, disk.LogicalSectorSize.Availability, disk.PhysicalSectorSize.Availability,
+        if (requireProviderIdentity)
+            foreach (var state in new[] { disk.UniqueId.Availability, disk.UniqueIdFormat.Availability, disk.BusType.Availability })
+                if (state != ObservationAvailability.Available) return Failure(state, "IdentityFactUnavailable");
+        foreach (var state in new[] { disk.GptGuid.Availability, disk.Size.Availability, disk.LogicalSectorSize.Availability, disk.PhysicalSectorSize.Availability,
             partition.GptType.Availability, partition.Offset.Availability, partition.Size.Availability, volume.FileSystem.Availability })
             if (state != ObservationAvailability.Available) return Failure(state, "IdentityFactUnavailable");
         if (inventory.Disks.Count(d => Equal(d.GptGuid, disk.GptGuid.Value)) != 1 ||
-            inventory.Disks.Count(d => Equal(d.UniqueId, disk.UniqueId.Value)) != 1)
+            (requireProviderIdentity && inventory.Disks.Count(d => Equal(d.UniqueId, disk.UniqueId.Value)) != 1))
             return Failure(ObservationAvailability.Ambiguous, "DuplicateDiskIdentity");
-        var identity = new CanonicalVolumeIdentityV1(new(disk.UniqueId.Value, disk.UniqueIdFormat.Value, disk.BusType.Value,
+        var identity = new CanonicalVolumeIdentityV1(new(
+            Available(disk.UniqueId) ? disk.UniqueId.Value : string.Empty,
+            Available(disk.UniqueIdFormat) ? disk.UniqueIdFormat.Value : 0,
+            Available(disk.BusType) ? disk.BusType.Value : 0,
             disk.GptGuid.Value, disk.Size.Value, disk.LogicalSectorSize.Value, disk.PhysicalSectorSize.Value),
             volume.PartitionGuid.Value, volumeId, partition.GptType.Value, partition.Offset.Value, partition.Size.Value, volume.FileSystem.Value);
-        return IsValid(identity) ? Observations.Available(identity) : Failure(ObservationAvailability.Unavailable, "InvalidCanonicalIdentity");
+        return (requireProviderIdentity ? IsValid(identity) : IsValidForInstallation(identity))
+            ? Observations.Available(identity) : Failure(ObservationAvailability.Unavailable, "InvalidCanonicalIdentity");
     }
 
     private static bool Available<T>(Observation<T> value) => value.Availability == ObservationAvailability.Available;
