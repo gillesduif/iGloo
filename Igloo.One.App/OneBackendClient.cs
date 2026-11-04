@@ -24,7 +24,8 @@ internal sealed class OneBackendClient(CliCommandClient commands) : IAsyncDispos
 
     public Task<CommandResult> PlanMigrationAsync(MigrationPlanInput input,
         CancellationToken cancellationToken = default) =>
-        InvokeAsync("migration.plan", input, cancellationToken);
+        commands.ExecuteAsync(CliCommandClient.Request("migration.plan", input,
+            capabilityVersion: 2), cancellationToken: cancellationToken);
 
     public Task<CommandResult> InspectOperationAsync(Guid operationId,
         CancellationToken cancellationToken = default) =>

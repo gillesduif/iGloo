@@ -11,7 +11,8 @@ namespace Igloo.One.App;
 internal sealed record OneChatMessage(string Speaker, string Text, bool IsTux);
 
 /// <summary>Read-only local conversation until One has a reviewed reasoning backend.</summary>
-internal sealed class OneChatViewModel(Func<CancellationToken, Task<CommandResult>> inspect)
+internal sealed class OneChatViewModel(Func<CancellationToken, Task<CommandResult>> inspect,
+    Func<CancellationToken, Task<CommandResult>> listDistros)
     : INotifyPropertyChanged
 {
     private bool _isChecking;
@@ -51,6 +52,16 @@ internal sealed class OneChatViewModel(Func<CancellationToken, Task<CommandResul
         {
             await RunSystemCheckAsync(cancellationToken).ConfigureAwait(true);
         }
+        else if (upper.Contains("DISTRIBUTION", StringComparison.Ordinal) ||
+                 upper.Contains("DISTRO", StringComparison.Ordinal) ||
+                 upper.Contains("LINUX OPTIONS", StringComparison.Ordinal) ||
+                 (upper.Contains("LINUX", StringComparison.Ordinal) &&
+                  (upper.Contains("AVAILABLE", StringComparison.Ordinal) ||
+                   upper.Contains("SUPPORT", StringComparison.Ordinal) ||
+                   upper.Contains("INSTALL", StringComparison.Ordinal))))
+        {
+            await ListDistributionsAsync(cancellationToken).ConfigureAwait(true);
+        }
         else if (upper.Contains("RESULT", StringComparison.Ordinal) ||
                  upper.Contains("FIND", StringComparison.Ordinal) ||
                  upper.Contains("STATUS", StringComparison.Ordinal))
@@ -59,9 +70,68 @@ internal sealed class OneChatViewModel(Func<CancellationToken, Task<CommandResul
         }
         else
         {
-            AddTux("I can run a read-only system check and explain its summary. " +
-                "Ask me to run the system check again or show its results. " +
+            AddTux("I can run a read-only system check and list packaged Linux distributions. " +
+                "Ask me to check this system, list distributions, or show the check results. " +
                 "Broader conversation is not connected yet.");
+        }
+    }
+
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "The chat must report an unavailable read-only catalogue without crashing the WPF dispatcher.")]
+    private async Task ListDistributionsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            CommandResult result = await listDistros(cancellationToken).ConfigureAwait(true);
+            if (!result.Succeeded)
+            {
+                AddTux("I could not load the distribution list. Restart iGloo One and try again.");
+                return;
+            }
+            if (result.CapabilityId != "distro.list" || result.Data is null)
+                throw new JsonException("Distribution listing returned an unexpected result.");
+            DistroList catalogue = result.Data.Value.Deserialize<DistroList>(CommandProtocol.JsonOptions)
+                ?? throw new JsonException("Distribution listing returned no catalogue.");
+            if (catalogue.Distros is null || catalogue.Distros.Any(d =>
+                    string.IsNullOrWhiteSpace(d.Id) || string.IsNullOrWhiteSpace(d.DisplayName)))
+                throw new JsonException("Distribution listing returned an invalid catalogue.");
+            var available = catalogue.Distros.Where(d =>
+                    string.Equals(d.Status, "available", StringComparison.OrdinalIgnoreCase))
+                .Select(d => d.DisplayName).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+            var developing = catalogue.Distros.Where(d =>
+                    string.Equals(d.Status, "in-development", StringComparison.OrdinalIgnoreCase))
+                .Select(d => d.DisplayName).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+            int comingSoon = catalogue.Distros.Count(d =>
+                string.Equals(d.Status, "coming-soon", StringComparison.OrdinalIgnoreCase));
+            var other = catalogue.Distros.Where(d =>
+                    !string.Equals(d.Status, "available", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(d.Status, "in-development", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(d.Status, "coming-soon", StringComparison.OrdinalIgnoreCase))
+                .Select(d => $"{d.DisplayName} ({(string.IsNullOrWhiteSpace(d.Status) ?
+                    "status unavailable" : d.Status)})")
+                .Order(StringComparer.OrdinalIgnoreCase).ToArray();
+            var groups = new List<string>();
+            if (available.Length > 0) groups.Add("Listed as available: " + string.Join(", ", available) + ".");
+            if (developing.Length > 0) groups.Add("In development: " + string.Join(", ", developing) + ".");
+            if (comingSoon > 0)
+                groups.Add($"Coming soon: {comingSoon} provider{(comingSoon == 1 ? "" : "s")}.");
+            if (other.Length > 0) groups.Add("Other provider statuses: " + string.Join(", ", other) + ".");
+            if (groups.Count == 0)
+            {
+                AddTux("The CLI returned no distribution providers. Repair the iGloo One installation and try again.");
+                return;
+            }
+            AddTux(string.Join(" ", groups) +
+                " This is the packaged provider catalogue, not installation readiness for this device.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            AddTux("Distribution lookup cancelled.");
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine(error);
+            AddTux("I could not load the distribution list. Restart iGloo One and try again.");
         }
     }
 

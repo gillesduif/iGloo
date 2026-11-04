@@ -36,7 +36,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        _chat = new(ct => (_backend ??= OneBackendClient.Create()).InspectSystemAsync(ct));
+        _chat = new(
+            ct => (_backend ??= OneBackendClient.Create()).InspectSystemAsync(ct),
+            ct => (_backend ??= OneBackendClient.Create()).ListDistrosAsync(ct));
         _voice = new OneVoiceSession(Dispatcher);
         DataContext = _chat;
         _chat.CheckFinished += blockers =>
