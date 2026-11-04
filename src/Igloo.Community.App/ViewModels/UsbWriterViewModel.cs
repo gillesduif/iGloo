@@ -16,9 +16,12 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     private readonly ILogger<UsbWriterViewModel> _logger;
 
     private string? _isoPath;
+    private string? _isoSha256;
+    private IsoAcquisitionResult? _verifiedIso;
+    private string? _distroId;
     private string? _stagingDirectory;
     private DiskInfo? _targetDisk;
-    private DiskInstallMode _installMode = DiskInstallMode.ReplaceDisk;
+    private DiskInstallMode _installMode = DiskInstallMode.DualBoot;
     private int _linuxSizeGb;
 
     //   Observable state                            
@@ -28,19 +31,30 @@ public sealed partial class UsbWriterViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanWrite))]
+    [NotifyPropertyChangedFor(nameof(HasUnsupportedDrive))]
+    [NotifyCanExecuteChangedFor(nameof(WriteCommand))]
     private UsbDriveInfo? _selectedDrive;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanWrite))]
+    [NotifyCanExecuteChangedFor(nameof(WriteCommand))]
     private bool _isEnumerating;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanWrite))]
+    [NotifyCanExecuteChangedFor(nameof(WriteCommand))]
     [NotifyPropertyChangedFor(nameof(IsCancelable))]
     private bool _isRunning;
 
-    [ObservableProperty] private bool _isComplete;
-    [ObservableProperty] private bool _hasError;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanWrite))]
+    [NotifyCanExecuteChangedFor(nameof(WriteCommand))]
+    private bool _isComplete;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanWrite))]
+    [NotifyCanExecuteChangedFor(nameof(WriteCommand))]
+    private bool _hasError;
+    [ObservableProperty] private string _errorTitle = "Review USB drive";
     [ObservableProperty] private string? _errorMessage;
 
     [ObservableProperty]
@@ -73,7 +87,16 @@ public sealed partial class UsbWriterViewModel : ObservableObject
 
     //   Derived                                ─
 
-    public bool CanWrite => SelectedDrive is not null && !IsRunning && !IsEnumerating && !IsComplete;
+    public bool CanWrite => SelectedDrive is { LogicalSectorBytes: 512 } drive &&
+        _isoSha256 is not null && _verifiedIso is not null &&
+        !string.IsNullOrWhiteSpace(_distroId) &&
+        _targetDisk is { GptDiskGuid: { } targetGuid } target && targetGuid != Guid.Empty &&
+        string.Equals(target.PartitionStyle, "GPT", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(target.DeviceId, drive.DeviceId, StringComparison.OrdinalIgnoreCase) &&
+        _installMode == DiskInstallMode.DualBoot && _linuxSizeGb > 0 &&
+        !IsRunning && !IsEnumerating && !IsComplete && !HasError;
+
+    public bool HasUnsupportedDrive => SelectedDrive is { LogicalSectorBytes: not 512 };
 
     public bool IsCancelable => !IsRunning || CurrentPhase != UsbWritePhase.CreatingOemdrv;
 
@@ -96,20 +119,34 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         IsoAcquisitionResult isoResult,
         FileStagingResult stagingResult,
         DiskInfo? targetDisk = null,
-        DiskInstallMode installMode = DiskInstallMode.ReplaceDisk,
-        int linuxSizeGb = 0)
+        DiskInstallMode installMode = DiskInstallMode.DualBoot,
+        int linuxSizeGb = 0,
+        string? distroId = null)
     {
         ArgumentNullException.ThrowIfNull(isoResult);
         ArgumentNullException.ThrowIfNull(stagingResult);
+        if (installMode != DiskInstallMode.DualBoot)
+            throw new ArgumentOutOfRangeException(nameof(installMode),
+                "iGloo Community always installs alongside Windows.");
 
         _isoPath = isoResult.LocalPath;
+        _isoSha256 = isoResult.Sha256Verified ? isoResult.VerifiedSha256 : null;
+        _verifiedIso = isoResult;
+        _distroId = distroId;
         _stagingDirectory = stagingResult.StagingDirectory;
         _targetDisk = targetDisk;
         _installMode = installMode;
         _linuxSizeGb = linuxSizeGb;
+        // A drive selected for an earlier wizard run is not current evidence for
+        // this image and target. Require a fresh enumeration before enabling Write.
+        SelectedDrive = null;
+        Drives.Clear();
+        OnPropertyChanged(nameof(CanWrite));
+        WriteCommand.NotifyCanExecuteChanged();
 
         IsComplete = false;
         HasError = false;
+        ErrorTitle = "Review USB drive";
         ErrorMessage = null;
         ErrorDetail = null;
         PhaseDisplay = null;
@@ -126,16 +163,21 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     [RelayCommand]
     private async Task RefreshDrivesAsync(CancellationToken ct)
     {
+        // A completed receipt names the exact drive that was written. Refreshing
+        // after success must not clear or replace that drive under the receipt.
+        if (IsRunning || IsEnumerating || IsComplete)
+            return;
+        SelectedDrive = null;
+        Drives.Clear();
+        HasError = false;
+        ErrorMessage = null;
+        ErrorDetail = null;
         IsEnumerating = true;
         try
         {
             var found = await _preparation.EnumerateDrivesAsync(ct);
-            Drives.Clear();
             foreach (var d in found)
                 Drives.Add(d);
-
-            if (Drives.Count > 0)
-                SelectedDrive = Drives[0];
 
             _logger.LogInformation("Drive enumeration complete: {Count} USB drive(s) found", Drives.Count);
         }
@@ -146,6 +188,11 @@ public sealed partial class UsbWriterViewModel : ObservableObject
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to enumerate USB drives");
+            HasError = true;
+            ErrorTitle = "Refresh USB drives";
+            ErrorMessage = "Select Refresh to scan for USB drives again. " +
+                           "Keep the drive connected and check that Windows can see it.";
+            ErrorDetail = BuildErrorDetail(ex);
         }
         finally
         {
@@ -156,11 +203,13 @@ public sealed partial class UsbWriterViewModel : ObservableObject
     [RelayCommand(IncludeCancelCommand = true, CanExecute = nameof(CanWrite))]
     private async Task WriteAsync(CancellationToken ct)
     {
-        if (SelectedDrive is null || _isoPath is null || _stagingDirectory is null)
+        if (SelectedDrive is null || _isoPath is null || _stagingDirectory is null ||
+            _isoSha256 is null || _verifiedIso is null || string.IsNullOrWhiteSpace(_distroId))
             return;
 
         IsRunning = true;
         HasError = false;
+        ErrorTitle = "Review USB drive";
         ErrorMessage = null;
         ErrorDetail = null;
         BytesWritten = 0;
@@ -190,25 +239,25 @@ public sealed partial class UsbWriterViewModel : ObservableObject
 
         try
         {
-            //   Step 0: Shrink Windows partition (dual-boot only)       ─
+            var input = new UsbPreparationInput(SelectedDrive, _isoPath,
+                _stagingDirectory, _targetDisk, _installMode, _linuxSizeGb, _isoSha256!)
+            {
+                DistroId = _distroId,
+                VerifiedIso = _verifiedIso,
+            };
+            // USB verification and writing precede any Windows partition resize.
             if (_installMode == DiskInstallMode.DualBoot && _targetDisk is not null && _linuxSizeGb > 0)
             {
-                CurrentPhase = UsbWritePhase.ShrinkingPartition;
-                PhaseDisplay = "Shrinking Windows partition…";
-
                 var shrinkProgress = new Progress<string>(msg =>
                 {
                     PhaseDisplay = msg;
                     _logger.LogInformation("[resize] {Message}", msg);
                 });
 
-                await _preparation.WriteAsync(new UsbPreparationInput(SelectedDrive, _isoPath,
-                    _stagingDirectory, _targetDisk, _installMode, _linuxSizeGb), progress,
-                    shrinkProgress, ct);
+                await _preparation.WriteAsync(input, progress, shrinkProgress, ct);
             }
             else
-                await _preparation.WriteAsync(new UsbPreparationInput(SelectedDrive, _isoPath,
-                    _stagingDirectory, _targetDisk, _installMode, _linuxSizeGb), progress, null, ct);
+                await _preparation.WriteAsync(input, progress, null, ct);
 
             IsComplete = true;
         }
@@ -217,28 +266,46 @@ public sealed partial class UsbWriterViewModel : ObservableObject
             _logger.LogInformation("USB write cancelled at phase {Phase}", CurrentPhase);
 
             HasError = true;
+            ErrorTitle = "Refresh USB drive";
             ErrorMessage = CurrentPhase == UsbWritePhase.WritingIso
-                // Cancelled mid-ISO: the image on the stick is truncated.
-                ? "Write cancelled - the USB drive contains an incomplete installer image " +
-                  "and must be re-written before it can be used. " +
-                  "Return to this step and run the writer again."
-                // Cancelled after Phase 1 (during file copy): ISO is intact, files incomplete.
-                : "Write cancelled - the installer image is on the drive but the migration " +
-                  "files were not fully copied. " +
-                  "Return to this step and run the writer again to complete it.";
+                // The Fedora route can still be verifying inputs here; no USB
+                // mutation has been reported, so do not claim a truncated image.
+                ? "Select Refresh, reselect the USB drive, then start a new write. " +
+                  "The cancelled preparation has no verified installer result."
+                : CurrentPhase == UsbWritePhase.ShrinkingPartition
+                ? "Select Refresh and recheck the target disk before trying again. " +
+                  "USB preparation completed, but Windows allocation was interrupted."
+                : "Select Refresh and rewrite the USB drive before booting it. " +
+                  "The cancelled write may have left incomplete installer files.";
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "USB write failed - insufficient rights");
             HasError = true;
-            ErrorMessage = ex.Message;
+            ErrorTitle = "Refresh USB drive";
+            ErrorMessage = "Select Refresh and recheck that Windows can access the same USB drive, " +
+                           "then select Write to USB for a new write. Do not boot from this drive until it completes.";
             ErrorDetail = BuildErrorDetail(ex);
+        }
+        catch (NotSupportedException ex) when (_distroId?.StartsWith("fedora-", StringComparison.OrdinalIgnoreCase) == true
+            && ex.Message.Contains("Turn off saved Wi-Fi migration", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("Fedora saved Wi-Fi migration was rejected before USB writing");
+            HasError = true;
+            ErrorTitle = "Turn off saved Wi-Fi migration";
+            ErrorMessage = "Select Back until Configuration, turn off saved Wi-Fi migration, " +
+                           "then continue to restage before writing USB. " +
+                           "Use wired Ethernet or an open Wi-Fi network for this Fedora netinstall.";
+            ErrorDetail = null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "USB write failed");
             HasError = true;
-            ErrorMessage = ex.Message;
+            ErrorTitle = "Review installer inputs";
+            ErrorMessage = "Select Refresh and recheck the USB drive before trying again. " +
+                           "Use Back to review the installer inputs if the failure repeats. " +
+                           "Do not boot from this drive until a new write completes.";
             ErrorDetail = BuildErrorDetail(ex);
         }
         finally

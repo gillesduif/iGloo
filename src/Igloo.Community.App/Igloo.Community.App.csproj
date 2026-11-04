@@ -32,37 +32,10 @@
     <Resource Include="Assets\PNG\*.png" />
   </ItemGroup>
 
-  <!--
-    Copy the distros/ tree (data files + compiled plugin DLLs) into the app output so
-    that FindDistrosDirectory can find it as "adjacent" to the exe. This makes the app
-    self-contained when run from a VM, a publish output, or any path outside the repo.
-
-    Excluded: source files (.cs, .csproj), MSBuild artifacts (bin/, obj/), and the
-    top-level README that is only relevant in the repository.
-
-    NormalizePath resolves the ..\..\distros relative path to a fully-qualified path
-    before passing it to the glob - MSBuild does not expand .. inside Target ItemGroups
-    otherwise.
-  -->
-  <PropertyGroup>
-    <_DistrosRoot>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', '..', 'distros'))</_DistrosRoot>
-  </PropertyGroup>
-
-  <!-- Shared item group evaluated inside each target separately (MSBuild batching) -->
-  <Target Name="CopyDistrosToOutput" AfterTargets="Build">
-    <ItemGroup>
-      <_DistroFiles Include="$(_DistrosRoot)\**\*" Exclude="$(_DistrosRoot)\**\*.cs;&#xA;                   $(_DistrosRoot)\**\*.csproj;&#xA;                   $(_DistrosRoot)\**\bin\**;&#xA;                   $(_DistrosRoot)\**\obj\**;&#xA;                   $(_DistrosRoot)\README.md" />
-    </ItemGroup>
-    <Copy SourceFiles="@(_DistroFiles)" DestinationFiles="@(_DistroFiles->'$(OutputPath)distros\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
-  </Target>
-
-  <!-- Same copy for dotnet publish - $(PublishDir) is the publish output folder. -->
-  <Target Name="CopyDistrosToPublish" AfterTargets="Publish">
-    <ItemGroup>
-      <_DistroFilesPublish Include="$(_DistrosRoot)\**\*" Exclude="$(_DistrosRoot)\**\*.cs;&#xA;                   $(_DistrosRoot)\**\*.csproj;&#xA;                   $(_DistrosRoot)\**\bin\**;&#xA;                   $(_DistrosRoot)\**\obj\**;&#xA;                   $(_DistrosRoot)\README.md" />
-    </ItemGroup>
-    <Copy SourceFiles="@(_DistroFilesPublish)" DestinationFiles="@(_DistroFilesPublish->'$(PublishDir)distros\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
-  </Target>
+  <!-- Build and package the current provider binaries with the same adjacent CLI
+       closure used by One and Fleet. The previous copy target reused checked-in
+       DLLs, so Community could run a different provider revision from the CLI. -->
+  <Import Project="..\Igloo.Cli\Igloo.Cli\PackagedCli.targets" />
   <ItemGroup>
     <None Remove="Views\iGloo.png" />
   </ItemGroup>
@@ -82,6 +55,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Igloo.Command.Contracts\Igloo.Command.Contracts.csproj" />
+    <ProjectReference Include="..\Igloo.Cli.Client\Igloo.Cli.Client.csproj" />
     <ProjectReference Include="..\Igloo.Core.Host\Igloo.Core.Host.csproj" />
   </ItemGroup>
 

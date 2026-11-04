@@ -23,6 +23,9 @@ public sealed partial class PreflightViewModel : ObservableObject
     private string? _errorMessage;
 
     [ObservableProperty]
+    private string _errorTitle = "Run the system check again";
+
+    [ObservableProperty]
     private bool _isRunning;
 
     // Removal repartitions the disk, so the report on screen is stale while it runs and
@@ -42,13 +45,24 @@ public sealed partial class PreflightViewModel : ObservableObject
     public bool HasBlockers => Findings.Any(f => f.Severity == FindingSeverity.Blocker);
 
     
-    public bool CanProceed => HasReport && !HasBlockers && !IsRemovingLinux;
+    public bool CanProceed => Report is { IsUefi: true, BitLocker: BitLockerState.NotEncrypted } &&
+        !HasBlockers && !IsRemovingLinux;
 
-    public string FirmwareDisplay => Report?.IsUefi == true ? "UEFI" : "Legacy BIOS";
+    public string FirmwareDisplay => Report switch
+    {
+        null => "Not checked",
+        { IsUefi: true } => "UEFI",
+        _ => "Legacy BIOS",
+    };
     public bool FirmwareOk => Report?.IsUefi == true;
 
-    public string SecureBootDisplay => Report?.SecureBootEnabled == true ? "Enabled" : "Disabled";
-    public bool SecureBootWarn => Report?.SecureBootEnabled == true;
+    public string SecureBootDisplay => Report switch
+    {
+        null or { IsUefi: false } => "Not checked",
+        { SecureBootEnabled: true } => "Enabled",
+        _ => "Disabled",
+    };
+    public bool SecureBootWarn => Report is { IsUefi: true, SecureBootEnabled: true };
 
     public string TpmDisplay => Report?.TpmPresent == true ? "Present" : "Not detected";
 
@@ -65,7 +79,8 @@ public sealed partial class PreflightViewModel : ObservableObject
         Report?.BitLocker is BitLockerState.EncryptedAndUnlocked
                            or BitLockerState.SuspendedProtection
                            or BitLockerState.EncryptedAndLocked
-                           or BitLockerState.DecryptionInProgress;
+                           or BitLockerState.DecryptionInProgress
+                           or BitLockerState.Unknown;
 
     public string RamDisplay =>
         Report is null ? string.Empty :
@@ -137,6 +152,8 @@ public sealed partial class PreflightViewModel : ObservableObject
 
     private async Task RemoveLinuxCoreAsync(IReadOnlyList<LinuxInstallation> targets)
     {
+        if (IsRemovingLinux || IsRunning)
+            return;
         var leftovers = Report?.SeedLeftovers ?? [];
         if (targets.Count == 0 && leftovers.Count == 0)
             return;
@@ -173,19 +190,32 @@ public sealed partial class PreflightViewModel : ObservableObject
         try
         {
             IsRemovingLinux = true;
+            ErrorMessage = null;
+            // Removal can partially change partitions or boot entries before an
+            // error. The old inspection must not allow the wizard to advance.
+            Report = null;
             LinuxActionStatus = "Removing…";
             var progress = new Progress<string>(s => LinuxActionStatus = s);
             await _preflight.RemoveLinuxAsync(targets, leftovers, removingAllLinux, progress);
 
-            LinuxActionStatus = "Removal complete - re-running system check…";
+            LinuxActionStatus = null;
+            IsRemovingLinux = false;
             if (!IsRunning)
                 await RunCheckCommand.ExecuteAsync(null);
-            LinuxActionStatus = null;   // the refreshed report speaks for itself
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Linux removal stopped before its result was verified");
+            LinuxActionStatus = null;
+            ErrorMessage = "Run the system check again before choosing a disk. Linux removal stopped before its result was verified.";
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Linux removal failed");
-            LinuxActionStatus = $"An error occurred during removal: {ex.Message}";
+            LinuxActionStatus = null;
+            ErrorTitle = "Check the disk before continuing";
+            ErrorMessage = "Linux removal could not finish. Run the system check again and " +
+                "review the affected disk. If its state is unclear, ask for help with the iGloo log.";
         }
         finally
         {
@@ -195,10 +225,58 @@ public sealed partial class PreflightViewModel : ObservableObject
 
     //   Commands                               ─
 
+    /// <summary>
+    /// Hands back any free space sitting directly behind Windows, whoever freed it.
+    /// </summary>
+    /// <remarks>
+    /// The common case: the first-boot agent deletes the staging partition from Linux,
+    /// where the NTFS volume in front of it cannot be resized, so the space is correctly
+    /// left unallocated - and nothing ever claimed it back. Without this step the shrink
+    /// estimate only sees what Windows can still give up, the Target Disk page refuses,
+    /// and the user is sent to Disk Management, which is the manual disk work iGloo
+    /// exists to remove. Observed again on 2026-10-25 (55.86 GB unallocated behind C:,
+    /// wizard reporting 24 GiB shrinkable). Present in v0.2-alpha, dropped by the
+    /// backend refactor, restored here.
+    /// Deliberately only the disk Windows boots from: unallocated space on a secondary
+    /// drive may be there on purpose. Non-fatal - a disk we could not tidy is no worse
+    /// than the one we found.
+    /// </remarks>
+    private async Task<PreflightReport> ReclaimAdjacentFreeSpaceAsync(PreflightReport report, CancellationToken ct)
+    {
+        try
+        {
+            var windowsDisk = report.Disks.FirstOrDefault(d => d.Partitions.Any(p => p.IsBoot));
+            if (windowsDisk is null || !TryGetDiskNumber(windowsDisk.DeviceId, out var diskNumber))
+                return report;
+            var bytes = await _preflight.ReclaimAdjacentFreeSpaceAsync(diskNumber, ct);
+            if (bytes <= 0)
+                return report;
+            _logger.LogInformation("Reclaimed {Gb:N1} GB of unallocated space on disk {Disk}",
+                bytes / (1024.0 * 1024 * 1024), diskNumber);
+            return await _preflight.InspectAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Could not reclaim adjacent free space (non-fatal)");
+            return report;
+        }
+    }
+
+    private static bool TryGetDiskNumber(string deviceId, out uint number)
+    {
+        const string marker = "PHYSICALDRIVE";
+        var at = deviceId.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        number = 0;
+        return at >= 0 && uint.TryParse(deviceId[(at + marker.Length)..], out number);
+    }
+
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task RunCheckAsync(CancellationToken ct)
     {
+        if (IsRemovingLinux)
+            return;
         IsRunning = true;
+        ErrorTitle = "Run the system check again";
         ErrorMessage = null;
         Report = null;
         try
@@ -206,17 +284,38 @@ public sealed partial class PreflightViewModel : ObservableObject
             // Held in a local until everything is settled: assigning the observable
             // Report mid-run would render the results UNDERNEATH the still-visible
             // "Reading your hardware…" panel (HasReport and IsRunning both true).
-            Report = await _preflight.InspectAndCleanupAsync(ct);
+            var report = await _preflight.InspectAsync(ct);
+            report = await ReclaimAdjacentFreeSpaceAsync(report, ct);
+            Report = report;
             _logger.LogInformation("Pre-flight complete - {Count} finding(s)", Report.Findings.Count);
         }
         catch (OperationCanceledException)
         {
             _logger.LogInformation("Pre-flight check cancelled");
+            ErrorMessage = "The system check was cancelled.";
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Pre-flight check failed");
-            ErrorMessage = $"System check failed: {ex.Message}";
+            if (ex is InvalidOperationException &&
+                ex.Message.StartsWith("Open Windows System Information and check Secure Boot State,",
+                    StringComparison.Ordinal))
+            {
+                ErrorTitle = "Check Secure Boot State in Windows";
+                ErrorMessage = ex.Message;
+            }
+            else if (ex is InvalidOperationException &&
+                     ex.Message.StartsWith("Check BIOS Mode in Windows System Information,",
+                         StringComparison.Ordinal))
+            {
+                ErrorTitle = "Check BIOS Mode in Windows";
+                ErrorMessage = ex.Message;
+            }
+            else
+            {
+                ErrorMessage = "If the system check still fails, open the latest iGloo log in " +
+                    "your Windows app-data folder (Igloo\\logs) and ask for help.";
+            }
         }
         finally
         {
@@ -227,7 +326,13 @@ public sealed partial class PreflightViewModel : ObservableObject
     [RelayCommand]
     private async Task DisableBitLockerAsync()
     {
-        var systemDrive = Environment.GetEnvironmentVariable("SystemDrive") ?? "C:";
+        var systemDrive = Environment.GetEnvironmentVariable("SystemDrive");
+        if (systemDrive is not { Length: 2 } || !char.IsAsciiLetter(systemDrive[0]) ||
+            systemDrive[1] != ':')
+        {
+            BitLockerActionStatus = "The Windows system drive is unavailable. Run the system check again.";
+            return;
+        }
         BitLockerActionStatus = $"Starting BitLocker decryption on {systemDrive}…";
 
         try
@@ -245,14 +350,15 @@ public sealed partial class PreflightViewModel : ObservableObject
             else
             {
                 BitLockerActionStatus =
-                    $"manage-bde exited with code {exitCode}. " +
-                    "Try running 'manage-bde -off C:' in an elevated command prompt.";
+                    $"Open an elevated Command Prompt and run 'manage-bde -off {systemDrive}'. " +
+                    $"iGloo could not start decryption (exit code {exitCode}).";
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "DisableBitLocker failed");
-            BitLockerActionStatus = $"Error: {ex.Message}";
+            BitLockerActionStatus = "Open Windows Settings > Privacy & security > Device encryption " +
+                "and turn off BitLocker. Run the system check again after decryption finishes.";
         }
     }
 
@@ -278,10 +384,9 @@ public sealed partial class PreflightViewModel : ObservableObject
         {
             _logger.LogError(ex, "RestartToFirmware failed");
             FluentMessageBox.Show(
-                "Could not restart to firmware",
-                $"{ex.Message}\n\n" +
-                "You can do it manually: run 'shutdown /r /fw /t 0' in an elevated " +
-                "command prompt, or reboot and press the firmware key for your board " +
+                "Restart into firmware settings manually",
+                "Run 'shutdown /r /fw /t 0' in an elevated Command Prompt, or restart " +
+                "and press the firmware key for your board " +
                 "(usually Del or F2).",
                 FluentMessageSeverity.Danger);
         }

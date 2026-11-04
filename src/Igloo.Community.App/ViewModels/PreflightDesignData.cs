@@ -16,7 +16,7 @@ public sealed class PreflightDesignData
     public bool HasReport { get; set; } = true;
     public bool HasError { get; set; }
     public string ErrorMessage { get; set; } =
-        "System check failed: The storage provider did not respond.";
+        "The storage provider did not respond.";
 
     public string FirmwareDisplay { get; } = "UEFI";
     public bool FirmwareOk { get; } = true;
@@ -42,7 +42,7 @@ public sealed class PreflightDesignData
             "Secure Boot is enabled.", null),
         new PreflightFinding(FindingSeverity.Warning, "LOW_RAM",
             "Only 1024 MB of RAM detected. Most Linux distributions require at least 2 GB.",
-            "Consider a lightweight distribution such as Debian netinstall or Alpine Linux."),
+            "Increase RAM to meet the selected distribution's minimum requirement, then rerun the system check."),
     ];
 
     public IReadOnlyList<DiskView> DiskViews { get; } =

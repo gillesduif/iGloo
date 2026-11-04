@@ -1,4 +1,3 @@
-using System.Windows.Input;
 using Igloo.Core.Abstractions;
 
 namespace Igloo.Community.App.ViewModels;
@@ -7,7 +6,6 @@ namespace Igloo.Community.App.ViewModels;
 /// <remarks>
 /// Builds real DiskListItem instances so the item templates bind against the same model
 /// properties they will at run time; a parallel stub would drift from PartitionInfo.
-/// The commands stay null - the designer only needs something to lay out.
 /// </remarks>
 public sealed class DiskSelectionDesignData
 {
@@ -36,16 +34,14 @@ public sealed class DiskSelectionDesignData
     public DiskListItem SelectedItem { get; set; }
 
     public bool CanDualBoot { get; set; } = true;
-    public bool IsInstallModeDualBoot { get; set; } = true;
-    public bool IsInstallModeReplace => !IsInstallModeDualBoot;
-    public bool ShowPartitionSizer => IsInstallModeDualBoot && CanDualBoot;
+    public bool HasEligibleWindowsDisk { get; } = true;
+    public bool ShowPartitionSizer => CanDualBoot;
 
     public int LinuxSizeGb { get; set; } = 120;
+    public int MinLinuxGb { get; } = 20;
     public int MaxShrinkableGb { get; } = 651;
     public int WindowsKeepsGb { get; } = 1183;
 
     public DiskSelectionDesignData() => SelectedItem = DiskItems[0];
 
-    public ICommand SetDualBootCommand { get; } = new DesignCommand();
-    public ICommand SetReplaceCommand { get; } = new DesignCommand();
 }

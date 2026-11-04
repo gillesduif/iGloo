@@ -58,7 +58,7 @@ public sealed class DistroSelectionDesignData
                 Manifest("manjaro", "Manjaro",
                     "Arch-based rolling release with a curated update stream.", "KDE Plasma"),
                 IsCompatible: false,
-                IncompatibilityReason: "Requires Secure Boot to be disabled",
+                IncompatibilityReason: "Turn off Secure Boot in firmware settings before installing this distribution.",
                 IsComingSoon: true),
         ];
         SelectedItem = DistroItems[0];

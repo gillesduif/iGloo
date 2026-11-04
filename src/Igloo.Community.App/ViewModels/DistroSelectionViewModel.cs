@@ -102,7 +102,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         var head = new List<string> { AllCategory };
         if (_recommendedIds.Count > 0)
             head.Add(RecommendedCategory);
-        Categories = head
+        var categories = head
             .Concat(_loader.LoadedDistros
                 .Select(m => m.DefaultDesktopEnvironment)
                 .Where(de => !string.IsNullOrWhiteSpace(de))
@@ -110,6 +110,10 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(de => de, StringComparer.OrdinalIgnoreCase))
             .ToList();
+        // Replacing an unchanged ItemsSource makes the chip ListBox discard its
+        // keyboard selection while the user is moving between categories.
+        if (!Categories.SequenceEqual(categories, StringComparer.OrdinalIgnoreCase))
+            Categories = categories;
 
         DistroItems = _loader.LoadedDistros
             .Where(m => string.Equals(category, AllCategory, StringComparison.OrdinalIgnoreCase)
@@ -127,17 +131,21 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         _lastReport = report;
         _lastCategory = category;
 
-        // Selection preference: the user's previous pick, else the TOP-ranked
-        // recommendation (the carousel opens centered on the selection), else
-        // null (the carousel centers the middle of the shelf).
+        // On a desktop filter, center an installable distribution when one is
+        // available. Otherwise a coming-soon cover can sit in the center while
+        // the filtered shelf contains a working installer.
         var restored = DistroItems.FirstOrDefault(i => i.Manifest.Id == previousId);
         var recommended = _recommendedIds
             .Select(id => DistroItems.FirstOrDefault(
-                i => string.Equals(i.Manifest.Id, id, StringComparison.OrdinalIgnoreCase)))
+                i => string.Equals(i.Manifest.Id, id, StringComparison.OrdinalIgnoreCase) &&
+                     i is { IsCompatible: true, IsComingSoon: false }))
             .FirstOrDefault(i => i is not null);
-        SelectedItem = restored is { IsCompatible: true } ? restored
-                     : recommended is { IsCompatible: true } ? recommended
-                     : null;
+        var filteredCompatible = !string.Equals(category, AllCategory,
+                                     StringComparison.OrdinalIgnoreCase)
+            ? DistroItems.FirstOrDefault(i => i is { IsCompatible: true, IsComingSoon: false })
+            : null;
+        SelectedItem = restored is { IsCompatible: true, IsComingSoon: false } ? restored
+                     : recommended ?? filteredCompatible;
     }
 
     //   Helpers                                
@@ -150,7 +158,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         {
             return new DistroListItem(m,
                 IsCompatible: false,
-                IncompatibilityReason: "Installer support unavailable",
+                IncompatibilityReason: "Choose another distribution. Installer support is unavailable.",
                 IsComingSoon: comingSoon);
         }
 
@@ -170,7 +178,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                 {
                     var reason = string.IsNullOrWhiteSpace(blocker.Remediation)
                         ? blocker.Message
-                        : $"{blocker.Message} {blocker.Remediation}";
+                        : $"{blocker.Remediation} {blocker.Message}";
                     return new DistroListItem(m, IsCompatible: false,
                         IncompatibilityReason: reason, IsComingSoon: comingSoon);
                 }
@@ -180,7 +188,8 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                 // A failed compatibility check cannot establish installation support.
                 _logger.LogWarning(ex, "CheckCompatibility failed for {DistroId}", m.Id);
                 return new DistroListItem(m, IsCompatible: false,
-                    IncompatibilityReason: "Compatibility check unavailable", IsComingSoon: comingSoon);
+                    IncompatibilityReason: "Run the system check again. Compatibility could not be verified.",
+                    IsComingSoon: comingSoon);
             }
         }
 

@@ -9,7 +9,6 @@ namespace Igloo.Community.App.ViewModels;
 
 public sealed partial class MigrationSetupViewModel : ObservableObject
 {
-    private readonly IUserProfileInspection _profile;
     //   Auto-detected / read-only context                   
 
     
@@ -64,6 +63,26 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     [ObservableProperty] private bool _includeMusic = false;
     [ObservableProperty] private bool _includeVideos = false;
 
+    // Saved Wi-Fi networks travel with the migration for every distribution, as in
+    // v0.2-alpha: each first-boot agent writes NetworkManager keyfiles from the
+    // manifest. There is no per-distribution opt-out in the wizard.
+    private string? _configuredDistroId;
+
+    [ObservableProperty]
+    private bool _includeWifiNetworks = true;
+
+    [ObservableProperty]
+    private bool _isWifiMigrationAvailable = true;
+
+    public void ConfigureDistro(string distroId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(distroId);
+        if (string.Equals(_configuredDistroId, distroId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _configuredDistroId = distroId;
+    }
+
     //   Browser profiles                           ─
 
     public IReadOnlyList<BrowserEntry> DetectedBrowsers { get; }
@@ -88,8 +107,15 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     //   Constructor                              
 
     public MigrationSetupViewModel(IUserProfileInspection profile)
+        : this(profile, DetectBrowsers())
     {
-        _profile = profile ?? throw new ArgumentNullException(nameof(profile));
+    }
+
+    internal MigrationSetupViewModel(IUserProfileInspection profile,
+        IReadOnlyList<BrowserEntry> detectedBrowsers)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(detectedBrowsers);
         // Seed Linux username from Windows account name.
         _linuxUsername = LinuxUsernameRules.Sanitize(WindowsUsername);
 
@@ -104,8 +130,16 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         // Display language: Windows culture → Linux locale (e.g. "nl-NL" → "nl_NL.UTF-8").
         _locale = ToLinuxLocale(CultureInfo.CurrentCulture);
 
-        // Detect installed browsers.
-        DetectedBrowsers = DetectBrowsers();
+        // A copied profile is usable only when the matching Linux browser ships
+        // with the distribution or has a package the first-boot agent can install.
+        DetectedBrowsers = detectedBrowsers.Select(browser =>
+        {
+            var flatpakId = profile.FlatpakForBrowser(browser.Name);
+            var canMigrate = browser.Name == "Mozilla Firefox"
+                || !string.IsNullOrWhiteSpace(flatpakId);
+            return new BrowserEntry(browser.Name, browser.ProfilePath, flatpakId,
+                canMigrate);
+        }).ToArray();
 
         // Detect Windows apps that have Linux equivalents.
         DetectedSuggestions = profile.GetSuggestedPackages()
@@ -156,8 +190,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
     
     public IReadOnlyList<string> GetSelectedFolderPaths()
         => SelectedFolderSources()
-            .Where(f => !string.IsNullOrEmpty(f.Absolute) && Directory.Exists(f.Absolute))
-            .Select(f => f.Absolute!)
+            .Select(f => f.Absolute ?? string.Empty)
             .ToList();
 
     
@@ -171,14 +204,11 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
         foreach (var (name, absolute) in SelectedFolderSources())
         {
-            if (string.IsNullOrEmpty(absolute) || !Directory.Exists(absolute))
-                continue;
-
-            // Path relative to the profile, normalised to forward slashes for the
-            // Linux-side %post. Falls back to the leaf name if the folder lives
-            // outside the profile (e.g. redirected to another drive) - the %post
-            // then logs "not found" rather than copying from a bogus location.
-            var rel = Path.GetRelativePath(profile, absolute).Replace('\\', '/');
+            // Preserve the selected source binding for the installer manifest.
+            // A source outside the profile uses its logical name; the first-boot
+            // agent consumes the staged copy under that name.
+            var rel = string.IsNullOrEmpty(absolute) ? name :
+                Path.GetRelativePath(profile, absolute).Replace('\\', '/');
             if (rel.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(rel))
                 rel = name;
 
@@ -190,7 +220,8 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
 
     
     public IReadOnlyList<string> GetSelectedBrowserNames()
-        => DetectedBrowsers.Where(b => b.IsSelected).Select(b => b.Name).ToList();
+        => DetectedBrowsers.Where(b => b.IsSelected && b.CanMigrate)
+            .Select(b => b.Name).ToList();
 
     public IReadOnlyList<BrowserMigration> GetSelectedBrowsers()
     {
@@ -206,7 +237,7 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
             ["Waterfox"] = ".waterfox",
         };
 
-        foreach (var b in DetectedBrowsers.Where(b => b.IsSelected))
+        foreach (var b in DetectedBrowsers.Where(b => b.IsSelected && b.CanMigrate))
         {
             if (geckoDest.TryGetValue(b.Name, out var dest))
             {
@@ -275,9 +306,9 @@ public sealed partial class MigrationSetupViewModel : ObservableObject
         // Browsers and apps are two separate lists on the page, so a browser can be
         // picked for migration while its app is not - which lands the profile on a
         // machine that cannot open it. Migrating a browser implies installing it.
-        foreach (var browser in DetectedBrowsers.Where(b => b.IsSelected))
+        foreach (var browser in DetectedBrowsers.Where(b => b.IsSelected && b.CanMigrate))
         {
-            var flatpakId = _profile.FlatpakForBrowser(browser.Name);
+            var flatpakId = browser.FlatpakId;
             if (flatpakId is null
                 || packages.Any(p => string.Equals(p.FlatpakId, flatpakId, StringComparison.Ordinal)))
                 continue;
@@ -325,13 +356,22 @@ public sealed partial class BrowserEntry : ObservableObject
 {
     public string Name { get; }
     public string ProfilePath { get; }
+    public string? FlatpakId { get; }
+    public bool CanMigrate { get; }
+    public bool NeedsManualTransfer => !CanMigrate;
+    public string AvailabilityMessage => CanMigrate ? string.Empty
+        : $"Continue without {Name}; use browser sync or export and import its data after Linux starts.";
 
-    [ObservableProperty] private bool _isSelected = true;
+    [ObservableProperty] private bool _isSelected;
 
-    public BrowserEntry(string name, string profilePath)
+    public BrowserEntry(string name, string profilePath,
+        string? flatpakId = null, bool canMigrate = true)
     {
         Name = name;
         ProfilePath = profilePath;
+        FlatpakId = flatpakId;
+        CanMigrate = canMigrate;
+        _isSelected = canMigrate;
     }
 }
 

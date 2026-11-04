@@ -38,6 +38,8 @@ public sealed class MigrationSetupDesignData
     public bool IncludeMusic { get; set; }
     public bool IncludeVideos { get; set; }
     public bool IncludeDesktop { get; set; } = true;
+    public bool IncludeWifiNetworks { get; set; } = true;
+    public bool IsWifiMigrationAvailable { get; set; } = true;
 
     public bool HasDetectedBrowsers => DetectedBrowsers.Count > 0;
     public bool HasDetectedSuggestions => DetectedSuggestions.Count > 0;

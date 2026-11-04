@@ -19,7 +19,7 @@ public sealed class ArchitectureTests
             ["Igloo.Iso"] = ["Igloo.Core"],
             ["Igloo.Migration"] = ["Igloo.Core"],
             ["Igloo.UsbWriter"] = ["Igloo.Core"],
-            ["Igloo.Community.App"] = ["Igloo.Command.Contracts", "Igloo.Core.Host"],
+            ["Igloo.Community.App"] = ["Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Core.Host"],
             ["Igloo.Fleet.Contracts"] = [],
             ["Igloo.Fleet.Domain"] = ["Igloo.Fleet.Contracts"],
             ["Igloo.Fleet.Agent"] = ["Igloo.Fleet.Contracts", "Igloo.Fleet.Domain", "Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Core.Host"],

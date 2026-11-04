@@ -84,28 +84,47 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     //   Computed navigation state
 
-    public bool CanGoBack => _stepIndex > 0;
+    public bool IsCheckingTargetDisk => CurrentPage is DiskSelectionViewModel { IsCheckingSpace: true };
+
+    public bool CanGoBack => _stepIndex > 0 && (CurrentPage switch
+    {
+        PreflightViewModel pf => !pf.IsRunning && !pf.IsRemovingLinux,
+        IsoAcquisitionViewModel acq => !acq.IsRunning,
+        FileStagingViewModel fs => !fs.IsRunning,
+        // A completed direct preparation may already own persistent storage and
+        // boot state. Re-entering it would implicitly repeat that operation.
+        DirectInstallViewModel di => !di.IsRunning && !di.IsComplete,
+        UsbWriterViewModel usb => !usb.IsRunning && !usb.IsEnumerating,
+        _ => true,
+    });
+
+    // Closing the window must wait for every active operation, including one
+    // that has not yet settled after the displayed page changed.
+    public bool IsCloseBlocked => _preflight.IsRemovingLinux || _isoAcquisition.IsRunning ||
+        _fileStaging.IsRunning || _directInstall.IsRunning || _directInstall.IsRebooting ||
+        _usbWriter.IsRunning;
 
     public bool CanGoNext => CurrentPage switch
     {
         WelcomeViewModel => true,
-        PreflightViewModel pf => pf.CanProceed,
+        PreflightViewModel pf => pf.CanProceed && !pf.IsRunning,
         DistroSelectionViewModel ds => ds.CanProceed,
-        IsoAcquisitionViewModel acq => acq.IsComplete && !acq.HasError,
+        IsoAcquisitionViewModel acq => acq.IsComplete && acq.Result is not null &&
+                                      !acq.HasError && !acq.IsRunning,
         MigrationSetupViewModel setup => setup.CanProceed,
         DiskSelectionViewModel disk => disk.CanProceed,
-        FileStagingViewModel fs => fs.IsComplete && !fs.HasError,
-        // The dual-boot path ends by restarting into the installer: the forward
-        // button becomes "Restart" once preparation succeeds (and locks while it fires).
-        DirectInstallViewModel di => di.IsComplete && !di.HasError && !di.IsRebooting,
-        UsbWriterViewModel usb => usb.IsComplete && !usb.HasError,
+        FileStagingViewModel fs => fs.IsComplete && fs.Result is not null &&
+                                   !fs.HasError && !fs.IsRunning,
+        // A boot-registration failure leaves the prepared installer available for
+        // another Restart attempt; it must not repeat partition preparation.
+        DirectInstallViewModel di => di.IsComplete && !di.IsRunning && !di.IsRebooting,
         _ => false,
     };
 
     public string PrimaryActionLabel => CurrentPage switch
     {
-        // "Restart", not "Reboot": Windows uses Restart everywhere it offers this.
-        DirectInstallViewModel di => di.IsRebooting ? "Restarting…" : "Restart",
+        DirectInstallViewModel di => di.IsRebooting ? "Restarting…" : di.IsComplete ? "Restart" :
+            di.IsRunning ? "Preparing…" : di.HasError ? "Preparation failed" : "Preparing installation…",
         _ when IsLastStep => "Finish",
         _ => "Next  →",
     };
@@ -150,9 +169,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     };
 
     
-    public bool IsLastStep =>
-        CurrentPage is UsbWriterViewModel && _diskSelection.InstallMode == DiskInstallMode.ReplaceDisk
-        || CurrentPage is DirectInstallViewModel;
+    public bool IsLastStep => CurrentPage is DirectInstallViewModel;
 
 
     public static int StepCount => 8;
@@ -223,28 +240,49 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _directInstall = directInstall;
         _usbWriter = usbWriter;
 
-        // The step list ends with TWO install pages - only one is ever shown.
+        // Community always installs alongside the existing Windows installation.
         _steps = [welcome, preflight, distroSelection, isoAcquisition, migrationSetup,
-                  diskSelection, fileStaging, directInstall, usbWriter];
+                  diskSelection, fileStaging, directInstall];
         _stepIndex = 0;
         _currentPage = _steps[0];
 
         // Relay CanProceed / completion changes so CanGoNext stays in sync.
-        RefreshCanGoNextWhenChanged(preflight, nameof(PreflightViewModel.CanProceed));
+        RefreshCanGoNextWhenChanged(preflight,
+            nameof(PreflightViewModel.CanProceed), nameof(PreflightViewModel.IsRunning));
         RefreshCanGoNextWhenChanged(distroSelection,
             nameof(DistroSelectionViewModel.CanProceed), nameof(DistroSelectionViewModel.SelectedItem));
         RefreshCanGoNextWhenChanged(isoAcquisition,
-            nameof(IsoAcquisitionViewModel.IsComplete), nameof(IsoAcquisitionViewModel.HasError));
+            nameof(IsoAcquisitionViewModel.IsComplete), nameof(IsoAcquisitionViewModel.HasError),
+            nameof(IsoAcquisitionViewModel.IsRunning));
         RefreshCanGoNextWhenChanged(migrationSetup, nameof(MigrationSetupViewModel.CanProceed));
         RefreshCanGoNextWhenChanged(diskSelection, nameof(DiskSelectionViewModel.CanProceed));
+        diskSelection.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DiskSelectionViewModel.IsCheckingSpace))
+                OnPropertyChanged(nameof(IsCheckingTargetDisk));
+        };
         RefreshCanGoNextWhenChanged(fileStaging,
-            nameof(FileStagingViewModel.IsComplete), nameof(FileStagingViewModel.HasError));
+            nameof(FileStagingViewModel.IsComplete), nameof(FileStagingViewModel.HasError),
+            nameof(FileStagingViewModel.IsRunning));
         RefreshCanGoNextWhenChanged(directInstall,
             nameof(DirectInstallViewModel.IsComplete),
             nameof(DirectInstallViewModel.HasError),
-            nameof(DirectInstallViewModel.IsRebooting));
+            nameof(DirectInstallViewModel.IsRunning),
+            nameof(DirectInstallViewModel.IsRebooting),
+            nameof(DirectInstallViewModel.IsReadyToInstall));
         RefreshCanGoNextWhenChanged(usbWriter,
-            nameof(UsbWriterViewModel.IsComplete), nameof(UsbWriterViewModel.HasError));
+            nameof(UsbWriterViewModel.IsComplete), nameof(UsbWriterViewModel.HasError),
+            nameof(UsbWriterViewModel.IsRunning));
+        foreach (var activeStep in new ObservableObject[]
+                 { preflight, isoAcquisition, fileStaging, directInstall, usbWriter })
+            activeStep.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(PreflightViewModel.IsRunning) or
+                    nameof(PreflightViewModel.IsRemovingLinux) or
+                    nameof(DirectInstallViewModel.IsComplete) or
+                    nameof(UsbWriterViewModel.IsEnumerating))
+                    OnPropertyChanged(nameof(CanGoBack));
+            };
     }
 
     private void RefreshCanGoNextWhenChanged(ObservableObject stepViewModel, params string[] propertyNames)
@@ -262,20 +300,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
     //   Commands                               ─
 
     [RelayCommand]
-    private static void Quit() => Application.Current.Shutdown();
+    private static void Quit() => Application.Current.MainWindow?.Close();
 
     [RelayCommand]
     private void Back()
     {
-        if (_stepIndex <= 0)
+        if (!CanGoBack)
             return;
 
-        // Skip over the hidden install page when going back.
+        if (CurrentPage is DiskSelectionViewModel selection)
+            selection.CancelSpaceCheck();
+
         _stepIndex--;
-        if (_steps[_stepIndex] is DirectInstallViewModel && _diskSelection.InstallMode != DiskInstallMode.DualBoot)
-            _stepIndex--;
-        if (_steps[_stepIndex] is UsbWriterViewModel && _diskSelection.InstallMode != DiskInstallMode.ReplaceDisk)
-            _stepIndex--;
 
         CurrentPage = _steps[_stepIndex];
     }
@@ -283,15 +319,29 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task NextAsync()
     {
-        // Last step: USB writer "Finish" shuts down.
-        if (CurrentPage is UsbWriterViewModel && _usbWriter.IsComplete)
-        {
-            Application.Current.Shutdown();
+        if (!CanGoNext)
             return;
+
+        if (CurrentPage is DiskSelectionViewModel selection)
+        {
+            var chosenDisk = selection.SelectedDisk;
+            var chosenMode = selection.InstallMode;
+            var chosenRootGb = selection.LinuxSizeGb;
+            await selection.RefreshSpaceAsync(preserveSelection: true);
+            // The cards and allocation controls remain usable during this read-only
+            // check. A change belongs to a new review, even if the new disk has
+            // the same space limit and its own check has already completed.
+            // A changed limit may also make WPF clamp the slider.
+            if (!ReferenceEquals(CurrentPage, selection) || !selection.CanProceed ||
+                !ReferenceEquals(selection.SelectedDisk, chosenDisk) ||
+                selection.InstallMode != chosenMode ||
+                selection.LinuxSizeGb != chosenRootGb)
+                return;
         }
 
-        // Last step of the dual-boot path: "Restart" hands the machine to the installer.
-        if (CurrentPage is DirectInstallViewModel directInstall && directInstall.IsComplete)
+        // Last step of the dual-boot path: Restart registers the prepared
+        // installer boot entry before requesting the Windows restart.
+        if (CurrentPage is DirectInstallViewModel directInstall)
         {
             await directInstall.RebootToInstallCommand.ExecuteAsync(null);
             return;
@@ -300,18 +350,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
         // Lock in the chosen distro before advancing. CanGoNext gates the distro
         // step on a valid selection, so this captures the user's pick the moment
         // they leave it  and keeps it even if the list later rebuilds.
-        if (_distroSelection.SelectedDistro is { } picked)
+        if (CurrentPage is DistroSelectionViewModel &&
+            _distroSelection.SelectedDistro is { } picked)
             _selectedDistro = picked;
 
         _stepIndex++;
-
-        //   Branch: after FileStagingViewModel, jump to the right install step  
-        if (_steps[_stepIndex - 1] is FileStagingViewModel)
-        {
-            // Dual-boot skips UsbWriterViewModel; the USB path skips DirectInstallViewModel.
-            _stepIndex = _steps.IndexOf(
-                _diskSelection.InstallMode == DiskInstallMode.DualBoot ? _directInstall : _usbWriter);
-        }
 
         CurrentPage = _steps[_stepIndex];
 
@@ -326,26 +369,49 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 ds.RefreshCompatibility(_preflight.Report);
                 break;
 
-            case IsoAcquisitionViewModel acq when !acq.IsRunning && !acq.IsComplete:
-                acq.Prepare(_selectedDistro!);
-                await acq.AcquireCommand.ExecuteAsync(null);
+            case IsoAcquisitionViewModel acq when !acq.IsRunning:
+                var needsAcquisition = !acq.IsComplete ||
+                    !string.Equals(acq.Distro?.Id, _selectedDistro?.Id,
+                        StringComparison.Ordinal);
+                if (needsAcquisition)
+                {
+                    acq.Prepare(_selectedDistro!);
+                    await acq.AcquireCommand.ExecuteAsync(null);
+                }
 
                 // A passing verification is information, not a decision: the receipt
-                // screen only ever collects a Next click. Report the outcome in a
-                // banner and carry on. A FAILED check is the opposite - it stays on
-                // screen, because that one the user genuinely must see and act on.
+                // screen only ever collects a Next click. This also applies when
+                // returning from distribution selection to the same verified image.
+                // Report a new verification in a banner; a failed check stays here.
                 if (acq.IsComplete && !acq.HasError)
                 {
-                    Notify("Download verified", BuildVerificationMessage(acq));
+                    if (needsAcquisition)
+                        Notify("Download verified", BuildVerificationMessage(acq));
                     await NextAsync();
                 }
                 break;
 
             case DiskSelectionViewModel disk:
-                disk.Prepare(_preflight.Report!);
+                disk.Prepare(_preflight.Report!, _selectedDistro, _isoAcquisition.Result,
+                    new FileStagingRequest(_selectedDistro!.Id, _migrationSetup.GetSelectedFolderPaths())
+                    {
+                        FolderNames = _migrationSetup.GetSelectedFolderNames(),
+                        BrowserRelativePaths = _migrationSetup.GetSelectedBrowsers()
+                            .Where(browser => !string.IsNullOrWhiteSpace(browser.SourceRelativePath))
+                            .Select(browser => browser.SourceRelativePath).ToArray(),
+                        BrowserProfiles = _migrationSetup.GetSelectedBrowsers()
+                            .Where(browser => !string.IsNullOrWhiteSpace(browser.SourceRelativePath)).ToArray(),
+                    });
                 break;
 
-            case FileStagingViewModel fs when !fs.IsRunning && !fs.IsComplete:
+
+            case MigrationSetupViewModel setup:
+                setup.ConfigureDistro(_selectedDistro!.Id);
+                break;
+
+            // Revisiting setup or target selection can change the account, files,
+            // distribution or exact disk. Build a fresh package for those inputs.
+            case FileStagingViewModel fs when !fs.IsRunning:
                 fs.Prepare(_migrationSetup, _preflight.Report!,
                     _selectedDistro!,
                     _diskSelection.SelectedDisk,
@@ -366,18 +432,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 di.Prepare(_isoAcquisition.Result!, _fileStaging.Result!,
                     _diskSelection.SelectedDisk!,
                     _diskSelection.LinuxSizeGb,
-                    _selectedDistro!.Id,
-                    _selectedDistro?.Iso.Stage2Url);
+                    _selectedDistro!.Id, _selectedDistro.Iso.Stage2Url);
                 await di.InstallCommand.ExecuteAsync(null);
                 break;
 
-            case UsbWriterViewModel usb when !usb.IsRunning && !usb.IsComplete:
-                usb.Prepare(_isoAcquisition.Result!, _fileStaging.Result!,
-                    _diskSelection.SelectedDisk,
-                    _diskSelection.InstallMode,
-                    _diskSelection.LinuxSizeGb);
-                await usb.RefreshDrivesCommand.ExecuteAsync(null);
-                break;
         }
     }
 
@@ -385,6 +443,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     partial void OnCurrentPageChanged(object value)
     {
+        OnPropertyChanged(nameof(IsCheckingTargetDisk));
         OnPropertyChanged(nameof(CanGoBack));
         OnPropertyChanged(nameof(CanGoNext));
         OnPropertyChanged(nameof(PrimaryActionLabel));

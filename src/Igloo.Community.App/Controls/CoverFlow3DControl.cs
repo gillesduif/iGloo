@@ -189,8 +189,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
         _syncingSelection = true;
         try
         {
-            SelectedIndex = index;
-            SelectedItem = index >= 0 ? _items[index] : null;
+            SetCurrentValue(SelectedIndexProperty, index);
+            SetCurrentValue(SelectedItemProperty, index >= 0 ? _items[index] : null);
         }
         finally
         {
@@ -216,14 +216,14 @@ public sealed class CoverFlow3DControl : FrameworkElement
             Dispatcher.InvokeAsync(() =>
             {
                 if (SelectedItem is null && SelectedIndex >= 0 && SelectedIndex < _items.Count)
-                    SelectedItem = _items[SelectedIndex];
+                    SetCurrentValue(SelectedItemProperty, _items[SelectedIndex]);
             }, DispatcherPriority.Loaded);
             return;
         }
 
         var index = _items.IndexOf(newValue);
         if (index >= 0 && index != SelectedIndex)
-            SelectedIndex = index;
+            SetCurrentValue(SelectedIndexProperty, index);
     }
 
     private void OnSelectedIndexChanged()
@@ -235,8 +235,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
         _syncingSelection = true;
         try
         {
-            SelectedIndex = index;
-            SelectedItem = index >= 0 ? _items[index] : null;
+            SetCurrentValue(SelectedIndexProperty, index);
+            SetCurrentValue(SelectedItemProperty, index >= 0 ? _items[index] : null);
         }
         finally
         {
@@ -264,19 +264,19 @@ public sealed class CoverFlow3DControl : FrameworkElement
         switch (e.Key)
         {
             case Key.Left:
-                SelectedIndex = Math.Max(0, SelectedIndex - 1);
+                SetCurrentValue(SelectedIndexProperty, Math.Max(0, SelectedIndex - 1));
                 e.Handled = true;
                 break;
             case Key.Right:
-                SelectedIndex = Math.Min(_items.Count - 1, SelectedIndex + 1);
+                SetCurrentValue(SelectedIndexProperty, Math.Min(_items.Count - 1, SelectedIndex + 1));
                 e.Handled = true;
                 break;
             case Key.Home:
-                SelectedIndex = 0;
+                SetCurrentValue(SelectedIndexProperty, 0);
                 e.Handled = true;
                 break;
             case Key.End:
-                SelectedIndex = _items.Count - 1;
+                SetCurrentValue(SelectedIndexProperty, _items.Count - 1);
                 e.Handled = true;
                 break;
             case Key.Enter:
@@ -294,7 +294,8 @@ public sealed class CoverFlow3DControl : FrameworkElement
         if (_items.Count == 0)
             return;
         var step = e.Delta < 0 ? 1 : -1;
-        SelectedIndex = Math.Clamp(SelectedIndex + step, 0, _items.Count - 1);
+        SetCurrentValue(SelectedIndexProperty,
+            Math.Clamp(SelectedIndex + step, 0, _items.Count - 1));
         e.Handled = true;
     }
 
@@ -312,7 +313,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
             if (index == SelectedIndex)
                 Confirm();  
             else
-                SelectedIndex = index;             
+                SetCurrentValue(SelectedIndexProperty, index);
             e.Handled = true;
         }
     }
@@ -727,7 +728,7 @@ public sealed class CoverFlow3DControl : FrameworkElement
         public System.Windows.Automation.Provider.IRawElementProviderSimple? SelectionContainer =>
             UIElementAutomationPeer.FromElement(_owner) is { } peer ? ProviderFromPeer(peer) : null;
 
-        public void Select() => _owner.SelectedIndex = _index;
+        public void Select() => _owner.SetCurrentValue(SelectedIndexProperty, _index);
         public void AddToSelection() => Select();
         public void RemoveFromSelection() => throw new InvalidOperationException("Selection is required.");
     }

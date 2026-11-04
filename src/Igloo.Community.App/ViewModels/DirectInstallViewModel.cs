@@ -4,12 +4,12 @@ using System.IO;
 using System.Security;
 using System.Globalization;
 using System.Text;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Plugins;
 using Igloo.Core.Host;
+using System.Windows;
 using Microsoft.Extensions.Logging;
 
 namespace Igloo.Community.App.ViewModels;
@@ -20,21 +20,27 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     private readonly IWindowsMaintenance _maintenance;
     private readonly ILogger<DirectInstallViewModel> _logger;
 
-    private int _diskNumber;
+    private DiskInfo? _targetDisk;
     private long _linuxSizeBytes;
-    private string? _isoPath;
+    private IsoAcquisitionResult? _verifiedIso;
     private string? _stagingDirectory;
-    private Uri? _stage2Url;
     private string? _distroId;
+    private Uri? _stage2Url;
 
     //   Observable state                            
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCancelable))]
+    [NotifyPropertyChangedFor(nameof(IsReadyToInstall))]
     private bool _isRunning;
 
-    [ObservableProperty] private bool _isComplete;
-    [ObservableProperty] private bool _hasError;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReadyToInstall))]
+    private bool _isComplete;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReadyToInstall))]
+    [NotifyPropertyChangedFor(nameof(ErrorTitle))]
+    private bool _hasError;
     [ObservableProperty] private string? _errorMessage;
 
     [ObservableProperty]
@@ -54,7 +60,9 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     private long _bytesTotal;
 
     [ObservableProperty] private string? _phaseDisplay;
-    [ObservableProperty] private DirectInstallPhase _currentPhase;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCancelable))]
+    private DirectInstallPhase _currentPhase;
     [ObservableProperty] private bool _isRebooting;
 
     // Open by default: partitioning is the step users most want to watch.
@@ -72,6 +80,11 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
     
     public bool IsCancelable => !IsRunning || CurrentPhase != DirectInstallPhase.CreatingPartition;
+    public string ErrorTitle => HasError ? "Installation preparation failed" : "Installation";
+
+    public bool IsReadyToInstall => !IsRunning && !IsComplete && !HasError &&
+        _verifiedIso is not null && _stagingDirectory is not null &&
+        _targetDisk is not null && !string.IsNullOrWhiteSpace(_distroId);
 
     //   Log tail                                ─
 
@@ -139,10 +152,8 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
     //   Constructor                              ─
 
-    public DirectInstallViewModel(
-        IInstallationPreparation installer,
-        IWindowsMaintenance maintenance,
-        ILogger<DirectInstallViewModel> logger)
+    public DirectInstallViewModel(IInstallationPreparation installer,
+        IWindowsMaintenance maintenance, ILogger<DirectInstallViewModel> logger)
     {
         _installer = installer;
         _maintenance = maintenance;
@@ -156,22 +167,19 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         FileStagingResult stagingResult,
         DiskInfo targetDisk,
         int linuxSizeGb,
-        string distroId,
-        Uri? stage2Url = null)
+        string distroId, Uri? stage2Url = null)
     {
         ArgumentNullException.ThrowIfNull(isoResult);
         ArgumentNullException.ThrowIfNull(stagingResult);
         ArgumentNullException.ThrowIfNull(targetDisk);
 
-        _isoPath = isoResult.LocalPath;
+        _verifiedIso = isoResult;
         _stagingDirectory = stagingResult.StagingDirectory;
         _linuxSizeBytes = (long)linuxSizeGb * 1024 * 1024 * 1024;
-        _stage2Url = stage2Url;
         _distroId = distroId;
+        _stage2Url = stage2Url;
 
-        // Extract disk number from DeviceId e.g. "\\.\PHYSICALDRIVE2" → 2
-        const string prefix = "\\\\.\\PHYSICALDRIVE";
-        _diskNumber = int.Parse(targetDisk.DeviceId.AsSpan()[prefix.Length..], CultureInfo.InvariantCulture);
+        _targetDisk = targetDisk;
 
         IsComplete = false;
         HasError = false;
@@ -183,15 +191,16 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         IsRunning = false;
         IsRebooting = false;
         CurrentPhase = DirectInstallPhase.ShrinkingPartition;
+        OnPropertyChanged(nameof(IsReadyToInstall));
     }
 
     //   Commands                                
 
-    
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task InstallAsync(CancellationToken ct)
     {
-        if (_isoPath is null || _stagingDirectory is null)
+        if (_verifiedIso is null ||
+            _stagingDirectory is null || _targetDisk is null)
             return;
 
         IsRunning = true;
@@ -233,27 +242,23 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         try
         {
             if (_distroId is null) throw new InvalidOperationException("No distro was selected.");
-            await _installer.PrepareAsync(
-                _distroId, _diskNumber, _linuxSizeBytes,
-                _isoPath, _stagingDirectory,
-                _stage2Url,
-                progress, ct);
-
+            await _installer.PrepareAsync(_distroId, _targetDisk, _linuxSizeBytes,
+                _verifiedIso, _stagingDirectory, _stage2Url, progress, ct);
             IsComplete = true;
         }
         catch (OperationCanceledException)
         {
             _logger.LogInformation("Direct install cancelled at phase {Phase}", CurrentPhase);
             HasError = true;
-            ErrorMessage = "Installation preparation cancelled. " +
-                           "You may need to remove the partial partition manually via Disk Management, " +
-                           "then run Igloo again.";
+            ErrorMessage = "Check the target disk in Disk Management before trying again. " +
+                           "Cancelled preparation may have left an incomplete installer partition.";
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Direct install preparation failed");
             HasError = true;
-            ErrorMessage = ex.Message;
+            ErrorMessage = "Inspect the target disk in Disk Management before retrying. " +
+                "Preparation did not complete.";
             ErrorDetail = BuildErrorDetail(ex);
         }
         finally
@@ -262,33 +267,33 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         }
     }
 
+    /// <summary>Registers the prepared installer for one boot, then requests a Windows restart.</summary>
     [RelayCommand]
     private async Task RebootToInstallAsync()
     {
+        if (!IsComplete || IsRebooting)
+            return;
         IsRebooting = true;
+        HasError = false;
+        ErrorMessage = null;
+        ErrorDetail = null;
         PhaseDisplay = "Registering UEFI boot entry…";
-
-        var progress = new Progress<DirectInstallProgress>(p =>
-            PhaseDisplay = p.Message ?? PhaseDisplay);
-
         try
         {
-            await _installer.RegisterBootEntryAsync(progress);
-            _logger.LogInformation("UEFI BootNext registered - initiating reboot");
-
-            // 10-second countdown reboot with a user-visible message.
+            await _installer.RegisterBootEntryAsync(
+                new Progress<DirectInstallProgress>(p => PhaseDisplay = p.Message ?? PhaseDisplay));
+            _logger.LogInformation("UEFI BootNext registered; requesting restart into installer");
             _maintenance.RestartToInstaller();
-
-            // Shut down the WPF app so the user isn't left with a dead window.
             await Task.Delay(2000);
-            Application.Current.Shutdown();
+            Application.Current?.Shutdown();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or
+            IOException or UnauthorizedAccessException or SecurityException or NotSupportedException)
         {
-            _logger.LogError(ex, "RegisterBootEntry / reboot failed");
+            _logger.LogError(ex, "Installer boot registration or restart failed");
             IsRebooting = false;
             HasError = true;
-            ErrorMessage = ex.Message;
+            ErrorMessage = "iGloo could not register the installer boot or restart Windows. Review the technical details before retrying.";
             ErrorDetail = BuildErrorDetail(ex);
         }
     }

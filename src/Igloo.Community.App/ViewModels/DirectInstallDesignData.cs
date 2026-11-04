@@ -3,7 +3,7 @@ namespace Igloo.Community.App.ViewModels;
 
 /// <summary>Design-time stand-in for <see cref="DirectInstallViewModel"/>.</summary>
 /// <remarks>
-/// DirectInstallPage shows three mutually exclusive panels - running, complete, error -
+/// DirectInstallPage shows ready, running, complete and error states -
 /// each collapsed until a DataTrigger fires. The designer instantiates no view model, so
 /// none of them fire and the page always previews in the same state. DirectInstallViewModel
 /// itself cannot fill the gap: its constructor takes dependencies, so the designer cannot
@@ -17,6 +17,13 @@ namespace Igloo.Community.App.ViewModels;
 /// </remarks>
 public sealed class DirectInstallDesignData
 {
+    public bool IsReadyToReview { get; set; }
+    public bool IsPlanning { get; set; }
+    public bool HasReviewedPlan { get; set; }
+    public string ReviewSummary { get; set; } = "Reviewed layout for the selected disk.";
+    public string ErrorTitle { get; set; } = "Review the installation layout again";
+    public bool IsReadyToInstall { get; set; }
+    public bool IsRunning { get; set; }
     public bool IsComplete { get; set; } = true;
     public bool HasError { get; set; }
     public bool HasErrorDetail { get; set; }

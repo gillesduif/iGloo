@@ -6,8 +6,10 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Igloo.Community.App.ViewModels;
+using Igloo.Cli.Client;
 using Igloo.Core.Host;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
@@ -83,7 +85,13 @@ public partial class IglooApp : Application
     [SupportedOSPlatform("windows")]
     private static void RegisterServices(IServiceCollection services)
     {
-        services.AddLocalBackend();
+        services.AddCommunityBackend();
+        services.AddSingleton(_ => CliCommandClient.ForApplication(AppContext.BaseDirectory,
+            TimeSpan.FromHours(3)));
+        services.Replace(ServiceDescriptor.Singleton<IIsoWorkflow>(sp => new CliIsoWorkflow(
+            sp.GetRequiredService<CliCommandClient>())));
+        services.AddSingleton<ICommunityReviewedInstallationWorkflow,
+            CliReviewedInstallationWorkflow>();
 
         // ViewModels - singletons so wizard state is preserved when navigating back
         services.AddSingleton<WelcomeViewModel>();
@@ -104,27 +112,10 @@ public partial class IglooApp : Application
     private static string FindDistrosDirectory()
     {
         var adjacent = Path.Join(AppContext.BaseDirectory, "distros");
-        if (Directory.Exists(adjacent))
-        {
-            Log.Information("Distros directory: {Dir} (adjacent to exe)", adjacent);
-            return adjacent;
-        }
-
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            var candidate = Path.Join(dir.FullName, "distros");
-            if (Directory.Exists(candidate))
-            {
-                Log.Information("Distros directory: {Dir} (found via parent walk)", candidate);
-                return candidate;
-            }
-            dir = dir.Parent;
-        }
-
-        Log.Warning("Distros directory not found - searched from {Base}. " +
-                    "Expected 'distros/' adjacent to the exe or in a parent directory.",
-                    AppContext.BaseDirectory);
-        return adjacent; // fallback - produces empty catalog
+        var directory = new DirectoryInfo(adjacent);
+        if (!directory.Exists || (directory.Attributes & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("The adjacent iGloo provider package is unavailable.");
+        Log.Information("Distros directory: {Dir} (adjacent to exe)", directory.FullName);
+        return directory.FullName;
     }
 }

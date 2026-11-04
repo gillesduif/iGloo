@@ -17,6 +17,17 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         SourceInitialized += OnSourceInitialized;
+        Closing += OnClosing;
+    }
+
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Keep the process alive while a transfer, sensitive file staging,
+        // storage write or boot registration completes its cancellation path.
+        if (DataContext is not MainWindowViewModel viewModel)
+            return;
+        if (viewModel.IsCloseBlocked)
+            e.Cancel = true;
     }
 
     //   Custom chrome plumbing                         

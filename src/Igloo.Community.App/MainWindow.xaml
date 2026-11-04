@@ -54,8 +54,8 @@
                 <Border Background="{StaticResource Brush.Layer.Card}"
                         BorderBrush="{StaticResource Brush.Stroke.Card}" BorderThickness="1"
                         CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="ALPHA 0.2" FontSize="9" FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Text.Tertiary}" />
+                    <TextBlock FontSize="9" FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Text.Tertiary}" ><Run Language="en-ca" Text="COMMUNITY"/></TextBlock>
                 </Border>
             </StackPanel>
 
@@ -236,8 +236,9 @@
                         HorizontalAlignment="Left" />
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <!-- One forward button for the whole wizard: "Next", then "Finish"
-                         or "Restart" on the last step depending on the install path. -->
+                    <!-- One forward button for the whole wizard: "Next", then
+                         "Prepare installation" and "Restart" for direct install,
+                         or "Finish" after writing USB media. -->
                     <Button Command="{Binding NextCommand}"
                             IsEnabled="{Binding CanGoNext}"
                             MinWidth="120" Background="#0DFFFFFF" Foreground="White">
