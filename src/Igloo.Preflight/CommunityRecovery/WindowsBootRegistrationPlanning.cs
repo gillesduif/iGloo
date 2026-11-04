@@ -6,6 +6,14 @@ namespace Igloo.Preflight.CommunityRecovery;
 // Community orchestration of the shared readers, not a second Windows observation stack.
 internal static class WindowsBootRegistrationPlanning
 {
+    internal static CommunityBootRegistrationPlan RequireAvailablePlan(Observation<CommunityBootRegistrationPlan> planned)
+    {
+        ArgumentNullException.ThrowIfNull(planned);
+        if (planned.Availability != ObservationAvailability.Available)
+            throw new CommunityRecoveryBoundaryException(planned.Availability, planned.Code);
+        return planned.Value;
+    }
+
     public static Observation<CanonicalVolumeIdentityV1> ObservePreparedTarget(IWindowsStorageReader reader, uint disk, uint partition)
     {
         var storage = reader.ReadIdentitySnapshot();
@@ -25,16 +33,18 @@ internal static class WindowsBootRegistrationPlanning
             return Observations.Failure<CanonicalVolumeIdentityV1>(volumes.Length > 1 ? ObservationAvailability.Ambiguous : ObservationAvailability.Unavailable, "PreparedVolumeNotUnique");
         if (volumes[0].VolumeGuid.Availability != ObservationAvailability.Available)
             return Observations.Failure<CanonicalVolumeIdentityV1>(volumes[0].VolumeGuid.Availability, "PreparedVolumeIdentityUnavailable");
-        return CanonicalRecoveryIdentity.Bind(storage, volumes[0].VolumeGuid.Value);
+        return CanonicalRecoveryIdentity.BindForInstallation(storage, volumes[0].VolumeGuid.Value);
     }
 
     public static BootRegistrationEvidence Read(IWindowsStorageReader storageReader, IWindowsBcdReader bcdReader,
         CanonicalVolumeIdentityV1 preparedTarget, uint partitionNumber)
     {
         var storage = storageReader.ReadIdentitySnapshot();
-        var target = CanonicalRecoveryIdentity.Bind(storage, preparedTarget.VolumeGuid);
+        // This is the live legacy Community boot path. Recovery capture and reviewed
+        // preparation continue to use the strict provider-backed canonical binding.
+        var target = CanonicalRecoveryIdentity.BindForInstallation(storage, preparedTarget.VolumeGuid);
         var windowsId = WindowsRecoveryPathReader.ReadWindowsVolume();
-        var windows = windowsId.Availability == ObservationAvailability.Available ? CanonicalRecoveryIdentity.Bind(storage, windowsId.Value) :
+        var windows = windowsId.Availability == ObservationAvailability.Available ? CanonicalRecoveryIdentity.BindForInstallation(storage, windowsId.Value) :
             Observations.Failure<CanonicalVolumeIdentityV1>(windowsId.Availability, "BootPlanWindowsVolumeUnavailable");
         var binding = target.Availability != ObservationAvailability.Available
             ? Observations.Failure<RecoveryTargetBindingV1>(target.Availability, "BootPlanTargetUnavailable")

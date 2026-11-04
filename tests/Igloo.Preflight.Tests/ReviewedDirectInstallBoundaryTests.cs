@@ -11,19 +11,16 @@ public sealed class ReviewedDirectInstallBoundaryTests
     private const ulong MiB = PreparationSpacePlanning.Alignment;
 
     [Fact]
-    public async Task ReviewedWindowsEntryChecksBoundSourceAndMediaThenStopsAtDedicatedEspGate()
+    public void ReviewedWindowsIntentChecksBoundSourceAndMedia()
     {
         var plan = Plan();
         var media = Spec(copyIso: false);
         Assert.Equal(ObservationAvailability.Available,
             DirectInstallService.ReviewPreparedIntent(plan, media, 8000 * (long)MiB).Availability);
-        var failure = await Assert.ThrowsAsync<NotSupportedException>(() =>
-            DirectInstallService.PrepareReviewedAsync(plan, media, 8000 * (long)MiB));
-        Assert.Contains("Dedicated iGloo/Linux ESP preparation is blocked", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task ReviewedWindowsEntryRejectsMediaOrSourceChangeBeforeAnyMutation()
+    public void ReviewedWindowsIntentRejectsMediaOrSourceChangeBeforeAnyMutation()
     {
         var plan = Plan();
         var tooLarge = Spec(copyIso: true);
@@ -33,8 +30,23 @@ public sealed class ReviewedDirectInstallBoundaryTests
             { ShrinkSource = plan.ReviewedIntent.ShrinkSource with { PartitionGuid = Guid.NewGuid() } } };
         Assert.NotEqual(ObservationAvailability.Available,
             DirectInstallService.ReviewPreparedIntent(changed, tooLarge, 8000 * (long)MiB).Availability);
-        await Assert.ThrowsAsync<NotSupportedException>(() =>
-            DirectInstallService.PrepareReviewedAsync(changed, tooLarge, 8000 * (long)MiB));
+        Assert.Equal("ReviewedArtifactChanged", DirectInstallService.ReviewPreparedIntent(
+            plan, tooLarge with { IsoSha256 = new string('B', 64) }, 8000 * (long)MiB).Code);
+    }
+
+    [Fact]
+    public void ReviewedEntryCannotBeCalledWithAnUnpinnedPlan()
+    {
+        var entry = typeof(DirectInstallService).GetMethods(
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+            .Single(method => method.Name == "PrepareReviewedAsync");
+        var parameters = entry.GetParameters();
+        Assert.Equal(typeof(Igloo.Preflight.CommunityPreparation.ReviewedPartitionCreationService),
+            parameters[0].ParameterType);
+        Assert.Equal(typeof(Igloo.Preflight.CommunityPreparation.ReviewedContentHandoffV1),
+            parameters[1].ParameterType);
+        Assert.DoesNotContain(parameters, parameter =>
+            parameter.ParameterType == typeof(PreparationPlanV1));
     }
 
     private static PreparationPlanV1 Plan()
@@ -60,5 +72,6 @@ public sealed class ReviewedDirectInstallBoundaryTests
     private static InstallerBootSpec Spec(bool copyIso) => new()
     {
         MenuTitle = "Fixture", KernelCmdline = "fixture", CopyFullIsoToVolume = copyIso,
+        IsoSha256 = new string('A', 64), PreCreateRootPartition = true,
     };
 }

@@ -54,6 +54,30 @@ public class CpioAndEfiFormatTests
         cpio[112].Should().Be(0);
     }
 
+    [Fact]
+    public void Cpio_places_preseed_and_helpers_in_one_archive_before_the_trailer()
+    {
+        var cpio = DirectInstallService.BuildNewcCpio(
+            [("preseed.cfg", "preseed"u8.ToArray()),
+             ("igloo-partman.sh", "partman"u8.ToArray())]);
+        var offset = 0;
+        foreach (var (expectedName, expectedData) in new[]
+                 { ("preseed.cfg", "preseed"), ("igloo-partman.sh", "partman"),
+                   ("TRAILER!!!", "") })
+        {
+            Encoding.ASCII.GetString(cpio, offset, 6).Should().Be("070701");
+            var size = Convert.ToInt32(Encoding.ASCII.GetString(cpio, offset + 54, 8), 16);
+            var nameSize = Convert.ToInt32(Encoding.ASCII.GetString(cpio, offset + 94, 8), 16);
+            Encoding.ASCII.GetString(cpio, offset + 110, nameSize - 1).Should().Be(expectedName);
+            offset = (offset + 110 + nameSize + 3) & ~3;
+            Encoding.ASCII.GetString(cpio, offset, size).Should().Be(expectedData);
+            offset = (offset + size + 3) & ~3;
+        }
+        offset.Should().Be(cpio.Length);
+        Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildNewcCpio(
+            [("preseed.cfg", Array.Empty<byte>()), ("preseed.cfg", Array.Empty<byte>())]));
+    }
+
     //   EFI_LOAD_OPTION                            
 
     private static byte[] LoadOption(string? cmdLine = null) =>

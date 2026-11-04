@@ -3,23 +3,25 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.Management;
-using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
 using Igloo.Preflight.CommunityPreparation;
 using Igloo.Preflight.CommunityRecovery;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 
 namespace Igloo.Preflight;
 
 [SupportedOSPlatform("windows")]
-public sealed partial class DirectInstallService : IDirectInstallService
+public sealed partial class DirectInstallService : IDirectInstallService, IReviewedDirectInstallService
 {
     private const long MiB = 1024L * 1024;
     // Overhead on top of the measured squashfs + kernel + initrd sizes.
@@ -36,8 +38,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
     // Boot chain:
     //
     //   UEFI firmware
-    //     → \igloo-boot\shimx64.efi    (Microsoft-signed; firmware trusts it)
-    //     → \igloo-boot\grubx64.efi    (Red Hat-signed; shim verifies it)
+    //     → \igloo-boot\shimx64.efi    (selected ISO's UEFI shim)
+    //     → \igloo-boot\grubx64.efi    (selected ISO's GRUB loader)
     //     → \EFI\fedora\grub.cfg       (our config; grubx64.efi compiled prefix = /EFI/fedora)
     //     → \igloo-boot\linux          (kernel extracted from ISO onto OEMDRV FAT32)
     //     → \igloo-boot\initrd         (initrd extracted from ISO onto OEMDRV FAT32)
@@ -74,8 +76,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
     // \EFI\ubuntu, \boot\grub, \EFI\BOOT) because grubx64.efi's prefix differs per
     // distro; whichever shim/grub the ISO shipped then finds its config.
     private const string BootDir = "igloo-boot";           // shim, grub, kernel, initrd (NVRAM path)
-    private const string ShimFile = "shimx64.efi";         // UEFI entry point; Microsoft-signed
-    private const string GrubFile = "grubx64.efi";         // loaded by shim; Red Hat-signed
+    private const string ShimFile = "shimx64.efi";         // UEFI entry point from the selected ISO
+    private const string GrubFile = "grubx64.efi";         // GRUB loader from the selected ISO
     private const string FallbackBootDir = @"EFI\BOOT";    // UEFI removable/fallback directory
     private const string FallbackBootFile = "BOOTX64.EFI"; // default x64 loader name firmware boots there
     private const string KernelFile = "linux";   // kernel on OEMDRV (under BootDir)
@@ -85,6 +87,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
     // Ubuntu/Mint casper grub, whose compiled prefix is /boot/grub.
     private static readonly string[] GrubCfgDirs =
         [@"EFI\BOOT", @"EFI\fedora", @"EFI\debian", @"EFI\ubuntu", @"boot\grub"];
+
+    internal static IReadOnlyList<string> ReviewedGrubCfgDirs => Array.AsReadOnly(GrubCfgDirs);
 
     // Stored by PrepareAsync, consumed by RegisterBootEntryAsync.
     private char? _oemDrvLetter;
@@ -97,6 +101,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
     private int? _diskNumber;
     private uint? _partitionNumber;
     private Observation<CanonicalVolumeIdentityV1>? _preparedBootTarget;
+    private readonly DirectInstallPreparationCompletion _preparationCompletion = new();
 
     // The selected distro's boot recipe (kernel/initrd paths, cmdline, volume
     // label, config-delivery). Set at the start of Prepare; read by the boot
@@ -126,27 +131,149 @@ public sealed partial class DirectInstallService : IDirectInstallService
 
     //   IDirectInstallService                         ─
 
+    // The legacy Community OEMDRV workflow remains available. The dedicated Linux ESP
+    // writer is still gated inside the reviewed preparation entry point.
+    public Observation<bool> PreparationAvailability => Observations.Available(true);
+
+    public async Task<DirectInstallSpaceEstimate> MeasureSpaceAsync(int diskNumber,
+        string isoPath, InstallerBootSpec bootSpec, long stagedBytes, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(bootSpec);
+        ArgumentOutOfRangeException.ThrowIfNegative(stagedBytes);
+        ValidateExternalInstallerMedia(bootSpec);
+        using var externalMedia = await AcquireExternalInstallerMediaAsync(bootSpec,
+            ExternalInstallerMediaCache, null, ct).ConfigureAwait(false);
+        // MeasureIsoContent mounts the ISO as a virtual DVD drive. Outside Prepare's
+        // suppressor that makes Windows pop an AutoPlay toast for "DVD Drive (E:)" on
+        // the Target Disk page, which looks like something went wrong. Same quieting
+        // as Prepare, restored on the way out.
+        var measured = await Task.Run(() =>
+        {
+            using var shellQuiet = new ShellNoiseSuppressor(_logger);
+            return MeasureIsoContent(isoPath, bootSpec, externalMedia);
+        }, ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        var shrinkable = await _resizer.GetShrinkableSpaceAsync(diskNumber, ct).ConfigureAwait(false);
+        // Free space that already exists on the disk (a removed Linux install, an
+        // earlier run) is usable without shrinking Windows at all. Offer whichever
+        // route gives Linux more room; Prepare picks the same route.
+        var freeExtent = LargestFreeExtentBytes(diskNumber);
+        if (freeExtent > shrinkable)
+        {
+            _logger.LogInformation("Disk {Disk} has {GiB:N1} GiB of unallocated space; using it instead of shrinking Windows ({ShrinkGiB:N1} GiB shrinkable)",
+                diskNumber, freeExtent / (1024.0 * 1024 * 1024), shrinkable / (1024.0 * 1024 * 1024));
+            shrinkable = freeExtent;
+        }
+        if (shrinkable <= 0)
+            throw new InvalidOperationException("Windows could not report available shrink space for the selected boot volume.");
+        return PlanSpaceEstimate(bootSpec, shrinkable, new FileInfo(isoPath).Length,
+            measured.kernelBytes, measured.initrdBytes, measured.installImgBytes, stagedBytes);
+    }
+
+    internal static DirectInstallSpaceEstimate PlanSpaceEstimate(InstallerBootSpec bootSpec,
+        long shrinkableBytes, long fullIsoBytes, long kernelBytes, long initrdBytes,
+        long installImgBytes, long stagedBytes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(shrinkableBytes);
+        var size = PlanStorageSizes(bootSpec, 0, fullIsoBytes, kernelBytes, initrdBytes,
+            installImgBytes, stagedBytes);
+        // The package is copied to LocalApplicationData before Windows is shrunk.
+        // Keep its Windows copy as well as its copy on the installer partition.
+        return new(shrinkableBytes, size.TotalShrinkBytes, stagedBytes);
+    }
+
     public Task PrepareAsync(
         int diskNumber, long linuxSizeBytes, string isoPath, string stagingDirectory,
         InstallerBootSpec bootSpec,
         Uri? stage2Url = null,
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
-        => Task.Run(() => Prepare(diskNumber, linuxSizeBytes, isoPath, stagingDirectory, bootSpec, stage2Url, progress, ct), ct);
+        => _preparationCompletion.PrepareAsync(ResetPreparedBootState,
+            () => Prepare(diskNumber, linuxSizeBytes, isoPath, stagingDirectory, bootSpec, stage2Url, progress, ct),
+            CapturePreparedBootState, ct);
 
     public Task RegisterBootEntryAsync(
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
-        => Task.Run(() => RegisterBootEntry(progress, ct), ct);
+        => _preparationCompletion.RegisterAsync(CapturePreparedBootState,
+            completed => RegisterBootEntry(completed, progress, ct), ct);
 
-    // Explicit reviewed entry. No ordinal, drive letter or label is accepted as source
-    // authority. It remains closed until the native exact-geometry writer and dedicated ESP
-    // installer binding are proven; in particular it never falls into Prepare's heuristic.
-    internal static Task PrepareReviewedAsync(PreparationPlanV1 plan, InstallerBootSpec bootSpec,
-        long requestedLinuxBytes, CancellationToken ct = default)
+    private void ResetPreparedBootState()
+    {
+        _diskNumber = null;
+        _partitionNumber = null;
+        _oemDrvLetter = null;
+        _isoPartitionLetter = null;
+        _preparedBootTarget = null;
+        _bootSpec = null!;
+    }
+
+    private CompletedDirectInstallPreparation? CapturePreparedBootState() =>
+        _diskNumber is { } disk && _partitionNumber is { } partition && _oemDrvLetter is { } letter &&
+        _preparedBootTarget is { Availability: ObservationAvailability.Available } target
+            ? new(disk, partition, letter, target.Value) : null;
+
+    // Explicit reviewed entry. Reopen the exact checkpoint and remeasure every staged
+    // file before the execution gate. A plan alone cannot enter this path, and no
+    // ordinal, drive letter or label is accepted as source authority.
+    internal static Task PrepareReviewedAsync(ReviewedPartitionCreationService reviewed,
+        ReviewedContentHandoffV1 expectedContent,
+        PreparationCheckpointReference stagedReference, InstallerBootSpec bootSpec,
+        long requestedLinuxBytes, string pinnedIsoPath, string? pinnedRawInitrdPath,
+        Func<Guid, string, Observation<CanonicalFileIdentityV1>>? readFile = null,
+        ReviewedLinuxEspBootBindingV1? expectedBootBinding = null,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var review = ReviewPreparedIntent(plan, bootSpec, requestedLinuxBytes);
-        if (review.Availability != ObservationAvailability.Available)
-            throw new NotSupportedException(review.Code);
+        ArgumentNullException.ThrowIfNull(reviewed);
+        ArgumentNullException.ThrowIfNull(expectedContent);
+        ArgumentNullException.ThrowIfNull(expectedContent.Storage);
+        ArgumentNullException.ThrowIfNull(stagedReference);
+        ArgumentNullException.ThrowIfNull(bootSpec);
+        if (string.IsNullOrWhiteSpace(expectedContent.StagingDirectory) ||
+            expectedContent.StagedFiles.IsDefaultOrEmpty)
+            throw new InvalidDataException("The reviewed content handoff is incomplete.");
+        var actual = reviewed.ObserveContentHandoff(expectedContent.Storage.Checkpoint,
+            expectedContent.Storage, bootSpec, requestedLinuxBytes,
+            expectedContent.StagingDirectory, ct);
+        if (actual.Storage != expectedContent.Storage ||
+            !string.Equals(actual.StagingDirectory, expectedContent.StagingDirectory,
+                StringComparison.OrdinalIgnoreCase) ||
+            actual.StagedBytes != expectedContent.StagedBytes ||
+            actual.Sizing != expectedContent.Sizing ||
+            !string.Equals(actual.BootSpecSha256, expectedContent.BootSpecSha256,
+                StringComparison.Ordinal) ||
+            !actual.StagedFiles.SequenceEqual(expectedContent.StagedFiles))
+            throw new InvalidDataException("The reviewed content handoff changed before preparation.");
+        // Materialize the exact initrd inputs and Linux ESP boot argument from
+        // the pinned handoff before reaching the still-closed Windows write gate.
+        // The future reviewed writer must reobserve before copying these bytes.
+        _ = BuildReviewedBootPayload(actual, bootSpec, ct);
+        _ = reviewed.VerifyPersistedReviewedSeed(stagedReference, actual.Storage,
+            actual, bootSpec, pinnedIsoPath, pinnedRawInitrdPath, readFile, ct);
+        if (expectedBootBinding is not null)
+        {
+            // The existing ESP copier emits exact file receipts. Rebind them to
+            // the current seed and independently read every volume-GUID path
+            // before considering a boot step. This remains read-only and does
+            // not turn the receipt into recovery or execution authority.
+            if (expectedBootBinding.Storage != actual.Storage ||
+                expectedBootBinding.SeedCheckpoint != stagedReference)
+                throw new InvalidDataException("The reviewed Linux ESP boot binding changed.");
+            var writer = readFile is null
+                ? new ReviewedSeedFileWriter(reviewed)
+                : new ReviewedSeedFileWriter(reviewed,
+                    volume => @"\\?\Volume{" + volume.ToString("D") + @"}\", readFile);
+            ReviewedLinuxEspFileCopyReceiptV1 Receipt(CanonicalFileIdentityV1 file) =>
+                new(actual.Storage.GenerationId, actual.Storage.TargetDisk,
+                    actual.Storage.LinuxEsp, file);
+            var observed = writer.BindReviewedLinuxEspBootFiles(actual, stagedReference,
+                bootSpec, pinnedIsoPath, pinnedRawInitrdPath,
+                Receipt(expectedBootBinding.Shim), Receipt(expectedBootBinding.Grub),
+                Receipt(expectedBootBinding.Config),
+                expectedBootBinding.CompiledPrefixConfig is { } prefix
+                    ? Receipt(prefix) : null, ct);
+            if (observed != expectedBootBinding)
+                throw new InvalidDataException("The reviewed Linux ESP boot binding changed during readback.");
+        }
         DedicatedEspPreparationSupport.RequireSupported();
         throw new NotSupportedException("ReviewedWindowsPartitionWriterNotImplemented");
     }
@@ -159,6 +286,10 @@ public sealed partial class DirectInstallService : IDirectInstallService
         if (verified.Availability != ObservationAvailability.Available) return verified;
         var parts = plan.Space.Allocations;
         var intent = plan.ReviewedIntent!;
+        if (!string.Equals(bootSpec.IsoSha256, intent.ArtifactSha256,
+                StringComparison.OrdinalIgnoreCase))
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous,
+                "ReviewedArtifactChanged");
         DirectInstallSizePlan measuredMedia;
         try
         {
@@ -176,7 +307,8 @@ public sealed partial class DirectInstallService : IDirectInstallService
         if (requestedLinuxBytes <= 0 || measuredMedia.OemDrvBytes <= 0 ||
             measuredMedia.IsoPartitionBytes < 0 || measuredMedia.TotalShrinkBytes <= 0 ||
             payload.SizeBytes < (ulong)measuredMedia.OemDrvBytes ||
-            root.SizeBytes < (ulong)requestedLinuxBytes || !root.CreateInWindows ||
+            root.SizeBytes < (ulong)requestedLinuxBytes ||
+            root.CreateInWindows != bootSpec.PreCreateRootPartition ||
             (measuredMedia.IsoOnOwnPartition ?
                 iso is null || iso.SizeBytes < (ulong)measuredMedia.IsoPartitionBytes : iso is not null) ||
             intent.ShrinkBytes < plan.Space.RequiredBytes)
@@ -192,8 +324,10 @@ public sealed partial class DirectInstallService : IDirectInstallService
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        DedicatedEspPreparationSupport.RequireSupported();
-
+        // Complete network acquisition and pin both files before changing any
+        // storage. The same read-locked bytes supply sizing and the final copy.
+        using var externalMedia = AcquireExternalInstallerMediaAsync(bootSpec,
+            ExternalInstallerMediaCache, prog, ct).GetAwaiter().GetResult();
         // Creating lettered volumes makes Windows announce them: AutoPlay fires and
         // Explorer windows open over the wizard, leaving an OEMDRV window sitting there
         // afterwards. Harmless, but on this screen it looks like something went wrong.
@@ -204,7 +338,32 @@ public sealed partial class DirectInstallService : IDirectInstallService
         _diskNumber = diskNumber;
         _preparedBootTarget = null;
         _bootSpec = bootSpec;
+        ValidateExternalInstallerMedia(bootSpec);
+        VerifySelectedIso(isoPath, bootSpec.IsoSha256, ct);
         ReadLocaleFromStaging(stagingDirectory);
+        // Everything in the staging generation, then the subset that goes onto the
+        // seed. User folders and browser profiles stay on NTFS for providers whose
+        // first boot reads them there (alpha flow); they never had to fit a FAT32
+        // partition, be hashed twice, or be copied a second time on Windows.
+        var allStagedFiles = InspectStagingFiles(stagingDirectory, requireFat32Fit: false);
+        var stagedFiles = _bootSpec.MigrationDataOnSeed
+            ? allStagedFiles
+            : allStagedFiles.Where(file => !IsUserDataPath(file.RelativePath)).ToArray();
+        foreach (var file in stagedFiles)
+            if (file.SizeBytes >= Fat32MaxFileBytes)
+                throw new InvalidDataException("A selected migration file exceeds the FAT32 file-size limit.");
+        if (!_bootSpec.MigrationDataOnSeed)
+            _logger.LogInformation("Seed excludes user data: {Seed} of {All} staged file(s) go onto the installer partition; " +
+                "{UserMiB} MiB of selected folders/profiles stay on the Windows volume for first boot",
+                stagedFiles.Count, allStagedFiles.Count,
+                (allStagedFiles.Sum(file => file.SizeBytes) - stagedFiles.Sum(file => file.SizeBytes)) / MiB);
+        var initrdExtras = ReadRequiredInitrdExtras(_bootSpec, stagingDirectory);
+        List<(string Name, byte[] Contents)>? initrdFiles = null;
+        if (_bootSpec.ConfigDelivery == ConfigDelivery.InjectIntoInitrd)
+        {
+            initrdFiles = [ReadRequiredInitrdConfig(_bootSpec, stagingDirectory)];
+            initrdFiles.AddRange(initrdExtras);
+        }
 
         //   Step 1: Measure ISO content to size the OEMDRV partition     ─
         // Mount the ISO just long enough to stat kernel + initrd + install.img sizes.
@@ -212,7 +371,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // We copy it to OEMDRV so that inst.stage2=hd:LABEL=OEMDRV: avoids
         // downloading 862 MB from a mirror during installation.
         Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Measuring ISO content…");
-        var (kernelBytes, initrdBytes, installImgBytes) = MeasureIsoContent(isoPath);
+        var (kernelBytes, initrdBytes, installImgBytes) = MeasureIsoContent(isoPath, bootSpec, externalMedia);
         _logger.LogInformation(
             "ISO content: kernel={K} MiB  initrd={I} MiB  install.img={S} MiB",
             kernelBytes / MiB, initrdBytes / MiB, installImgBytes / MiB);
@@ -228,29 +387,35 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // single FAT32 partition exactly as before  no behaviour change for them.
         long fullIsoBytes = _bootSpec.CopyFullIsoToVolume ? new FileInfo(isoPath).Length : 0;
         var sizing = PlanStorageSizes(_bootSpec, linuxSizeBytes, fullIsoBytes,
-            kernelBytes, initrdBytes, installImgBytes);
+            kernelBytes, initrdBytes, installImgBytes,
+            stagedFiles.Sum(file => file.SizeBytes));
         bool isoOnOwnPartition = sizing.IsoOnOwnPartition;
         long oemDrvBytes = sizing.OemDrvBytes;
         long isoPartBytes = sizing.IsoPartitionBytes;
         char driveLetter;
 
-        var existing = FindExistingOemDrv(diskNumber);
+        var seedOutputPaths = SeedOutputPaths(bootSpec, stagedFiles.Select(file => file.RelativePath), isoOnOwnPartition);
+        var staleSeeds = new List<char>();
+        var existing = FindExistingOemDrv(diskNumber, stagingDirectory, stagedFiles, seedOutputPaths, staleSeeds, ct);
 
-        // Reuse only a leftover big enough for THIS install. Reuse skips the shrink + creation,
-        // so a partition sized for a different, smaller distro (e.g. Fedora stages an ~870 MiB
-        // install.img, while a casper distro needs the whole ISO on the volume) cannot be reused.
-        // An unsuitable leftover is a disposable installer partition, matched by the OEMDRV label,
-        // so remove it and carve a correctly-sized one from a fresh shrink instead of dead-ending.
-        var canReuse = existing is not null
+        // The label only discovers candidates. FindExistingOemDrv admits reuse
+        // only after exact seed identity, content and protected-partition checks.
+        var canReuse = existing is not null && !isoOnOwnPartition
             && InstallerPartitionFits(new DriveInfo($"{existing.Value.letter}:").TotalSize, oemDrvBytes);
 
+        // A seed iGloo itself wrote on an earlier run (another distribution, a
+        // smaller layout, an interrupted copy) is disposable: remove it and carve a
+        // fresh one, as v0.2-alpha did. Only volumes carrying iGloo's own marker
+        // files are ever touched; a foreign OEMDRV volume stops the run instead.
         if (existing is not null && !canReuse)
         {
-            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Removing an unusable installer partition…");
-            _logger.LogWarning(
-                "Existing installer partition {L}: is too small for this install (~{Need} MiB needed) - " +
-                "removing it before creating a correctly-sized one", existing.Value.letter, oemDrvBytes / MiB);
-            DeleteInstallerVolume(existing.Value.letter);
+            staleSeeds.Add(existing.Value.letter);
+            existing = null;
+        }
+        foreach (var stale in staleSeeds.Distinct())
+        {
+            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Removing an installer partition from an earlier run…");
+            DeleteInstallerVolume(stale);
             ct.ThrowIfCancellationRequested();
         }
 
@@ -261,6 +426,11 @@ public sealed partial class DirectInstallService : IDirectInstallService
             driveLetter = existing!.Value.letter;
             _oemDrvLetter = driveLetter;
             _partitionNumber = existing.Value.partitionNumber;
+            var current = RequireReusableSeedTarget(_storage.ReadIdentitySnapshot(),
+                checked((uint)diskNumber), existing.Value.partitionNumber, driveLetter,
+                _bootSpec.VolumeLabel);
+            if (current != existing.Value.identity)
+                throw new InvalidOperationException("The existing installer partition changed before reuse. Its contents have been preserved.");
             _logger.LogInformation(
                 "Reusing existing OEMDRV partition {N} at {L}: - skipping shrink and partition creation",
                 _partitionNumber, driveLetter);
@@ -278,14 +448,26 @@ public sealed partial class DirectInstallService : IDirectInstallService
         else
         {
             Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Querying Windows partition…");
-            _logger.LogInformation("Direct install: shrinking disk {Disk} by {GiB} GiB",
-                diskNumber, linuxSizeBytes / MiB / 1024);
-
             long totalShrink = sizing.TotalShrinkBytes;
 
-            var shrinkProg = new Progress<string>(msg =>
-                Report(prog, DirectInstallPhase.ShrinkingPartition, message: msg));
-            _resizer.ShrinkAsync(diskNumber, totalShrink, shrinkProg, ct).GetAwaiter().GetResult();
+            // Existing unallocated space that already fits the installer partition
+            // plus the Linux allocation is used as is: no shrink. Otherwise Windows is
+            // shrunk by the full requirement, as before.
+            var freeExtent = LargestFreeExtentBytes(diskNumber);
+            if (freeExtent >= totalShrink)
+            {
+                _logger.LogInformation("Direct install: disk {Disk} already has {GiB:N1} GiB unallocated (need {NeedGiB:N1} GiB) - Windows is not shrunk",
+                    diskNumber, freeExtent / (1024.0 * 1024 * 1024), totalShrink / (1024.0 * 1024 * 1024));
+                Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Using existing free space; Windows is not resized…");
+            }
+            else
+            {
+                _logger.LogInformation("Direct install: shrinking disk {Disk} by {GiB} GiB",
+                    diskNumber, linuxSizeBytes / MiB / 1024);
+                var shrinkProg = new Progress<string>(msg =>
+                    Report(prog, DirectInstallPhase.ShrinkingPartition, message: msg));
+                _resizer.ShrinkAsync(diskNumber, totalShrink, shrinkProg, ct).GetAwaiter().GetResult();
+            }
             ct.ThrowIfCancellationRequested();
 
             //   Step 3: Create FAT32 OEMDRV partition (boot + seed)      
@@ -311,14 +493,28 @@ public sealed partial class DirectInstallService : IDirectInstallService
             }
         }
 
+        // Pin the newly created or reused seed partition before generating its
+        // boot command line. Installer and first boot receive this exact identity;
+        // a label lookup alone could select a different OEMDRV volume.
+        _preparedBootTarget = WindowsBootRegistrationPlanning.ObservePreparedTarget(_storage,
+            checked((uint)diskNumber), _partitionNumber!.Value);
+        if (_preparedBootTarget.Availability != ObservationAvailability.Available)
+            throw new InvalidOperationException("The prepared installer seed has no exact GPT identity.");
+
         //   Step 4: Extract boot content from ISO onto OEMDRV         ─
         // Extracts: igloo-boot/linux, igloo-boot/initrd,
         //           igloo-boot/shimx64.efi, igloo-boot/grubx64.efi
         //           images/install.img   (Anaconda stage2, ~870 MiB)
         // Writes:   EFI/fedora/grub.cfg  (points Anaconda at inst.ks=hd:LABEL=OEMDRV:/ks.cfg)
         Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Extracting boot files from ISO…");
-        ConfigureBootFiles(isoPath, driveLetter, stagingDirectory, initrdBytes, installImgBytes, prog, ct);
+        ConfigureBootFiles(isoPath, driveLetter, initrdFiles, initrdBytes, installImgBytes, externalMedia, prog, ct);
         ct.ThrowIfCancellationRequested();
+
+        // Digests of every large output, computed while the bytes were written. The
+        // seed identity and the reuse receipt below use them instead of reading the
+        // whole partition back (previously: copy, read back for the identity, read
+        // back again for the receipt - three passes over the user's data on Windows).
+        var writtenHashes = new Dictionary<string, KnownSeedFileHash>(StringComparer.OrdinalIgnoreCase);
 
         //   Step 4b: Copy the whole ISO (iso-scan / casper need it)      
         // Small ISOs land on the FAT32 seed partition; an oversized ISO lands on
@@ -328,15 +524,53 @@ public sealed partial class DirectInstallService : IDirectInstallService
             char isoVolLetter = isoOnOwnPartition ? _isoPartitionLetter!.Value : driveLetter;
             var isoDst = Path.Join($"{isoVolLetter}:\\", isoName);
             Report(prog, DirectInstallPhase.CopyingIso, message: "Copying installer ISO…");
-            CopyWithProgress(isoPath, isoDst, new FileInfo(isoPath).Length, prog, ct);
+            var isoLength = new FileInfo(isoPath).Length;
+            var isoCopied = CopyWithProgress(isoPath, isoDst, isoLength, prog, ct);
             ct.ThrowIfCancellationRequested();
+            if (isoCopied.Length != isoLength || new FileInfo(isoDst).Length != isoLength)
+                throw new IOException("The installer ISO did not copy completely.");
+            // VerifySelectedIso proved the source matches the plugin pin before any disk
+            // write; the copy's own digest must agree, or the seed does not carry the ISO
+            // that was verified.
+            if (!string.Equals(isoCopied.Sha256, bootSpec.IsoSha256, StringComparison.OrdinalIgnoreCase))
+                throw new IOException("The installer ISO changed while it was copied to the installer partition.");
+            if (!isoOnOwnPartition)
+                writtenHashes[isoName.Replace('\\', '/')] = isoCopied;
             _logger.LogInformation("Full ISO copied to {Dst}", isoDst);
         }
 
         //   Step 5: Copy staging artefacts (ks.cfg, manifest, agent)     ─
         Report(prog, DirectInstallPhase.CopyingFiles, message: "Copying migration files…");
-        CopyStagingArtefacts(stagingDirectory, $"{driveLetter}:\\", ct);
+        foreach (var (path, hash) in CopyStagingArtefacts(stagingDirectory, stagedFiles, $"{driveLetter}:\\", prog, ct))
+            writtenHashes[path] = hash;
         ct.ThrowIfCancellationRequested();
+
+        // Pin the exact GPT owner after the final seed copy. First boot uses this
+        // binding and the hashes of the copied credential inputs to retire only
+        // this installer's files, never another OEMDRV found by label.
+        var finalSeedTarget = WindowsBootRegistrationPlanning.ObservePreparedTarget(_storage,
+            checked((uint)diskNumber), _partitionNumber!.Value);
+        if (finalSeedTarget.Availability != ObservationAvailability.Available ||
+            finalSeedTarget.Value != _preparedBootTarget.Value)
+            throw new InvalidOperationException("The prepared installer seed identity changed during staging.");
+        var stagedAgentPaths = stagedFiles
+            .Where(file => file.RelativePath.StartsWith("igloo-agent" +
+                Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            .Select(file => file.RelativePath.Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+        if (stagedAgentPaths.Length == 0)
+            throw new InvalidDataException("The installer seed has no bound first-boot agent files.");
+        SeedIdentityWriter.WriteAsync($"{driveLetter}:\\",
+            _preparedBootTarget.Value.Disk.GptDiskGuid,
+            _preparedBootTarget.Value.PartitionGuid, stagedAgentPaths, writtenHashes, ct)
+            .GetAwaiter().GetResult();
+        var optionalOutputs = bootSpec.ExtraIsoFiles.Where(file => !file.Required)
+            .Select(file => file.OemDrvRelativePath.Replace('\\', '/')).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        WriteSeedReuseReceipt($"{driveLetter}:\\", _preparedBootTarget.Value,
+            seedOutputPaths.Where(path => !optionalOutputs.Contains(path) ||
+                File.Exists(Path.Join($"{driveLetter}:\\", path.Replace('/', Path.DirectorySeparatorChar)))).ToArray(),
+            writtenHashes, ct);
 
         // Anything the shell managed to open before suppression took hold - or that a
         // user double-click opened - is tidied away here, so the wizard is not left
@@ -345,42 +579,40 @@ public sealed partial class DirectInstallService : IDirectInstallService
         if (_isoPartitionLetter is { } isoLetter && isoLetter != driveLetter)
             shellQuiet.CloseExplorerWindowsFor(isoLetter);
 
-        // Pin the prepared identity before the later registration stage. This is read-only;
-        // failed identity acquisition blocks registration without changing storage preparation.
-        _preparedBootTarget = WindowsBootRegistrationPlanning.ObservePreparedTarget(_storage,
-            checked((uint)diskNumber), _partitionNumber!.Value);
         Report(prog, DirectInstallPhase.Complete, message: "Installer partition ready.");
         _logger.LogInformation("Direct install partition prepared on {Letter}:", driveLetter);
     }
 
-    private (long kernelBytes, long initrdBytes, long installImgBytes) MeasureIsoContent(string isoPath)
+    private (long kernelBytes, long initrdBytes, long installImgBytes) MeasureIsoContent(
+        string isoPath, InstallerBootSpec bootSpec, PinnedExternalInstallerMedia? externalMedia)
     {
         string? mountedLetter = null;
         try
         {
             mountedLetter = MountIso(isoPath);
             var isoRoot = $"{mountedLetter}:\\";
-            var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot);
+            long kernelBytes;
+            long initrdBytes;
+            if (externalMedia is not null)
+            {
+                kernelBytes = externalMedia.Kernel.Length;
+                initrdBytes = externalMedia.Initrd.Length;
+            }
+            else
+            {
+                var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot, bootSpec);
+                kernelBytes = new FileInfo(kernelSrc).Length;
+                initrdBytes = new FileInfo(initrdSrc).Length;
+            }
+
+            // Missing boot or required stage-2 files must stop before resize.
+            _ = FindEfiFiles(isoRoot);
 
             // Sum the distro's declared extra ISO files (e.g. Anaconda's
             // images/install.img stage-2 squashfs). Empty for d-i / subiquity.
-            long extraBytes = 0;
-            foreach (var f in _bootSpec.ExtraIsoFiles)
-            {
-                var src = Path.Join(isoRoot, f.IsoRelativePath.Replace('/', '\\'));
-                if (File.Exists(src))
-                {
-                    var len = new FileInfo(src).Length;
-                    extraBytes += len;
-                    _logger.LogInformation("ISO extra {Path}: {MiB} MiB", f.IsoRelativePath, len / MiB);
-                }
-                else if (f.Required)
-                {
-                    _logger.LogWarning("Required ISO file {Path} not found on ISO", f.IsoRelativePath);
-                }
-            }
+            var extraBytes = MeasureRequiredIsoContent(isoRoot, bootSpec);
 
-            return (new FileInfo(kernelSrc).Length, new FileInfo(initrdSrc).Length, extraBytes);
+            return (kernelBytes, initrdBytes, extraBytes);
         }
         finally
         {
@@ -446,51 +678,12 @@ public sealed partial class DirectInstallService : IDirectInstallService
                 CreateNoWindow = true,
             };
 
-            using var p = Process.Start(psi)
-                ?? throw new InvalidOperationException("Could not start diskpart.");
-
-            // Drain both streams on background threads to avoid pipe-buffer deadlock.
-            var stdoutTask = p.StandardOutput.ReadToEndAsync();
-            var stderrTask = p.StandardError.ReadToEndAsync();
-
-            var exited = p.WaitForExit(60_000); // 60 s - format can be slow
-            var stdout = stdoutTask.GetAwaiter().GetResult();
-            var stderr = stderrTask.GetAwaiter().GetResult();
-            var combined = string.IsNullOrWhiteSpace(stderr)
-                ? stdout
-                : stdout + "\n[stderr]\n" + stderr;
-
-            if (!exited)
-            {
-                TryKill(p);
-                throw new InvalidOperationException(
-                    $"diskpart timed out after 60 s.\n\nOutput:\n{combined}");
-            }
-
-            if (p.ExitCode != 0)
-                throw new InvalidOperationException(
-                    $"diskpart exited with code {p.ExitCode} (0x{(uint)p.ExitCode:X8})." +
-                    $"\n\nOutput:\n{combined}");
-
-            return combined;
+            return RunInstallerProcessAsync(psi, TimeSpan.FromSeconds(60))
+                .GetAwaiter().GetResult();
         }
         finally
         {
             TryDeleteFile(tmp);
-        }
-    }
-
-    
-    private static bool TryKill(Process p)
-    {
-        try
-        {
-            p.Kill();
-            return true;
-        }
-        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or NotSupportedException)
-        {
-            return false;
         }
     }
 
@@ -526,69 +719,143 @@ public sealed partial class DirectInstallService : IDirectInstallService
         return 0;
     }
 
-    private (char letter, uint partitionNumber)? FindExistingOemDrv(int diskNumber)
+    private (char letter, uint partitionNumber, CanonicalVolumeIdentityV1 identity)? FindExistingOemDrv(
+        int diskNumber, string stagingDirectory, IReadOnlyList<StagedFile> stagedFiles,
+        IReadOnlyCollection<string> seedOutputPaths, List<char> staleSeeds, CancellationToken ct)
     {
-        try
+        var incomingPaths = stagedFiles.Select(file => file.RelativePath.Replace('\\', '/'))
+            .Concat(Directory.EnumerateDirectories(stagingDirectory, "*", SearchOption.AllDirectories)
+                .Select(directory => Path.GetRelativePath(stagingDirectory, directory).Replace('\\', '/') + "/"))
+            .ToArray();
+        (char letter, uint partitionNumber, CanonicalVolumeIdentityV1 identity)? found = null;
+        foreach (var di in DriveInfo.GetDrives().Where(d => d.IsReady))
         {
-            foreach (var di in DriveInfo.GetDrives().Where(d => d.IsReady))
+            ct.ThrowIfCancellationRequested();
+            if (!string.Equals(di.VolumeLabel, _bootSpec.VolumeLabel, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var letter = char.ToUpperInvariant(di.Name[0]);
+            var observed = _storage.ReadIdentitySnapshot();
+            if (observed.Availability != ObservationAvailability.Available)
+                throw ExistingSeedOwnershipUnavailable();
+            var matches = observed.Value.Partitions.Where(p =>
+                p.DriveLetter.Availability == ObservationAvailability.Available &&
+                char.ToUpperInvariant(p.DriveLetter.Value) == letter).ToArray();
+            if (matches.Length != 1 || matches[0].DiskNumber.Availability != ObservationAvailability.Available ||
+                matches[0].Number.Availability != ObservationAvailability.Available)
+                throw ExistingSeedOwnershipUnavailable();
+            if (matches[0].DiskNumber.Value != diskNumber)
+                continue;
+            if (found is not null)
+                throw ExistingSeedOwnershipUnavailable();
+
+            var partition = matches[0].Number.Value;
+            CanonicalVolumeIdentityV1 identity;
+            try
             {
-                try
-                {
-                    if (!string.Equals(di.VolumeLabel, _bootSpec.VolumeLabel, StringComparison.OrdinalIgnoreCase))
-                        continue;
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
-                { continue; }
-
-                var letter = char.ToUpperInvariant(di.Name[0]);
-                var pn = FindPartitionByLetter(diskNumber, letter);
-                if (pn == 0)
-                    continue; // not on this disk
-
-                _logger.LogInformation(
-                    "Found existing OEMDRV volume at {L}: (partition {N}, disk {D})",
-                    letter, pn, diskNumber);
-                return (letter, pn);
+                identity = RequireReusableInstallerSeed(observed, checked((uint)diskNumber),
+                    partition, letter, _bootSpec.VolumeLabel, di.RootDirectory.FullName,
+                    incomingPaths, seedOutputPaths, ct);
             }
+            catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException &&
+                                       IsIglooSeedVolume(di.RootDirectory.FullName))
+            {
+                // Written by iGloo, but not reusable for this run (another distribution,
+                // a different layout, an interrupted copy). Disposable - see Prepare.
+                _logger.LogInformation(ex, "Existing installer seed at {L}: is from an earlier run and will be replaced", letter);
+                staleSeeds.Add(letter);
+                continue;
+            }
+            _logger.LogInformation(
+                "Validated existing installer seed at {L}: (partition {N}, disk {D})",
+                letter, partition, diskNumber);
+            found = (letter, partition, identity);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
-        {
-            _logger.LogWarning(ex, "FindExistingOemDrv scan failed (non-fatal)");
-        }
-        return null;
+        return found;
     }
 
     internal static bool InstallerPartitionFits(long capacityBytes, long requiredBytes)
         => capacityBytes >= requiredBytes;
 
+    // iGloo's own seed volumes carry the seed identity file and the boot directory;
+    // a vendor's OEMDRV driver disk carries neither.
+    private static bool IsIglooSeedVolume(string root) =>
+        File.Exists(Path.Join(root, SeedIdentityWriter.FileName)) ||
+        File.Exists(Path.Join(root, SeedReuseReceiptFileName)) ||
+        Directory.Exists(Path.Join(root, BootDir));
+
+    /// <summary>Deletes an installer seed volume iGloo wrote on an earlier run (v0.2-alpha behaviour).</summary>
     private void DeleteInstallerVolume(char letter)
     {
-        string label;
+        string label, root;
         try
         {
             var di = new DriveInfo($"{letter}:");
             if (!di.IsReady)
                 throw new InvalidOperationException($"Installer volume {letter}: is not ready; refusing to delete it.");
             label = di.VolumeLabel;
+            root = di.RootDirectory.FullName;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
             throw new InvalidOperationException(
                 $"Could not confirm volume {letter}: before deletion; aborting rather than risk the wrong partition.", ex);
         }
-
         if (!string.Equals(label, _bootSpec.VolumeLabel, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(
-                $"Refusing to delete volume {letter}: - its label '{label}' is not the '{_bootSpec.VolumeLabel}' " +
-                "installer partition we detected.");
-
-        var script = $"""
+                $"Refusing to delete volume {letter}: - its label '{label}' is not the '{_bootSpec.VolumeLabel}' installer partition that was detected.");
+        if (!IsIglooSeedVolume(root))
+            throw new InvalidOperationException(
+                $"Refusing to delete volume {letter}: - it carries no iGloo installer files, so it may not be ours.");
+        var output = RunDiskpart($"""
             select volume {letter}
             delete volume
             exit
-            """;
-        var output = RunDiskpart(script);
-        _logger.LogInformation("Removed stale installer volume {L}: (diskpart output:\n{Output})", letter, output);
+            """);
+        _logger.LogInformation("Removed installer seed volume {L}: from an earlier run (diskpart output:\n{Output})", letter, output);
+    }
+
+    /// <summary>Largest unallocated extent on the disk, in bytes (0 when none or unknown).</summary>
+    private long LargestFreeExtentBytes(int diskNumber)
+    {
+        try
+        {
+            long diskSize = 0;
+            foreach (var disk in _storage.ReadDisks().RowsOrThrow())
+                if (Convert.ToInt32(disk["Number"], CultureInfo.InvariantCulture) == diskNumber)
+                    diskSize = Convert.ToInt64(disk["Size"], CultureInfo.InvariantCulture);
+            var partitions = new List<(long Offset, long Size)>();
+            foreach (var p in _storage.ReadPartitions(diskNumber).RowsOrThrow())
+                partitions.Add((Convert.ToInt64(p["Offset"], CultureInfo.InvariantCulture),
+                    Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture)));
+            return LargestFreeExtentBytes(partitions, diskSize);
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException
+                                   or InvalidCastException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "Could not measure unallocated space on disk {Disk}; assuming none", diskNumber);
+            return 0;
+        }
+    }
+
+    internal static long LargestFreeExtentBytes(IEnumerable<(long Offset, long Size)> partitions, long diskSizeBytes)
+    {
+        ArgumentNullException.ThrowIfNull(partitions);
+        if (diskSizeBytes <= 0) return 0;
+        // GPT keeps its backup header and table in the last ~17 KiB; keep a 1 MiB
+        // alignment margin on every gap so what is reported is what diskpart can
+        // actually allocate.
+        const long margin = MiB;
+        long cursor = 0, largest = 0;
+        foreach (var (offset, size) in partitions.Where(p => p.Size > 0).OrderBy(p => p.Offset))
+        {
+            if (offset > cursor)
+                largest = Math.Max(largest, offset - cursor - margin);
+            cursor = Math.Max(cursor, offset + size);
+        }
+        if (diskSizeBytes > cursor)
+            largest = Math.Max(largest, diskSizeBytes - cursor - margin);
+        return Math.Max(0, largest);
     }
 
     private static char FindAvailableDriveLetter()
@@ -670,13 +937,14 @@ public sealed partial class DirectInstallService : IDirectInstallService
 
     //   Step 3 - copy ISO with progress                    
 
-    private static void CopyWithProgress(
+    private static KnownSeedFileHash CopyWithProgress(
         string src, string dst, long totalBytes,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         const int BufSize = 4 * 1024 * 1024; // 4 MiB
-        using var fsIn = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.Read, BufSize);
+        using var fsIn = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.Read, BufSize, FileOptions.SequentialScan);
         using var fsOut = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.None, BufSize);
+        using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 
         var buf = new byte[BufSize];
         long copied = 0;
@@ -685,71 +953,184 @@ public sealed partial class DirectInstallService : IDirectInstallService
         {
             ct.ThrowIfCancellationRequested();
             fsOut.Write(buf, 0, read);
+            digest.AppendData(buf, 0, read);
             copied += read;
             prog?.Report(new DirectInstallProgress(
                 DirectInstallPhase.CopyingIso, copied, totalBytes));
         }
+        return new KnownSeedFileHash(Convert.ToHexString(digest.GetHashAndReset()), copied);
     }
 
-    private static void DownloadTo(Uri url, string destPath,
-        IProgress<DirectInstallProgress>? prog, CancellationToken ct)
+    // One pass: read the source, write the seed copy, hash the bytes written. Last-write
+    // time and attributes follow the source as File.Copy would carry them; the first-boot
+    // agents preserve those timestamps into the new home directory.
+    private KnownSeedFileHash CopyAndHash(string src, string dst, CancellationToken ct)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(20) };
-        using var resp = http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct)
-                             .GetAwaiter().GetResult();
-        resp.EnsureSuccessStatusCode();
-        long total = resp.Content.Headers.ContentLength ?? 0;
+        const int BufSize = 1024 * 1024;
+        using (var input = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.Read, BufSize, FileOptions.SequentialScan))
+        using (var output = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.None, BufSize))
+        using (var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+        {
+            var buffer = new byte[BufSize];
+            long written = 0;
+            int read;
+            while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                ct.ThrowIfCancellationRequested();
+                output.Write(buffer, 0, read);
+                digest.AppendData(buffer, 0, read);
+                written += read;
+            }
+            var result = new KnownSeedFileHash(Convert.ToHexString(digest.GetHashAndReset()), written);
+            try
+            {
+                File.SetLastWriteTimeUtc(dst, File.GetLastWriteTimeUtc(src));
+                var attributes = File.GetAttributes(src) & (FileAttributes.ReadOnly | FileAttributes.Hidden |
+                    FileAttributes.System | FileAttributes.Archive);
+                File.SetAttributes(dst, attributes == 0 ? FileAttributes.Normal : attributes);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentOutOfRangeException)
+            {
+                // FAT32 cannot store every NTFS timestamp (pre-1980, for instance). The
+                // bytes are what the identity binds; metadata is best-effort.
+                _logger.LogDebug(ex, "Could not carry timestamp/attributes to {Dst} (non-fatal)", dst);
+            }
+            return result;
+        }
+    }
 
-        using var src = resp.Content.ReadAsStream(ct);
-        using var dst = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20);
-        var buf = new byte[1 << 20];
-        long done = 0;
+    internal static void ValidateExternalInstallerMedia(InstallerBootSpec bootSpec)
+    {
+        ArgumentNullException.ThrowIfNull(bootSpec);
+        var hasExternalMedia = bootSpec.KernelUrl is not null || bootSpec.InitrdUrl is not null ||
+            bootSpec.KernelSha256 is not null || bootSpec.InitrdSha256 is not null;
+        if (!hasExternalMedia) return;
+        if (!SecureHttps(bootSpec.KernelUrl) || !SecureHttps(bootSpec.InitrdUrl) ||
+            !ValidSha256(bootSpec.KernelSha256) || !ValidSha256(bootSpec.InitrdSha256))
+            throw new InvalidDataException("External installer kernel and initrd need HTTPS URLs and SHA-256 pins.");
+    }
+
+    private static bool SecureHttps(Uri? value) => value is { IsAbsoluteUri: true } &&
+        string.Equals(value.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+
+    private static bool ValidSha256(string? value) =>
+        value is { Length: 64 } && value.All(Uri.IsHexDigit);
+
+    internal static void VerifySelectedIso(string isoPath, string? expectedSha256, CancellationToken ct)
+    {
+        if (!ValidSha256(expectedSha256))
+            throw new InvalidDataException("Selected installer image has no SHA-256 pin.");
+        if ((File.GetAttributes(isoPath) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("Selected installer image is a redirected path.");
+        using var source = new FileStream(isoPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+            bufferSize: 1024 * 1024, FileOptions.SequentialScan);
+        using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = new byte[1024 * 1024];
         int read;
-        while ((read = src.Read(buf, 0, buf.Length)) > 0)
+        while ((read = source.Read(buffer)) != 0)
         {
             ct.ThrowIfCancellationRequested();
-            dst.Write(buf, 0, read);
-            done += read;
-            prog?.Report(new DirectInstallProgress(DirectInstallPhase.CopyingIso, done, total));
+            digest.AppendData(buffer, 0, read);
         }
+        var actualSha256 = Convert.ToHexString(digest.GetHashAndReset());
+        if (!string.Equals(actualSha256, expectedSha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Selected installer image failed its SHA-256 pin.");
     }
 
     //   Step 4 - copy artefacts                        ─
 
-    private void CopyStagingArtefacts(string stagingDir, string oemDrvRoot, CancellationToken ct)
+    internal sealed record StagedFile(string SourcePath, string RelativePath, long SizeBytes);
+
+    // The two staging namespaces that hold the user's own data (FileStagingService
+    // layout): selected folders and portable browser profiles.
+    internal static bool IsUserDataPath(string relativePath)
     {
-        // Copy every top-level staging file to the volume root: the rendered
-        // installer config (ks.cfg / preseed.cfg / user-data + meta-data  name
-        // varies per distro) and migration-manifest.json. Ubuntu's subiquity reads
-        // user-data/meta-data straight from this (CIDATA-labelled) volume, so a
-        // distro-agnostic copy is required, not a hardcoded "ks.cfg".
-        foreach (var f in Directory.EnumerateFiles(stagingDir))
+        var normalized = relativePath.Replace('\\', '/');
+        return normalized.StartsWith("files/", StringComparison.OrdinalIgnoreCase) ||
+               normalized.StartsWith("browser-profiles/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static IReadOnlyList<StagedFile> InspectStagingFiles(string stagingDirectory, bool requireFat32Fit = true)
+    {
+        if (!Directory.Exists(stagingDirectory))
+            throw new DirectoryNotFoundException("Migration staging directory is unavailable.");
+        var root = Path.GetFullPath(stagingDirectory);
+        var pending = new Stack<string>();
+        var files = new List<StagedFile>();
+        pending.Push(root);
+        while (pending.TryPop(out var directory))
+        {
+            if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("Migration staging contains a redirected directory.");
+            foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+            {
+                var attributes = File.GetAttributes(entry);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Migration staging contains a redirected file.");
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    pending.Push(entry);
+                    continue;
+                }
+                var length = new FileInfo(entry).Length;
+                if (requireFat32Fit && length >= Fat32MaxFileBytes)
+                    throw new InvalidDataException("A selected migration file exceeds the FAT32 file-size limit.");
+                files.Add(new(entry, Path.GetRelativePath(root, entry), length));
+            }
+        }
+        if (!files.Any(file => file.RelativePath.Equals("migration-manifest.json", StringComparison.OrdinalIgnoreCase)) ||
+            !files.Any(file => file.RelativePath.Equals(Path.Join("igloo-agent", "first-boot.sh"),
+                StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidDataException("Migration staging lacks its manifest or required first-boot launcher.");
+        return files;
+    }
+
+    private Dictionary<string, KnownSeedFileHash> CopyStagingArtefacts(string stagingDirectory,
+        IReadOnlyList<StagedFile> files, string oemDrvRoot, IProgress<DirectInstallProgress>? prog,
+        CancellationToken ct)
+    {
+        var hashes = new Dictionary<string, KnownSeedFileHash>(StringComparer.OrdinalIgnoreCase);
+        long totalBytes = files.Sum(file => file.SizeBytes);
+        long writtenBytes = 0;
+        // Copy the complete staged tree, including selected user files. Both the
+        // USB and direct paths must give first boot the same migration source.
+        foreach (var directory in Directory.EnumerateDirectories(stagingDirectory, "*", SearchOption.AllDirectories))
         {
             ct.ThrowIfCancellationRequested();
-            var dst = Path.Join(oemDrvRoot, Path.GetFileName(f));
+            if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("Migration staging changed to a redirected directory while copying.");
+            Directory.CreateDirectory(Path.Join(oemDrvRoot, Path.GetRelativePath(stagingDirectory, directory)));
+        }
+        foreach (var file in files)
+        {
+            ct.ThrowIfCancellationRequested();
+            var dst = Path.Join(oemDrvRoot, file.RelativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+            if ((File.GetAttributes(file.SourcePath) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("A migration staging file changed to a redirected path while copying.");
+            if (new FileInfo(file.SourcePath).Length != file.SizeBytes)
+                throw new IOException("A migration staging file changed before copying.");
             // A rendered installer config may carry install-geometry tokens that can
             // only be resolved now the disk is partitioned (Ubuntu's subiquity needs
             // the free-gap offset/size explicitly). Substitute for that file; copy
             // everything else byte-for-byte.
-            if (!TryCopyWithGeometry(f, dst))
-                File.Copy(f, dst, overwrite: true);
-        }
-        // Copy igloo-agent directory
-        var agentSrc = Path.Join(stagingDir, "igloo-agent");
-        var agentDst = Path.Join(oemDrvRoot, "igloo-agent");
-        if (Directory.Exists(agentSrc))
-        {
-            Directory.CreateDirectory(agentDst);
-            foreach (var f in Directory.EnumerateFiles(agentSrc))
+            var geometryResolved = file.RelativePath.IndexOf(Path.DirectorySeparatorChar,
+                StringComparison.Ordinal) < 0 &&
+                TryCopyWithGeometry(file.SourcePath, dst);
+            if (!geometryResolved)
             {
-                ct.ThrowIfCancellationRequested();
-                File.Copy(f, Path.Join(agentDst, Path.GetFileName(f)), overwrite: true);
+                var copied = CopyAndHash(file.SourcePath, dst, ct);
+                if (copied.Length != file.SizeBytes || new FileInfo(dst).Length != file.SizeBytes)
+                    throw new IOException("A migration staging file did not copy completely.");
+                hashes[file.RelativePath.Replace('\\', '/')] = copied;
             }
-            _logger.LogInformation("Agent payload copied to {Dst}", agentDst);
+            writtenBytes += file.SizeBytes;
+            Report(prog, DirectInstallPhase.CopyingFiles, writtenBytes, totalBytes,
+                $"Copying migration files… {writtenBytes / MiB:N0} / {totalBytes / MiB:N0} MiB");
         }
-        // Note: user files (staging/files/) are intentionally NOT copied here.
-        // The kickstart %post will mount the Windows NTFS partition and copy directly.
-        _logger.LogInformation("Staging artefacts copied to {Root}", oemDrvRoot);
+        _logger.LogInformation("Staging artefacts copied to {Root} ({Files} files, {MiB} MiB)",
+            oemDrvRoot, files.Count, totalBytes / MiB);
+        return hashes;
     }
 
     private bool TryCopyWithGeometry(string src, string dst)
@@ -881,7 +1262,10 @@ public sealed partial class DirectInstallService : IDirectInstallService
     //   Step 5 - extract kernel + initrd from ISO               
 
     private void ConfigureBootFiles(
-        string isoPath, char oemDrvLetter, string stagingDirectory, long initrdBytes, long installImgBytes,
+        string isoPath, char oemDrvLetter,
+        List<(string Name, byte[] Contents)>? initrdFiles,
+        long initrdBytes, long installImgBytes,
+        PinnedExternalInstallerMedia? externalMedia,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         var oemDrvRoot = $"{oemDrvLetter}:\\";
@@ -899,18 +1283,14 @@ public sealed partial class DirectInstallService : IDirectInstallService
             //   1. Extract kernel + initrd                   ─
             var kernelDst = Path.Join(bootDst, KernelFile);
             var initrdDst = Path.Join(bootDst, InitrdFile);
-            if (_bootSpec.KernelUrl is { } kernelUrl && _bootSpec.InitrdUrl is { } initrdUrl)
+            if (externalMedia is not null)
             {
-                // Download the installer kernel+initrd (e.g. Debian hd-media, which
-                // runs iso-scan) rather than extracting the ISO's cdrom-detect initrd.
-                _logger.LogInformation("Downloading installer kernel from {Url}", kernelUrl);
-                DownloadTo(kernelUrl, kernelDst, prog, ct);
-                _logger.LogInformation("Downloading installer initrd from {Url}", initrdUrl);
-                DownloadTo(initrdUrl, initrdDst, prog, ct);
+                externalMedia.Kernel.CopyTo(kernelDst, prog, ct);
+                externalMedia.Initrd.CopyTo(initrdDst, prog, ct);
             }
             else
             {
-                var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot);
+                var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot, _bootSpec);
                 _logger.LogInformation("ISO kernel: {K}  initrd: {I}", kernelSrc, initrdSrc);
                 CopyFileRobust(kernelSrc, kernelDst);
                 ct.ThrowIfCancellationRequested();
@@ -921,19 +1301,13 @@ public sealed partial class DirectInstallService : IDirectInstallService
             // Inject the rendered installer config into the initrd (preseed
             // delivery) when the distro uses that method - the standard
             // fully-unattended path for debian-installer / Ubiquity.
-            if (_bootSpec.ConfigDelivery == ConfigDelivery.InjectIntoInitrd
-                && _bootSpec.InitrdConfigPath is { } injPath)
+            if (_bootSpec.ConfigDelivery == ConfigDelivery.InjectIntoInitrd)
             {
-                var cfgSrc = Path.Join(stagingDirectory, injPath);
-                if (File.Exists(cfgSrc))
-                {
-                    AppendFileToInitrd(Path.Join(bootDst, InitrdFile), injPath, File.ReadAllBytes(cfgSrc));
-                    _logger.LogInformation("Injected {Cfg} into initrd for unattended install", injPath);
-                }
-                else
-                {
-                    _logger.LogWarning("Config {Cfg} not found in staging for initrd injection", cfgSrc);
-                }
+                if (initrdFiles is null || initrdFiles.Count == 0)
+                    throw new InvalidDataException("Installer initrd payload is unavailable.");
+                AppendFilesToInitrd(Path.Join(bootDst, InitrdFile), initrdFiles);
+                _logger.LogInformation("Injected {Cfg} and {Count} helpers into initrd for unattended install",
+                    initrdFiles[0].Name, initrdFiles.Count - 1);
             }
 
             //   2. Copy shim + GRUB EFI binaries                
@@ -968,7 +1342,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
                 if (!File.Exists(src))
                 {
                     if (f.Required)
-                        _logger.LogWarning("Required ISO file {Path} not found - install may fail", f.IsoRelativePath);
+                        throw new FileNotFoundException("A required installer image file is missing.", src);
                     continue;
                 }
                 var dst = Path.Join(oemDrvRoot, f.OemDrvRelativePath.Replace('/', '\\'));
@@ -997,7 +1371,9 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // grubx64.efi's compiled-in prefix differs per distro (/EFI/fedora,
         // /EFI/debian, /EFI/ubuntu, or /EFI/BOOT). We don't know which binary the
         // ISO shipped, so write grub.cfg to all of them.
-        var grubCfgContent = BuildGrubConfig();
+        VerifyPreparedSeedBeforeBootConfiguration();
+        var grubCfgContent = BuildGrubConfig(_bootSpec, _locale, _keymap,
+            _preparedBootTarget!.Value.Disk.GptDiskGuid, _preparedBootTarget.Value.PartitionGuid);
         foreach (var dir in GrubCfgDirs.Select(cfgDir => Path.Join(oemDrvRoot, cfgDir)))
         {
             var path = Path.Join(dir, "grub.cfg");
@@ -1007,15 +1383,68 @@ public sealed partial class DirectInstallService : IDirectInstallService
         }
     }
 
-    private (string kernel, string initrd) FindKernelFiles(string isoRoot)
+    internal static (string Name, byte[] Contents) ReadRequiredInitrdConfig(
+        InstallerBootSpec bootSpec, string stagingDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(bootSpec);
+        ArgumentException.ThrowIfNullOrWhiteSpace(stagingDirectory);
+        var name = bootSpec.InitrdConfigPath;
+        if (bootSpec.ConfigDelivery != ConfigDelivery.InjectIntoInitrd ||
+            string.IsNullOrWhiteSpace(name) || Path.IsPathRooted(name) ||
+            !string.Equals(Path.GetFileName(name), name, StringComparison.Ordinal) ||
+            name is "." or "..")
+            throw new InvalidDataException("Installer initrd config name is unavailable or unsafe.");
+        var source = Path.Join(stagingDirectory, name);
+        var contents = File.ReadAllBytes(source);
+        if (contents.Length == 0)
+            throw new InvalidDataException("Installer initrd config is empty.");
+        return (name, contents);
+    }
+
+    internal static IReadOnlyList<(string Name, byte[] Contents)> ReadRequiredInitrdExtras(
+        InstallerBootSpec bootSpec, string stagingDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(bootSpec);
+        ArgumentException.ThrowIfNullOrWhiteSpace(stagingDirectory);
+        var declared = bootSpec.InitrdExtraPaths ?? throw new InvalidDataException(
+            "Installer initrd extra file list is unavailable.");
+        if (declared.Count > 0 && bootSpec.ConfigDelivery != ConfigDelivery.InjectIntoInitrd)
+            throw new InvalidDataException("Installer initrd extras require initrd config delivery.");
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (bootSpec.InitrdConfigPath is { } configName)
+            names.Add(configName);
+        var result = new List<(string Name, byte[] Contents)>();
+        foreach (var relative in declared)
+        {
+            if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) ||
+                relative.Contains(':', StringComparison.Ordinal))
+                throw new InvalidDataException("Installer initrd extra path is unavailable or unsafe.");
+            var segments = relative.Replace('\\', '/').Split('/');
+            if (segments.Any(segment => string.IsNullOrWhiteSpace(segment) ||
+                    segment is "." or ".." ||
+                    segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0))
+                throw new InvalidDataException("Installer initrd extra path is unavailable or unsafe.");
+            var name = segments[^1];
+            if (!names.Add(name))
+                throw new InvalidDataException("Installer initrd extra names must be unique.");
+            var source = Path.Join(stagingDirectory, Path.Join(segments));
+            var contents = File.ReadAllBytes(source);
+            if (contents.Length == 0)
+                throw new InvalidDataException("Installer initrd extra is empty.");
+            result.Add((name, contents));
+        }
+        return result;
+    }
+
+    private (string kernel, string initrd) FindKernelFiles(string isoRoot, InstallerBootSpec bootSpec)
     {
         // Try the distro's declared kernel/initrd locations (from the boot spec),
         // pairing any existing kernel with any existing initrd.
-        foreach (var kFull in _bootSpec.KernelIsoPaths
+        foreach (var kFull in bootSpec.KernelIsoPaths
                      .Select(k => Path.Join(isoRoot, k.Replace('/', '\\')))
                      .Where(File.Exists))
         {
-            var iFull = _bootSpec.InitrdIsoPaths
+            var iFull = bootSpec.InitrdIsoPaths
                 .Select(i => Path.Join(isoRoot, i.Replace('/', '\\')))
                 .FirstOrDefault(File.Exists);
             if (iFull is not null)
@@ -1053,7 +1482,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
             $"ISO file listing:\n  {string.Join("\n  ", allFiles)}");
     }
 
-    private static (string shimPath, string grubPath) FindEfiFiles(string isoRoot)
+    internal static (string shimPath, string grubPath) FindEfiFiles(string isoRoot)
     {
         //   Shim candidates (in priority order)               ─
         string[] shimCandidates =
@@ -1097,9 +1526,10 @@ public sealed partial class DirectInstallService : IDirectInstallService
 
     //   initrd config injection                        
 
-    private static void AppendFileToInitrd(string initrdPath, string nameInInitrd, byte[] fileData)
+    internal static void AppendFilesToInitrd(string initrdPath,
+        IReadOnlyList<(string Name, byte[] Contents)> files)
     {
-        var cpio = BuildNewcCpio(nameInInitrd.TrimStart('/'), fileData);
+        var cpio = BuildNewcCpio(files);
         using var gzBuf = new MemoryStream();
         using (var gz = new GZipStream(gzBuf, CompressionLevel.Optimal, leaveOpen: true))
             gz.Write(cpio, 0, cpio.Length);
@@ -1109,10 +1539,24 @@ public sealed partial class DirectInstallService : IDirectInstallService
     }
 
     
-    internal static byte[] BuildNewcCpio(string name, byte[] data)
+    internal static byte[] BuildNewcCpio(string name, byte[] data) =>
+        BuildNewcCpio([(name, data)]);
+
+    internal static byte[] BuildNewcCpio(IReadOnlyList<(string Name, byte[] Contents)> files)
     {
         using var ms = new MemoryStream();
-        WriteCpioEntry(ms, name, data, mode: 0x81A4, nlink: 1); // 0100644
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, contents) in files)
+        {
+            if (string.IsNullOrWhiteSpace(name) || Path.IsPathRooted(name) ||
+                name is "." or ".." or "TRAILER!!!" ||
+                name.Contains('/', StringComparison.Ordinal) ||
+                name.Contains('\\', StringComparison.Ordinal) ||
+                name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+                !names.Add(name))
+                throw new InvalidDataException("Installer initrd entry name is unsafe.");
+            WriteCpioEntry(ms, name, contents, mode: 0x81A4, nlink: 1); // 0100644
+        }
         WriteCpioEntry(ms, "TRAILER!!!", Array.Empty<byte>(), mode: 0, nlink: 1);
         return ms.ToArray();
     }
@@ -1200,25 +1644,76 @@ public sealed partial class DirectInstallService : IDirectInstallService
         }
     }
 
-    private string BuildGrubConfig()
+    private void VerifyPreparedSeedBeforeBootConfiguration()
     {
-        var label = _bootSpec.VolumeLabel;
-        var cmdline = _bootSpec.KernelCmdline
+        if (_preparedBootTarget is not { Availability: ObservationAvailability.Available } prepared ||
+            _diskNumber is not { } diskNumber || _partitionNumber is not { } partitionNumber ||
+            prepared.Value.FileSystem != "FAT32")
+            throw new InvalidOperationException("The prepared installer seed has no exact FAT volume.");
+        var observed = WindowsBootRegistrationPlanning.ObservePreparedTarget(_storage,
+            checked((uint)diskNumber), partitionNumber);
+        if (observed.Availability != ObservationAvailability.Available ||
+            observed.Value != prepared.Value)
+            throw new InvalidOperationException("The prepared installer seed changed before boot configuration.");
+    }
+
+    internal static string BuildGrubConfig(InstallerBootSpec bootSpec, string locale,
+        string keymap, Guid seedDiskGuid, Guid seedPartitionGuid,
+        Guid? reviewedLinuxEspPartitionGuid = null)
+    {
+        ArgumentNullException.ThrowIfNull(bootSpec);
+        if (seedDiskGuid == Guid.Empty || seedPartitionGuid == Guid.Empty)
+            throw new InvalidDataException("The installer boot entry has no exact seed GPT identity.");
+        if (reviewedLinuxEspPartitionGuid is { } linuxEspGuid &&
+            (linuxEspGuid == Guid.Empty || linuxEspGuid == seedPartitionGuid))
+            throw new InvalidDataException("The reviewed Linux ESP has no distinct GPT partition identity.");
+        if (bootSpec.KernelCmdline.Contains("igloo.linuxesppartuuid=", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The installer boot recipe contains an unreviewed Linux ESP binding.");
+        var label = bootSpec.VolumeLabel;
+        var cmdline = bootSpec.KernelCmdline
             .Replace("{LABEL}", label, StringComparison.Ordinal)
+            .Replace("{SEED_PARTUUID}", seedPartitionGuid.ToString("D"), StringComparison.Ordinal)
             // Bare language code: localechooser wants "en_US", not "en_US.UTF-8".
-            .Replace("{LOCALE}", _locale.Split('.')[0], StringComparison.Ordinal)
-            .Replace("{KEYMAP}", _keymap, StringComparison.Ordinal);
+            .Replace("{LOCALE}", locale.Split('.')[0], StringComparison.Ordinal)
+            .Replace("{KEYMAP}", keymap, StringComparison.Ordinal);
+        if (cmdline.Contains('{', StringComparison.Ordinal) ||
+            cmdline.Contains('}', StringComparison.Ordinal))
+            throw new InvalidDataException("The installer boot arguments contain an unbound value.");
+        var seedArgs = "igloo.seedpartuuid=" + seedPartitionGuid.ToString("D") +
+            " igloo.seeddiskguid=" + seedDiskGuid.ToString("D");
+        if (reviewedLinuxEspPartitionGuid is { } reviewedGuid)
+            seedArgs += " igloo.linuxesppartuuid=" + reviewedGuid.ToString("D");
+        cmdline = cmdline.EndsWith(" ---", StringComparison.Ordinal)
+            ? cmdline[..^4] + " " + seedArgs + " ---"
+            : cmdline + " " + seedArgs;
         return $$"""
             insmod part_gpt
             insmod fat
             insmod linux
 
-            search --no-floppy --set=root --label {{label}}
+            # Keep the partition that loaded this configuration. A FAT serial is
+            # not unique, so a filesystem UUID search can switch to a decoy seed.
+            set igloo_origin="$root"
+            if [ -z "$igloo_origin" ]; then
+                echo "The installer seed origin is unavailable."
+                halt
+            fi
+            set igloo_candidate=
+            search --no-floppy --set=igloo_candidate --file /{{SeedIdentityWriter.FileName}}
+            if [ -z "$igloo_candidate" ]; then
+                echo "The installer seed identity is unavailable."
+                halt
+            fi
+            if [ "$igloo_candidate" != "$igloo_origin" ]; then
+                echo "The installer seed identity resolved to another partition."
+                halt
+            fi
+            set root="$igloo_origin"
 
             set default=0
             set timeout=5
 
-            menuentry "{{_bootSpec.MenuTitle}}" {
+            menuentry "{{bootSpec.MenuTitle}}" {
                 linux  ($root)/{{BootDir}}/{{KernelFile}} {{cmdline}}
                 initrd ($root)/{{BootDir}}/{{InitrdFile}}
             }
@@ -1233,7 +1728,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         DismountIso(isoPath);
         Thread.Sleep(500);
 
-        RunPowerShell($"Mount-DiskImage -ImagePath \"{isoPath}\" -Access ReadOnly");
+        RunPowerShell($"Mount-DiskImage -ImagePath {PowerShellLiteral(isoPath)} -Access ReadOnly");
 
         // Mount-DiskImage is asynchronous on real hardware; the volume letter is
         // assigned by Windows after the virtual disk is attached.
@@ -1249,7 +1744,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         // Recovery: dismount, remount, and give it 10 more seconds.
         DismountIso(isoPath);
         Thread.Sleep(1_000);
-        RunPowerShell($"Mount-DiskImage -ImagePath \"{isoPath}\" -Access ReadOnly");
+        RunPowerShell($"Mount-DiskImage -ImagePath {PowerShellLiteral(isoPath)} -Access ReadOnly");
         Thread.Sleep(2_000);
 
         letter = PollForDriveLetter(isoPath, retries: 20);
@@ -1264,7 +1759,7 @@ public sealed partial class DirectInstallService : IDirectInstallService
         for (var i = 0; i < retries; i++)
         {
             var letter = RunPowerShell(
-                $"(Get-DiskImage -ImagePath \"{isoPath}\" | Get-Volume).DriveLetter");
+                $"(Get-DiskImage -ImagePath {PowerShellLiteral(isoPath)} | Get-Volume).DriveLetter");
             letter = letter.Trim();
             if (!string.IsNullOrEmpty(letter))
             {
@@ -1279,17 +1774,17 @@ public sealed partial class DirectInstallService : IDirectInstallService
     private void DismountIso(string isoPath)
     {
         try
-        { RunPowerShell($"Dismount-DiskImage -ImagePath \"{isoPath}\""); }
+        { RunPowerShell($"Dismount-DiskImage -ImagePath {PowerShellLiteral(isoPath)}"); }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException)
         { _logger.LogWarning(ex, "Dismount-DiskImage failed (non-fatal)"); }
     }
 
     private static string RunPowerShell(string command)
     {
-        // Use -EncodedCommand (Base64 UTF-16LE) so that paths containing
-        // special characters such as apostrophes (e.g. "D'huyvetter") never
-        // break PowerShell's argument / string parsing.
-        var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(command));
+        // EncodedCommand protects the command-line boundary, while each path
+        // must still be quoted as literal PowerShell data inside the script.
+        var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(
+            "$ErrorActionPreference = 'Stop'; " + command));
         var psi = new ProcessStartInfo("powershell.exe",
             $"-NonInteractive -NoProfile -EncodedCommand {encoded}")
         {
@@ -1298,39 +1793,318 @@ public sealed partial class DirectInstallService : IDirectInstallService
             RedirectStandardError = true,
             CreateNoWindow = true,
         };
-        using var p = Process.Start(psi)
-            ?? throw new InvalidOperationException("Could not start powershell.exe.");
-        var output = p.StandardOutput.ReadToEnd().Trim();
-        p.WaitForExit(30_000);
-        return output;
+        return RunInstallerProcessAsync(psi, TimeSpan.FromSeconds(30))
+            .GetAwaiter().GetResult().Trim();
     }
+
+    internal static string PowerShellLiteral(string value) =>
+        "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
 
     //   RegisterBootEntry                           ─
 
+    // Firmware boot-menu name of the one-shot entry. Distro-neutral: the first-boot
+    // agents and LinuxRemovalService find and delete this entry by a case-insensitive
+    // "igloo" substring match on the description, so the word must stay in it.
+    private const string BootEntryDescription = CommunityBootRegistrationPlan.Description;
+    private const string EfiGlobGuid = "{8be4df61-93ca-11d2-aa0d-00e098032b8c}";
+
+    // Field-proven registration path (v0.1/v0.2-alpha). It writes the one-shot entry
+    // through TWO independent mechanisms and treats everything after the first NVRAM
+    // write as best-effort:
+    //
+    //   1. Raw UEFI NVRAM: Boot#### + BootNext (+ BootOrder prepend).
+    //   2. Windows BCD:    bcdedit /copy {bootmgr} → firmware application + bootsequence.
+    //
+    // Consumer AMI/Gigabyte firmware prunes OS-registered Boot#### entries at POST and
+    // substitutes its own "UEFI OS" entry for the same \EFI\BOOT\BOOTX64.EFI target; the
+    // BootNext choice and the sibling promotion below exist for exactly that case.
+    //
+    // The CommunityRecovery planner (CommunityBootRegistrationPlan / Executor) is NOT on
+    // this path any more: it required a fully parsed BCD store, 256 proven-absent
+    // firmware slots and no pre-existing entry for the target partition before it would
+    // write anything, so it refused on every retry (stale iGloo BCD objects) and on every
+    // board whose firmware creates its own entry. It remains available to tests and to the
+    // reviewed/recovery workflow; the product path uses this method.
     private void RegisterBootEntry(
+        CompletedDirectInstallPreparation completed,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
-        if (_oemDrvLetter is null || _diskNumber is null || _partitionNumber is null)
-            throw new InvalidOperationException(
-                "PrepareAsync must complete successfully before RegisterBootEntryAsync.");
-
-        var partitionNumber = _partitionNumber.Value;
-        if (_preparedBootTarget is not { Availability: ObservationAvailability.Available })
-            throw new CommunityRecoveryBoundaryException(CommunityRecoveryFailure.ScopeUnresolved);
+        ArgumentNullException.ThrowIfNull(completed);
         ct.ThrowIfCancellationRequested();
-        var target = _preparedBootTarget.Value;
-        BootRegistrationEvidence Read() => WindowsBootRegistrationPlanning.Read(_storage, _bcd, target, partitionNumber);
-        var planned = CommunityBootRegistrationPlan.Create(Read(), Guid.NewGuid());
-        if (planned.Availability != ObservationAvailability.Available)
+
+        Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Registering UEFI boot entry…");
+
+        FirmwareNative.EnablePrivilege(_logger, reportAssignmentFailures: true);
+        ct.ThrowIfCancellationRequested();
+
+        // Partition geometry for the EFI_LOAD_OPTION HARDDRIVE node comes from the
+        // canonical identity pinned at the end of Prepare - no second WMI round trip,
+        // and no chance of binding a different partition by ordinal.
+        var target = completed.Target;
+        var sectorSize = target.Disk.LogicalSectorSize == 0 ? 512UL : target.Disk.LogicalSectorSize;
+        var lbaStart = target.OffsetBytes / sectorSize;
+        var lbaSize = target.SizeBytes / sectorSize;
+        var partGuid = target.PartitionGuid;
+        var partitionNumber = completed.PartitionNumber;
+
+        // Pick an unused Boot#### index.
+        var idx = FindFreeBootIndex();
+        ct.ThrowIfCancellationRequested();
+
+        // efiPath points at the STANDARD fallback loader \EFI\BOOT\BOOTX64.EFI (staged by
+        // ConfigureBootFiles), NOT the private \igloo-boot\shimx64.efi. Field finding on a
+        // Gigabyte/AMI board: firmware validates boot options at POST and prunes any
+        // Boot#### whose target it deems non-standard; the \EFI\BOOT\BOOTX64.EFI target
+        // survived. Same shim binary, second path - no regression elsewhere.
+        var loadOption = BuildEfiLoadOption(
+            partitionNumber, lbaStart, lbaSize, partGuid,
+            $@"\{FallbackBootDir}\{FallbackBootFile}", BootEntryDescription);
+
+        var bootVar = $"Boot{idx:X4}";
+        _logger.LogInformation("Writing UEFI {Var} ({Bytes} bytes) for partition {Guid} (LBA {Start}+{Size})",
+            bootVar, loadOption.Length, partGuid, lbaStart, lbaSize);
+
+        if (!FirmwareNative.SetFirmwareEnvironmentVariableW(bootVar, EfiGlobGuid, loadOption, (uint)loadOption.Length))
+            throw new InvalidOperationException(
+                $"SetFirmwareEnvironmentVariable({bootVar}) failed: Win32 error {Marshal.GetLastWin32Error()}. " +
+                "Run iGloo as Administrator to allow UEFI NVRAM writes.");
+
+        // Choose which entry BootNext should name. When the firmware already has its own
+        // entry for this partition, that one is the entry proven to survive this
+        // firmware's validation pass; ours stays written and stays in BootOrder.
+        var bootNextIdx = idx;
+        var firmwareOwn = EfiBootEntries.FindEntriesTargetingPartition(partGuid, _logger)
+            .Where(i => i != idx)
+            .ToList();
+        if (firmwareOwn.Count > 0)
         {
-            _logger.LogWarning("Boot-registration planning blocked: {State}/{Reason}", planned.Availability, planned.Code);
-            throw new CommunityRecoveryBoundaryException(CommunityRecoveryFailure.ScopeUnresolved);
+            bootNextIdx = firmwareOwn[0];
+            _logger.LogInformation(
+                "Firmware already lists Boot{Own:X4} for the installer partition - pointing BootNext at " +
+                "that instead of our own Boot{Ours:X4}, which this firmware may prune at POST",
+                bootNextIdx, idx);
         }
-        var plan = planned.Value;
-        _logger.LogWarning("Boot-registration footprint remains unresolved: {Reasons}", string.Join(", ", plan.Blockers.Select(b => b.Code)));
-        Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Verifying the boot-registration recovery boundary…");
-        new CommunityBootRegistrationExecutor(_bootRecovery, Read).Execute(plan, ct);
+
+        var bootNext = BitConverter.GetBytes(bootNextIdx);
+        if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootNext", EfiGlobGuid, bootNext, 2))
+            throw new InvalidOperationException(
+                $"SetFirmwareEnvironmentVariable(BootNext) failed: Win32 error {Marshal.GetLastWin32Error()}.");
+        _logger.LogInformation("BootNext set to {Idx:X4}", bootNextIdx);
+
+        // Second mechanism: a Windows-managed BCD firmware application + bootsequence.
+        // bcdedit re-synchronises BCD into NVRAM the same way Windows registers its own
+        // Boot Manager, which pruning firmware demonstrably keeps. Purely additive.
+        RegisterBootEntryViaBcdedit(completed.DriveLetter);
+
+        // Belt-and-suspenders for firmware that ignores BootNext but honours BootOrder.
+        PrependBootOrder(idx);
+
+        // ...and raise every OTHER entry targeting the same partition so the handoff
+        // survives when our own entry is culled (otherwise an already-installed Linux
+        // tends to be first in BootOrder and boots instead of the installer).
+        PrioritiseEntriesTargetingInstallerPartition(partGuid, idx);
+
+        // Dual-boot clock fix: Linux keeps the RTC in UTC, Windows assumes local time.
+        SetRtcUniversalTime();
+
+        _logger.LogInformation("BootNext + BootOrder updated - reboot to install");
         Report(prog, DirectInstallPhase.Complete, message: "UEFI boot entry registered. Ready to reboot.");
+    }
+
+    private void SetRtcUniversalTime()
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.CreateSubKey(
+                @"SYSTEM\CurrentControlSet\Control\TimeZoneInformation");
+            key.SetValue("RealTimeIsUniversal", 1L, RegistryValueKind.QWord);
+            _logger.LogInformation("RealTimeIsUniversal=1 - Windows now reads the RTC as UTC");
+        }
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
+        {
+            _logger.LogWarning(ex,
+                "Could not set RealTimeIsUniversal (non-fatal) - the Windows clock " +
+                "will drift by the timezone offset after switching from Linux");
+        }
+    }
+
+    /// <summary>
+    /// Registers the installer as a Windows-managed firmware application and makes it the
+    /// next boot via <c>bcdedit</c>. Entirely best-effort: the NVRAM path has already run.
+    /// </summary>
+    private void RegisterBootEntryViaBcdedit(char letter)
+    {
+        try
+        {
+            // Every run copies {bootmgr}; bootsequence consumes the copy but never
+            // deletes it, so without this they pile up in the firmware store.
+            RemoveStaleBcdEntries();
+
+            var created = RunBcdedit($"/copy {{bootmgr}} /d \"{BootEntryDescription}\"");
+            // Output: 'The entry was successfully copied to {xxxxxxxx-....}.'
+            var guid = Regex.Match(created ?? string.Empty, @"\{[0-9a-fA-F-]{36}\}").Value;
+            if (guid.Length == 0)
+            {
+                _logger.LogWarning("bcdedit /copy did not return a GUID - skipping the BCD boot entry");
+                return;
+            }
+
+            RunBcdedit($"/set {guid} device partition={letter}:");
+            RunBcdedit($"/set {guid} path \\{FallbackBootDir}\\{FallbackBootFile}");
+            // Inherited Windows-loader settings make no sense for a third-party EFI application.
+            RunBcdedit($"/deletevalue {guid} locale");
+            RunBcdedit($"/deletevalue {guid} inherit");
+            RunBcdedit($"/set {{fwbootmgr}} bootsequence {guid}");
+
+            _logger.LogInformation(
+                "BCD firmware entry {Guid} registered for {Letter}: and set as the next boot", guid, letter);
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException
+                                      or IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not register the BCD boot entry (non-fatal) - "
+                                   + "the NVRAM BootNext above still applies");
+        }
+    }
+
+    /// <summary>Deletes firmware BCD entries this service created on earlier runs.</summary>
+    /// <remarks>
+    /// Matched on the description rather than a stored GUID: a run that ended in a crash or
+    /// a reinstall leaves entries behind that no state file knows about. Windows Boot
+    /// Manager carries its own description, so it can never match.
+    /// </remarks>
+    private void RemoveStaleBcdEntries()
+    {
+        var listing = RunBcdedit("/enum firmware");
+        if (string.IsNullOrEmpty(listing))
+            return;
+
+        foreach (var id in ParseStaleBcdIds(listing, BootEntryDescription))
+        {
+            RunBcdedit($"/delete {id} /f");
+            _logger.LogInformation("Removed a leftover BCD boot entry {Guid}", id);
+        }
+    }
+
+    private string? RunBcdedit(string arguments)
+    {
+        using var proc = Process.Start(new ProcessStartInfo(WindowsBcdReader.FindNativeExecutable("bcdedit.exe"), arguments)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        });
+        if (proc is null)
+            return null;
+
+        var stdout = proc.StandardOutput.ReadToEnd();
+        var stderr = proc.StandardError.ReadToEnd();
+        proc.WaitForExit(30_000);
+
+        if (proc.ExitCode != 0)
+            _logger.LogWarning("bcdedit {Args} exited {Code}: {Err}",
+                arguments, proc.ExitCode, (stderr + stdout).Trim());
+        return stdout;
+    }
+
+    private static List<ushort> ReadBootOrderList()
+    {
+        var buf = new byte[1024];
+        var size = FirmwareNative.GetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, buf, (uint)buf.Length);
+        var order = new List<ushort>();
+        for (var i = 0; i + 1 < size; i += 2)
+            order.Add(BitConverter.ToUInt16(buf, i));
+        return order;
+    }
+
+    private static byte[] EncodeBootOrder(List<ushort> order)
+    {
+        var bytes = new byte[order.Count * 2];
+        for (var i = 0; i < order.Count; i++)
+            BitConverter.GetBytes(order[i]).CopyTo(bytes, i * 2);
+        return bytes;
+    }
+
+    private void PrependBootOrder(ushort idx)
+    {
+        try
+        {
+            var order = ReadBootOrderList();
+            order.RemoveAll(e => e == idx);
+            order.Insert(0, idx);
+            var bytes = EncodeBootOrder(order);
+            if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, bytes, (uint)bytes.Length))
+                _logger.LogWarning("SetFirmwareEnvironmentVariable(BootOrder) failed: {Err} (non-fatal)",
+                    Marshal.GetLastWin32Error());
+            else
+                _logger.LogInformation("BootOrder prepended with {Idx:X4}", idx);
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
+        {
+            _logger.LogWarning(ex, "PrependBootOrder failed (non-fatal)");
+        }
+    }
+
+    /// <summary>
+    /// Raises every boot entry that targets the installer partition to the front of
+    /// BootOrder, just behind <paramref name="ownIndex"/>. Non-fatal.
+    /// </summary>
+    private void PrioritiseEntriesTargetingInstallerPartition(Guid partGuid, ushort ownIndex)
+    {
+        try
+        {
+            var siblings = EfiBootEntries.FindEntriesTargetingPartition(partGuid, _logger)
+                .Where(i => i != ownIndex)
+                .ToList();
+            if (siblings.Count == 0)
+                return;
+
+            _logger.LogInformation(
+                "Firmware also lists {Count} entry(s) for the installer partition ({Indices}) - " +
+                "promoting them so the handoff survives if our own entry is pruned",
+                siblings.Count, string.Join(", ", siblings.Select(i => i.ToString("X4", CultureInfo.InvariantCulture))));
+
+            var order = ReadBootOrderList();
+            order.RemoveAll(siblings.Contains);
+            var insertAt = order.IndexOf(ownIndex) + 1;
+            order.InsertRange(Math.Clamp(insertAt, 0, order.Count), siblings);
+
+            var bytes = EncodeBootOrder(order);
+            if (!FirmwareNative.SetFirmwareEnvironmentVariableW("BootOrder", EfiGlobGuid, bytes, (uint)bytes.Length))
+                _logger.LogWarning("Could not reorder BootOrder for the firmware's own entries: {Err} (non-fatal)",
+                    Marshal.GetLastWin32Error());
+            else
+                _logger.LogInformation("BootOrder is now {Order}",
+                    string.Join(",", order.Select(i => i.ToString("X4", CultureInfo.InvariantCulture))));
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
+        {
+            _logger.LogWarning(ex, "Could not prioritise the firmware's installer entries (non-fatal)");
+        }
+    }
+
+    private static ushort FindFreeBootIndex()
+    {
+        var buf = new byte[4096];
+        for (ushort i = 0x0080; i < 0x00FF; i++)
+        {
+            var read = FirmwareNative.GetFirmwareEnvironmentVariableW($"Boot{i:X4}", EfiGlobGuid, buf, (uint)buf.Length);
+            if (read == 0)
+                return i; // variable doesn't exist → free slot
+        }
+        return 0x0090; // fallback - overwrite 0x0090
+    }
+
+    // Diagnostic only. Runs the CommunityRecovery planner against the prepared target and
+    // returns its verdict without writing anything. Not on the product path: the planner
+    // is informational evidence for the recovery workflow, never a gate on registration.
+    internal Observation<CommunityBootRegistrationPlan> PlanBootRegistrationForDiagnostics(
+        CompletedDirectInstallPreparation completed)
+    {
+        ArgumentNullException.ThrowIfNull(completed);
+        var evidence = WindowsBootRegistrationPlanning.Read(_storage, _bcd, completed.Target, completed.PartitionNumber);
+        return CommunityBootRegistrationPlan.Create(evidence, Guid.NewGuid());
     }
 
     // Only the boot-registration stage is gated. Preparation and its storage behavior are unchanged.
@@ -1407,17 +2181,17 @@ public sealed partial class DirectInstallService : IDirectInstallService
     // does not choose a partition, free extent, EFI relationship or installer-side layout.
     internal static DirectInstallSizePlan PlanStorageSizes(InstallerBootSpec bootSpec,
         long linuxSizeBytes, long fullIsoBytes, long kernelBytes, long initrdBytes,
-        long installImgBytes)
+        long installImgBytes, long stagedBytes = 0)
     {
         ArgumentNullException.ThrowIfNull(bootSpec);
         if (linuxSizeBytes < 0 || fullIsoBytes < 0 || kernelBytes < 0 ||
-            initrdBytes < 0 || installImgBytes < 0)
+            initrdBytes < 0 || installImgBytes < 0 || stagedBytes < 0)
             throw new ArgumentOutOfRangeException(nameof(linuxSizeBytes));
         checked
         {
             bool separateIso = bootSpec.CopyFullIsoToVolume && fullIsoBytes >= Fat32MaxFileBytes;
             long fat32IsoBytes = bootSpec.CopyFullIsoToVolume && !separateIso ? fullIsoBytes : 0;
-            long oemDrvBytes = RoundUpMiB(kernelBytes + initrdBytes + installImgBytes +
+            long oemDrvBytes = RoundUpMiB(kernelBytes + initrdBytes + installImgBytes + stagedBytes +
                 fat32IsoBytes + PartitionOverheadBytes);
             long isoPartitionBytes = separateIso
                 ? RoundUpMiB(fullIsoBytes + IsoPartitionOverheadBytes) : 0;

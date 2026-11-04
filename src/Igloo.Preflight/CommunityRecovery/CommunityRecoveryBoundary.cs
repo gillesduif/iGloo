@@ -24,8 +24,17 @@ public sealed class CommunityRecoveryBoundaryException : InvalidOperationExcepti
         : base($"Boot registration was blocked by recovery verification ({reason}). No boot changes were started.", inner)
         => Reason = reason;
 
+    internal CommunityRecoveryBoundaryException(ObservationAvailability availability, string? observationCode)
+        : base($"Boot registration planning was blocked ({availability}/{observationCode ?? "PlanningReasonUnavailable"}). No boot changes were started.")
+    {
+        Availability = availability;
+        ObservationCode = observationCode;
+    }
+
     // Standard exception constructors never imply a resolved or authorized mutation scope.
     public CommunityRecoveryFailure Reason { get; } = CommunityRecoveryFailure.ScopeUnresolved;
+    public ObservationAvailability? Availability { get; }
+    public string? ObservationCode { get; }
 }
 
 // Orchestration only: uses the shared snapshot serializer/assessment/comparison without overriding them.
@@ -46,22 +55,37 @@ public sealed class CommunityRecoveryBoundary(IRecoverySnapshotCapture capture, 
         System.Collections.Immutable.ImmutableArray<BootRegistrationMutation> proposedMutations,
         Func<BootRegistrationEvidence> readCurrent, Action mutation, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(mutation);
+        return ExecutePlan(plan, proposedMutations, readCurrent, _ => mutation(), cancellationToken);
+    }
+
+    internal CommunityRecoveryReceipt ExecutePlan(CommunityBootRegistrationPlan plan,
+        System.Collections.Immutable.ImmutableArray<BootRegistrationMutation> proposedMutations,
+        Func<BootRegistrationEvidence> readCurrent, Action<RecoverySnapshotV1> mutation, CancellationToken cancellationToken = default)
+    {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(readCurrent);
         ArgumentNullException.ThrowIfNull(mutation);
         cancellationToken.ThrowIfCancellationRequested();
         plan.RequireExactMutations(proposedMutations);
         plan.RequireUnchanged(readCurrent());
-        return Execute(plan.Declaration, () =>
+        return ExecuteCore(plan.Declaration, reopened =>
         {
             plan.RequireExactMutations(proposedMutations);
             plan.RequireUnchanged(readCurrent());
-            mutation();
+            mutation(reopened);
         }, cancellationToken);
     }
 
     public CommunityRecoveryReceipt Execute(Observation<CommunityBootRecoveryRequest> declaration, Action mutation,
         CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(mutation);
+        return ExecuteCore(declaration, _ => mutation(), cancellationToken);
+    }
+
+    private CommunityRecoveryReceipt ExecuteCore(Observation<CommunityBootRecoveryRequest> declaration,
+        Action<RecoverySnapshotV1> mutation, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(declaration);
         ArgumentNullException.ThrowIfNull(mutation);
@@ -112,8 +136,9 @@ public sealed class CommunityRecoveryBoundary(IRecoverySnapshotCapture capture, 
         if (!BoundToRequest(current, request) || RecoverySnapshotRules.Compare(reopened, current).Result != RecoverySnapshotMatch.ExactMatch)
             throw new CommunityRecoveryBoundaryException(CommunityRecoveryFailure.RevalidationFailed);
         cancellationToken.ThrowIfCancellationRequested();
-        // Keep mutation exceptions outside all observation/persistence catches. Never retry or restore here.
-        mutation();
+        // The interpreter receives only the independently reopened artifact. This boundary
+        // cannot infer inverse operations for arbitrary callbacks.
+        mutation(reopened);
         return new(id, expectedDigest, reopened.CanonicalHash);
     }
 

@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using Igloo.Core.Abstractions;
+using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
+using Igloo.Preflight.CommunityPreparation;
 
 namespace Igloo.Preflight.CommunityRecovery;
 
@@ -27,7 +29,8 @@ internal sealed class CommunityBootRegistrationPlan
 
     private CommunityBootRegistrationPlan(BootRegistrationEvidence evidence, ushort entry, Guid bcdId,
         ImmutableArray<Guid> staleIds, ImmutableArray<BootRegistrationMutation> mutations,
-        ImmutableArray<BootRegistrationBlocker> blockers, BcdObjectSnapshot createdObject)
+        ImmutableArray<BootRegistrationBlocker> blockers, BcdObjectSnapshot createdObject,
+        string plannedLoaderPath)
     {
         Target = evidence.Binding.Value.TargetVolume;
         NewBootEntry = entry;
@@ -37,6 +40,7 @@ internal sealed class CommunityBootRegistrationPlan
         Blockers = blockers;
         _evidence = Normalize(evidence);
         CreatedObject = createdObject;
+        PlannedLoaderPath = plannedLoaderPath;
         // Deliberately unresolved: provider-created firmware identities and deletion side effects
         // have no supported binding yet. No generic WindowsBootConfiguration scope substitution.
         BcdSlots = mutations.Where(m => m.Kind is BootRegistrationMutationKind.CreateBcdObject or BootRegistrationMutationKind.DeleteBcdObject or BootRegistrationMutationKind.SetBcdElement)
@@ -53,18 +57,65 @@ internal sealed class CommunityBootRegistrationPlan
     public ImmutableArray<Guid> BcdSlots { get; }
     public ImmutableArray<ushort> FirmwareSlots { get; }
     public BcdObjectSnapshot CreatedObject { get; }
+    public string PlannedLoaderPath { get; }
     internal BcdRecoveryGraphV1 BeforeBcd => _evidence.Bcd;
+    internal Observation<RecoveryTargetBindingV1> BeforeBinding => _evidence.Binding;
+    internal FirmwareSnapshotV1 BeforeFirmware => _evidence.Firmware;
+    internal RtcRegistryStateV1 BeforeRtc => _evidence.Rtc;
 
     public Observation<CommunityBootRecoveryRequest> Declaration =>
         Observations.Failure<CommunityBootRecoveryRequest>(ObservationAvailability.Unsupported, Blockers[0].Code);
 
-    public static Observation<CommunityBootRegistrationPlan> Create(BootRegistrationEvidence evidence, Guid newBcdId)
+    public static Observation<CommunityBootRegistrationPlan> Create(BootRegistrationEvidence evidence, Guid newBcdId) =>
+        CreateCore(evidence, newBcdId, LoaderPath, reviewed: false);
+
+    // Reviewed file content and exact target are planning inputs only. The
+    // declaration stays unsupported until GRUB lookup and Windows recovery
+    // side effects are independently proven.
+    internal static Observation<CommunityBootRegistrationPlan> CreateReviewed(
+        BootRegistrationEvidence evidence, Guid newBcdId,
+        ReviewedLinuxEspBootBindingV1 bootFiles)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+        ArgumentNullException.ThrowIfNull(bootFiles);
+        var storage = bootFiles.Storage;
+        if (evidence.Binding.Availability != ObservationAvailability.Available ||
+            storage is null || storage.LinuxEsp is null || storage.TargetDisk is null ||
+            evidence.Binding.Value.TargetVolume != storage.LinuxEsp ||
+            storage.TargetDisk != storage.LinuxEsp.Disk ||
+            bootFiles.SeedCheckpoint is null || storage.Checkpoint is null ||
+            bootFiles.SeedCheckpoint.GenerationId != storage.GenerationId ||
+            storage.Checkpoint.GenerationId != storage.GenerationId ||
+            !ValidFile(bootFiles.Shim, storage.LinuxEsp.VolumeGuid, PreparedLayoutRules.ShimPath) ||
+            !ValidFile(bootFiles.Grub, storage.LinuxEsp.VolumeGuid, PreparedLayoutRules.GrubPath) ||
+            !ValidFile(bootFiles.Config, storage.LinuxEsp.VolumeGuid,
+                ReviewedSeedFileWriter.LinuxEspGrubConfigPath) ||
+            bootFiles.CompiledPrefixConfig is not { } prefix ||
+            (!(ValidFile(prefix, storage.LinuxEsp.VolumeGuid,
+                   ReviewedSeedFileWriter.LinuxEspCompiledPrefixConfigPath) ||
+               ValidFile(prefix, storage.LinuxEsp.VolumeGuid,
+                   ReviewedSeedFileWriter.LinuxEspFedoraPrefixConfigPath)) ||
+             prefix.Length != bootFiles.Config.Length ||
+             prefix.Sha256 != bootFiles.Config.Sha256))
+            return Failure(ObservationAvailability.Ambiguous, "BootPlanReviewedFilesOrTargetChanged");
+        return CreateCore(evidence, newBcdId, PreparedLayoutRules.ShimPath, reviewed: true);
+
+        static bool ValidFile(CanonicalFileIdentityV1 file, Guid volumeGuid, string path) =>
+            file is not null && file.VolumeGuid == volumeGuid && file.RelativePath == path && file.Length > 0 &&
+            file.Sha256 is { Length: 64 } && file.Sha256.All(Uri.IsHexDigit);
+    }
+
+    private static Observation<CommunityBootRegistrationPlan> CreateCore(
+        BootRegistrationEvidence evidence, Guid newBcdId, string loaderPath, bool reviewed)
     {
         ArgumentNullException.ThrowIfNull(evidence);
         if (evidence.Binding.Availability != ObservationAvailability.Available)
             return Failure(evidence.Binding.Availability, "BootPlanBindingUnavailable");
         var target = evidence.Binding.Value.TargetVolume;
-        if (!CanonicalRecoveryIdentity.IsValid(target) || !CanonicalRecoveryIdentity.IsValid(evidence.Binding.Value.WindowsVolume) ||
+        bool ValidIdentity(CanonicalVolumeIdentityV1 volume) => reviewed
+            ? CanonicalRecoveryIdentity.IsValid(volume)
+            : CanonicalRecoveryIdentity.IsValidForInstallation(volume);
+        if (!ValidIdentity(target) || !ValidIdentity(evidence.Binding.Value.WindowsVolume) ||
             evidence.TargetPartitionNumber == 0 || newBcdId == Guid.Empty)
             return Failure(ObservationAvailability.Ambiguous, "BootPlanIdentityInvalid");
         if (evidence.Rtc.KeyPresent.Availability != ObservationAvailability.Available)
@@ -72,6 +123,10 @@ internal sealed class CommunityBootRegistrationPlan
         if (!evidence.Rtc.KeyPresent.Value) return Failure(ObservationAvailability.Unsupported, "BootPlanRtcKeyCreationNotCovered");
         if (evidence.Rtc.RealTimeIsUniversal.Availability is not (ObservationAvailability.Available or ObservationAvailability.Absent))
             return Failure(evidence.Rtc.RealTimeIsUniversal.Availability, "BootPlanRtcValueUnavailable");
+        if (evidence.Rtc.RealTimeIsUniversal.Availability == ObservationAvailability.Available &&
+            (evidence.Rtc.RealTimeIsUniversal.Value.NativeType != 11 ||
+             evidence.Rtc.RealTimeIsUniversal.Value.RawData.Length != 8))
+            return Failure(ObservationAvailability.Unsupported, "BootPlanRtcRestoreUnsupported");
         if (evidence.Bcd.Objects.Availability != ObservationAvailability.Available)
             return Failure(evidence.Bcd.Objects.Availability, "BootPlanBcdEnumerationFailed");
         var objects = evidence.Bcd.Objects.Value;
@@ -94,14 +149,20 @@ internal sealed class CommunityBootRegistrationPlan
                 return Failure(description.Value.Availability, "BootPlanDescriptionUnavailable");
             if (description.Value.Value is not BcdStringValue text)
                 return Failure(ObservationAvailability.Ambiguous, "BootPlanDescriptionInvalid");
-            if (text.Text == Description) stale.Add(obj.Id);
+            // Firmware applications are projections of NVRAM entries, not copies
+            // this program owns in the Windows store. Their description never
+            // authorizes deletion of the underlying firmware entry.
+            if (text.Text == Description && (reviewed || obj.ObjectType != 0x101fffff))
+                stale.Add(obj.Id);
         }
         if (stale.Contains(BcdRecoveryGraphV1.WindowsBootManagerId) || stale.Contains(BcdRecoveryGraphV1.FirmwareBootManagerId) ||
             (evidence.Bcd.CurrentLoaderId.Availability == ObservationAvailability.Available && stale.Contains(evidence.Bcd.CurrentLoaderId.Value)))
             return Failure(ObservationAvailability.Ambiguous, "BootPlanProtectedObjectDescriptionCollision");
 
-        var copied = BcdMutationPlanning.ReplicateBootManager(objects.Single(o => o.Id == BcdRecoveryGraphV1.WindowsBootManagerId),
-            newBcdId, target, LoaderPath, Description);
+        var bootManager = objects.Single(o => o.Id == BcdRecoveryGraphV1.WindowsBootManagerId);
+        var copied = reviewed
+            ? BcdMutationPlanning.ReplicateBootManager(bootManager, newBcdId, target, loaderPath, Description)
+            : BcdMutationPlanning.ReplicateBootManagerForInstallation(bootManager, newBcdId, target, loaderPath, Description);
         if (copied.Availability != ObservationAvailability.Available) return Failure(copied.Availability, copied.Code!);
         foreach (var id in stale)
         {
@@ -113,6 +174,10 @@ internal sealed class CommunityBootRegistrationPlan
             var futureInbound = BcdMutationPlanning.InboundReferences(future, id);
             if (futureInbound.Availability != ObservationAvailability.Available || !futureInbound.Value.IsEmpty)
                 return Failure(ObservationAvailability.Unsupported, "BootPlanCloneReferencesDeletedObject");
+            var original = objects.Single(o => o.Id == id);
+            if (original.ObjectType != BcdRecoveryRoles.WindowsBootManagerType ||
+                original.Elements.Value.Any(element => !CanRestore(element)))
+                return Failure(ObservationAvailability.Unsupported, "BootPlanStaleRestoreUnsupported");
         }
 
         var firmware = evidence.Firmware;
@@ -146,10 +211,14 @@ internal sealed class CommunityBootRegistrationPlan
         var free = Enumerable.Range(0x80, 0x7f).Select(i => (ushort)i).Where(i =>
             lookup[i].Raw.Bytes.Availability == ObservationAvailability.Absent && lookup[i].Raw.NativeError == 203 &&
             !order.Value.Contains(i) && !(next.Availability == ObservationAvailability.Available && next.Value == i)).ToArray();
-        if (free.Length == 0) return Failure(ObservationAvailability.Unavailable, "BootPlanNoProvenFreeEntry");
-        var entry = free[0];
+        ushort? reusableEntry = null;
+        var loadOption = DirectInstallService.BuildEfiLoadOption(evidence.TargetPartitionNumber,
+            target.OffsetBytes / target.Disk.LogicalSectorSize, target.SizeBytes / target.Disk.LogicalSectorSize,
+            target.PartitionGuid, loaderPath, Description).ToImmutableArray();
         var blockers = ImmutableArray.CreateBuilder<BootRegistrationBlocker>();
         blockers.Add(new(ObservationAvailability.Unsupported, "BcdFirmwareSynchronizationFootprintUnproven"));
+        if (reviewed)
+            blockers.Add(new(ObservationAvailability.Unsupported, "ReviewedGrubPrefixAndPartitionOrdinalUnproven"));
         if (stale.Count != 0) blockers.Add(new(ObservationAvailability.Unsupported, "StaleBcdOwnershipAndDeleteSideEffectsUnproven"));
         foreach (var observed in firmware.BootEntries)
         {
@@ -168,26 +237,42 @@ internal sealed class CommunityBootRegistrationPlan
                 if (path.Value.StartLba != target.OffsetBytes / target.Disk.LogicalSectorSize ||
                     path.Value.SizeLba != target.SizeBytes / target.Disk.LogicalSectorSize)
                     return Failure(ObservationAvailability.Ambiguous, "BootPlanSiblingGeometryMismatch");
-                // Matching a partition does not establish ownership, executable equivalence or
-                // safe optional-data semantics. Do not choose that entry as BootNext, duplicate
-                // it, or silently switch to reuse. This also covers observed entries above 00ff.
+                // A retry may find the exact entry from an interrupted registration.
+                // Reuse requires the complete payload and attributes, including loader,
+                // description, partition ordinal, geometry and absence of extra options.
+                // This does not claim ownership or permit deleting a firmware entry.
+                if (!reviewed && observed.Raw.VariableAttributes is
+                    { Availability: ObservationAvailability.Available, Value: 7 } &&
+                    observed.Raw.Bytes.Value.AsSpan().SequenceEqual(loadOption.AsSpan()))
+                {
+                    if (reusableEntry is not null)
+                        return Failure(ObservationAvailability.Ambiguous, "BootPlanDuplicateExactTargetEntries");
+                    reusableEntry = observed.Index;
+                    continue;
+                }
                 return Failure(ObservationAvailability.Unsupported, "BootPlanExistingTargetEntryRequiresOwnership");
             }
         }
+        if (reusableEntry is null && free.Length == 0)
+            return Failure(ObservationAvailability.Unavailable, "BootPlanNoProvenFreeEntry");
+        var entry = reusableEntry ?? free[0];
         var staleIds = stale.Order().ToImmutableArray();
         var operations = ImmutableArray.CreateBuilder<BootRegistrationMutation>();
         operations.Add(new(BootRegistrationMutationKind.Firmware, $"Boot{entry:X4}",
-            DirectInstallService.BuildEfiLoadOption(evidence.TargetPartitionNumber, target.OffsetBytes / target.Disk.LogicalSectorSize,
-                target.SizeBytes / target.Disk.LogicalSectorSize, target.PartitionGuid, LoaderPath, Description).ToImmutableArray(), FirmwareAttributes: 7));
-        operations.Add(new(BootRegistrationMutationKind.Firmware, "BootNext", Ushorts([entry]), FirmwareAttributes: 7));
+            loadOption, FirmwareAttributes: 7));
         foreach (var id in staleIds) operations.Add(new(BootRegistrationMutationKind.DeleteBcdObject, id.ToString("D"), []));
         operations.Add(new(BootRegistrationMutationKind.CreateBcdObject, newBcdId.ToString("D"), [], new BcdIntegerValue(copied.Value.ObjectType)));
         foreach (var element in copied.Value.Elements.Value)
             operations.Add(new(BootRegistrationMutationKind.SetBcdElement, BcdSlot(newBcdId, element.Type), [], element.Value.Value));
-        operations.Add(new(BootRegistrationMutationKind.SetBcdElement, BcdSlot(BcdRecoveryGraphV1.FirmwareBootManagerId, 0x24000002), [], new BcdObjectListValue([newBcdId])));
-        operations.Add(new(BootRegistrationMutationKind.Firmware, "BootOrder", Ushorts(new[] { entry }.Concat(order.Value)), FirmwareAttributes: 7));
+        // Keep the reboot selectors after every verified BCD operation and the
+        // RTC write. BootNext selects the new UEFI entry once. The firmware BCD manager's
+        // 0x24000002 element is a separate one-shot boot sequence; replacing it would
+        // discard an existing request, while 0x24000001 is its persistent display order.
         operations.Add(new(BootRegistrationMutationKind.Rtc, RtcSlot, [1, 0, 0, 0, 0, 0, 0, 0])); // REG_QWORD, fixed by this operation kind.
-        return Observations.Available(new CommunityBootRegistrationPlan(evidence, entry, newBcdId, staleIds, operations.ToImmutable(), blockers.ToImmutable(), copied.Value));
+        operations.Add(new(BootRegistrationMutationKind.Firmware, "BootOrder", Ushorts(new[] { entry }.Concat(order.Value.Where(i => i != entry))), FirmwareAttributes: 7));
+        operations.Add(new(BootRegistrationMutationKind.Firmware, "BootNext", Ushorts([entry]), FirmwareAttributes: 7));
+        return Observations.Available(new CommunityBootRegistrationPlan(evidence, entry, newBcdId, staleIds,
+            operations.ToImmutable(), blockers.ToImmutable(), copied.Value, loaderPath));
     }
 
     public void RequireUnchanged(BootRegistrationEvidence current)
@@ -224,6 +309,25 @@ internal sealed class CommunityBootRegistrationPlan
     }
 
     private static string BcdSlot(Guid id, uint element) => $"{id:D}:{element:X8}";
+    internal static bool CanRestore(BcdElementSnapshot element)
+    {
+        if (element.Value.Availability != ObservationAvailability.Available) return false;
+        var value = element.Value.Value;
+        if (element.QualifiedDevice is not null)
+        {
+            if (element.QualifiedDevice.Availability != ObservationAvailability.Available ||
+                value is not BcdDeviceElementValue) return false;
+            var observed = new BcdObjectSnapshot(Guid.Empty, 0, Observations.Available<ImmutableArray<BcdElementSnapshot>>([element]));
+            var resolved = new BcdObjectSnapshot(Guid.Empty, 0, Observations.Available<ImmutableArray<BcdElementSnapshot>>([
+                new(element.Type, Observations.Available<BcdElementValue>(new BcdDeviceElementValue(element.QualifiedDevice.Value)))]));
+            if (!BcdMutationPlanning.SameObject(observed, resolved)) return false;
+            value = new BcdDeviceElementValue(element.QualifiedDevice.Value);
+        }
+        return BcdMutationPlanning.CanSet(element.Type, value);
+    }
+    internal static BcdElementValue RestoreValue(BcdElementSnapshot element) =>
+        element.QualifiedDevice is { Availability: ObservationAvailability.Available }
+            ? new BcdDeviceElementValue(element.QualifiedDevice.Value) : element.Value.Value;
     private static ImmutableArray<byte> Ushorts(IEnumerable<ushort> values) => values.SelectMany(v => new[] { (byte)v, (byte)(v >> 8) }).ToImmutableArray();
     private static Observation<CommunityBootRegistrationPlan> Failure(ObservationAvailability state, string code) => Observations.Failure<CommunityBootRegistrationPlan>(state, code);
     private static BootRegistrationEvidence Normalize(BootRegistrationEvidence evidence)
