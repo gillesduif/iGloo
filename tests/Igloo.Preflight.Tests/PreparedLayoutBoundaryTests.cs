@@ -95,15 +95,15 @@ public sealed class PreparedLayoutBoundaryTests : IDisposable
     [InlineData("Fedora KDE", "inst.stage2=hd:LABEL=OEMDRV: inst.ks=hd:LABEL=OEMDRV:/ks.cfg")]
     [InlineData("Debian", "auto=true priority=critical preseed/file=/preseed.cfg iso-scan/filename=/debian.iso")]
     [InlineData("Linux Mint Cinnamon", "automatic-ubiquity file=/preseed.cfg boot=casper iso-scan/filename=/mint.iso")]
-    public async Task UnboundInstallerCannotReachShrinkOrLegacyStaging(string title, string cmdline)
+    public async Task LegacyInstallerStillRequiresPinnedMediaBeforeStorageChanges(string title, string cmdline)
     {
         var resize = new RejectResize();
         var service = new DirectInstallService(resize, NullLogger<DirectInstallService>.Instance);
-        // Nonexistent paths intentionally prove that the gate precedes ISO mounting, shell-state
-        // changes and any preparation IO, as well as shrink/create/format. This test is not elevated.
-        var error = await Assert.ThrowsAsync<NotSupportedException>(() => service.PrepareAsync(0, 1,
+        Assert.Equal(ObservationAvailability.Available, service.PreparationAvailability.Availability);
+        // A missing media pin is rejected before mounting or any storage operation. This test is not elevated.
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => service.PrepareAsync(0, 1,
             "does-not-exist.iso", "does-not-exist-staging", new InstallerBootSpec { MenuTitle = title, KernelCmdline = cmdline }));
-        Assert.Contains("exact installer ESP binding", error.Message, StringComparison.Ordinal);
+        Assert.Contains("SHA-256 pin", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, resize.Calls);
         Assert.Equal(ObservationAvailability.Unsupported, DedicatedEspPreparationSupport.Production.Availability);
     }
