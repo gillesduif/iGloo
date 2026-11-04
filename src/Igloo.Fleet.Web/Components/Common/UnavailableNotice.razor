@@ -1,0 +1,13 @@
+@inject IStringLocalizer<SharedStrings> S
+
+<FluentMessageBar Intent="MessageBarIntent.Info" Title="@(Title ?? S["Unavailable"])" AllowDismiss="false" AriaLive="AriaLive.Off" Class="unavailable-notice">
+    @ChildContent
+</FluentMessageBar>
+
+@code {
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

@@ -1,0 +1,7 @@
+@inject IStringLocalizer<SharedStrings> S
+
+<div class="console-sample-bar">
+    <FluentMessageBar Intent="MessageBarIntent.Warning" Title="@S["SampleDataTitle"]" AllowDismiss="false" AriaLive="AriaLive.Off">
+        @S["SampleDataMessage"]
+    </FluentMessageBar>
+</div>

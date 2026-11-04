@@ -1,0 +1,13 @@
+@page "/error"
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@layout EmptyLayout
+@inject IStringLocalizer<SharedStrings> S
+
+<PageTitle>@S["TitleFormat", S["ErrorTitle"]]</PageTitle>
+
+<div class="standalone-card" role="alert">
+    <h1>@S["ErrorTitle"]</h1>
+    <p>@S["ErrorMessage"]</p>
+    <a class="button-link" href="/">@S["GoToOverview"]</a>
+</div>

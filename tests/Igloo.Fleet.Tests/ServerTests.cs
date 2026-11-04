@@ -23,14 +23,14 @@ public sealed class ServerTests
         await using var app = FleetServer.Build(Token, 0);
         await app.StartAsync();
         using var client = Client(app.Services);
-        var status = new FleetStatusClient(client);
-        Assert.True((await status.GetVersionAsync())!.DevelopmentOnly);
+        // The browser host no longer speaks the Phase 0 v1 routes; this test reads them directly.
+        Assert.True((await client.GetFromJsonAsync<FleetVersion>("health"))!.DevelopmentOnly);
         var identity = new DeviceIdentity(Guid.NewGuid(), Guid.NewGuid());
         var result = await new FleetAssessmentClient(client, new ReadOnlyAssessment(new AgentTests.Checker())).RunAsync(identity);
-        var retrieved = await status.GetAssessmentAsync(result.AssessmentId);
+        var retrieved = await client.GetFromJsonAsync<AssessmentResult>($"assessments/{result.AssessmentId}");
         Assert.Equal(result.Checks.ToArray(), retrieved!.Checks.ToArray());
         Assert.Equal(result.Identity, retrieved.Identity);
-        Assert.Equal(identity, (await status.GetDeviceAsync(identity.DeviceId))!.Registration.Identity);
+        Assert.Equal(identity, (await client.GetFromJsonAsync<RegisteredDevice>($"agents/{identity.DeviceId}"))!.Registration.Identity);
         using var duplicate = await client.PostAsJsonAsync("assessments", result);
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
         using var destructive = await client.PostAsJsonAsync("migrate-all", new { });

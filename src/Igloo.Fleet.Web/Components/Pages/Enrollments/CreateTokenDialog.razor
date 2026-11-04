@@ -1,0 +1,92 @@
+@inherits FluentDialogInstance
+@inject IStringLocalizer<EnrollmentStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IFleetOperatorClient Client
+@inject IJSRuntime JS
+
+<FluentDialogBody>
+    <ChildContent>
+        @if (_created is null)
+        {
+            @* FluentNumberInput loads an input-mask library from a CDN, which the CSP forbids; a plain numeric text input does not. *@
+            <FluentTextInput TextInputType="TextInputType.Number" InputMode="TextInputMode.Numeric" @bind-Value="_lifetimeText" Immediate="true"
+                             Label="@L["TokenLifetime"]" Message="@L["TokenLifetimeRule"]" Required="true" Width="160px" min="1" max="60" />
+            @if (_failure is not null)
+            {
+                <OperatorFailureState Failure="_failure" />
+            }
+        }
+        else
+        {
+            <FluentMessageBar Intent="MessageBarIntent.Warning" AllowDismiss="false" AriaLive="AriaLive.Polite">@L["TokenCreatedOnce"]</FluentMessageBar>
+            <FluentTextInput Value="@_created.Token" ReadOnly="true" Label="@L["TokenValue"]" Width="100%" Class="token-value" />
+            <p class="text-secondary">@L["TokenExpiresAt", ConsoleFormat.UtcDateTime(_created.ExpiresAtUtc)]</p>
+            <FluentButton Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.Copy())" OnClick="CopyAsync">@L["TokenCopy"]</FluentButton>
+            <span class="visually-hidden" aria-live="polite">@_announcement</span>
+        }
+    </ChildContent>
+    <ActionTemplate>
+        @if (_created is null)
+        {
+            <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@(_busy || LifetimeMinutes is null)" Loading="@_busy" OnClick="CreateAsync">@S["Create"]</FluentButton>
+            <FluentButton Appearance="ButtonAppearance.Outline" Disabled="@_busy" OnClick="@(() => DialogInstance.CancelAsync())">@S["Cancel"]</FluentButton>
+        }
+        else
+        {
+            @* Closing is the only way out once the token has been shown; the value is never rendered again. *@
+            <FluentButton Appearance="ButtonAppearance.Primary" OnClick="@(() => DialogInstance.CloseAsync(_created.TokenId))">@L["TokenDone"]</FluentButton>
+        }
+    </ActionTemplate>
+</FluentDialogBody>
+
+@code {
+    private string? _lifetimeText = "10";
+    private bool _busy;
+
+    private int? LifetimeMinutes =>
+        int.TryParse(_lifetimeText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var minutes)
+        && minutes is >= 1 and <= 60 ? minutes : null;
+    private EnrollmentTokenCreated? _created;
+    private OperatorFailure? _failure;
+    private string? _announcement;
+
+    protected override void OnInitializeDialog(DialogOptionsHeader header, DialogOptionsFooter footer)
+    {
+        header.Title = L["TokenCreateDialogTitle"];
+        header.CloseAction.Visible = false;
+    }
+
+    protected override Task OnActionClickedAsync(bool primary) => Task.CompletedTask;
+
+    private async Task CreateAsync()
+    {
+        if (LifetimeMinutes is not { } minutes)
+        {
+            return;
+        }
+
+        _busy = true;
+        _failure = null;
+        var result = await Client.CreateEnrollmentTokenAsync(minutes);
+        _busy = false;
+        if (!result.Succeeded)
+        {
+            _failure = result.Failure;
+            return;
+        }
+
+        _created = result.Value;
+        DialogInstance.Options.Header.Title = L["TokenCreatedTitle"];
+    }
+
+    private async Task CopyAsync()
+    {
+        if (_created is null)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _created.Token);
+        _announcement = L["TokenCopied"];
+    }
+}

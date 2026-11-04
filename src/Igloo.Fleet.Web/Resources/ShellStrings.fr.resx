@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Overview" xml:space="preserve">
+    <value>Vue d'ensemble</value>
+  </data>
+  <data name="Enrollments" xml:space="preserve">
+    <value>Inscriptions</value>
+  </data>
+  <data name="AllEnrollments" xml:space="preserve">
+    <value>Toutes les inscriptions</value>
+  </data>
+  <data name="EnrollmentTokens" xml:space="preserve">
+    <value>Jetons d'inscription</value>
+  </data>
+  <data name="Planning" xml:space="preserve">
+    <value>Planification</value>
+  </data>
+  <data name="MigrationProfiles" xml:space="preserve">
+    <value>Profils de migration</value>
+  </data>
+  <data name="WorkItems" xml:space="preserve">
+    <value>Éléments de travail</value>
+  </data>
+  <data name="Evidence" xml:space="preserve">
+    <value>Preuves</value>
+  </data>
+  <data name="Approvals" xml:space="preserve">
+    <value>Approbations</value>
+  </data>
+  <data name="PreparedPlans" xml:space="preserve">
+    <value>Plans préparés</value>
+  </data>
+  <data name="Audit" xml:space="preserve">
+    <value>Audit</value>
+  </data>
+  <data name="AuditEvents" xml:space="preserve">
+    <value>Événements d'audit</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Paramètres</value>
+  </data>
+  <data name="ServerConnection" xml:space="preserve">
+    <value>Connexion au serveur</value>
+  </data>
+  <data name="ConsoleAccounts" xml:space="preserve">
+    <value>Comptes de la console</value>
+  </data>
+  <data name="ScopeAndLimits" xml:space="preserve">
+    <value>Périmètre et limites</value>
+  </data>
+  <data name="About" xml:space="preserve">
+    <value>À propos</value>
+  </data>
+  <data name="Help" xml:space="preserve">
+    <value>Aide</value>
+  </data>
+  <data name="Account" xml:space="preserve">
+    <value>Compte</value>
+  </data>
+  <data name="SignOut" xml:space="preserve">
+    <value>Se déconnecter</value>
+  </data>
+  <data name="Theme" xml:space="preserve">
+    <value>Thème</value>
+  </data>
+  <data name="ThemeSystem" xml:space="preserve">
+    <value>Suivre le réglage du système</value>
+  </data>
+  <data name="ThemeLight" xml:space="preserve">
+    <value>Clair</value>
+  </data>
+  <data name="ThemeDark" xml:space="preserve">
+    <value>Sombre</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Langue</value>
+  </data>
+  <data name="SkipToContent" xml:space="preserve">
+    <value>Aller au contenu principal</value>
+  </data>
+  <data name="MainNavigation" xml:space="preserve">
+    <value>Navigation principale</value>
+  </data>
+  <data name="Breadcrumb" xml:space="preserve">
+    <value>Fil d'Ariane</value>
+  </data>
+  <data name="SearchPlaceholder" xml:space="preserve">
+    <value>Rechercher dans cette page</value>
+  </data>
+</root>

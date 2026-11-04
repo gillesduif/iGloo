@@ -1,0 +1,15 @@
+@inject IStringLocalizer<SharedStrings> S
+
+<div class="state state-empty" role="status">
+    <FluentIcon Value="@(new Icons.Regular.Size24.Filter())" Class="state-icon" />
+    <h2 class="state-title">@S["NoResultsTitle"]</h2>
+    <p class="state-message">@S["NoResultsMessage"]</p>
+    <div class="state-action">
+        <FluentButton Appearance="ButtonAppearance.Outline" OnClick="OnClear">@S["ClearFilters"]</FluentButton>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public EventCallback OnClear { get; set; }
+}

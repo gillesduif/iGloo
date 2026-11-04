@@ -1,0 +1,121 @@
+@page "/planning/work/{WorkItemId:guid}"
+@inject IStringLocalizer<PlanningStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IStringLocalizer<ShellStrings> Shell
+@inject IStringLocalizer<StatusStrings> Status
+@inject IFleetOperatorClient Client
+
+<PageFrame Title="@(_work is null ? L["WorkDetailTitle"] : ConsoleFormat.ShortId(_work.WorkItemId))"
+           Description="@(_work is null ? null : Status[StatusCatalog.WorkTypeKey(_work.Type)].Value)"
+           Breadcrumbs="@([new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell["Planning"], "/planning/profiles"), new BreadcrumbItem(L["WorkTitle"], "/planning/work")])">
+    <HeaderEnd>
+        @if (_work is not null)
+        {
+            <StatusBadge Presentation="StatusCatalog.Work(_work.Status)" />
+        }
+    </HeaderEnd>
+    <SecondaryActions>
+        <FluentButton Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())" OnClick="LoadAsync" Disabled="@_loading">@S["Refresh"]</FluentButton>
+    </SecondaryActions>
+    <ChildContent>
+        @if (_loading)
+        {
+            <LoadingState />
+        }
+        else if (_failure is not null)
+        {
+            <OperatorFailureState Failure="_failure" OnRetry="LoadAsync" />
+        }
+        else if (_work is null)
+        {
+            <EmptyState Title="@L["WorkNotFoundTitle"]" Message="@S["RecordNotFoundMessage"]">
+                <Action><FluentAnchorButton Href="/planning/work" Appearance="ButtonAppearance.Outline">@L["WorkTitle"]</FluentAnchorButton></Action>
+            </EmptyState>
+        }
+        else
+        {
+            <div class="panel-grid">
+                <FluentCard Class="panel">
+                    <h2 class="panel-title">@L["WorkCard"]</h2>
+                    <dl class="property-list">
+                        <dt>@L["ColumnWorkItem"]</dt><dd><IdentifierText Value="@_work.WorkItemId.ToString("D")" Short="false" /></dd>
+                        <dt>@L["ColumnEnrollment"]</dt><dd><IdentifierText Value="@_work.Identity.DeviceId.ToString("D")" Short="false" Href="@($"/enrollments/{_work.Identity.DeviceId:D}")" /></dd>
+                        <dt>@L["ColumnType"]</dt><dd>@Status[StatusCatalog.WorkTypeKey(_work.Type)]</dd>
+                        <dt>@L["ColumnStatus"]</dt><dd><StatusBadge Presentation="StatusCatalog.Work(_work.Status)" /></dd>
+                        <dt>@L["ColumnCreated"]</dt><dd><DateTimeText Value="_work.CreatedAtUtc" /></dd>
+                        <dt>@L["ColumnExpires"]</dt><dd><DateTimeText Value="_work.ExpiresAtUtc" /></dd>
+                        <dt>@L["ColumnAttempts"]</dt><dd>@_work.AttemptCount</dd>
+                        <dt>@L["ColumnLease"]</dt>
+                        <dd>@(_work.LeaseExpiresAtUtc is { } lease ? L["LeaseActive", ConsoleFormat.UtcDateTime(lease)].Value : S["None"].Value)</dd>
+                        <dt>@L["ColumnCorrelation"]</dt><dd><IdentifierText Value="@_work.CorrelationId.ToString("D")" Short="false" /></dd>
+                        <dt>@L["ColumnProfileRevision"]</dt>
+                        <dd>
+                            @if (_work.Profile is { } profile)
+                            {
+                                <a href="@($"/planning/profiles/{profile.ProfileId:D}")">@profile.Spec.Name · @L["RevisionLabel", profile.Revision]</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">@S["None"]</span>
+                            }
+                        </dd>
+                    </dl>
+                </FluentCard>
+                <FluentCard Class="panel">
+                    <h2 class="panel-title">@L["WorkEvidenceCard"]</h2>
+                    @if (_evidence is null)
+                    {
+                        <p class="text-secondary">@L["WorkNoEvidence"]</p>
+                    }
+                    else
+                    {
+                        <dl class="property-list">
+                            <dt>@L["ColumnOutcome"]</dt>
+                            <dd>
+                                @if (_evidence.Result.Planning is null)
+                                {
+                                    <StatusBadge Presentation="StatusCatalog.Assessment(_evidence.Result.Assessment.Eligibility)" />
+                                }
+                                else
+                                {
+                                    <StatusBadge Presentation="StatusCatalog.Eligibility(_evidence.Decision.Status)" />
+                                }
+                            </dd>
+                            <dt>@L["ColumnReceived"]</dt><dd><DateTimeText Value="_evidence.ReceivedAtUtc" /></dd>
+                        </dl>
+                        <FluentAnchorButton Href="@($"/planning/evidence/{_evidence.DryRunId:D}")" Appearance="ButtonAppearance.Outline">@L["OpenEvidence"]</FluentAnchorButton>
+                    }
+                </FluentCard>
+            </div>
+        }
+    </ChildContent>
+</PageFrame>
+
+@code {
+    private bool _loading = true;
+    private OperatorFailure? _failure;
+    private ReadOnlyWorkItem? _work;
+    private DryRunEvidence? _evidence;
+
+    [Parameter]
+    public Guid WorkItemId { get; set; }
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failure = null;
+        var work = Client.GetWorkItemsAsync();
+        var evidence = Client.GetEvidenceAsync();
+        await Task.WhenAll(work, evidence);
+        _failure = work.Result.Failure ?? evidence.Result.Failure;
+        if (_failure is null)
+        {
+            _work = work.Result.Value!.SingleOrDefault(w => w.WorkItemId == WorkItemId);
+            _evidence = evidence.Result.Value!.SingleOrDefault(e => e.DryRunId == WorkItemId);
+        }
+
+        _loading = false;
+    }
+}

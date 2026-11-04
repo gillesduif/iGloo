@@ -1,0 +1,287 @@
+@page "/cohorts"
+@page "/cohorts/{Id:guid}"
+@page "/inventory/{Slug}"
+@page "/inventory/{Slug}/{Id:guid}"
+@page "/software/{Slug}"
+@page "/software/{Slug}/{Id:guid}"
+@page "/updates/{Slug}"
+@page "/updates/{Slug}/{Id:guid}"
+@page "/configuration/{Slug}"
+@page "/configuration/{Slug}/{Id:guid}"
+@page "/security/{Slug}"
+@page "/security/{Slug}/{Id:guid}"
+@page "/storage/{Slug}"
+@page "/storage/{Slug}/{Id:guid}"
+@page "/networking/{Slug}"
+@page "/networking/{Slug}/{Id:guid}"
+@page "/monitoring/{Slug}"
+@page "/monitoring/{Slug}/{Id:guid}"
+@page "/automation/{Slug}"
+@page "/automation/{Slug}/{Id:guid}"
+@page "/reports/{Slug}"
+@page "/reports/{Slug}/{Id:guid}"
+@implements IDisposable
+@inject IStringLocalizer<ModuleStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IStringLocalizer<ShellStrings> Shell
+@inject IStringLocalizer<StatusStrings> Status
+@inject IModuleDataSource Source
+@inject ConsoleShell ConsoleShell
+@inject NavigationManager Navigation
+@inject IDialogService Dialogs
+
+@if (_page is null)
+{
+    <NotFound />
+}
+else if (Id is { } id)
+{
+    var row = _row;
+    <PageFrame Title="@(row is null ? Shell[_page.Key] : RowTitle(row))"
+               Breadcrumbs="@(_group!.Standalone ? [new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell[_page.Key], _page.Href)] : [new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell[_group.Key], _group.Pages[0].Href), new BreadcrumbItem(Shell[_page.Key], _page.Href)])">
+        <ChildContent>
+            @if (_rows is null)
+            {
+                <UnavailableNotice>@L["Unavailable"]</UnavailableNotice>
+            }
+            else if (row is null)
+            {
+                <EmptyState Title="@L["RecordNotFoundTitle"]" Message="@L["RecordNotFoundMessage"]" Icon="@(new Icons.Regular.Size24.DocumentDismiss())">
+                    <Action>
+                        <FluentAnchorButton Href="@_page.Href" Appearance="ButtonAppearance.Outline">@S["Back"]</FluentAnchorButton>
+                    </Action>
+                </EmptyState>
+            }
+            else
+            {
+                <div class="panel-grid">
+                    <FluentCard Class="panel">
+                        <h2 class="panel-title">@L["Properties"]</h2>
+                        <dl class="property-list">
+                            @foreach (var field in _page.Fields)
+                            {
+                                <dt>@L["Field_" + field.Key]</dt>
+                                <dd><ModuleValue Field="field" Row="row" /></dd>
+                            }
+                            <dt>@L["Field_Id"]</dt>
+                            <dd><IdentifierText Value="@row.Id.ToString("D")" /></dd>
+                        </dl>
+                    </FluentCard>
+                </div>
+            }
+        </ChildContent>
+    </PageFrame>
+}
+else
+{
+    <PageFrame Title="@Shell[_page.Key]"
+               Breadcrumbs="@(_group!.Standalone ? [new BreadcrumbItem(Shell["Overview"], "/")] : [new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell[_group.Key], _group.Pages[0].Href)])">
+        <PrimaryActions>
+            @if (_page.CreateKey is not null && _rows is not null)
+            {
+                <FluentButton Appearance="ButtonAppearance.Primary" IconStart="@(new Icons.Regular.Size16.Add())" OnClick="CreateAsync">@L[_page.CreateKey]</FluentButton>
+            }
+        </PrimaryActions>
+        <SecondaryActions>
+            <FluentButton Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())" OnClick="Load">@S["Refresh"]</FluentButton>
+            @if (_rows is not null)
+            {
+                <FluentAnchorButton Href="@_page.ExportPath" Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowDownload())" Download="@($"{_page.Module}-{_page.Slug}.csv")">@S["ExportCsv"]</FluentAnchorButton>
+            }
+            @if (_optionalColumns.Count > 0)
+            {
+                <FluentButton Id="module-columns-button" Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.Settings())" aria-haspopup="dialog" aria-expanded="@_columnsOpen" OnClick="@(() => _columnsOpen = !_columnsOpen)">@S["Columns"]</FluentButton>
+                <FluentPopover AnchorId="module-columns-button" @bind-Opened="_columnsOpen" Width="260px">
+                    <div class="column-chooser" role="group" aria-label="@S["Columns"]">
+                        @foreach (var column in _optionalColumns)
+                        {
+                            <FluentCheckbox Label="@L["Field_" + column.Key]" Value="@column.Visible" ValueChanged="@(value => column.Visible = value)" />
+                        }
+                    </div>
+                </FluentPopover>
+            }
+        </SecondaryActions>
+        <Filters>
+            @if (_page.StatusField is { } statusField)
+            {
+                <FluentSelect TOption="string" TValue="string" Items="@StatusOptions(statusField)" OptionText="@(o => o == "any" ? L["FilterAny"].Value : Status["Module_" + o].Value)" OptionValue="@(o => o)"
+                              Label="@L["Field_" + statusField.Key]" @bind-Value="_statusFilter" Width="200px" />
+            }
+            @if (HasFilters)
+            {
+                <FluentButton Appearance="ButtonAppearance.Subtle" OnClick="ClearFilters">@S["ClearFilters"]</FluentButton>
+            }
+        </Filters>
+        <ChildContent>
+            @if (_rows is null)
+            {
+                <UnavailableNotice>@L["Unavailable"]</UnavailableNotice>
+            }
+            else if (_rows.Count == 0)
+            {
+                <EmptyState Title="@L["EmptyTitle", Shell[_page.Key].Value]" Message="@(_page.CreateKey is null ? L["EmptyMessageReported"] : L["EmptyMessageCreate"])" Icon="@(new Icons.Regular.Size24.DocumentBulletList())">
+                    <Action>
+                        @if (_page.CreateKey is not null)
+                        {
+                            <FluentButton Appearance="ButtonAppearance.Primary" OnClick="CreateAsync">@L[_page.CreateKey]</FluentButton>
+                        }
+                    </Action>
+                </EmptyState>
+            }
+            else if (!Filtered.Any())
+            {
+                <NoResultsState OnClear="ClearFilters" />
+            }
+            else
+            {
+                <div class="grid-scroll">
+                    <FluentDataGrid Items="@Filtered" Pagination="@_pagination" RowSize="DataGridRowSize.Small" ResizableColumns="true" ItemKey="@(r => r.Id)" TGridItem="ModuleRow" aria-label="@Shell[_page.Key]">
+                        @foreach (var field in VisibleFields)
+                        {
+                            var key = field.Key;
+                            var first = ReferenceEquals(field, _page.TitleField);
+                            <TemplateColumn Title="@L["Field_" + key]" SortBy="@(GridSort<ModuleRow>.ByAscending(r => r.SortKey(key)))" Sortable="true" Width="@field.Width"
+                                            IsDefaultSortColumn="@(first && field.Kind != ModuleFieldKind.DateTime)" InitialSortDirection="@(field.Kind == ModuleFieldKind.DateTime ? DataGridSortDirection.Descending : DataGridSortDirection.Ascending)">
+                                @if (first && field.Kind == ModuleFieldKind.Text)
+                                {
+                                    <a href="@DetailsHref(context)" class="identifier-link">@(context[key]?.ToString())</a>
+                                }
+                                else
+                                {
+                                    <ModuleValue Field="field" Row="context" />
+                                }
+                            </TemplateColumn>
+                        }
+                        @if (_page.TitleField.Kind != ModuleFieldKind.Text)
+                        {
+                            <TemplateColumn Title="@S["Details"]" Width="100px">
+                                <a href="@DetailsHref(context)">@S["Open"]</a>
+                            </TemplateColumn>
+                        }
+                    </FluentDataGrid>
+                </div>
+                <div class="grid-footer">
+                    <FluentPaginator State="@_pagination" />
+                </div>
+            }
+        </ChildContent>
+    </PageFrame>
+}
+
+@code {
+    private readonly PaginationState _pagination = new() { ItemsPerPage = 25 };
+    private readonly List<OptionalColumn> _optionalColumns = [];
+    private ModulePageDefinition? _page;
+    private ModuleGroup? _group;
+    private IReadOnlyList<ModuleRow>? _rows;
+    private ModuleRow? _row;
+    private string _statusFilter = "any";
+    private bool _columnsOpen;
+    private string? _attachedKey;
+
+    [Parameter]
+    public string? Slug { get; set; }
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private string Module => Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+
+    private bool HasFilters => _statusFilter != "any" || ConsoleShell.Query.Length > 0;
+
+    private IEnumerable<ModuleField> VisibleFields => _page!.Fields.Where(f => !f.Optional || _optionalColumns.Any(c => c.Key == f.Key && c.Visible));
+
+    private IQueryable<ModuleRow> Filtered => (_rows ?? []).Where(Matches).AsQueryable();
+
+    protected override void OnInitialized() => ConsoleShell.Changed += OnShellChanged;
+
+    protected override void OnParametersSet()
+    {
+        var page = ModuleCatalog.Find(Module, Slug);
+        if (page is null)
+        {
+            _page = null;
+            return;
+        }
+
+        if (!ReferenceEquals(page, _page))
+        {
+            _page = page;
+            _group = ModuleCatalog.GroupOf(page);
+            _statusFilter = "any";
+            _optionalColumns.Clear();
+            _optionalColumns.AddRange(page.Fields.Where(static f => f.Optional).Select(static f => new OptionalColumn(f.Key)));
+        }
+
+        if (Id is null && _attachedKey != page.Key)
+        {
+            ConsoleShell.AttachSearch(Shell["SearchPlaceholder"]);
+            _attachedKey = page.Key;
+        }
+
+        Load();
+    }
+
+    private void Load()
+    {
+        if (_page is null)
+        {
+            return;
+        }
+
+        _rows = Source.Rows(_page);
+        _row = Id is { } id && _rows is not null ? _rows.FirstOrDefault(r => r.Id == id) : null;
+    }
+
+    private bool Matches(ModuleRow row)
+    {
+        if (_statusFilter != "any" && _page!.StatusField is { } status && !string.Equals(row[status.Key] as string, _statusFilter, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var query = ConsoleShell.Query.Trim();
+        return query.Length == 0 || _page!.Fields.Any(f => row.Export(f.Key).Contains(query, StringComparison.OrdinalIgnoreCase))
+            || row.Id.ToString("D").StartsWith(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyList<string> StatusOptions(ModuleField field) => ["any", .. field.Statuses!];
+
+    private string DetailsHref(ModuleRow row) => $"{_page!.Href}/{row.Id:D}";
+
+    private string RowTitle(ModuleRow row) => _page!.TitleField.Kind == ModuleFieldKind.Text && row[_page.TitleField.Key] is string text && text.Length > 0
+        ? text
+        : $"{Shell[_page.Key]} {ConsoleFormat.ShortId(row.Id)}";
+
+    private void ClearFilters()
+    {
+        _statusFilter = "any";
+        ConsoleShell.SetQuery(string.Empty);
+    }
+
+    private async Task CreateAsync()
+    {
+        var result = await Dialogs.ShowDialogAsync<ModuleCreateDialog>(options =>
+        {
+            options.Modal = true;
+            options.PreventDismissOnEscape = true;
+            options.Parameters.Add(nameof(ModuleCreateDialog.Page), _page!);
+        });
+
+        if (!result.Cancelled)
+        {
+            Load();
+        }
+    }
+
+    private void OnShellChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => ConsoleShell.Changed -= OnShellChanged;
+
+    private sealed class OptionalColumn(string key)
+    {
+        public string Key { get; } = key;
+
+        public bool Visible { get; set; }
+    }
+}

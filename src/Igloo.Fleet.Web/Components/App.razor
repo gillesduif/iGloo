@@ -1,15 +1,51 @@
+@inject ConsolePreferencesStore Preferences
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@CultureInfo.CurrentUICulture.TwoLetterISOLanguageName">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <base href="/" />
-    <link rel="stylesheet" href="app.css" />
-    <HeadOutlet />
-    <AdminLteStyles />
+    <link rel="stylesheet" href="@Assets["_content/Microsoft.FluentUI.AspNetCore.Components/Microsoft.FluentUI.AspNetCore.Components.bundle.scp.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="icon" href="@Assets["img/igloo-logo.svg"]" type="image/svg+xml" />
+    <ImportMap nonce="@SecurityHeaders.Nonce(HttpContext)" />
+    <HeadOutlet @rendermode="PageRenderMode" />
 </head>
-<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
-    <Routes />
-    <AdminLteScripts />
+<body @attributes="BodyAttributes">
+    <Routes @rendermode="PageRenderMode" />
+    @if (PageRenderMode is not null)
+    {
+        <ReconnectModal />
+    }
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    // Sign-in, setup and sign-out stay static server-rendered form posts; everything else is interactive.
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? RenderMode.InteractiveServer : null;
+
+    // The stored theme is applied before the first paint so dark mode does not flash white.
+    private IReadOnlyDictionary<string, object>? BodyAttributes
+    {
+        get
+        {
+            var account = ConsoleSession.FromPrincipal(HttpContext.User);
+            if (account == ConsoleAccount.Anonymous)
+            {
+                return null;
+            }
+
+            var theme = Preferences.Get(account.AccountId).Theme;
+            return theme is "dark" or "light"
+                ? new Dictionary<string, object> { ["data-theme"] = theme }
+                : null;
+        }
+    }
+}

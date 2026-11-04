@@ -1,0 +1,234 @@
+@page "/planning/evidence/{DryRunId:guid}"
+@inject IStringLocalizer<PlanningStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IStringLocalizer<ShellStrings> Shell
+@inject IStringLocalizer<StatusStrings> Status
+@inject IFleetOperatorClient Client
+@inject IDialogService Dialogs
+
+<PageFrame Title="@(_evidence is null ? L["EvidenceDetailTitle"] : ConsoleFormat.ShortId(_evidence.DryRunId))"
+           Description="@(_evidence is null ? null : Status[StatusCatalog.WorkTypeKey(IsDryRun ? ReadOnlyWorkType.RunMigrationDryRun : ReadOnlyWorkType.RunAssessment)].Value)"
+           Breadcrumbs="@([new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell["Planning"], "/planning/profiles"), new BreadcrumbItem(L["EvidenceTitle"], "/planning/evidence")])">
+    <HeaderEnd>
+        @if (_evidence is not null)
+        {
+            if (IsDryRun)
+            {
+                <StatusBadge Presentation="StatusCatalog.Eligibility(_evidence.Decision.Status)" />
+            }
+            else
+            {
+                <StatusBadge Presentation="StatusCatalog.Assessment(_evidence.Result.Assessment.Eligibility)" />
+            }
+        }
+    </HeaderEnd>
+    <PrimaryActions>
+        @if (CanApprove)
+        {
+            <FluentButton Appearance="ButtonAppearance.Primary" IconStart="@(new Icons.Regular.Size16.CheckmarkCircle())" OnClick="ApproveAsync">@L["Approve"]</FluentButton>
+        }
+    </PrimaryActions>
+    <SecondaryActions>
+        <FluentButton Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())" OnClick="LoadAsync" Disabled="@_loading">@S["Refresh"]</FluentButton>
+    </SecondaryActions>
+    <ChildContent>
+        @if (_message is not null)
+        {
+            <FluentMessageBar Intent="MessageBarIntent.Success" AllowDismiss="true" Class="page-message">@_message</FluentMessageBar>
+        }
+        @if (_loading)
+        {
+            <LoadingState />
+        }
+        else if (_failure is not null)
+        {
+            <OperatorFailureState Failure="_failure" OnRetry="LoadAsync" />
+        }
+        else if (_evidence is null)
+        {
+            <EmptyState Title="@L["EvidenceNotFoundTitle"]" Message="@S["RecordNotFoundMessage"]">
+                <Action><FluentAnchorButton Href="/planning/evidence" Appearance="ButtonAppearance.Outline">@L["EvidenceTitle"]</FluentAnchorButton></Action>
+            </EmptyState>
+        }
+        else
+        {
+            <div class="panel-grid">
+                <FluentCard Class="panel">
+                    @if (IsDryRun)
+                    {
+                        <h2 class="panel-title">@L["DecisionCard"]</h2>
+                        <p><StatusBadge Presentation="StatusCatalog.Eligibility(_evidence.Decision.Status)" /> <span class="text-secondary">@Status["Eligibility_" + _evidence.Decision.Status + "_Meaning"]</span></p>
+                        <dl class="property-list">
+                            <dt>@L["DecisionId"]</dt><dd><IdentifierText Value="@_evidence.Decision.DecisionId.ToString("D")" Short="false" /></dd>
+                            <dt>@L["RulesVersion"]</dt><dd>@_evidence.Decision.RulesVersion</dd>
+                        </dl>
+                    }
+                    else
+                    {
+                        <h2 class="panel-title">@L["AssessmentOutcomeCard"]</h2>
+                        <p><StatusBadge Presentation="StatusCatalog.Assessment(_evidence.Result.Assessment.Eligibility)" /> <span class="text-secondary">@Status["Assessment_" + _evidence.Result.Assessment.Eligibility + "_Meaning"]</span></p>
+                        <p class="text-secondary">@L["AssessmentOutcomeNote"]</p>
+                    }
+                    <h3 class="panel-subtitle">@L["DecisionReasons"]</h3>
+                    @if (_evidence.Decision.Reasons.IsDefaultOrEmpty)
+                    {
+                        <p class="text-secondary">@L["NoReasons"]</p>
+                    }
+                    else
+                    {
+                        <ul class="capability-list">
+                            @foreach (var reason in _evidence.Decision.Reasons)
+                            {
+                                <li><strong>@Status[StatusCatalog.ReasonKey(reason)]</strong> <span class="text-secondary">@Status[StatusCatalog.ReasonMeaningKey(reason)]</span></li>
+                            }
+                        </ul>
+                    }
+                    @if (IsDryRun)
+                    {
+                        if (_evidence.Decision.Status == PlanningEligibility.Blocked)
+                        {
+                            <p class="text-secondary">@L["ApproveBlockedNote"]</p>
+                        }
+                        else if (_evidence.Decision.Status == PlanningEligibility.Unknown)
+                        {
+                            <p class="text-secondary">@L["ApproveUnknownNote"]</p>
+                        }
+                    }
+                </FluentCard>
+
+                <FluentCard Class="panel">
+                    <h2 class="panel-title">@L["ChecksCard"]</h2>
+                    @if (_evidence.Result.Assessment.Checks.IsDefaultOrEmpty)
+                    {
+                        <p class="text-secondary">@L["ChecksNoneRecorded"]</p>
+                    }
+                    else
+                    {
+                        <table class="data-table">
+                            <thead><tr><th scope="col">@L["ColumnCheck"]</th><th scope="col">@L["ColumnResult"]</th></tr></thead>
+                            <tbody>
+                                @foreach (var check in _evidence.Result.Assessment.Checks)
+                                {
+                                    <tr>
+                                        <td>@Status[StatusCatalog.CheckIdKey(check.Id)]</td>
+                                        <td><StatusBadge Presentation="StatusCatalog.Check(check.Status)" /></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </FluentCard>
+
+                @if (_evidence.Result.Planning is { } facts)
+                {
+                    <FluentCard Class="panel">
+                        <h2 class="panel-title">@L["FactsCard"]</h2>
+                        <dl class="property-list">
+                            <dt>@L["FactTargetSupported"]</dt><dd>@(facts.TargetSupported ? S["Yes"] : S["No"])</dd>
+                            <dt>@L["FactSecureBoot"]</dt><dd>@(facts.SecureBootEnabled ? S["On"] : S["Off"])</dd>
+                            <dt>@L["FactAvailable"]</dt><dd>@(facts.AvailableBytes is { } available ? ConsoleFormat.Gibibytes(available, S) : S["NotDetermined"].Value)</dd>
+                            <dt>@L["FactRequired"]</dt><dd>@ConsoleFormat.Gibibytes(facts.RequiredBytes, S)</dd>
+                            <dt>@L["FactPluginHash"]</dt><dd>@if (facts.PluginHash is { } hash) { <IdentifierText Value="@hash" Short="false" /> } else { <span class="text-secondary">@S["NotAvailable"]</span> }</dd>
+                        </dl>
+                    </FluentCard>
+                }
+
+                <FluentCard Class="panel">
+                    <h2 class="panel-title">@L["ProvenanceCard"]</h2>
+                    <dl class="property-list">
+                        <dt>@L["ProvenanceWorkItem"]</dt><dd><IdentifierText Value="@_evidence.DryRunId.ToString("D")" Short="false" Href="@($"/planning/work/{_evidence.DryRunId:D}")" /></dd>
+                        <dt>@L["ColumnEnrollment"]</dt><dd><IdentifierText Value="@_evidence.Result.Assessment.Identity.DeviceId.ToString("D")" Short="false" Href="@($"/enrollments/{_evidence.Result.Assessment.Identity.DeviceId:D}")" /></dd>
+                        <dt>@L["ProvenanceCorrelation"]</dt><dd><IdentifierText Value="@_evidence.Result.CorrelationId.ToString("D")" Short="false" /></dd>
+                        <dt>@L["ProvenanceProfile"]</dt>
+                        <dd>
+                            @if (_work?.Profile is { } profile)
+                            {
+                                <a href="@($"/planning/profiles/{profile.ProfileId:D}")">@profile.Spec.Name · @L["RevisionLabel", profile.Revision]</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">@S["None"]</span>
+                            }
+                        </dd>
+                        <dt>@L["ProvenanceAgentVersion"]</dt><dd>@_evidence.Result.Assessment.AgentVersion</dd>
+                        <dt>@L["ProvenanceIglooVersion"]</dt><dd>@_evidence.Result.Assessment.IglooVersion</dd>
+                        <dt>@L["ProvenanceCapabilities"]</dt><dd>@string.Join(", ", _evidence.CapabilitySnapshot.Select(c => Status[StatusCatalog.CapabilityKey(c)].Value))</dd>
+                        <dt>@L["ProvenanceStarted"]</dt><dd><DateTimeText Value="_evidence.Result.Assessment.StartedAt" ShowRelative="false" /></dd>
+                        <dt>@L["ProvenanceCompleted"]</dt><dd><DateTimeText Value="_evidence.Result.Assessment.CompletedAt" ShowRelative="false" /></dd>
+                        <dt>@L["ProvenanceReceived"]</dt><dd><DateTimeText Value="_evidence.ReceivedAtUtc" /></dd>
+                        <dt>@L["ProvenanceInventory"]</dt><dd>@L["ProvenanceInventory", ConsoleFormat.Gibibytes(_evidence.Result.Assessment.Inventory.TotalRamBytes, S), _evidence.Result.Assessment.Inventory.DiskCount]</dd>
+                        <dt>@L["ProvenanceHash"]</dt><dd><IdentifierText Value="@_evidence.EvidenceHash" Short="false" /></dd>
+                    </dl>
+                </FluentCard>
+
+                @if (_approval is not null)
+                {
+                    <FluentCard Class="panel">
+                        <h2 class="panel-title">@L["ApprovalCard"]</h2>
+                        <p><StatusBadge Presentation="StatusCatalog.Approval(_approval.Status)" /></p>
+                        <FluentAnchorButton Href="@($"/planning/approvals/{_approval.ApprovalId:D}")" Appearance="ButtonAppearance.Outline">@L["LinkApproval"]</FluentAnchorButton>
+                    </FluentCard>
+                }
+            </div>
+        }
+    </ChildContent>
+</PageFrame>
+
+@code {
+    private bool _loading = true;
+    private OperatorFailure? _failure;
+    private string? _message;
+    private DryRunEvidence? _evidence;
+    private ReadOnlyWorkItem? _work;
+    private PlanApproval? _approval;
+
+    [Parameter]
+    public Guid DryRunId { get; set; }
+
+    private bool IsDryRun => _evidence?.Result.Planning is not null;
+
+    private bool CanApprove => _evidence is not null && IsDryRun
+        && _evidence.Decision.Status is PlanningEligibility.Eligible or PlanningEligibility.NeedsReview
+        && _approval?.Status != ApprovalState.Approved;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failure = null;
+        var evidence = Client.GetEvidenceAsync();
+        var work = Client.GetWorkItemsAsync();
+        var approvals = Client.GetApprovalsAsync();
+        await Task.WhenAll(evidence, work, approvals);
+        _failure = evidence.Result.Failure ?? work.Result.Failure ?? approvals.Result.Failure;
+        if (_failure is null)
+        {
+            _evidence = evidence.Result.Value!.SingleOrDefault(e => e.DryRunId == DryRunId);
+            _work = work.Result.Value!.SingleOrDefault(w => w.WorkItemId == DryRunId);
+            _approval = approvals.Result.Value!.Where(a => a.DryRunId == DryRunId).OrderByDescending(static a => a.ApprovedAtUtc).FirstOrDefault();
+        }
+
+        _loading = false;
+    }
+
+    private async Task ApproveAsync()
+    {
+        if (_evidence is null || _work?.Profile is null)
+        {
+            return;
+        }
+
+        var result = await Dialogs.ShowDialogAsync<ApproveDialog>(options =>
+        {
+            options.Modal = true;
+            options.Parameters.Add(nameof(ApproveDialog.Evidence), _evidence);
+            options.Parameters.Add(nameof(ApproveDialog.ProfileRevisionId), _work.Profile.RevisionId);
+        });
+        if (!result.Cancelled)
+        {
+            _message = L["Approved"];
+            await LoadAsync();
+        }
+    }
+}

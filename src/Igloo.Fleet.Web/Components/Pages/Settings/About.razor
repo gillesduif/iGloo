@@ -1,0 +1,31 @@
+@page "/settings/about"
+@inject IStringLocalizer<SettingsStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IStringLocalizer<ShellStrings> Shell
+@inject IFleetOperatorClient Client
+@inject Microsoft.Extensions.Options.IOptions<FleetServerOptions> Server
+
+<PageFrame Title="@L["AboutTitle"]"
+           Breadcrumbs="@([new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell["Settings"], "/settings/server")])">
+    <dl class="property-list">
+        <dt>@L["AboutConsoleVersion"]</dt>
+        <dd>@ConsoleVersion</dd>
+        <dt>@L["AboutProtocol"]</dt>
+        <dd>@PlanningProtocol.Version.Major.@PlanningProtocol.Version.Minor</dd>
+        <dt>@L["AboutServer"]</dt>
+        <dd><code>@(Client.IsSampleData ? S["SampleDataTitle"] : Server.Value.ResolveUri()?.ToString() ?? S["NotAvailable"])</code></dd>
+        <dt>@L["AboutLicence"]</dt>
+        <dd>@L["AboutLicenceValue"]</dd>
+    </dl>
+    <p>@L["AboutComponents"]</p>
+    <p><a href="/settings/scope">@S["ReadScope"]</a></p>
+</PageFrame>
+
+@code {
+    private static string ConsoleVersion =>
+        typeof(About).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion
+        ?? typeof(About).Assembly.GetName().Version?.ToString()
+        ?? "0";
+}

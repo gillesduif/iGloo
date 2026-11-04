@@ -1,0 +1,120 @@
+@page "/planning/plans"
+@implements IDisposable
+@inject IStringLocalizer<PlanningStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IStringLocalizer<ShellStrings> Shell
+@inject IStringLocalizer<StatusStrings> Status
+@inject IFleetOperatorClient Client
+@inject ConsoleShell ConsoleShell
+
+<PageFrame Title="@L["PlansTitle"]"
+           Breadcrumbs="@([new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell["Planning"], "/planning/profiles")])">
+    <SecondaryActions>
+        <FluentButton Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())" OnClick="LoadAsync" Disabled="@_loading">@S["Refresh"]</FluentButton>
+        <FluentAnchorButton Href="/export/plans.csv" Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowDownload())" Download="plans.csv">@S["ExportCsv"]</FluentAnchorButton>
+    </SecondaryActions>
+    <Filters>
+        <FluentSelect TOption="string" TValue="string" Items="@StateOptions" OptionText="@(o => StateLabel(o))" OptionValue="@(o => o)" Label="@L["FilterState"]" @bind-Value="_stateFilter" Width="200px" />
+        @if (HasFilters)
+        {
+            <FluentButton Appearance="ButtonAppearance.Subtle" OnClick="ClearFilters">@S["ClearFilters"]</FluentButton>
+        }
+    </Filters>
+    <ChildContent>
+        @if (_loading)
+        {
+            <LoadingState />
+        }
+        else if (_failure is not null)
+        {
+            <OperatorFailureState Failure="_failure" OnRetry="LoadAsync" />
+        }
+        else if (_plans.Count == 0)
+        {
+            <EmptyState Title="@L["PlansEmptyTitle"]" Message="@L["PlansEmptyMessage"]" Icon="@(new Icons.Regular.Size24.DocumentCheckmark())" />
+        }
+        else if (!Filtered.Any())
+        {
+            <NoResultsState OnClear="ClearFilters" />
+        }
+        else
+        {
+            <div class="grid-scroll">
+            <FluentDataGrid Items="@Filtered" Pagination="@_pagination" RowSize="DataGridRowSize.Small" ResizableColumns="true" ItemKey="@(p => p.PlanId)" TGridItem="PreparedMigrationPlan" aria-label="@L["PlansTitle"]">
+                <TemplateColumn Title="@L["ColumnPlan"]" Width="160px"><IdentifierText Value="@context.PlanId.ToString("D")" Href="@($"/planning/plans/{context.PlanId:D}")" /></TemplateColumn>
+                <TemplateColumn Title="@L["ColumnEnrollment"]" Width="160px"><IdentifierText Value="@context.Identity.DeviceId.ToString("D")" Href="@($"/enrollments/{context.Identity.DeviceId:D}")" /></TemplateColumn>
+                <TemplateColumn Title="@L["FilterState"]" SortBy="@(GridSort<PreparedMigrationPlan>.ByAscending(p => p.Status))" Sortable="true" Width="150px"><StatusBadge Presentation="StatusCatalog.Plan(context.Status)" /></TemplateColumn>
+                <TemplateColumn Title="@L["ColumnCreated"]" SortBy="@(GridSort<PreparedMigrationPlan>.ByDescending(p => p.CreatedAtUtc))" Sortable="true" InitialSortDirection="DataGridSortDirection.Descending" IsDefaultSortColumn="true" Width="230px"><DateTimeText Value="context.CreatedAtUtc" /></TemplateColumn>
+                <TemplateColumn Title="@L["ColumnExpires"]" Width="230px"><DateTimeText Value="context.ExpiresAtUtc" /></TemplateColumn>
+                <TemplateColumn Title="@L["ColumnDistribution"]" Width="170px">@L[PlanningLabels.DistributionKey(context.DistroId)]</TemplateColumn>
+                <TemplateColumn Title="@L["ColumnIglooVersion"]" Width="130px">@context.IglooVersion</TemplateColumn>
+            </FluentDataGrid>
+            </div>
+            <div class="grid-footer"><FluentPaginator State="@_pagination" /></div>
+        }
+    </ChildContent>
+</PageFrame>
+
+@code {
+    private static readonly string[] StateOptions = ["any", .. Enum.GetNames<PreparedPlanState>()];
+    private readonly PaginationState _pagination = new() { ItemsPerPage = 25 };
+    private bool _loading = true;
+    private OperatorFailure? _failure;
+    private IReadOnlyList<PreparedMigrationPlan> _plans = [];
+    private string _stateFilter = "any";
+
+    private bool HasFilters => _stateFilter != "any" || ConsoleShell.Query.Length > 0;
+
+    private IQueryable<PreparedMigrationPlan> Filtered => _plans.Where(Matches).AsQueryable();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ConsoleShell.AttachSearch(L["PlanSearchPlaceholder"]);
+        ConsoleShell.Changed += OnShellChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failure = null;
+        var result = await Client.GetPlansAsync();
+        if (result.Succeeded)
+        {
+            _plans = result.Value!;
+        }
+        else
+        {
+            _failure = result.Failure;
+        }
+
+        _loading = false;
+    }
+
+    private bool Matches(PreparedMigrationPlan plan)
+    {
+        if (_stateFilter != "any" && plan.Status.ToString() != _stateFilter) return false;
+        var query = ConsoleShell.Query.Trim();
+        return query.Length == 0
+            || plan.PlanId.ToString("D").Contains(query, StringComparison.OrdinalIgnoreCase)
+            || plan.Identity.DeviceId.ToString("D").Contains(query, StringComparison.OrdinalIgnoreCase)
+            || plan.ApprovalId.ToString("D").Contains(query, StringComparison.OrdinalIgnoreCase)
+            || plan.EvidenceHash.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string StateLabel(string option) => option == "any" ? L["FilterAny"] : Status["Plan_" + option];
+
+    private void ClearFilters()
+    {
+        _stateFilter = "any";
+        ConsoleShell.SetQuery(string.Empty);
+    }
+
+    private void OnShellChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        ConsoleShell.Changed -= OnShellChanged;
+        ConsoleShell.DetachSearch();
+    }
+}

@@ -1,0 +1,66 @@
+@inject IStringLocalizer<SharedStrings> S
+@inject IStringLocalizer<ShellStrings> L
+
+<PageTitle>@S["TitleFormat", Title]</PageTitle>
+
+@if (Breadcrumbs is { Count: > 0 })
+{
+    <Breadcrumbs Items="Breadcrumbs" Current="@Title" />
+}
+
+<div class="page-header">
+    <div class="page-heading">
+        <h1 class="page-title">@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <p class="page-description">@Description</p>
+        }
+    </div>
+    @if (HeaderEnd is not null)
+    {
+        <div class="page-heading-end">@HeaderEnd</div>
+    }
+</div>
+
+@if (PrimaryActions is not null || SecondaryActions is not null)
+{
+    <div class="command-bar" role="toolbar" aria-label="@Title">
+        <div class="command-bar-primary">@PrimaryActions</div>
+        <div class="command-bar-secondary">@SecondaryActions</div>
+    </div>
+}
+
+@if (Filters is not null)
+{
+    <div class="filter-row" role="group" aria-label="@S["Filters"]">@Filters</div>
+}
+
+<div class="page-content">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<BreadcrumbItem>? Breadcrumbs { get; set; }
+
+    [Parameter]
+    public RenderFragment? HeaderEnd { get; set; }
+
+    [Parameter]
+    public RenderFragment? PrimaryActions { get; set; }
+
+    [Parameter]
+    public RenderFragment? SecondaryActions { get; set; }
+
+    [Parameter]
+    public RenderFragment? Filters { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

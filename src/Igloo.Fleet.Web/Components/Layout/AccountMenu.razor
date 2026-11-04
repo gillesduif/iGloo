@@ -1,0 +1,82 @@
+@inject IStringLocalizer<ShellStrings> L
+@inject ConsoleSession Session
+@inject NavigationManager Navigation
+
+<FluentButton Id="console-account-button"
+              Appearance="ButtonAppearance.Subtle"
+              Class="console-account-button"
+              aria-haspopup="true"
+              aria-expanded="@_open"
+              OnClick="@(() => _open = !_open)">
+    <span class="console-account-content">
+        <FluentIcon Value="@(new Icons.Regular.Size20.PersonCircle())" aria-hidden="true" />
+        <span class="console-account-name">@_account.DisplayName</span>
+        <span class="visually-hidden">, @L["AccountMenu"]</span>
+    </span>
+</FluentButton>
+
+<FluentPopover AnchorId="console-account-button" @bind-Opened="_open" Width="300px">
+    <div class="console-account-popover">
+        <div class="console-account-identity">
+            <FluentIcon Value="@(new Icons.Regular.Size32.PersonCircle())" aria-hidden="true" />
+            <div>
+                <div class="console-account-display">@_account.DisplayName</div>
+                <div class="console-account-secondary">@_account.Username</div>
+                <div class="console-account-secondary">@RoleLabel</div>
+            </div>
+        </div>
+        <FluentDivider />
+        <nav aria-label="@L["Settings"]" class="console-account-links">
+            @foreach (var entry in ConsoleNavigation.Settings)
+            {
+                <FluentAnchorButton Href="@entry.Href" Appearance="ButtonAppearance.Subtle" OnClick="@(() => _open = false)">@L[entry.Key]</FluentAnchorButton>
+            }
+        </nav>
+        <FluentDivider />
+        <div class="console-account-language">
+            <span class="console-account-secondary">@L["Language"]</span>
+            @if (ConsoleOptions.OfferedCultures.Length > 1)
+            {
+                <form method="post" action="/auth/culture" data-enhance="false" class="console-language-form">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="returnUrl" value="@("/" + Navigation.ToBaseRelativePath(Navigation.Uri))" />
+                    <select name="culture" aria-label="@L["Language"]" onchange="this.form.requestSubmit()">
+                        @foreach (var culture in ConsoleOptions.OfferedCultures)
+                        {
+                            <option value="@culture" selected="@(culture == CultureInfo.CurrentUICulture.TwoLetterISOLanguageName)">@CultureLabel(culture)</option>
+                        }
+                    </select>
+                </form>
+            }
+            else
+            {
+                <span>@CultureLabel(ConsoleOptions.OfferedCultures[0])</span>
+                <span class="console-account-secondary">@L["LanguageOnlyOne"]</span>
+            }
+        </div>
+        <FluentDivider />
+        <form method="post" action="/auth/logout" data-enhance="false" class="console-signout">
+            <AntiforgeryToken />
+            <FluentButton Type="ButtonType.Submit" Appearance="ButtonAppearance.Subtle" IconStart="@(new Icons.Regular.Size20.SignOut())">
+                @L["SignOut"]
+            </FluentButton>
+        </form>
+    </div>
+</FluentPopover>
+
+@code {
+    private bool _open;
+    private ConsoleAccount _account = ConsoleAccount.Anonymous;
+
+    private string RoleLabel => _account.Role == "Administrator" ? L["RoleAdministrator"] : _account.Role;
+
+    private string CultureLabel(string culture) => culture switch
+    {
+        "nl" => L["CultureDutch"],
+        "fr" => L["CultureFrench"],
+        "de" => L["CultureGerman"],
+        _ => L["CultureEnglish"],
+    };
+
+    protected override async Task OnInitializedAsync() => _account = await Session.GetAccountAsync();
+}

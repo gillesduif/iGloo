@@ -1,0 +1,87 @@
+@inherits FluentDialogInstance
+@inject IStringLocalizer<PlanningStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IFleetOperatorClient Client
+
+<FluentDialogBody>
+    <ChildContent>
+        @if (ProfileId is not null)
+        {
+            <FluentMessageBar Intent="MessageBarIntent.Warning" AllowDismiss="false" AriaLive="AriaLive.Off" Class="dialog-warning">@L["RevisionWarning"]</FluentMessageBar>
+        }
+        <FluentTextInput @bind-Value="_name" Immediate="true" Label="@L["ProfileName"]" Message="@L["ProfileNameRule"]" Required="true" MaxLength="80" Width="100%" />
+        <FluentSelect TOption="string" TValue="string" Items="@PlanningLabels.DistributionIds" OptionText="@(o => L[PlanningLabels.DistributionKey(o)].Value)" OptionValue="@(o => o)"
+                      @bind-Value="_distroId" Label="@L["ProfileDistribution"]" Width="100%" />
+        <FluentTextInput TextInputType="TextInputType.Number" InputMode="TextInputMode.Numeric" @bind-Value="_minimumGib" Immediate="true"
+                         Label="@L["ProfileMinimumSpace"]" Message="@L["ProfileMinimumSpaceRule"]" Required="true" Width="200px" min="20" max="1024" />
+        <FluentSwitch @bind-Value="_requireSecureBoot" Label="@L["ProfileSecureBoot"]" />
+        @if (_failure is not null)
+        {
+            <OperatorFailureState Failure="_failure" />
+        }
+    </ChildContent>
+    <ActionTemplate>
+        <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@(_busy || !IsValid)" Loading="@_busy" OnClick="SaveAsync">@(ProfileId is null ? S["Create"] : L["AddRevision"])</FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Outline" Disabled="@_busy" OnClick="@(() => DialogInstance.CancelAsync())">@S["Cancel"]</FluentButton>
+    </ActionTemplate>
+</FluentDialogBody>
+
+@code {
+    private string? _name;
+    private string? _distroId = "debian";
+    private string? _minimumGib = "25";
+    private bool _requireSecureBoot;
+    private bool _busy;
+    private OperatorFailure? _failure;
+
+    [Parameter]
+    public Guid? ProfileId { get; set; }
+
+    [Parameter]
+    public MigrationProfileSpec? Current { get; set; }
+
+    private long? MinimumBytes =>
+        long.TryParse(_minimumGib, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var gib)
+        && gib is >= 20 and <= 1024 ? gib * PlanningLabels.Gibibyte : null;
+
+    private bool IsValid => !string.IsNullOrWhiteSpace(_name) && _name.Trim().Length <= 80 && _distroId is not null && MinimumBytes is not null;
+
+    protected override void OnInitializeDialog(DialogOptionsHeader header, DialogOptionsFooter footer)
+    {
+        if (Current is not null)
+        {
+            _name = Current.Name;
+            _distroId = Current.DistroId;
+            _minimumGib = (Current.MinimumAvailableBytes / PlanningLabels.Gibibyte).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            _requireSecureBoot = Current.RequireSecureBoot;
+        }
+
+        header.Title = ProfileId is null ? L["ProfileDialogCreateTitle"] : L["ProfileDialogRevisionTitle", Current?.Name ?? string.Empty];
+    }
+
+    protected override Task OnActionClickedAsync(bool primary) => Task.CompletedTask;
+
+    private async Task SaveAsync()
+    {
+        if (!IsValid)
+        {
+            return;
+        }
+
+        _busy = true;
+        _failure = null;
+        var spec = new MigrationProfileSpec(_name!.Trim(), _distroId!, MinimumBytes!.Value, _requireSecureBoot);
+        var result = ProfileId is null
+            ? await Client.CreateProfileAsync(spec)
+            : await Client.AddProfileRevisionAsync(ProfileId.Value, spec);
+        _busy = false;
+        if (result.Succeeded)
+        {
+            await DialogInstance.CloseAsync(result.Value);
+        }
+        else
+        {
+            _failure = result.Failure;
+        }
+    }
+}

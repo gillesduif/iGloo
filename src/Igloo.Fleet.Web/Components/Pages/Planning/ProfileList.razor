@@ -1,0 +1,153 @@
+@page "/planning/profiles"
+@implements IDisposable
+@inject IStringLocalizer<PlanningStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IStringLocalizer<ShellStrings> Shell
+@inject IFleetOperatorClient Client
+@inject IDialogService Dialogs
+@inject ConsoleShell ConsoleShell
+
+<PageFrame Title="@L["ProfilesTitle"]"
+           Breadcrumbs="@([new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell["Planning"], "/planning/profiles")])">
+    <PrimaryActions>
+        <FluentButton Appearance="ButtonAppearance.Primary" IconStart="@(new Icons.Regular.Size16.Add())" OnClick="CreateAsync">@L["CreateProfile"]</FluentButton>
+    </PrimaryActions>
+    <SecondaryActions>
+        <FluentButton Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())" OnClick="LoadAsync" Disabled="@_loading">@S["Refresh"]</FluentButton>
+        <FluentAnchorButton Href="/export/profiles.csv" Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowDownload())" Download="profiles.csv">@S["ExportCsv"]</FluentAnchorButton>
+    </SecondaryActions>
+    <Filters>
+        <FluentSelect TOption="string" TValue="string" Items="@DistributionOptions" OptionText="@(o => DistributionLabel(o))" OptionValue="@(o => o)" Label="@L["FilterDistribution"]" @bind-Value="_distributionFilter" Width="200px" />
+        <FluentSelect TOption="string" TValue="string" Items="@SecureBootOptions" OptionText="@(o => SecureBootLabel(o))" OptionValue="@(o => o)" Label="@L["FilterSecureBoot"]" @bind-Value="_secureBootFilter" Width="160px" />
+        @if (HasFilters)
+        {
+            <FluentButton Appearance="ButtonAppearance.Subtle" OnClick="ClearFilters">@S["ClearFilters"]</FluentButton>
+        }
+    </Filters>
+    <ChildContent>
+        @if (_message is not null)
+        {
+            <FluentMessageBar Intent="MessageBarIntent.Success" AllowDismiss="true" Class="page-message">@_message</FluentMessageBar>
+        }
+        @if (_loading)
+        {
+            <LoadingState />
+        }
+        else if (_failure is not null)
+        {
+            <OperatorFailureState Failure="_failure" OnRetry="LoadAsync" />
+        }
+        else if (_rows.Count == 0)
+        {
+            <EmptyState Title="@L["ProfilesEmptyTitle"]" Message="@L["ProfilesEmptyMessage"]" Icon="@(new Icons.Regular.Size24.ClipboardTask())">
+                <Action><FluentButton Appearance="ButtonAppearance.Primary" OnClick="CreateAsync">@L["CreateProfile"]</FluentButton></Action>
+            </EmptyState>
+        }
+        else if (!Filtered.Any())
+        {
+            <NoResultsState OnClear="ClearFilters" />
+        }
+        else
+        {
+            <div class="grid-scroll">
+            <FluentDataGrid Items="@Filtered" Pagination="@_pagination" RowSize="DataGridRowSize.Small" ResizableColumns="true" ItemKey="@(r => r.ProfileId)" TGridItem="ProfileRow" aria-label="@L["ProfilesTitle"]">
+                <TemplateColumn Title="@L["ColumnName"]" SortBy="@(GridSort<ProfileRow>.ByAscending(r => r.Name))" Sortable="true" IsDefaultSortColumn="true" Width="260px">
+                    <a href="@($"/planning/profiles/{context.ProfileId:D}")">@context.Name</a>
+                </TemplateColumn>
+                <TemplateColumn Title="@L["ColumnDistribution"]" SortBy="@(GridSort<ProfileRow>.ByAscending(r => r.DistroId))" Sortable="true" Width="180px">@DistributionLabel(context.DistroId)</TemplateColumn>
+                <TemplateColumn Title="@L["ColumnMinimumFreeSpace"]" SortBy="@(GridSort<ProfileRow>.ByAscending(r => r.MinimumBytes))" Sortable="true" Width="170px">@ConsoleFormat.Gibibytes(context.MinimumBytes, S)</TemplateColumn>
+                <TemplateColumn Title="@L["ColumnSecureBoot"]" Width="170px">@(context.RequireSecureBoot ? S["Yes"] : S["No"])</TemplateColumn>
+                <TemplateColumn Title="@L["ColumnLatestRevision"]" SortBy="@(GridSort<ProfileRow>.ByAscending(r => r.Revision))" Sortable="true" Width="150px">
+                    <a href="@($"/planning/profiles/{context.ProfileId:D}")">@L["RevisionLabel", context.Revision]</a>
+                </TemplateColumn>
+                <TemplateColumn Title="@L["ColumnCreated"]" SortBy="@(GridSort<ProfileRow>.ByDescending(r => r.CreatedAtUtc))" Sortable="true" Width="240px"><DateTimeText Value="context.CreatedAtUtc" /></TemplateColumn>
+            </FluentDataGrid>
+            </div>
+            <div class="grid-footer"><FluentPaginator State="@_pagination" /></div>
+        }
+    </ChildContent>
+</PageFrame>
+
+@code {
+    private static readonly string[] DistributionOptions = ["any", .. PlanningLabels.DistributionIds];
+    private static readonly string[] SecureBootOptions = ["any", "yes", "no"];
+    private readonly PaginationState _pagination = new() { ItemsPerPage = 25 };
+    private bool _loading = true;
+    private OperatorFailure? _failure;
+    private string? _message;
+    private IReadOnlyList<ProfileRow> _rows = [];
+    private string _distributionFilter = "any";
+    private string _secureBootFilter = "any";
+
+    private bool HasFilters => _distributionFilter != "any" || _secureBootFilter != "any" || ConsoleShell.Query.Length > 0;
+
+    private IQueryable<ProfileRow> Filtered => _rows.Where(Matches).AsQueryable();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ConsoleShell.AttachSearch(L["ProfileSearchPlaceholder"]);
+        ConsoleShell.Changed += OnShellChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failure = null;
+        var result = await Client.GetProfilesAsync();
+        if (result.Succeeded)
+        {
+            _rows = result.Value!
+                .GroupBy(static p => p.ProfileId)
+                .Select(static g => g.MaxBy(static p => p.Revision)!)
+                .Select(static p => new ProfileRow(p.ProfileId, p.RevisionId, p.Spec.Name, p.Spec.DistroId, p.Spec.MinimumAvailableBytes, p.Spec.RequireSecureBoot, p.Revision, p.CreatedAtUtc))
+                .ToArray();
+        }
+        else
+        {
+            _failure = result.Failure;
+        }
+
+        _loading = false;
+    }
+
+    private bool Matches(ProfileRow row)
+    {
+        if (_distributionFilter != "any" && row.DistroId != _distributionFilter) return false;
+        if (_secureBootFilter == "yes" && !row.RequireSecureBoot) return false;
+        if (_secureBootFilter == "no" && row.RequireSecureBoot) return false;
+        var query = ConsoleShell.Query.Trim();
+        return query.Length == 0 || row.Name.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string DistributionLabel(string option) => option == "any" ? L["FilterAny"] : L[PlanningLabels.DistributionKey(option)];
+
+    private string SecureBootLabel(string option) => option switch { "yes" => S["Yes"], "no" => S["No"], _ => L["FilterAny"] };
+
+    private void ClearFilters()
+    {
+        _distributionFilter = "any";
+        _secureBootFilter = "any";
+        ConsoleShell.SetQuery(string.Empty);
+    }
+
+    private async Task CreateAsync()
+    {
+        var result = await Dialogs.ShowDialogAsync<ProfileDialog>(options => options.Modal = true);
+        if (!result.Cancelled)
+        {
+            _message = L["ProfileCreated"];
+            await LoadAsync();
+        }
+    }
+
+    private void OnShellChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        ConsoleShell.Changed -= OnShellChanged;
+        ConsoleShell.DetachSearch();
+    }
+
+    internal sealed record ProfileRow(Guid ProfileId, Guid RevisionId, string Name, string DistroId, long MinimumBytes, bool RequireSecureBoot, int Revision, DateTimeOffset CreatedAtUtc);
+}

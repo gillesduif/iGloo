@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Trust_Active" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="Trust_Active_Meaning" xml:space="preserve">
+    <value>Fleet Server accepts work and evidence from this enrollment.</value>
+  </data>
+  <data name="Trust_Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Trust_Disabled_Meaning" xml:space="preserve">
+    <value>Work and evidence are refused until the enrollment is reactivated.</value>
+  </data>
+  <data name="Trust_Revoked" xml:space="preserve">
+    <value>Revoked</value>
+  </data>
+  <data name="Trust_Revoked_Meaning" xml:space="preserve">
+    <value>Permanently refused. Approvals and prepared plans are invalidated.</value>
+  </data>
+  <data name="Certificate_Valid" xml:space="preserve">
+    <value>Valid until {0}</value>
+    <comment>{0} = date</comment>
+  </data>
+  <data name="Certificate_ExpiresSoon" xml:space="preserve">
+    <value>Expires in {0} days</value>
+    <comment>{0} = whole days</comment>
+  </data>
+  <data name="Certificate_ExpiresToday" xml:space="preserve">
+    <value>Expires today</value>
+  </data>
+  <data name="Certificate_Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="Token_Available" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="Token_Used" xml:space="preserve">
+    <value>Used</value>
+  </data>
+  <data name="Token_Revoked" xml:space="preserve">
+    <value>Revoked</value>
+  </data>
+  <data name="Token_Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="Work_Pending" xml:space="preserve">
+    <value>Waiting for agent</value>
+  </data>
+  <data name="Work_Leased" xml:space="preserve">
+    <value>Claimed by agent</value>
+  </data>
+  <data name="Work_Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="Work_Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="WorkType_RunAssessment" xml:space="preserve">
+    <value>Assessment</value>
+  </data>
+  <data name="WorkType_RunMigrationDryRun" xml:space="preserve">
+    <value>Migration dry run</value>
+  </data>
+  <data name="Check_Passed" xml:space="preserve">
+    <value>Passed</value>
+  </data>
+  <data name="Check_Information" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="Check_Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="Check_Blocked" xml:space="preserve">
+    <value>Blocked</value>
+  </data>
+  <data name="Check_Unknown" xml:space="preserve">
+    <value>Not determined</value>
+  </data>
+  <data name="Check_Unknown_Meaning" xml:space="preserve">
+    <value>The agent couldn't read this value.</value>
+  </data>
+  <data name="CheckId_Firmware" xml:space="preserve">
+    <value>Firmware</value>
+  </data>
+  <data name="CheckId_SecureBoot" xml:space="preserve">
+    <value>Secure Boot</value>
+  </data>
+  <data name="CheckId_Tpm" xml:space="preserve">
+    <value>TPM</value>
+  </data>
+  <data name="CheckId_BitLocker" xml:space="preserve">
+    <value>BitLocker</value>
+  </data>
+  <data name="CheckId_Memory" xml:space="preserve">
+    <value>Memory</value>
+  </data>
+  <data name="CheckId_Disks" xml:space="preserve">
+    <value>Disks</value>
+  </data>
+  <data name="CheckId_UnknownFinding" xml:space="preserve">
+    <value>Unknown finding</value>
+  </data>
+  <data name="Eligibility_Eligible" xml:space="preserve">
+    <value>Eligible</value>
+  </data>
+  <data name="Eligibility_Eligible_Meaning" xml:space="preserve">
+    <value>Can be approved for planning. Approval doesn't authorize a migration.</value>
+  </data>
+  <data name="Eligibility_NeedsReview" xml:space="preserve">
+    <value>Needs review</value>
+  </data>
+  <data name="Eligibility_NeedsReview_Meaning" xml:space="preserve">
+    <value>Can be approved with a review reason.</value>
+  </data>
+  <data name="Eligibility_Blocked" xml:space="preserve">
+    <value>Blocked</value>
+  </data>
+  <data name="Eligibility_Blocked_Meaning" xml:space="preserve">
+    <value>Can't be approved. Resolve the listed reasons and request a new dry run.</value>
+  </data>
+  <data name="Eligibility_Unknown" xml:space="preserve">
+    <value>Not determined</value>
+  </data>
+  <data name="Eligibility_Unknown_Meaning" xml:space="preserve">
+    <value>Can't be approved. Required evidence is missing or couldn't be read.</value>
+  </data>
+  <data name="Assessment_ReadyForReview" xml:space="preserve">
+    <value>Ready for review</value>
+  </data>
+  <data name="Assessment_ReadyForReview_Meaning" xml:space="preserve">
+    <value>All required checks passed. A migration dry run can be requested.</value>
+  </data>
+  <data name="Assessment_NeedsReview" xml:space="preserve">
+    <value>Needs review</value>
+  </data>
+  <data name="Assessment_NeedsReview_Meaning" xml:space="preserve">
+    <value>A check returned a warning or couldn't be read. Review the checks before requesting a dry run.</value>
+  </data>
+  <data name="Assessment_Blocked" xml:space="preserve">
+    <value>Blocked</value>
+  </data>
+  <data name="Assessment_Blocked_Meaning" xml:space="preserve">
+    <value>At least one check blocked.</value>
+  </data>
+  <data name="Outcome_Assessed" xml:space="preserve">
+    <value>Assessed</value>
+  </data>
+  <data name="Outcome_LocalExecutionFailed" xml:space="preserve">
+    <value>Local read failed</value>
+  </data>
+  <data name="Approval_Approved" xml:space="preserve">
+    <value>Approved</value>
+  </data>
+  <data name="Approval_Revoked" xml:space="preserve">
+    <value>Revoked</value>
+  </data>
+  <data name="Approval_Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="Approval_Superseded" xml:space="preserve">
+    <value>Superseded</value>
+  </data>
+  <data name="Plan_Prepared" xml:space="preserve">
+    <value>Prepared</value>
+  </data>
+  <data name="Plan_Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="Plan_Invalidated" xml:space="preserve">
+    <value>Invalidated</value>
+  </data>
+  <data name="Plan_Superseded" xml:space="preserve">
+    <value>Superseded</value>
+  </data>
+  <data name="Connection_Connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="Connection_NotAuthorized" xml:space="preserve">
+    <value>Not authorized</value>
+  </data>
+  <data name="Connection_CertificateNotTrusted" xml:space="preserve">
+    <value>Certificate not trusted</value>
+  </data>
+  <data name="Connection_Unreachable" xml:space="preserve">
+    <value>Unreachable</value>
+  </data>
+  <data name="Connection_NotConfigured" xml:space="preserve">
+    <value>Not configured</value>
+  </data>
+  <data name="Connection_ServerError" xml:space="preserve">
+    <value>Server error</value>
+  </data>
+  <data name="Connection_Rejected" xml:space="preserve">
+    <value>Request rejected</value>
+  </data>
+  <data name="Capability_PreflightV1" xml:space="preserve">
+    <value>Preflight v1</value>
+  </data>
+  <data name="Capability_PreflightV1_Meaning" xml:space="preserve">
+    <value>Can run the read-only preflight assessment.</value>
+  </data>
+  <data name="Capability_MigrationDryRunV1" xml:space="preserve">
+    <value>Migration dry run v1</value>
+  </data>
+  <data name="Capability_MigrationDryRunV1_Meaning" xml:space="preserve">
+    <value>Can run a feasibility dry run against a profile revision.</value>
+  </data>
+  <data name="Capability_EvidenceV1" xml:space="preserve">
+    <value>Evidence v1</value>
+  </data>
+  <data name="Capability_EvidenceV1_Meaning" xml:space="preserve">
+    <value>Can submit sanitized evidence in the v1 format.</value>
+  </data>
+  <data name="Capability_ProfileSchemaV1" xml:space="preserve">
+    <value>Profile schema v1</value>
+  </data>
+  <data name="Capability_ProfileSchemaV1_Meaning" xml:space="preserve">
+    <value>Understands migration profile schema 1.</value>
+  </data>
+  <data name="Reason_PrecheckFailed" xml:space="preserve">
+    <value>Precheck failed</value>
+  </data>
+  <data name="Reason_PrecheckFailed_Meaning" xml:space="preserve">
+    <value>A preflight check blocked.</value>
+  </data>
+  <data name="Reason_BitLockerUnknown" xml:space="preserve">
+    <value>BitLocker not determined</value>
+  </data>
+  <data name="Reason_BitLockerUnknown_Meaning" xml:space="preserve">
+    <value>The agent could not read the BitLocker state.</value>
+  </data>
+  <data name="Reason_InsufficientSpace" xml:space="preserve">
+    <value>Insufficient space</value>
+  </data>
+  <data name="Reason_InsufficientSpace_Meaning" xml:space="preserve">
+    <value>Available capacity is below the required minimum.</value>
+  </data>
+  <data name="Reason_UnsupportedDistro" xml:space="preserve">
+    <value>Distribution not supported</value>
+  </data>
+  <data name="Reason_UnsupportedDistro_Meaning" xml:space="preserve">
+    <value>The agent has no plug-in for the profile's distribution.</value>
+  </data>
+  <data name="Reason_SecureBootRequirementNotMet" xml:space="preserve">
+    <value>Secure Boot required but off</value>
+  </data>
+  <data name="Reason_SecureBootRequirementNotMet_Meaning" xml:space="preserve">
+    <value>The profile requires Secure Boot, which is off on this enrollment.</value>
+  </data>
+  <data name="Reason_HardwareUnsupported" xml:space="preserve">
+    <value>Hardware not supported</value>
+  </data>
+  <data name="Reason_HardwareUnsupported_Meaning" xml:space="preserve">
+    <value>The distribution plug-in reported a blocking compatibility finding.</value>
+  </data>
+  <data name="Reason_CompatibilityReview" xml:space="preserve">
+    <value>Compatibility review</value>
+  </data>
+  <data name="Reason_CompatibilityReview_Meaning" xml:space="preserve">
+    <value>A check returned a warning or couldn't be read.</value>
+  </data>
+  <data name="Reason_MissingEvidence" xml:space="preserve">
+    <value>Missing evidence</value>
+  </data>
+  <data name="Reason_MissingEvidence_Meaning" xml:space="preserve">
+    <value>No dry-run evidence was submitted.</value>
+  </data>
+  <data name="Reason_LocalReadFailure" xml:space="preserve">
+    <value>Local read failure</value>
+  </data>
+  <data name="Reason_LocalReadFailure_Meaning" xml:space="preserve">
+    <value>The agent's local read failed.</value>
+  </data>
+  <data name="Reason_DiskSelectionUnknown" xml:space="preserve">
+    <value>Disk selection not determined</value>
+  </data>
+  <data name="Reason_DiskSelectionUnknown_Meaning" xml:space="preserve">
+    <value>The system disk capacity couldn't be determined.</value>
+  </data>
+  <data name="Actor_Operator" xml:space="preserve">
+    <value>Operator</value>
+  </data>
+  <data name="Actor_Agent" xml:space="preserve">
+    <value>Agent</value>
+  </data>
+  <data name="Actor_Server" xml:space="preserve">
+    <value>Server</value>
+  </data>
+  <data name="Actor_Enrollment" xml:space="preserve">
+    <value>Enrollment</value>
+  </data>
+  <data name="Action_DeviceEnrolled" xml:space="preserve">
+    <value>Enrolled</value>
+  </data>
+  <data name="Action_EnrollmentTokenCreated" xml:space="preserve">
+    <value>Enrollment token created</value>
+  </data>
+  <data name="Action_EnrollmentTokenRevoked" xml:space="preserve">
+    <value>Enrollment token revoked</value>
+  </data>
+  <data name="Action_MigrationProfileCreated" xml:space="preserve">
+    <value>Migration profile created</value>
+  </data>
+  <data name="Action_MigrationProfileRevised" xml:space="preserve">
+    <value>Migration profile revised</value>
+  </data>
+  <data name="Action_AssessmentRequested" xml:space="preserve">
+    <value>Assessment requested</value>
+  </data>
+  <data name="Action_DryRunRequested" xml:space="preserve">
+    <value>Dry run requested</value>
+  </data>
+  <data name="Action_AssessmentReceived" xml:space="preserve">
+    <value>Assessment received</value>
+  </data>
+  <data name="Action_DryRunCompleted" xml:space="preserve">
+    <value>Dry run completed</value>
+  </data>
+  <data name="Action_EligibilityEvaluated" xml:space="preserve">
+    <value>Eligibility evaluated</value>
+  </data>
+  <data name="Action_PlanApproved" xml:space="preserve">
+    <value>Plan approved</value>
+  </data>
+  <data name="Action_ApprovalRevoked" xml:space="preserve">
+    <value>Approval revoked</value>
+  </data>
+  <data name="Action_ApprovalInvalidated" xml:space="preserve">
+    <value>Approval invalidated</value>
+  </data>
+  <data name="Action_PreparedPlanCreated" xml:space="preserve">
+    <value>Prepared plan created</value>
+  </data>
+  <data name="Action_PreparedPlanInvalidated" xml:space="preserve">
+    <value>Prepared plan invalidated</value>
+  </data>
+  <data name="Action_Denied" xml:space="preserve">
+    <value>Request denied</value>
+  </data>
+  <data name="Module_Present" xml:space="preserve">
+    <value>Present</value>
+  </data>
+  <data name="Module_Absent" xml:space="preserve">
+    <value>Absent</value>
+  </data>
+  <data name="Module_Enabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Module_Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Module_Supported" xml:space="preserve">
+    <value>Supported</value>
+  </data>
+  <data name="Module_EndOfLife" xml:space="preserve">
+    <value>End of life</value>
+  </data>
+  <data name="Module_Unknown" xml:space="preserve">
+    <value>Not determined</value>
+  </data>
+  <data name="Module_Up" xml:space="preserve">
+    <value>Up</value>
+  </data>
+  <data name="Module_Down" xml:space="preserve">
+    <value>Down</value>
+  </data>
+  <data name="Module_Current" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="Module_Outdated" xml:space="preserve">
+    <value>Outdated</value>
+  </data>
+  <data name="Module_Unsupported" xml:space="preserve">
+    <value>Unsupported</value>
+  </data>
+  <data name="Module_Active" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="Module_Draft" xml:space="preserve">
+    <value>Draft</value>
+  </data>
+  <data name="Module_Installed" xml:space="preserve">
+    <value>Installed</value>
+  </data>
+  <data name="Module_Available" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="Module_Blocked" xml:space="preserve">
+    <value>Blocked</value>
+  </data>
+  <data name="Module_Upgradable" xml:space="preserve">
+    <value>Upgradable</value>
+  </data>
+  <data name="Module_Held" xml:space="preserve">
+    <value>Held</value>
+  </data>
+  <data name="Module_Scheduled" xml:space="preserve">
+    <value>Scheduled</value>
+  </data>
+  <data name="Module_InProgress" xml:space="preserve">
+    <value>In progress</value>
+  </data>
+  <data name="Module_Succeeded" xml:space="preserve">
+    <value>Succeeded</value>
+  </data>
+  <data name="Module_Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Module_Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="Module_Important" xml:space="preserve">
+    <value>Important</value>
+  </data>
+  <data name="Module_Moderate" xml:space="preserve">
+    <value>Moderate</value>
+  </data>
+  <data name="Module_Low" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="Module_Pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="Module_Approved" xml:space="preserve">
+    <value>Approved</value>
+  </data>
+  <data name="Module_Deferred" xml:space="preserve">
+    <value>Deferred</value>
+  </data>
+  <data name="Module_Paused" xml:space="preserve">
+    <value>Paused</value>
+  </data>
+  <data name="Module_UpToDate" xml:space="preserve">
+    <value>Up to date</value>
+  </data>
+  <data name="Module_Assigned" xml:space="preserve">
+    <value>Assigned</value>
+  </data>
+  <data name="Module_NotRun" xml:space="preserve">
+    <value>Not run</value>
+  </data>
+  <data name="Module_Running" xml:space="preserve">
+    <value>Running</value>
+  </data>
+  <data name="Module_Stopped" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Module_Compliant" xml:space="preserve">
+    <value>Compliant</value>
+  </data>
+  <data name="Module_NonCompliant" xml:space="preserve">
+    <value>Not compliant</value>
+  </data>
+  <data name="Module_Healthy" xml:space="preserve">
+    <value>Healthy</value>
+  </data>
+  <data name="Module_AtRisk" xml:space="preserve">
+    <value>At risk</value>
+  </data>
+  <data name="Module_Encrypted" xml:space="preserve">
+    <value>Encrypted</value>
+  </data>
+  <data name="Module_NotEncrypted" xml:space="preserve">
+    <value>Not encrypted</value>
+  </data>
+  <data name="Module_Inactive" xml:space="preserve">
+    <value>Inactive</value>
+  </data>
+  <data name="Module_Locked" xml:space="preserve">
+    <value>Locked</value>
+  </data>
+  <data name="Module_Review" xml:space="preserve">
+    <value>Needs review</value>
+  </data>
+  <data name="Module_Valid" xml:space="preserve">
+    <value>Valid</value>
+  </data>
+  <data name="Module_ExpiresSoon" xml:space="preserve">
+    <value>Expires soon</value>
+  </data>
+  <data name="Module_Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="Module_NotEvaluated" xml:space="preserve">
+    <value>Not evaluated</value>
+  </data>
+  <data name="Module_Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="Module_Full" xml:space="preserve">
+    <value>Full</value>
+  </data>
+  <data name="Module_ReadOnly" xml:space="preserve">
+    <value>Read-only</value>
+  </data>
+  <data name="Module_Mounted" xml:space="preserve">
+    <value>Mounted</value>
+  </data>
+  <data name="Module_NotMounted" xml:space="preserve">
+    <value>Not mounted</value>
+  </data>
+  <data name="Module_Clean" xml:space="preserve">
+    <value>Clean</value>
+  </data>
+  <data name="Module_Degraded" xml:space="preserve">
+    <value>Degraded</value>
+  </data>
+  <data name="Module_Rebuilding" xml:space="preserve">
+    <value>Rebuilding</value>
+  </data>
+  <data name="Module_Conflict" xml:space="preserve">
+    <value>Conflict</value>
+  </data>
+  <data name="Module_Reachable" xml:space="preserve">
+    <value>Reachable</value>
+  </data>
+  <data name="Module_Unreachable" xml:space="preserve">
+    <value>Unreachable</value>
+  </data>
+  <data name="Module_Information" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="Module_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Module_Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="Module_Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Module_Acknowledged" xml:space="preserve">
+    <value>Acknowledged</value>
+  </data>
+  <data name="Module_Resolved" xml:space="preserve">
+    <value>Resolved</value>
+  </data>
+  <data name="Module_Published" xml:space="preserve">
+    <value>Published</value>
+  </data>
+  <data name="Module_Cancelled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+</root>

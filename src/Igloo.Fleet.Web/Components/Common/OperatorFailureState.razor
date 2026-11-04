@@ -1,0 +1,41 @@
+@inject IStringLocalizer<SharedStrings> S
+
+<div class="state state-failure" role="alert">
+    <FluentMessageBar Intent="@Intent" Title="@Title" AllowDismiss="false" AriaLive="AriaLive.Off">
+        @Message
+    </FluentMessageBar>
+    <div class="state-action">
+        @if (OnRetry.HasDelegate)
+        {
+            <FluentButton Appearance="ButtonAppearance.Primary" OnClick="OnRetry" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())">@S["Retry"]</FluentButton>
+        }
+        @if (Failure.Kind is not OperatorFailureKind.Rejected)
+        {
+            <FluentAnchorButton Href="/settings/server" Appearance="ButtonAppearance.Outline">@S["OpenServerConnectionSettings"]</FluentAnchorButton>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public OperatorFailure Failure { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
+
+    private MessageBarIntent Intent => Failure.Kind switch
+    {
+        OperatorFailureKind.NotConfigured => MessageBarIntent.Info,
+        OperatorFailureKind.Rejected => MessageBarIntent.Warning,
+        _ => MessageBarIntent.Error,
+    };
+
+    private string Title => S["Connection" + Failure.Kind + "Title"];
+
+    private string Message => Failure.Kind switch
+    {
+        OperatorFailureKind.Rejected => S["ConnectionRejectedMessage", Failure.Error?.Code.ToString() ?? Failure.StatusCode?.ToString(CultureInfo.InvariantCulture) ?? "?"],
+        OperatorFailureKind.ServerError => S["ConnectionServerErrorMessage", Failure.StatusCode?.ToString(CultureInfo.InvariantCulture) ?? "?"],
+        _ => S["Connection" + Failure.Kind + "Message"],
+    };
+}

@@ -1,0 +1,534 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ProfilesTitle" xml:space="preserve">
+    <value>Migration profiles</value>
+  </data>
+  <data name="ProfilesEmptyTitle" xml:space="preserve">
+    <value>No migration profiles</value>
+  </data>
+  <data name="ProfilesEmptyMessage" xml:space="preserve">
+    <value>Create a profile to use in migration dry runs.</value>
+  </data>
+  <data name="CreateProfile" xml:space="preserve">
+    <value>Create profile</value>
+  </data>
+  <data name="AddRevision" xml:space="preserve">
+    <value>Add revision</value>
+  </data>
+  <data name="ColumnName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ColumnDistribution" xml:space="preserve">
+    <value>Distribution</value>
+  </data>
+  <data name="ColumnMinimumFreeSpace" xml:space="preserve">
+    <value>Minimum free space</value>
+  </data>
+  <data name="ColumnSecureBoot" xml:space="preserve">
+    <value>Secure Boot required</value>
+  </data>
+  <data name="ColumnLatestRevision" xml:space="preserve">
+    <value>Latest revision</value>
+  </data>
+  <data name="ColumnRevision" xml:space="preserve">
+    <value>Revision</value>
+  </data>
+  <data name="ColumnCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="ColumnWorkItemsUsing" xml:space="preserve">
+    <value>Work items using it</value>
+  </data>
+  <data name="RevisionLabel" xml:space="preserve">
+    <value>Revision {0}</value>
+    <comment>{0} = revision number</comment>
+  </data>
+  <data name="ProfileSearchPlaceholder" xml:space="preserve">
+    <value>Search by profile name</value>
+  </data>
+  <data name="FilterDistribution" xml:space="preserve">
+    <value>Distribution</value>
+  </data>
+  <data name="FilterSecureBoot" xml:space="preserve">
+    <value>Secure Boot required</value>
+  </data>
+  <data name="FilterAny" xml:space="preserve">
+    <value>Any</value>
+  </data>
+  <data name="ProfileNotFoundTitle" xml:space="preserve">
+    <value>Migration profile not found</value>
+  </data>
+  <data name="ProfileRevisionsTitle" xml:space="preserve">
+    <value>Revisions</value>
+  </data>
+  <data name="RevisionWarning" xml:space="preserve">
+    <value>Adding a revision supersedes approvals and prepared plans based on earlier revisions. A new dry run is required.</value>
+  </data>
+  <data name="ProfileDialogCreateTitle" xml:space="preserve">
+    <value>Create migration profile</value>
+  </data>
+  <data name="ProfileDialogRevisionTitle" xml:space="preserve">
+    <value>Add revision to {0}</value>
+    <comment>{0} = profile name</comment>
+  </data>
+  <data name="ProfileName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ProfileNameRule" xml:space="preserve">
+    <value>1 to 80 characters.</value>
+  </data>
+  <data name="ProfileDistribution" xml:space="preserve">
+    <value>Distribution</value>
+  </data>
+  <data name="ProfileMinimumSpace" xml:space="preserve">
+    <value>Minimum free space (GiB)</value>
+  </data>
+  <data name="ProfileMinimumSpaceRule" xml:space="preserve">
+    <value>20 to 1024 GiB.</value>
+  </data>
+  <data name="ProfileSecureBoot" xml:space="preserve">
+    <value>Secure Boot required</value>
+  </data>
+  <data name="ProfileCreated" xml:space="preserve">
+    <value>Migration profile created.</value>
+  </data>
+  <data name="ProfileRevised" xml:space="preserve">
+    <value>Revision {0} added.</value>
+    <comment>{0} = revision number</comment>
+  </data>
+  <data name="DistributionDebian" xml:space="preserve">
+    <value>Debian</value>
+  </data>
+  <data name="DistributionFedoraKde" xml:space="preserve">
+    <value>Fedora KDE</value>
+  </data>
+  <data name="DistributionLinuxMintCinnamon" xml:space="preserve">
+    <value>Linux Mint Cinnamon</value>
+  </data>
+  <data name="WorkTitle" xml:space="preserve">
+    <value>Work items</value>
+  </data>
+  <data name="WorkEmptyTitle" xml:space="preserve">
+    <value>No work items</value>
+  </data>
+  <data name="WorkEmptyMessage" xml:space="preserve">
+    <value>Request an assessment or migration dry run for an active enrollment.</value>
+  </data>
+  <data name="RequestWork" xml:space="preserve">
+    <value>Request work</value>
+  </data>
+  <data name="ColumnWorkItem" xml:space="preserve">
+    <value>Work item</value>
+  </data>
+  <data name="ColumnEnrollment" xml:space="preserve">
+    <value>Enrollment</value>
+  </data>
+  <data name="ColumnType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="ColumnStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="ColumnExpires" xml:space="preserve">
+    <value>Expires</value>
+  </data>
+  <data name="ColumnAttempts" xml:space="preserve">
+    <value>Attempts</value>
+  </data>
+  <data name="ColumnProfileRevision" xml:space="preserve">
+    <value>Profile revision</value>
+  </data>
+  <data name="ColumnLease" xml:space="preserve">
+    <value>Lease</value>
+  </data>
+  <data name="ColumnCorrelation" xml:space="preserve">
+    <value>Correlation ID</value>
+  </data>
+  <data name="WorkSearchPlaceholder" xml:space="preserve">
+    <value>Search by work item, enrollment, or correlation ID</value>
+  </data>
+  <data name="FilterType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="FilterStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="WorkNotFoundTitle" xml:space="preserve">
+    <value>Work item not found</value>
+  </data>
+  <data name="WorkDetailTitle" xml:space="preserve">
+    <value>Work item</value>
+  </data>
+  <data name="WorkCard" xml:space="preserve">
+    <value>Work item</value>
+  </data>
+  <data name="WorkEvidenceCard" xml:space="preserve">
+    <value>Evidence</value>
+  </data>
+  <data name="WorkNoEvidence" xml:space="preserve">
+    <value>No result has been submitted.</value>
+  </data>
+  <data name="OpenEvidence" xml:space="preserve">
+    <value>Open evidence</value>
+  </data>
+  <data name="LeaseActive" xml:space="preserve">
+    <value>Leased until {0}</value>
+    <comment>{0} = date and time</comment>
+  </data>
+  <data name="RequestWorkDialogTitle" xml:space="preserve">
+    <value>Request work</value>
+  </data>
+  <data name="RequestWorkEnrollment" xml:space="preserve">
+    <value>Enrollment</value>
+  </data>
+  <data name="RequestWorkNoEnrollments" xml:space="preserve">
+    <value>No active enrollment reports the required capabilities.</value>
+  </data>
+  <data name="RequestWorkType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="RequestWorkProfile" xml:space="preserve">
+    <value>Profile revision</value>
+  </data>
+  <data name="RequestWorkLifetime" xml:space="preserve">
+    <value>Lifetime in minutes</value>
+  </data>
+  <data name="RequestWorkLifetimeRule" xml:space="preserve">
+    <value>1 to 1440 minutes.</value>
+  </data>
+  <data name="RequestWorkMissingCapabilities" xml:space="preserve">
+    <value>This enrollment hasn't reported {0}. The request can't be made until the agent reports it.</value>
+    <comment>{0} = comma-separated capability names</comment>
+  </data>
+  <data name="WorkRequested" xml:space="preserve">
+    <value>Work item created. The agent processes it on its next run.</value>
+  </data>
+  <data name="EvidenceTitle" xml:space="preserve">
+    <value>Evidence</value>
+  </data>
+  <data name="EvidenceEmptyTitle" xml:space="preserve">
+    <value>No evidence yet</value>
+  </data>
+  <data name="EvidenceEmptyMessage" xml:space="preserve">
+    <value>Evidence appears when an agent completes a work item.</value>
+  </data>
+  <data name="ColumnOutcome" xml:space="preserve">
+    <value>Outcome</value>
+  </data>
+  <data name="ColumnReasons" xml:space="preserve">
+    <value>Reasons</value>
+  </data>
+  <data name="ColumnReceived" xml:space="preserve">
+    <value>Received</value>
+  </data>
+  <data name="EvidenceSearchPlaceholder" xml:space="preserve">
+    <value>Search by work item, enrollment, correlation ID, or evidence hash</value>
+  </data>
+  <data name="FilterEligibility" xml:space="preserve">
+    <value>Eligibility</value>
+  </data>
+  <data name="FilterApproval" xml:space="preserve">
+    <value>Approval</value>
+  </data>
+  <data name="FilterApprovalAwaiting" xml:space="preserve">
+    <value>Awaiting approval</value>
+  </data>
+  <data name="FilterApprovalApproved" xml:space="preserve">
+    <value>Approved</value>
+  </data>
+  <data name="FilterApprovalNotApprovable" xml:space="preserve">
+    <value>Not approvable</value>
+  </data>
+  <data name="ReasonCount" xml:space="preserve">
+    <value>{0} reasons</value>
+    <comment>{0} = count</comment>
+  </data>
+  <data name="ReasonOne" xml:space="preserve">
+    <value>1 reason</value>
+  </data>
+  <data name="EvidenceNotFoundTitle" xml:space="preserve">
+    <value>Evidence not found</value>
+  </data>
+  <data name="EvidenceDetailTitle" xml:space="preserve">
+    <value>Evidence</value>
+  </data>
+  <data name="DecisionCard" xml:space="preserve">
+    <value>Decision</value>
+  </data>
+  <data name="DecisionId" xml:space="preserve">
+    <value>Decision ID</value>
+  </data>
+  <data name="RulesVersion" xml:space="preserve">
+    <value>Rules version</value>
+  </data>
+  <data name="DecisionReasons" xml:space="preserve">
+    <value>Reasons</value>
+  </data>
+  <data name="NoReasons" xml:space="preserve">
+    <value>No reasons recorded.</value>
+  </data>
+  <data name="AssessmentOutcomeCard" xml:space="preserve">
+    <value>Assessment outcome</value>
+  </data>
+  <data name="AssessmentOutcomeNote" xml:space="preserve">
+    <value>Assessments can't be approved.</value>
+  </data>
+  <data name="ChecksCard" xml:space="preserve">
+    <value>Checks</value>
+  </data>
+  <data name="ColumnCheck" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="ColumnResult" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="ChecksNoneRecorded" xml:space="preserve">
+    <value>No checks were recorded because the agent's local read failed.</value>
+  </data>
+  <data name="FactsCard" xml:space="preserve">
+    <value>Dry run facts</value>
+  </data>
+  <data name="FactTargetSupported" xml:space="preserve">
+    <value>Target supported</value>
+  </data>
+  <data name="FactSecureBoot" xml:space="preserve">
+    <value>Secure Boot observed</value>
+  </data>
+  <data name="FactAvailable" xml:space="preserve">
+    <value>Available capacity</value>
+  </data>
+  <data name="FactRequired" xml:space="preserve">
+    <value>Required capacity</value>
+  </data>
+  <data name="FactPluginHash" xml:space="preserve">
+    <value>Plug-in hash</value>
+  </data>
+  <data name="ProvenanceCard" xml:space="preserve">
+    <value>Provenance</value>
+  </data>
+  <data name="ProvenanceWorkItem" xml:space="preserve">
+    <value>Work item</value>
+  </data>
+  <data name="ProvenanceCorrelation" xml:space="preserve">
+    <value>Correlation ID</value>
+  </data>
+  <data name="ProvenanceProfile" xml:space="preserve">
+    <value>Profile revision</value>
+  </data>
+  <data name="ProvenanceAgentVersion" xml:space="preserve">
+    <value>Agent version</value>
+  </data>
+  <data name="ProvenanceIglooVersion" xml:space="preserve">
+    <value>iGloo version</value>
+  </data>
+  <data name="ProvenanceCapabilities" xml:space="preserve">
+    <value>Capability snapshot</value>
+  </data>
+  <data name="ProvenanceReceived" xml:space="preserve">
+    <value>Received</value>
+  </data>
+  <data name="ProvenanceStarted" xml:space="preserve">
+    <value>Started</value>
+  </data>
+  <data name="ProvenanceCompleted" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="ProvenanceHash" xml:space="preserve">
+    <value>Evidence hash</value>
+  </data>
+  <data name="ProvenanceInventory" xml:space="preserve">
+    <value>{0} RAM, {1} disks</value>
+    <comment>{0} = size, {1} = disk count</comment>
+  </data>
+  <data name="Approve" xml:space="preserve">
+    <value>Approve</value>
+  </data>
+  <data name="ApproveBlockedNote" xml:space="preserve">
+    <value>Blocked evidence can't be approved.</value>
+  </data>
+  <data name="ApproveUnknownNote" xml:space="preserve">
+    <value>Evidence with a Not determined decision can't be approved.</value>
+  </data>
+  <data name="ApprovalCard" xml:space="preserve">
+    <value>Approval</value>
+  </data>
+  <data name="ApproveDialogTitle" xml:space="preserve">
+    <value>Approve evidence for planning</value>
+  </data>
+  <data name="ApproveDialogWhat" xml:space="preserve">
+    <value>You're approving this evidence:</value>
+  </data>
+  <data name="ApproveDialogHash" xml:space="preserve">
+    <value>Evidence hash</value>
+  </data>
+  <data name="ApproveDialogDecision" xml:space="preserve">
+    <value>Decision ID</value>
+  </data>
+  <data name="ApproveDialogProfile" xml:space="preserve">
+    <value>Profile revision</value>
+  </data>
+  <data name="ApproveReviewReason" xml:space="preserve">
+    <value>Review reason</value>
+  </data>
+  <data name="ApproveReviewReasonRequired" xml:space="preserve">
+    <value>Required when eligibility is Needs review.</value>
+  </data>
+  <data name="ApproveReviewReasonOptional" xml:space="preserve">
+    <value>Optional.</value>
+  </data>
+  <data name="ApproveReviewReasonStored" xml:space="preserve">
+    <value>Don't include secrets.</value>
+  </data>
+  <data name="ApproveReviewReasonCounter" xml:space="preserve">
+    <value>{0} of 500 characters</value>
+    <comment>{0} = length</comment>
+  </data>
+  <data name="ApproveConfirmLine" xml:space="preserve">
+    <value>Approval is for planning only. It doesn't authorize a migration.</value>
+  </data>
+  <data name="Approved" xml:space="preserve">
+    <value>Evidence approved. The approval expires in 4 hours.</value>
+  </data>
+  <data name="ApprovalsTitle" xml:space="preserve">
+    <value>Approvals</value>
+  </data>
+  <data name="ApprovalsEmptyTitle" xml:space="preserve">
+    <value>No approvals</value>
+  </data>
+  <data name="ApprovalsEmptyMessage" xml:space="preserve">
+    <value>Approvals appear when eligible dry-run evidence is approved.</value>
+  </data>
+  <data name="ColumnApproval" xml:space="preserve">
+    <value>Approval</value>
+  </data>
+  <data name="ColumnApproved" xml:space="preserve">
+    <value>Approved</value>
+  </data>
+  <data name="ColumnReviewReason" xml:space="preserve">
+    <value>Review reason</value>
+  </data>
+  <data name="ColumnApprovedBy" xml:space="preserve">
+    <value>Approved by</value>
+  </data>
+  <data name="FromConsoleAccount" xml:space="preserve">
+    <value>from console account {0}</value>
+    <comment>{0} = username</comment>
+  </data>
+  <data name="ApprovalSearchPlaceholder" xml:space="preserve">
+    <value>Search by approval, enrollment, or evidence hash</value>
+  </data>
+  <data name="FilterState" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="ApprovalNotFoundTitle" xml:space="preserve">
+    <value>Approval not found</value>
+  </data>
+  <data name="ApprovalDetailTitle" xml:space="preserve">
+    <value>Approval</value>
+  </data>
+  <data name="ApprovalFields" xml:space="preserve">
+    <value>Approval</value>
+  </data>
+  <data name="ApprovalExpires" xml:space="preserve">
+    <value>Expires</value>
+  </data>
+  <data name="ApprovalEvidenceCard" xml:space="preserve">
+    <value>Evidence</value>
+  </data>
+  <data name="ApprovalPlanCard" xml:space="preserve">
+    <value>Prepared plan</value>
+  </data>
+  <data name="ApprovalNoPlan" xml:space="preserve">
+    <value>No plan has been prepared.</value>
+  </data>
+  <data name="PreparePlan" xml:space="preserve">
+    <value>Prepare plan</value>
+  </data>
+  <data name="PreparePlanTitle" xml:space="preserve">
+    <value>Prepare plan</value>
+  </data>
+  <data name="PreparePlanMessage" xml:space="preserve">
+    <value>The approved decision is recorded as a prepared plan. Nothing runs on the enrollment.</value>
+  </data>
+  <data name="PlanPrepared" xml:space="preserve">
+    <value>Plan prepared.</value>
+  </data>
+  <data name="RevokeApproval" xml:space="preserve">
+    <value>Revoke approval</value>
+  </data>
+  <data name="RevokeApprovalTitle" xml:space="preserve">
+    <value>Revoke approval</value>
+  </data>
+  <data name="RevokeApprovalMessage" xml:space="preserve">
+    <value>This also invalidates the prepared plan created from this approval. This can't be undone.</value>
+  </data>
+  <data name="ApprovalRevoked" xml:space="preserve">
+    <value>Approval revoked.</value>
+  </data>
+  <data name="PlansTitle" xml:space="preserve">
+    <value>Prepared plans</value>
+  </data>
+  <data name="PlansEmptyTitle" xml:space="preserve">
+    <value>No prepared plans</value>
+  </data>
+  <data name="PlansEmptyMessage" xml:space="preserve">
+    <value>Plans appear when an approval is prepared.</value>
+  </data>
+  <data name="ColumnPlan" xml:space="preserve">
+    <value>Plan</value>
+  </data>
+  <data name="ColumnIglooVersion" xml:space="preserve">
+    <value>iGloo version</value>
+  </data>
+  <data name="PlanSearchPlaceholder" xml:space="preserve">
+    <value>Search by plan, enrollment, approval, or evidence hash</value>
+  </data>
+  <data name="PlanNotFoundTitle" xml:space="preserve">
+    <value>Prepared plan not found</value>
+  </data>
+  <data name="PlanDetailTitle" xml:space="preserve">
+    <value>Prepared plan</value>
+  </data>
+  <data name="PlanLineageCard" xml:space="preserve">
+    <value>Lineage</value>
+  </data>
+  <data name="PlanValidityCard" xml:space="preserve">
+    <value>Validity</value>
+  </data>
+  <data name="PlanBoundaryCard" xml:space="preserve">
+    <value>Safety boundary</value>
+  </data>
+  <data name="PlanPluginHash" xml:space="preserve">
+    <value>Plug-in hash</value>
+  </data>
+  <data name="LinkEnrollment" xml:space="preserve">
+    <value>Open enrollment</value>
+  </data>
+  <data name="LinkWorkItem" xml:space="preserve">
+    <value>Open work item</value>
+  </data>
+  <data name="LinkEvidence" xml:space="preserve">
+    <value>Open evidence</value>
+  </data>
+  <data name="LinkApproval" xml:space="preserve">
+    <value>Open approval</value>
+  </data>
+  <data name="LinkPlan" xml:space="preserve">
+    <value>Open prepared plan</value>
+  </data>
+  <data name="LinkProfile" xml:space="preserve">
+    <value>Open profile</value>
+  </data>
+</root>

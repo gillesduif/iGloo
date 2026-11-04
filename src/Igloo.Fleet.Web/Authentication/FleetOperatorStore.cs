@@ -39,6 +39,17 @@ internal sealed class FleetOperatorStore
         }
     }
 
+    /// <summary>Accounts without their password hashes, for display only.</summary>
+    public IReadOnlyList<ConsoleAccountInfo> List()
+    {
+        lock (_syncRoot)
+        {
+            return ReadUnlocked()
+                .Select(account => new ConsoleAccountInfo(account.DisplayName, account.Username, account.Role, account.CreatedAtUtc))
+                .ToArray();
+        }
+    }
+
     public FleetOperatorAccount? ValidateCredentials(
         string username,
         string password)

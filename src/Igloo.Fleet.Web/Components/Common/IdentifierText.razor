@@ -1,0 +1,42 @@
+@inject IStringLocalizer<SharedStrings> S
+@inject IJSRuntime JS
+
+<span class="identifier">
+    @if (Href is not null)
+    {
+        <a href="@Href" class="identifier-link"><code title="@Value">@Display</code></a>
+    }
+    else
+    {
+        <code title="@Value">@Display</code>
+    }
+    <FluentButton IconOnly="true"
+                  Appearance="ButtonAppearance.Transparent"
+                  Size="ButtonSize.Small"
+                  Title="@S["CopyToClipboard"]"
+                  OnClick="CopyAsync">
+        <FluentIcon Value="@(new Icons.Regular.Size16.Copy())" />
+    </FluentButton>
+    <span class="visually-hidden" aria-live="polite">@_announcement</span>
+</span>
+
+@code {
+    private string? _announcement;
+
+    [Parameter, EditorRequired]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool Short { get; set; } = true;
+
+    [Parameter]
+    public string? Href { get; set; }
+
+    private string Display => Short && Value.Length > 8 ? Value[..8] : Value;
+
+    private async Task CopyAsync()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", Value);
+        _announcement = S["Copied"];
+    }
+}

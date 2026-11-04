@@ -1,0 +1,29 @@
+<div class="state state-empty">
+    @if (Icon is not null)
+    {
+        <FluentIcon Value="@Icon" Class="state-icon" />
+    }
+    <h2 class="state-title">@Title</h2>
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <p class="state-message">@Message</p>
+    }
+    @if (Action is not null)
+    {
+        <div class="state-action">@Action</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public Icon? Icon { get; set; }
+
+    [Parameter]
+    public RenderFragment? Action { get; set; }
+}

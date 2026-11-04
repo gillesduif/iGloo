@@ -3,14 +3,19 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <NeutralLanguage>en</NeutralLanguage>
+    <SatelliteResourceLanguages>en;nl;fr;de</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Igloo.Fleet.Contracts\Igloo.Fleet.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="ColorlibHQ.AdminLTE.AspNetCore" Version="0.3.1" />
+    <!-- Pinned exactly; a bump is a reviewed change with a fresh screenshot and axe run (ADR-015). -->
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="[5.0.1]" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="[5.0.1]" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Igloo.Fleet.Tests" />
+    <InternalsVisibleTo Include="Igloo.Fleet.Web.UiTests" />
   </ItemGroup>
 </Project>

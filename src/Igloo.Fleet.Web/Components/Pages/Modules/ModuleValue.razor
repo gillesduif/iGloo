@@ -1,0 +1,47 @@
+@inject IStringLocalizer<SharedStrings> S
+
+@switch (Field.Kind)
+{
+    case ModuleFieldKind.Enrollment:
+        @if (Row[Field.Key] is Guid enrollment)
+        {
+            <IdentifierText Value="@enrollment.ToString("D")" Href="@($"/enrollments/{enrollment:D}")" />
+        }
+        else
+        {
+            <span class="text-secondary">@S["NotAvailable"]</span>
+        }
+        break;
+    case ModuleFieldKind.Status:
+        @if (Row[Field.Key] is string token && token.Length > 0)
+        {
+            <StatusBadge Presentation="StatusCatalog.Module(token)" />
+        }
+        break;
+    case ModuleFieldKind.DateTime:
+        <DateTimeText Value="@(Row[Field.Key] as DateTimeOffset?)" />
+        break;
+    case ModuleFieldKind.Count:
+        @(Row[Field.Key] is int count ? ConsoleFormat.Count(count) : string.Empty)
+        break;
+    case ModuleFieldKind.Size:
+        @(Row[Field.Key] is long bytes ? ConsoleFormat.Gibibytes(bytes, S) : string.Empty)
+        break;
+    case ModuleFieldKind.Percent:
+        @(Row[Field.Key] is double percent ? string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0:0.#}%", percent) : string.Empty)
+        break;
+    case ModuleFieldKind.YesNo:
+        @(Row[Field.Key] is bool flag ? (flag ? S["Yes"] : S["No"]) : string.Empty)
+        break;
+    default:
+        @(Row[Field.Key]?.ToString())
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public ModuleField Field { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public ModuleRow Row { get; set; } = default!;
+}

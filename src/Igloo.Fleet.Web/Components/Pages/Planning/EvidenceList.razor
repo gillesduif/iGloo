@@ -1,0 +1,180 @@
+@page "/planning/evidence"
+@implements IDisposable
+@inject IStringLocalizer<PlanningStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IStringLocalizer<ShellStrings> Shell
+@inject IStringLocalizer<StatusStrings> Status
+@inject IFleetOperatorClient Client
+@inject ConsoleShell ConsoleShell
+
+<PageFrame Title="@L["EvidenceTitle"]"
+           Breadcrumbs="@([new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell["Planning"], "/planning/profiles")])">
+    <SecondaryActions>
+        <FluentButton Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())" OnClick="LoadAsync" Disabled="@_loading">@S["Refresh"]</FluentButton>
+        <FluentAnchorButton Href="/export/evidence.csv" Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowDownload())" Download="evidence.csv">@S["ExportCsv"]</FluentAnchorButton>
+    </SecondaryActions>
+    <Filters>
+        <FluentSelect TOption="string" TValue="string" Items="@TypeOptions" OptionText="@(o => TypeLabel(o))" OptionValue="@(o => o)" Label="@L["FilterType"]" @bind-Value="_typeFilter" Width="200px" />
+        <FluentSelect TOption="string" TValue="string" Items="@EligibilityOptions" OptionText="@(o => EligibilityLabel(o))" OptionValue="@(o => o)" Label="@L["FilterEligibility"]" @bind-Value="_eligibilityFilter" Width="200px" />
+        <FluentSelect TOption="string" TValue="string" Items="@ApprovalOptions" OptionText="@(o => ApprovalLabel(o))" OptionValue="@(o => o)" Label="@L["FilterApproval"]" @bind-Value="_approvalFilter" Width="200px" />
+        @if (HasFilters)
+        {
+            <FluentButton Appearance="ButtonAppearance.Subtle" OnClick="ClearFilters">@S["ClearFilters"]</FluentButton>
+        }
+    </Filters>
+    <ChildContent>
+        @if (_loading)
+        {
+            <LoadingState />
+        }
+        else if (_failure is not null)
+        {
+            <OperatorFailureState Failure="_failure" OnRetry="LoadAsync" />
+        }
+        else if (_evidence.Count == 0)
+        {
+            <EmptyState Title="@L["EvidenceEmptyTitle"]" Message="@L["EvidenceEmptyMessage"]" Icon="@(new Icons.Regular.Size24.DocumentCheckmark())" />
+        }
+        else if (!Filtered.Any())
+        {
+            <NoResultsState OnClear="ClearFilters" />
+        }
+        else
+        {
+            <div class="grid-scroll">
+            <FluentDataGrid Items="@Filtered" Pagination="@_pagination" RowSize="DataGridRowSize.Small" ResizableColumns="true" ItemKey="@(e => e.DryRunId)" TGridItem="DryRunEvidence" aria-label="@L["EvidenceTitle"]">
+                <TemplateColumn Title="@L["ColumnWorkItem"]" Width="160px"><IdentifierText Value="@context.DryRunId.ToString("D")" Href="@($"/planning/evidence/{context.DryRunId:D}")" /></TemplateColumn>
+                <TemplateColumn Title="@L["ColumnEnrollment"]" Width="160px"><IdentifierText Value="@context.Result.Assessment.Identity.DeviceId.ToString("D")" Href="@($"/enrollments/{context.Result.Assessment.Identity.DeviceId:D}")" /></TemplateColumn>
+                <TemplateColumn Title="@L["ColumnType"]" Width="170px">@Status[StatusCatalog.WorkTypeKey(TypeOf(context))]</TemplateColumn>
+                <TemplateColumn Title="@L["ColumnOutcome"]" Width="190px">
+                    @if (context.Result.Planning is null)
+                    {
+                        <StatusBadge Presentation="StatusCatalog.Assessment(context.Result.Assessment.Eligibility)" />
+                    }
+                    else
+                    {
+                        <StatusBadge Presentation="StatusCatalog.Eligibility(context.Decision.Status)" />
+                    }
+                </TemplateColumn>
+                <TemplateColumn Title="@L["ColumnReasons"]" Width="150px">
+                    @if (context.Decision.Reasons.IsDefaultOrEmpty)
+                    {
+                        <span class="text-secondary">@S["None"]</span>
+                    }
+                    else
+                    {
+                        <span title="@string.Join(", ", context.Decision.Reasons.Select(r => Status[StatusCatalog.ReasonKey(r)].Value))">
+                            @(context.Decision.Reasons.Length == 1 ? L["ReasonOne"] : L["ReasonCount", context.Decision.Reasons.Length])
+                        </span>
+                    }
+                </TemplateColumn>
+                <TemplateColumn Title="@L["FilterApproval"]" Width="170px">@ApprovalLabel(ApprovalStateOf(context))</TemplateColumn>
+                <TemplateColumn Title="@L["ColumnReceived"]" SortBy="@(GridSort<DryRunEvidence>.ByDescending(e => e.ReceivedAtUtc))" Sortable="true" InitialSortDirection="DataGridSortDirection.Descending" IsDefaultSortColumn="true" Width="230px"><DateTimeText Value="context.ReceivedAtUtc" /></TemplateColumn>
+            </FluentDataGrid>
+            </div>
+            <div class="grid-footer"><FluentPaginator State="@_pagination" /></div>
+        }
+    </ChildContent>
+</PageFrame>
+
+@code {
+    private static readonly string[] TypeOptions = ["any", nameof(ReadOnlyWorkType.RunAssessment), nameof(ReadOnlyWorkType.RunMigrationDryRun)];
+    private static readonly string[] EligibilityOptions = ["any", .. Enum.GetNames<PlanningEligibility>()];
+    private static readonly string[] ApprovalOptions = ["any", "awaiting-approval", "approved", "not-approvable"];
+    private readonly PaginationState _pagination = new() { ItemsPerPage = 25 };
+    private bool _loading = true;
+    private OperatorFailure? _failure;
+    private IReadOnlyList<DryRunEvidence> _evidence = [];
+    private IReadOnlyList<PlanApproval> _approvals = [];
+    private string _typeFilter = "any";
+    private string _eligibilityFilter = "any";
+    private string _approvalFilter = "any";
+
+    [SupplyParameterFromQuery(Name = "filter")]
+    private string? FilterQuery { get; set; }
+
+    private bool HasFilters => _typeFilter != "any" || _eligibilityFilter != "any" || _approvalFilter != "any" || ConsoleShell.Query.Length > 0;
+
+    private IQueryable<DryRunEvidence> Filtered => _evidence.Where(Matches).AsQueryable();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ConsoleShell.AttachSearch(L["EvidenceSearchPlaceholder"]);
+        ConsoleShell.Changed += OnShellChanged;
+        await LoadAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (ApprovalOptions.Contains(FilterQuery)) _approvalFilter = FilterQuery!;
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failure = null;
+        var evidence = Client.GetEvidenceAsync();
+        var approvals = Client.GetApprovalsAsync();
+        await Task.WhenAll(evidence, approvals);
+        _failure = evidence.Result.Failure ?? approvals.Result.Failure;
+        if (_failure is null)
+        {
+            _evidence = evidence.Result.Value!;
+            _approvals = approvals.Result.Value!;
+        }
+
+        _loading = false;
+    }
+
+    private static ReadOnlyWorkType TypeOf(DryRunEvidence evidence) =>
+        evidence.Result.Planning is null ? ReadOnlyWorkType.RunAssessment : ReadOnlyWorkType.RunMigrationDryRun;
+
+    private string ApprovalStateOf(DryRunEvidence evidence)
+    {
+        if (_approvals.Any(a => a.DryRunId == evidence.DryRunId && a.Status == ApprovalState.Approved)) return "approved";
+        return evidence.Result.Planning is not null && evidence.Decision.Status is PlanningEligibility.Eligible or PlanningEligibility.NeedsReview
+            ? "awaiting-approval"
+            : "not-approvable";
+    }
+
+    private bool Matches(DryRunEvidence evidence)
+    {
+        if (_typeFilter != "any" && TypeOf(evidence).ToString() != _typeFilter) return false;
+        if (_eligibilityFilter != "any" && evidence.Decision.Status.ToString() != _eligibilityFilter) return false;
+        if (_approvalFilter != "any" && ApprovalStateOf(evidence) != _approvalFilter) return false;
+        var query = ConsoleShell.Query.Trim();
+        return query.Length == 0
+            || evidence.DryRunId.ToString("D").Contains(query, StringComparison.OrdinalIgnoreCase)
+            || evidence.Result.Assessment.Identity.DeviceId.ToString("D").Contains(query, StringComparison.OrdinalIgnoreCase)
+            || evidence.Result.CorrelationId.ToString("D").Contains(query, StringComparison.OrdinalIgnoreCase)
+            || evidence.EvidenceHash.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string TypeLabel(string option) => option == "any" ? L["FilterAny"] : Status["WorkType_" + option];
+
+    private string EligibilityLabel(string option) => option == "any" ? L["FilterAny"] : Status["Eligibility_" + option];
+
+    private string ApprovalLabel(string option) => option switch
+    {
+        "awaiting-approval" => L["FilterApprovalAwaiting"],
+        "approved" => L["FilterApprovalApproved"],
+        "not-approvable" => L["FilterApprovalNotApprovable"],
+        _ => L["FilterAny"],
+    };
+
+    private void ClearFilters()
+    {
+        _typeFilter = "any";
+        _eligibilityFilter = "any";
+        _approvalFilter = "any";
+        ConsoleShell.SetQuery(string.Empty);
+    }
+
+    private void OnShellChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        ConsoleShell.Changed -= OnShellChanged;
+        ConsoleShell.DetachSearch();
+    }
+}

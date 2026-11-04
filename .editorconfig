@@ -166,3 +166,11 @@ trim_trailing_whitespace = false
 charset = utf-8
 insert_final_newline = false
 trim_trailing_whitespace = false
+
+# ── Igloo.Fleet.Web (Blazor operator console) analyzer policy ───────────────
+# CA1515 (make public types internal): Razor components compile to public classes, so
+# every type used as a component parameter (status presentations, breadcrumb items,
+# operator failures) and every IStringLocalizer<T> marker type must be public. The
+# project is a leaf web host with no external consumers.
+[src/Igloo.Fleet.Web/**.cs]
+dotnet_diagnostic.CA1515.severity = none

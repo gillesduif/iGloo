@@ -22,6 +22,8 @@ remains under its own license, held by its own authors.
 | Serilog.Sinks.File | 5.0.0 | Apache-2.0 |
 | Svg.Skia | 4.9.0 | MIT |
 | BouncyCastle.Cryptography | 2.3.1 | MIT |
+| Microsoft.FluentUI.AspNetCore.Components | 5.0.1 | MIT |
+| Microsoft.FluentUI.AspNetCore.Components.Icons | 5.0.1 | MIT |
 
 ## Test-only dependencies (not shipped)
 
@@ -31,11 +33,21 @@ remains under its own license, held by its own authors.
 | xunit.runner.visualstudio | 2.5.7 | Apache-2.0 |
 | Microsoft.NET.Test.Sdk | 17.9.0 | MIT |
 | FluentAssertions | 6.12.0 | Apache-2.0 (v6) |
+| bunit | 2.13.3 | MIT |
+| Microsoft.Playwright | 1.64.1 | Apache-2.0 |
+| Deque.AxeCore.Playwright | 4.14.0 | MPL-2.0 |
 
 > Note: FluentAssertions changed to a commercial license in v8. This project pins
 > v6, which is Apache-2.0. Do not bump it past v7 without revisiting licensing.
 
 ## Bundled assets
+
+### Fluent UI Blazor static web assets (Fleet operator console)
+`src/Igloo.Fleet.Web` serves the Fluent UI Blazor stylesheet, JavaScript module and
+Fluent UI System Icons from the two NuGet packages above, all from the console's own
+origin. The library's JavaScript contains lazy loaders for `imask` and `sortablejs`
+from unpkg.com; the console uses neither feature and its Content-Security-Policy
+blocks the fetch (see docs/decisions/015-fleet-console-component-library.md).
 
 ### Microsoft Fluent 3D emoji icons
 `src/Igloo.Community.App/Assets/Fluent3D/*.png` - from Microsoft's **fluentui-emoji**

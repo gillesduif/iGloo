@@ -1,0 +1,156 @@
+@page "/"
+@inject IStringLocalizer<OverviewStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IStringLocalizer<StatusStrings> Status
+@inject IFleetOperatorClient Client
+@inject Microsoft.Extensions.Options.IOptions<ConsoleOptions> Options
+@inject Microsoft.Extensions.Options.IOptions<FleetServerOptions> Server
+
+<PageFrame Title="@L["Title"]">
+    <SecondaryActions>
+        <FluentButton Appearance="ButtonAppearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())" OnClick="LoadAsync" Disabled="@_loading">@S["Refresh"]</FluentButton>
+    </SecondaryActions>
+    <ChildContent>
+        @if (_loading)
+        {
+            <LoadingState />
+        }
+        else if (_failure is not null)
+        {
+            <OperatorFailureState Failure="_failure" OnRetry="LoadAsync" />
+        }
+        else
+        {
+            <div class="tile-grid">
+                <a class="tile" href="/enrollments">
+                    <span class="tile-label">@L["TileEnrollments"]</span>
+                    <span class="tile-value">@ConsoleFormat.Count(_enrollments.Count)</span>
+                    <span class="tile-note">@L["TileEnrollmentsBreakdown", Count(AgentTrustStatus.Active), Count(AgentTrustStatus.Disabled), Count(AgentTrustStatus.Revoked)]</span>
+                </a>
+                <a class="tile" href="/planning/evidence">
+                    <span class="tile-label">@L["TileEvidence"]</span>
+                    <span class="tile-value">@ConsoleFormat.Count(_evidence.Count)</span>
+                    <span class="tile-note">@L["TileEvidenceBreakdown", _evidence.Count(static e => e.Result.Planning is null), _evidence.Count(static e => e.Result.Planning is not null)]</span>
+                </a>
+                <a class="tile" href="/planning/evidence?filter=awaiting-approval">
+                    <span class="tile-label">@L["TileAwaitingApproval"]</span>
+                    <span class="tile-value">@ConsoleFormat.Count(AwaitingApproval)</span>
+                </a>
+                <a class="tile" href="/enrollments?contact=stale">
+                    <span class="tile-label">@L["TileStaleContact", Options.Value.StaleContactDays]</span>
+                    <span class="tile-value">@ConsoleFormat.Count(StaleContact)</span>
+                </a>
+            </div>
+
+            <div class="panel-grid">
+                <FluentCard Class="panel">
+                    <h2 class="panel-title">@L["RecentActivity"]</h2>
+                    @if (_audit.Count == 0)
+                    {
+                        <EmptyState Title="@L["NoActivity"]" Message="@L["NoActivityMessage"]" />
+                    }
+                    else
+                    {
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">@L["ColumnTime"]</th>
+                                    <th scope="col">@L["ColumnAction"]</th>
+                                    <th scope="col">@L["ColumnActor"]</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var entry in _audit.OrderByDescending(static a => a.AtUtc).Take(10))
+                                {
+                                    <tr>
+                                        <td><DateTimeText Value="entry.AtUtc" /></td>
+                                        <td>@ActionLabel(entry.Action)</td>
+                                        <td class="text-secondary">@Status[StatusCatalog.ActorTypeKey(entry.ActorType)] · <code>@entry.ActorId</code></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <FluentAnchorButton Href="/audit" Appearance="ButtonAppearance.Subtle">@L["ViewAllAudit"]</FluentAnchorButton>
+                    }
+                </FluentCard>
+
+                <FluentCard Class="panel">
+                    <h2 class="panel-title">@L["ServerConnection"]</h2>
+                    <dl class="property-list">
+                        <dt>@L["ServerConnection"]</dt>
+                        <dd><StatusBadge Presentation="StatusCatalog.Connection(_health.Failure?.Kind)" /></dd>
+                        <dt>@L["ServerAddress"]</dt>
+                        <dd><code>@(Client.IsSampleData ? S["SampleDataTitle"] : Server.Value.ResolveUri()?.ToString() ?? S["NotAvailable"])</code></dd>
+                        <dt>@L["ProtocolVersion"]</dt>
+                        <dd>@(_health.Value is { } health ? $"{health.Protocol.Major}.{health.Protocol.Minor}" : S["NotAvailable"])</dd>
+                        <dt>@L["SafetyBoundary"]</dt>
+                        <dd>@(_health.Value?.SafetyBoundary == "PreparedOnly" ? L["SafetyBoundaryPreparedOnly"] : _health.Value?.SafetyBoundary ?? S["NotAvailable"])</dd>
+                    </dl>
+                    <FluentAnchorButton Href="/settings/server" Appearance="ButtonAppearance.Subtle">@L["OpenConnectionSettings"]</FluentAnchorButton>
+                </FluentCard>
+            </div>
+        }
+    </ChildContent>
+</PageFrame>
+
+@code {
+    private bool _loading = true;
+    private OperatorFailure? _failure;
+    private IReadOnlyList<TrustedDeviceView> _enrollments = [];
+    private IReadOnlyList<DryRunEvidence> _evidence = [];
+    private IReadOnlyList<PlanApproval> _approvals = [];
+    private IReadOnlyList<FleetAuditEvent> _audit = [];
+    private OperatorResult<ServerHealth> _health = OperatorResult<ServerHealth>.Failed(OperatorFailureKind.NotConfigured);
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failure = null;
+        var enrollments = Client.GetEnrollmentsAsync();
+        var evidence = Client.GetEvidenceAsync();
+        var approvals = Client.GetApprovalsAsync();
+        var audit = Client.GetAuditAsync();
+        var health = Client.GetHealthAsync();
+        await Task.WhenAll(enrollments, evidence, approvals, audit, health);
+
+        _health = health.Result;
+        var first = new[] { enrollments.Result.Failure, evidence.Result.Failure, approvals.Result.Failure, audit.Result.Failure }.FirstOrDefault(static f => f is not null);
+        if (first is not null)
+        {
+            _failure = first;
+        }
+        else
+        {
+            _enrollments = enrollments.Result.Value!;
+            _evidence = evidence.Result.Value!;
+            _approvals = approvals.Result.Value!;
+            _audit = audit.Result.Value!;
+        }
+
+        _loading = false;
+    }
+
+    private int Count(AgentTrustStatus status) => _enrollments.Count(e => e.Status == status);
+
+    private int AwaitingApproval => _evidence.Count(e =>
+        e.Result.Planning is not null &&
+        e.Decision.Status is PlanningEligibility.Eligible or PlanningEligibility.NeedsReview &&
+        !_approvals.Any(a => a.DryRunId == e.DryRunId && a.Status == ApprovalState.Approved));
+
+    private int StaleContact
+    {
+        get
+        {
+            var threshold = DateTimeOffset.UtcNow.AddDays(-Options.Value.StaleContactDays);
+            return _enrollments.Count(e => e.LastHeartbeatUtc is null || e.LastHeartbeatUtc < threshold);
+        }
+    }
+
+    private string ActionLabel(string action)
+    {
+        var label = Status[StatusCatalog.ActionKey(action)];
+        return label.ResourceNotFound ? action : label.Value;
+    }
+}

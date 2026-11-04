@@ -1,0 +1,65 @@
+@inherits FluentDialogInstance
+@inject IStringLocalizer<ModuleStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject IModuleDataSource Source
+@inject ConsoleSession Session
+@inject ConsoleAuditLog ConsoleAudit
+
+<FluentDialogBody>
+    <ChildContent>
+        @foreach (var field in Page.EditableFields)
+        {
+            var key = field.Key;
+            @if (field.Choices is not null)
+            {
+                <FluentSelect TOption="string" TValue="string" Items="@field.Choices" OptionText="@(o => o)" OptionValue="@(o => o)" Label="@L["Field_" + key]"
+                              Value="@_values[key]" ValueChanged="@(value => _values[key] = value ?? string.Empty)" Width="100%" />
+            }
+            else
+            {
+                <FluentTextInput Value="@_values[key]" ValueChanged="@(value => _values[key] = value ?? string.Empty)" Immediate="true" Label="@L["Field_" + key]"
+                                 Required="@(key == "Name")" MaxLength="200" Width="100%" />
+            }
+        }
+    </ChildContent>
+    <ActionTemplate>
+        <FluentButton Appearance="ButtonAppearance.Primary" Disabled="@(_busy || !IsValid)" Loading="@_busy" OnClick="SaveAsync">@L["Create"]</FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Outline" Disabled="@_busy" OnClick="@(() => DialogInstance.CancelAsync())">@S["Cancel"]</FluentButton>
+    </ActionTemplate>
+</FluentDialogBody>
+
+@code {
+    private readonly Dictionary<string, string> _values = new(StringComparer.Ordinal);
+    private bool _busy;
+
+    [Parameter, EditorRequired]
+    public ModulePageDefinition Page { get; set; } = default!;
+
+    private bool IsValid => !_values.TryGetValue("Name", out var name) || name.Trim().Length > 0;
+
+    protected override void OnInitializeDialog(DialogOptionsHeader header, DialogOptionsFooter footer)
+    {
+        ArgumentNullException.ThrowIfNull(header);
+        header.Title = L[Page.CreateKey!];
+    }
+
+    protected override Task OnActionClickedAsync(bool primary) => Task.CompletedTask;
+
+    protected override void OnInitialized()
+    {
+        foreach (var field in Page.EditableFields)
+        {
+            _values[field.Key] = field.Choices is { Count: > 0 } choices ? choices[0] : string.Empty;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        var account = await Session.GetAccountAsync();
+        var row = Source.Add(Page, _values, account.Username);
+        ConsoleAudit.Append(new ConsoleAuditEntry(DateTimeOffset.UtcNow, account.Username, "ModuleRecordCreated", Page.Key + ":" + row.Id.ToString("D"), "Succeeded", _values.GetValueOrDefault("Name")));
+        _busy = false;
+        await DialogInstance.CloseAsync(row);
+    }
+}

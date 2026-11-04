@@ -53,7 +53,7 @@ local development connections. Production remote enrollment is not implemented.
 | Agent | One-shot endpoint host; persistent development identity and shared preflight | net8.0-windows10.0.19041.0 |
 | Server | ASP.NET Core registration, heartbeat, evidence API | net8.0 |
 | Persistence | Thread-safe bounded in-memory development repositories | net8.0 |
-| Web | Read-only status API client boundary; no frontend framework or host yet | net8.0 |
+| Web | Read-only status API client boundary; no frontend framework or host yet (superseded: the operator console in [console-design.md](console-design.md) targets net10.0) | net8.0 |
 
 [Full project graph and Community compatibility](../architecture/product-boundaries.md).
 

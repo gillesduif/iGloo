@@ -140,8 +140,9 @@ dotnet $web POST "/v2/operator/devices/$deviceId/trust" trust.json
 ```
 
 Views are GET /v2/operator/devices, enrollment-tokens, profiles, work, evidence,
-approvals, plans and audit. Fleet.Web is an engineering CLI plus typed status
-client; it has no commercial dashboard or execution button.
+approvals, plans and audit. Fleet.Web is this engineering CLI plus, since
+2026-11-01, the Fluent UI operator console described in
+[console-design.md](console-design.md); neither has an execution button.
 All POST JSON rejects unexpected properties. No manual database editing is needed.
 
 Read [security limitations](security.md), [enrollment recovery](enrollment.md),

@@ -1,0 +1,20 @@
+@inject IStringLocalizer<StatusStrings> Status
+
+<FluentBadge Appearance="BadgeAppearance.Tint"
+             Color="@Presentation.Color"
+             IconStart="@Presentation.Icon()"
+             Class="status-badge"
+             title="@Meaning">
+    @Label
+</FluentBadge>
+
+@code {
+    [Parameter, EditorRequired]
+    public StatusPresentation Presentation { get; set; } = default!;
+
+    private string Label => Presentation.LabelArguments is { Count: > 0 } arguments
+        ? Status[Presentation.LabelKey, [.. arguments]]
+        : Status[Presentation.LabelKey];
+
+    private string? Meaning => Presentation.MeaningKey is null ? null : Status[Presentation.MeaningKey].Value;
+}

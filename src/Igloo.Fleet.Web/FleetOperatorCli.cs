@@ -1,6 +1,5 @@
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
+using Igloo.Fleet.Web.Services;
 
 namespace Igloo.Fleet.Web;
 
@@ -17,27 +16,16 @@ internal static class FleetOperatorCli
             !args[1].StartsWith("/v2/operator/", StringComparison.Ordinal) ||
             args[1].Contains("..", StringComparison.Ordinal) || args[1].Contains('\\', StringComparison.Ordinal))
             throw new ArgumentException("Usage: Fleet.Web GET|POST /v2/operator/<resource> [body.json]");
-        var origin = new Uri(Environment.GetEnvironmentVariable("IGLOO_FLEET_SERVER_URI") ?? "https://localhost:5188/");
+        var origin = new Uri(Environment.GetEnvironmentVariable(FleetServerOptions.ServerUriVariable) ?? "https://localhost:5188/");
         if (origin.Scheme != Uri.UriSchemeHttps || origin.AbsolutePath != "/" || origin.UserInfo.Length != 0)
             throw new InvalidOperationException("Operator access requires an HTTPS origin.");
-        using var root = X509Certificate2.CreateFromPem(await File.ReadAllTextAsync(Environment.GetEnvironmentVariable("IGLOO_FLEET_CA_CERT")
-            ?? throw new InvalidOperationException("Provision IGLOO_FLEET_CA_CERT first.")).ConfigureAwait(false));
+        using var root = FleetServerTrust.LoadRoot(Environment.GetEnvironmentVariable(FleetServerOptions.CaCertificateVariable)
+            ?? throw new InvalidOperationException("Provision IGLOO_FLEET_CA_CERT first."));
         using var handler = new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false, CheckCertificateRevocationList = true };
-        handler.ServerCertificateCustomValidationCallback = (_, certificate, _, errors) =>
-        {
-            if (certificate is null || (errors & (System.Net.Security.SslPolicyErrors.RemoteCertificateNameMismatch |
-                System.Net.Security.SslPolicyErrors.RemoteCertificateNotAvailable)) != 0) return false;
-            using var chain = new X509Chain();
-            chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-            chain.ChainPolicy.CustomTrustStore.Add(root);
-            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
-            chain.ChainPolicy.DisableCertificateDownloads = true;
-            chain.ChainPolicy.ApplicationPolicy.Add(new Oid("1.3.6.1.5.5.7.3.1"));
-            return chain.Build(certificate);
-        };
+        handler.ServerCertificateCustomValidationCallback = (_, certificate, _, errors) => FleetServerTrust.Validate(root, certificate, errors);
         using var client = new HttpClient(handler) { BaseAddress = origin };
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
-            Environment.GetEnvironmentVariable("IGLOO_FLEET_OPERATOR_SECRET") ??
+            Environment.GetEnvironmentVariable(FleetServerOptions.OperatorSecretVariable) ??
             throw new InvalidOperationException("Set the separate operator credential."));
         using var request = new HttpRequestMessage(new HttpMethod(args[0]), new Uri(args[1], UriKind.Relative));
         if (args.Length == 3)
@@ -52,7 +40,6 @@ internal static class FleetOperatorCli
             await Console.Error.WriteLineAsync(output).ConfigureAwait(false);
             Environment.ExitCode = 1;
         }
-
 
         return Environment.ExitCode;
     }

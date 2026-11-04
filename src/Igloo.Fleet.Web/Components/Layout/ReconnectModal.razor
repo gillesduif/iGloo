@@ -1,0 +1,20 @@
+@inject IStringLocalizer<ShellStrings> L
+
+<script type="module" src="@Assets["reconnect.js"]"></script>
+
+<dialog id="components-reconnect-modal" class="console-reconnect" data-nosnippet aria-labelledby="components-reconnect-title">
+    <div class="components-reconnect-container">
+        <div class="components-rejoining-animation" aria-hidden="true">
+            <div></div>
+            <div></div>
+        </div>
+        <h2 id="components-reconnect-title" class="console-reconnect-title">@L["ReconnectTitle"]</h2>
+        <p class="components-reconnect-first-attempt-visible">@L["ReconnectFirstAttempt"]</p>
+        <p class="components-reconnect-repeated-attempt-visible">@((MarkupString)string.Format(CultureInfo.CurrentCulture, L["ReconnectRepeatedAttempt"].Value, "<span id=\"components-seconds-to-next-attempt\"></span>"))</p>
+        <p class="components-reconnect-failed-visible">@L["ReconnectFailed"]</p>
+        <button type="button" id="components-reconnect-button" class="components-reconnect-failed-visible console-reconnect-button">@L["ReconnectRetry"]</button>
+        <p class="components-pause-visible">@L["ReconnectPaused"]</p>
+        <p class="components-resume-failed-visible">@L["ReconnectResumeFailed"]</p>
+        <button type="button" id="components-resume-button" class="components-pause-visible components-resume-failed-visible console-reconnect-button">@L["ReconnectResume"]</button>
+    </div>
+</dialog>

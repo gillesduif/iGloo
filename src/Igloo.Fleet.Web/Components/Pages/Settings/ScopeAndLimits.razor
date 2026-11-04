@@ -1,0 +1,27 @@
+@page "/settings/scope"
+@inject IStringLocalizer<SettingsStrings> L
+@inject IStringLocalizer<ShellStrings> Shell
+
+<PageFrame Title="@L["ScopeTitle"]"
+           Breadcrumbs="@([new BreadcrumbItem(Shell["Overview"], "/"), new BreadcrumbItem(Shell["Settings"], "/settings/server")])">
+    <div class="prose">
+        <h2>@L["ScopeDoesHeading"]</h2>
+        <ul>
+            <li>@L["ScopeDoes1"]</li>
+            <li>@L["ScopeDoes2"]</li>
+            <li>@L["ScopeDoes3"]</li>
+            <li>@L["ScopeDoes4"]</li>
+            <li>@L["ScopeDoes5"]</li>
+            <li>@L["ScopeDoes6"]</li>
+        </ul>
+        <h2>@L["ScopeDoesNotHeading"]</h2>
+        <ul>
+            <li>@L["ScopeDoesNot1"]</li>
+            <li>@L["ScopeDoesNot2"]</li>
+            <li>@L["ScopeDoesNot3"]</li>
+            <li>@L["ScopeDoesNot4"]</li>
+            <li>@L["ScopeDoesNot5"]</li>
+        </ul>
+        <p>@L["ScopeMigrationNote"]</p>
+    </div>
+</PageFrame>

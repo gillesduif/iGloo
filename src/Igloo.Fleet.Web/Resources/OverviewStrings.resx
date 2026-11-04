@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>Overview</value>
+  </data>
+  <data name="TileEnrollments" xml:space="preserve">
+    <value>Enrollments</value>
+  </data>
+  <data name="TileEnrollmentsBreakdown" xml:space="preserve">
+    <value>{0} Active · {1} Disabled · {2} Revoked</value>
+    <comment>{0},{1},{2} = counts</comment>
+  </data>
+  <data name="TileEvidence" xml:space="preserve">
+    <value>Evidence received</value>
+  </data>
+  <data name="TileEvidenceBreakdown" xml:space="preserve">
+    <value>{0} assessments · {1} dry runs</value>
+    <comment>{0},{1} = counts</comment>
+  </data>
+  <data name="TileAwaitingApproval" xml:space="preserve">
+    <value>Evidence awaiting approval</value>
+  </data>
+  <data name="TileStaleContact" xml:space="preserve">
+    <value>No contact in {0} days</value>
+    <comment>{0} = threshold in days</comment>
+  </data>
+  <data name="RecentActivity" xml:space="preserve">
+    <value>Recent activity</value>
+  </data>
+  <data name="ColumnTime" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="ColumnAction" xml:space="preserve">
+    <value>Action</value>
+  </data>
+  <data name="ColumnActor" xml:space="preserve">
+    <value>Actor</value>
+  </data>
+  <data name="ViewAllAudit" xml:space="preserve">
+    <value>View all audit events</value>
+  </data>
+  <data name="ServerConnection" xml:space="preserve">
+    <value>Server connection</value>
+  </data>
+  <data name="ServerAddress" xml:space="preserve">
+    <value>Server address</value>
+  </data>
+  <data name="ProtocolVersion" xml:space="preserve">
+    <value>Protocol version</value>
+  </data>
+  <data name="SafetyBoundary" xml:space="preserve">
+    <value>Safety boundary</value>
+  </data>
+  <data name="SafetyBoundaryPreparedOnly" xml:space="preserve">
+    <value>Prepared plans only. Fleet doesn't run plans.</value>
+  </data>
+  <data name="OpenConnectionSettings" xml:space="preserve">
+    <value>Server connection settings</value>
+  </data>
+  <data name="NoActivity" xml:space="preserve">
+    <value>No audit events yet</value>
+  </data>
+  <data name="NoActivityMessage" xml:space="preserve">
+    <value>Audit events appear here as actions are recorded.</value>
+  </data>
+</root>

@@ -1,0 +1,87 @@
+@implements IDisposable
+@inject IStringLocalizer<ShellStrings> L
+@inject IStringLocalizer<SharedStrings> S
+@inject ConsoleShell Shell
+@inject ConsoleSession Session
+@inject ConsolePreferencesStore Preferences
+@inject IJSRuntime JS
+
+<header class="console-header">
+    <a class="skip-link" href="#main-content">@L["SkipToContent"]</a>
+
+    <FluentButton IconOnly="true"
+                  Appearance="ButtonAppearance.Subtle"
+                  Title="@(Shell.NavigationCollapsed ? L["ExpandNavigation"] : L["CollapseNavigation"])"
+                  aria-expanded="@(!Shell.NavigationCollapsed)"
+                  aria-controls="console-navigation"
+                  OnClick="Shell.ToggleNavigation">
+        <FluentIcon Value="@(new Icons.Regular.Size20.Navigation())" />
+    </FluentButton>
+
+    <a class="console-brand" href="/">
+        <img src="img/igloo-logo.svg" alt="" width="24" height="24" />
+        <span>@S["ProductName"]</span>
+    </a>
+
+    <div class="console-search">
+        <FluentTextInput TextInputType="TextInputType.Search"
+                         AriaLabel="@(Shell.SearchPlaceholder ?? L["SearchPlaceholder"])"
+                         Placeholder="@(Shell.SearchPlaceholder ?? L["SearchPlaceholder"])"
+                         Disabled="@(!Shell.SearchAvailable)"
+                         Tooltip="@(Shell.SearchAvailable ? null : L["SearchUnavailable"].Value)"
+                         Immediate="true"
+                         ImmediateDelay="150"
+                         Value="@Shell.Query"
+                         ValueChanged="@(value => Shell.SetQuery(value))"
+                         Appearance="TextInputAppearance.FilledLighter"
+                         Width="100%" />
+    </div>
+
+    <div class="console-header-actions">
+        <FluentAnchorButton Href="/settings/scope" IconOnly="true" Appearance="ButtonAppearance.Subtle" Title="@L["Help"]">
+            <FluentIcon Value="@(new Icons.Regular.Size20.QuestionCircle())" />
+        </FluentAnchorButton>
+
+        <FluentButton Id="console-theme-button" IconOnly="true" Appearance="ButtonAppearance.Subtle" Title="@L["Theme"]" aria-haspopup="menu">
+            <FluentIcon Value="@ThemeIcon" />
+        </FluentButton>
+        <FluentMenu Trigger="console-theme-button">
+            <FluentMenuList>
+            <FluentMenuItem Role="MenuItemRole.Radio" Checked="@(_theme == "system")" CheckedChanged="@(on => on == true ? SetThemeAsync("system") : Task.CompletedTask)">@L["ThemeSystem"]</FluentMenuItem>
+            <FluentMenuItem Role="MenuItemRole.Radio" Checked="@(_theme == "light")" CheckedChanged="@(on => on == true ? SetThemeAsync("light") : Task.CompletedTask)">@L["ThemeLight"]</FluentMenuItem>
+            <FluentMenuItem Role="MenuItemRole.Radio" Checked="@(_theme == "dark")" CheckedChanged="@(on => on == true ? SetThemeAsync("dark") : Task.CompletedTask)">@L["ThemeDark"]</FluentMenuItem>
+            </FluentMenuList>
+        </FluentMenu>
+
+        <AccountMenu />
+    </div>
+</header>
+
+@code {
+    private string _theme = "system";
+    private ConsoleAccount _account = ConsoleAccount.Anonymous;
+
+    private Icon ThemeIcon => _theme switch
+    {
+        "dark" => new Icons.Regular.Size20.WeatherMoon(),
+        _ => new Icons.Regular.Size20.WeatherSunny(),
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        Shell.Changed += OnShellChanged;
+        _account = await Session.GetAccountAsync();
+        _theme = Preferences.Get(_account.AccountId).Theme;
+    }
+
+    private async Task SetThemeAsync(string theme)
+    {
+        _theme = theme;
+        Preferences.Set(_account.AccountId, Preferences.Get(_account.AccountId) with { Theme = theme });
+        await ConsoleTheme.ApplyAsync(JS, theme);
+    }
+
+    private void OnShellChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Shell.Changed -= OnShellChanged;
+}

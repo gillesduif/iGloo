@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ServerTitle" xml:space="preserve">
+    <value>Server connection</value>
+  </data>
+  <data name="ServerAddress" xml:space="preserve">
+    <value>Server address</value>
+  </data>
+  <data name="ServerCaPath" xml:space="preserve">
+    <value>CA certificate</value>
+  </data>
+  <data name="ServerCaMissing" xml:space="preserve">
+    <value>Not provisioned</value>
+  </data>
+  <data name="ServerOperatorCredential" xml:space="preserve">
+    <value>Operator credential</value>
+  </data>
+  <data name="ServerOperatorCredentialSet" xml:space="preserve">
+    <value>Set in the environment</value>
+  </data>
+  <data name="ServerOperatorCredentialMissing" xml:space="preserve">
+    <value>Not set</value>
+  </data>
+  <data name="ServerOperatorCredentialNote" xml:space="preserve">
+    <value>Read from the {0} environment variable.</value>
+    <comment>{0} = variable name</comment>
+  </data>
+  <data name="ServerStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="ServerCheck" xml:space="preserve">
+    <value>Check connection</value>
+  </data>
+  <data name="ServerProtocol" xml:space="preserve">
+    <value>Protocol version reported</value>
+  </data>
+  <data name="ServerSafetyBoundary" xml:space="preserve">
+    <value>Safety boundary reported</value>
+  </data>
+  <data name="ServerHowToConfigure" xml:space="preserve">
+    <value>How to configure</value>
+  </data>
+  <data name="ServerHowToConfigureSteps" xml:space="preserve">
+    <value>Set Fleet:Server:Uri and Fleet:Server:CaCertificatePath in the console configuration (or IGLOO_FLEET_SERVER_URI and IGLOO_FLEET_CA_CERT), set IGLOO_FLEET_OPERATOR_SECRET in the process environment, then restart the console.</value>
+  </data>
+  <data name="ServerSampleNote" xml:space="preserve">
+    <value>Sample data is enabled.</value>
+  </data>
+  <data name="AccountsTitle" xml:space="preserve">
+    <value>Console accounts</value>
+  </data>
+  <data name="AccountsOnlyOne" xml:space="preserve">
+    <value>One console administrator is supported.</value>
+  </data>
+  <data name="AccountDisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="AccountUsername" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="AccountRole" xml:space="preserve">
+    <value>Role</value>
+  </data>
+  <data name="AccountCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="AccountsCurrent" xml:space="preserve">
+    <value>Signed in</value>
+  </data>
+  <data name="ConsoleAuditTitle" xml:space="preserve">
+    <value>Console audit log</value>
+  </data>
+  <data name="ConsoleAuditEmpty" xml:space="preserve">
+    <value>No console audit entries yet.</value>
+  </data>
+  <data name="ConsoleAuditTime" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="ConsoleAuditAccount" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="ConsoleAuditAction" xml:space="preserve">
+    <value>Action</value>
+  </data>
+  <data name="ConsoleAuditTarget" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="ConsoleAuditOutcome" xml:space="preserve">
+    <value>Outcome</value>
+  </data>
+  <data name="ScopeTitle" xml:space="preserve">
+    <value>Scope and limits</value>
+  </data>
+  <data name="ScopeDoesHeading" xml:space="preserve">
+    <value>What Fleet does</value>
+  </data>
+  <data name="ScopeDoes1" xml:space="preserve">
+    <value>Enrolls agents with a one-time token and client certificate, and manages each enrollment's trust status.</value>
+  </data>
+  <data name="ScopeDoes2" xml:space="preserve">
+    <value>Defines migration profiles that describe dry-run requirements.</value>
+  </data>
+  <data name="ScopeDoes3" xml:space="preserve">
+    <value>Requests read-only work from agents: assessments and migration dry runs.</value>
+  </data>
+  <data name="ScopeDoes4" xml:space="preserve">
+    <value>Stores the evidence agents return, with an eligibility decision and a hash that approvals reference.</value>
+  </data>
+  <data name="ScopeDoes5" xml:space="preserve">
+    <value>Records operator approvals of evidence and prepares plans from them.</value>
+  </data>
+  <data name="ScopeDoes6" xml:space="preserve">
+    <value>Keeps an append-only audit trail of operator, agent, and server actions.</value>
+  </data>
+  <data name="ScopeDoesNotHeading" xml:space="preserve">
+    <value>What Fleet does not do</value>
+  </data>
+  <data name="ScopeDoesNot1" xml:space="preserve">
+    <value>Fleet doesn't run anything on endpoints. It doesn't start, schedule, or stop migrations, and prepared plans aren't executed.</value>
+  </data>
+  <data name="ScopeDoesNot2" xml:space="preserve">
+    <value>Fleet doesn't collect identifying data. Hostname, hardware model, disk labels, installed software, operating system, user files, and credentials aren't reported.</value>
+  </data>
+  <data name="ScopeDoesNot3" xml:space="preserve">
+    <value>Fleet doesn't manage software, updates, configuration, security posture, storage, networking, monitoring, or automation.</value>
+  </data>
+  <data name="ScopeDoesNot4" xml:space="preserve">
+    <value>Fleet doesn't group enrollments. Each request targets one enrollment.</value>
+  </data>
+  <data name="ScopeDoesNot5" xml:space="preserve">
+    <value>Fleet Server records operator actions under a shared identity. The console records the console account separately.</value>
+  </data>
+  <data name="ScopeMigrationNote" xml:space="preserve">
+    <value>Migrations run locally through the Community app or the CLI.</value>
+  </data>
+  <data name="AboutTitle" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="AboutConsoleVersion" xml:space="preserve">
+    <value>Console version</value>
+  </data>
+  <data name="AboutProtocol" xml:space="preserve">
+    <value>Operator protocol</value>
+  </data>
+  <data name="AboutServer" xml:space="preserve">
+    <value>Server address</value>
+  </data>
+  <data name="AboutLicence" xml:space="preserve">
+    <value>License</value>
+  </data>
+  <data name="AboutLicenceValue" xml:space="preserve">
+    <value>GNU General Public License v3.0</value>
+  </data>
+  <data name="AboutComponents" xml:space="preserve">
+    <value>Built with Fluent UI Blazor and Fluent UI System Icons (MIT). All assets are served locally.</value>
+  </data>
+</root>
