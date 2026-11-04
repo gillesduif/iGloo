@@ -24,10 +24,22 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
 
     private readonly Uri? _stage2Url;
 
+    private static string ContentDirectory()
+    {
+        var assemblyDirectory = Path.GetDirectoryName(typeof(FedoraKdePlugin).Assembly.Location)
+            ?? AppContext.BaseDirectory;
+        // The dev registry loads the DLL from distros/fedora-kde; a build that
+        // references multiple providers keeps each provider's assets below its
+        // own name so neither metadata nor agent.py can be overwritten.
+        return string.Equals(Path.GetFileName(Path.TrimEndingDirectorySeparator(assemblyDirectory)),
+            "fedora-kde", StringComparison.OrdinalIgnoreCase)
+            ? assemblyDirectory
+            : Path.Join(assemblyDirectory, "fedora-kde");
+    }
+
     public FedoraKdePlugin()
     {
-        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var manifestPath = Path.Join(asmDir, "distro.json");
+        var manifestPath = Path.Join(ContentDirectory(), "distro.json");
 
         DistroManifest? raw = null;
         if (File.Exists(manifestPath))
@@ -57,6 +69,17 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
         // Fedora doesn't ship proprietary NVIDIA drivers in-tree.
         if (string.Equals(report.GpuVendor, "nvidia", StringComparison.OrdinalIgnoreCase))
         {
+            if (report.SecureBootEnabled)
+            {
+                // A caveat, not a stop: the alpha installed on NVIDIA machines and the
+                // first-boot agent builds the module; with Secure Boot on, the signed
+                // nouveau/nova fallback keeps the desktop usable until the key is enrolled.
+                findings.Add(new PreflightFinding(
+                    Severity: FindingSeverity.Warning,
+                    Code: "FEDORA_NVIDIA_SECURE_BOOT_UNSUPPORTED",
+                    Message: "Secure Boot is enabled. The proprietary NVIDIA module built on first boot cannot load until its signing key is enrolled; Fedora falls back to the open driver until then.",
+                    Remediation: "Enroll the module key when Fedora asks on the next boot, or disable Secure Boot in firmware."));
+            }
             findings.Add(new PreflightFinding(
                 Severity: FindingSeverity.Info,
                 Code: "FEDORA_NVIDIA_RPMFUSION",
@@ -73,8 +96,8 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
                 Severity: FindingSeverity.Blocker,
                 Code: "BITLOCKER_LOCKED",
                 Message: "BitLocker is enabled and the volume is currently locked. " +
-                             "Igloo cannot resize a locked encrypted volume.",
-                Remediation: "Unlock the drive in Windows, or suspend BitLocker protection before " +
+                             "Igloo cannot prepare an encrypted installation target.",
+                Remediation: "Unlock the drive and fully decrypt it in Windows before " +
                              "re-running Igloo."));
         }
 
@@ -87,7 +110,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
                 Message: $"This machine has {report.TotalRamBytes / (1024.0 * 1024 * 1024):F1} GiB of RAM. " +
                              $"Fedora KDE recommends at least " +
                              $"{Metadata.MinimumRequirements.MinRamBytes / (1024.0 * 1024 * 1024):F0} GiB.",
-                Remediation: "Installation will proceed but the desktop may feel sluggish."));
+                Remediation: "Add enough memory to meet Fedora KDE's recommendation before installation."));
         }
 
         return findings;
@@ -97,9 +120,20 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
         MigrationManifest manifest, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(manifest);
+        if (manifest.WifiNetworks is null || manifest.WifiNetworks.Any(network => network is null))
+            throw new InvalidDataException("Fedora installer Wi-Fi selection is invalid.");
+        if (!string.Equals(manifest.DistroId, Id, StringComparison.Ordinal) ||
+            manifest.Hardware.TargetDiskBytes <= 0 ||
+            manifest.Hardware.TargetDiskGuid is not { } targetGuid || targetGuid == Guid.Empty ||
+            manifest.Hardware.InstallMode is not ("replace" or "dual-boot"))
+            throw new InvalidDataException(
+                "Fedora installer configuration requires this distribution, the selected GPT disk identity and size, and a supported install mode.");
+        // v0.2-alpha behaviour: dual boot is the Community default, the first-boot
+        // agent handles NVIDIA (CheckCompatibility reports the Secure Boot caveat as
+        // a finding), and the primary Wi-Fi network is handed to %pre so a netinstall
+        // can reach a mirror; the agent redacts the seed afterwards.
 
-        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var templatePath = Path.Join(asmDir, "kickstart", "ks.cfg.template");
+        var templatePath = Path.Join(ContentDirectory(), "kickstart", "ks.cfg.template");
 
         // A missing template must abort, never silently fall back to a hardcoded layout: the disk
         // partitioning lives in the template, and guessing it risks wiping the whole disk. The
@@ -149,21 +183,65 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
         ArgumentNullException.ThrowIfNull(manifest);
         ArgumentNullException.ThrowIfNull(ownership);
         ArgumentNullException.ThrowIfNull(inventory);
-        if (manifest.DistroId != Id || manifest.Hardware.InstallMode != "dual-boot")
-            return Observations.Failure<InstallerConfig>(ObservationAvailability.Unsupported, "FedoraReviewedModeUnsupported");
-        if (manifest.WifiNetworks.Count != 0)
-            return Observations.Failure<InstallerConfig>(ObservationAvailability.Unsupported,
-                "SecureNetworkCredentialHandoffUnavailable");
+        var supported = ValidateReviewedManifest(manifest, ownership);
+        if (supported.Availability != ObservationAvailability.Available)
+            return Observations.Failure<InstallerConfig>(supported.Availability, supported.Code!);
         var recipe = RenderReviewedStorage(ownership, expectedGeneration, inventory);
         if (recipe.Availability != ObservationAvailability.Available)
             return Observations.Failure<InstallerConfig>(recipe.Availability, recipe.Code!);
-        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
-        var templatePath = Path.Join(asmDir, "kickstart", "ks.cfg.template");
+        var templatePath = Path.Join(ContentDirectory(), "kickstart", "ks.cfg.template");
         if (!File.Exists(templatePath))
             return Observations.Failure<InstallerConfig>(ObservationAvailability.Unavailable, "FedoraTemplateUnavailable");
         var reviewed = FedoraOwnedStorageRecipe.ReplaceLegacyStorageSection(
             await File.ReadAllTextAsync(templatePath, ct).ConfigureAwait(false), ownership,
-            expectedGeneration, inventory, includeLegacyWifi: false);
+            expectedGeneration, inventory);
+        return RenderReviewedConfig(reviewed, manifest);
+    }
+
+    public async Task<Observation<InstallerConfig>> RenderDeferredReviewedInstallerConfigAsync(
+        MigrationManifest manifest, InstallationOwnershipV1 ownership,
+        Guid expectedGeneration, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentNullException.ThrowIfNull(ownership);
+        var supported = ValidateReviewedManifest(manifest, ownership);
+        if (supported.Availability != ObservationAvailability.Available)
+            return Observations.Failure<InstallerConfig>(supported.Availability, supported.Code!);
+        var templatePath = Path.Join(ContentDirectory(), "kickstart", "ks.cfg.template");
+        if (!File.Exists(templatePath))
+            return Observations.Failure<InstallerConfig>(ObservationAvailability.Unavailable, "FedoraTemplateUnavailable");
+        var reviewed = FedoraOwnedStorageRecipe.ReplaceLegacyStorageSectionDeferred(
+            await File.ReadAllTextAsync(templatePath, ct).ConfigureAwait(false), ownership,
+            expectedGeneration);
+        return RenderReviewedConfig(reviewed, manifest);
+    }
+
+    private Observation<bool> ValidateReviewedManifest(MigrationManifest manifest,
+        InstallationOwnershipV1 ownership)
+    {
+        if (manifest.WifiNetworks is null || manifest.WifiNetworks.Any(network => network is null))
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous,
+                "FedoraWifiSelectionInvalid");
+        if (manifest.DistroId != Id || manifest.Hardware.InstallMode != "dual-boot")
+            return Observations.Failure<bool>(ObservationAvailability.Unsupported, "FedoraReviewedModeUnsupported");
+        if (manifest.Hardware.SecureBootEnabled &&
+            string.Equals(manifest.Hardware.GpuVendor, "nvidia", StringComparison.OrdinalIgnoreCase))
+            return Observations.Failure<bool>(ObservationAvailability.Unsupported,
+                "FedoraNvidiaSecureBootUnsupported");
+        if (manifest.Hardware.TargetDiskGuid != ownership.Layout.Plan.TargetDisk.GptDiskGuid ||
+            manifest.Hardware.TargetDiskBytes <= 0 ||
+            (ulong)manifest.Hardware.TargetDiskBytes != ownership.Layout.Plan.TargetDisk.SizeBytes)
+            return Observations.Failure<bool>(ObservationAvailability.Ambiguous,
+                "FedoraReviewedTargetManifestChanged");
+        if (manifest.WifiNetworks.Count != 0)
+            return Observations.Failure<bool>(ObservationAvailability.Unsupported,
+                "SecureNetworkCredentialHandoffUnavailable");
+        return Observations.Available(true);
+    }
+
+    private Observation<InstallerConfig> RenderReviewedConfig(Observation<string> reviewed,
+        MigrationManifest manifest)
+    {
         if (reviewed.Availability != ObservationAvailability.Available)
             return Observations.Failure<InstallerConfig>(reviewed.Availability, reviewed.Code!);
         var rendered = RenderFromTemplate(reviewed.Value, manifest)
@@ -174,19 +252,20 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
 
     public Task<AgentPayload> GetAgentPayloadAsync(CancellationToken ct = default)
     {
-        var asmDir = Path.GetDirectoryName(GetType().Assembly.Location) ?? AppContext.BaseDirectory;
+        var asmDir = ContentDirectory();
 
         var files = new List<AgentFile>();
 
-        // Include first-boot.sh, agent.py and the KDE display-layout applier
-        // if they exist on disk.
-        TryAddFile("agent/first-boot.sh", executable: true);
-        TryAddFile("agent/agent.py", executable: true);
-        TryAddFile("agent/display-apply.py", executable: true);
+        // An install without these files would appear successful but never
+        // perform first-boot setup or apply the migrated display layout.
+        RequireFile("agent/first-boot.sh", executable: true);
+        RequireFile("agent/agent.py", executable: true);
+        RequireFile("agent/display-apply.py", executable: true);
         // Shared across families: "agent/" in the build output, "../_shared/agent/"
         // when the plugin DLL is loaded from its source folder.
-        if (!TryAddFile("agent/igloo_boot.py", executable: false))
-            TryAddFile("../_shared/agent/igloo_boot.py", executable: false);
+        if (!TryAddFile("agent/igloo_boot.py", executable: false) &&
+            !TryAddFile("../_shared/agent/igloo_boot.py", executable: false))
+            throw new FileNotFoundException("Required Fedora boot helper is missing: igloo_boot.py");
 
         // GRUB theme archives (M15). Binary: must bypass NormalizeCrLf, which
         // rewrites 0x0D bytes and would corrupt the gzip stream.
@@ -198,18 +277,15 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
                 TryAddRaw($"../_shared/grub-theme/{n}");
         }
 
-        // Fallback stub if the scripts aren't bundled.
-        if (files.Count == 0)
-        {
-            files.Add(new AgentFile(
-                RelativePath: "first-boot.sh",
-                Contents: Encoding.UTF8.GetBytes(
-                    "#!/usr/bin/env bash\n" +
-                    "exec python3 /opt/igloo/agent.py --manifest /var/lib/igloo/manifest.json\n"),
-                Executable: true));
-        }
-
         return Task.FromResult(new AgentPayload(files));
+
+        void RequireFile(string relative, bool executable)
+        {
+            if (!TryAddFile(relative, executable))
+                throw new FileNotFoundException(
+                    $"Required Fedora first-boot payload is missing: {relative}",
+                    Path.Join(asmDir, relative));
+        }
 
         bool TryAddRaw(string relative)
         {
@@ -243,8 +319,9 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
     public InstallerBootSpec GetInstallerBootSpec() => new()
     {
         MenuTitle = "Install Fedora KDE (Igloo)",
-        // Anaconda reads ks.cfg from the OEMDRV label and loads its stage-2
-        // (install.img) locally so no 862 MiB network download is needed at boot.
+        // Anaconda reads ks.cfg and its local stage-2 (install.img) from the
+        // exact Windows-observed OEMDRV GPT partition. A label lookup could
+        // choose an unrelated volume with the same label.
         // Do NOT blacklist nouveau on the INSTALLER cmdline or at install
         // time on the installed system.
         //
@@ -261,7 +338,7 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
         // GPU - the RTX 5070 bare-metal kernel panic. The first-boot agent
         // (agent.py, ensure_nvidia_kernel_cmdline) adds the cmdline args via
         // grubby once the nvidia module is verified built for every kernel.
-        KernelCmdline = "inst.stage2=hd:LABEL={LABEL}: inst.ks=hd:LABEL={LABEL}:/ks.cfg inst.geoloc=0",
+        KernelCmdline = "inst.stage2=hd:/dev/disk/by-partuuid/{SEED_PARTUUID}: inst.ks=hd:/dev/disk/by-partuuid/{SEED_PARTUUID}:/ks.cfg inst.geoloc=0",
         KernelIsoPaths =
         [
             "boot/x86_64/loader/linux",   // Fedora 44+
@@ -276,10 +353,12 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
         ],
         ExtraIsoFiles =
         [
-            // Anaconda stage-2 squashfs  copied to OEMDRV so inst.stage2=hd:LABEL= works offline.
-            new IsoFileStage("images/install.img", "images/install.img", Required: false),
+            // Anaconda stage-2 squashfs copied to the bound OEMDRV partition.
+            new IsoFileStage("images/install.img", "images/install.img", Required: true),
         ],
     };
+
+    //   Private helpers                            
 
     private static byte[] NormalizeCrLf(byte[] bytes)
     {
@@ -304,44 +383,67 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
         return buf.ToArray();
     }
 
-    //   Private helpers                            
-
     private string RenderFromTemplate(string template, MigrationManifest m)
     {
+        ValidateSelectedPackages(m.SuggestedPackages);
+
+        // These values appear in kickstart directives as well as comments and
+        // shell assignments. Reject line breaks and directive delimiters before
+        // substitution, so a display name or locale cannot add a new command.
+        var linuxUsername = SafeInstallerToken(m.User.PreferredLinuxUsername,
+            @"\A[a-z_][a-z0-9_.-]{0,31}\z", "Linux username");
+        var fullName = SafeInstallerToken(
+            string.IsNullOrWhiteSpace(m.User.FullName) ? linuxUsername : m.User.FullName,
+            @"\A[\p{L}\p{M}\p{N}\p{Pd} .,'’()]{1,128}\z", "display name");
+        var locale = SafeInstallerToken(m.User.Locale,
+            @"\A[A-Za-z0-9_.@-]{1,64}\z", "locale");
+        var keymap = SafeInstallerToken(m.User.Keymap,
+            @"\A[A-Za-z0-9_+.,()\-]{1,64}\z", "keyboard layout");
+        var timezone = SafeInstallerToken(m.User.Timezone,
+            @"\A[A-Za-z0-9_+\-]+(?:/[A-Za-z0-9_+\-]+)*\z", "time zone");
+
         // Included folder names as a space-separated list (informational / logging).
-        var folderList = string.Join(" ", m.Files.IncludedFolders);
+        var selectedFolders = m.Files.Folders.Count > 0
+            ? m.Files.Folders.Select(folder => SafeStagedFolderName(folder.Name)).ToArray()
+            : m.Files.IncludedFolders.Select(SafeStagedFolderName).ToArray();
+        var folderList = string.Join(" ", selectedFolders);
+        var stagedFolderNames = string.Join("\n", selectedFolders);
 
-        // Folder map for the %post copy loop: one "DestName|source/relative/path"
-        // entry per line. The relative path was resolved on the Windows side
-        // (Known Folder API), so OneDrive-redirected folders carry their real
-        // location (e.g. "OneDrive/Documents") instead of being guessed by name.
-        // Fall back to the name list if a manifest predates the Folders field.
-        var folderMap = m.Files.Folders.Count > 0
-            ? string.Join("\n", m.Files.Folders.Select(f => $"{f.Name}|{f.SourceRelativePath}"))
-            : string.Join("\n", m.Files.IncludedFolders.Select(n => $"{n}|{n}"));
+        // Selected profiles must have been copied to an exact OEMDRV-relative
+        // staging path by Core. A username alone cannot prove an NTFS source.
+        foreach (var browser in m.Browsers)
+        {
+            if (string.IsNullOrEmpty(browser.SourceRelativePath) ||
+                string.IsNullOrEmpty(browser.ProfileStagingPath))
+                throw new InvalidDataException("A selected Fedora browser profile has no staged source.");
+            if (!string.Equals(browser.Engine, "gecko", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(browser.Engine, "chromium", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The selected Fedora browser engine is unsupported.");
+            if (string.Equals(browser.Engine, "gecko", StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrEmpty(browser.DestRelativePath))
+                throw new InvalidDataException("A selected Gecko profile has no Linux destination.");
+        }
 
-        // Browser map for the %post copy loop: one "source/relative|dest/relative"
-        // entry per migratable Gecko profile (Firefox / Zen / Waterfox). Their
-        // profile roots are OS-portable and include saved passwords, so they move
-        // wholesale. Chromium carries no destination - see chromiumMap below.
-        var browserMap = string.Join("\n",
-            m.Browsers
-                .Where(b => !string.IsNullOrEmpty(b.SourceRelativePath)
-                         && !string.IsNullOrEmpty(b.DestRelativePath))
-                .Select(b => $"{b.SourceRelativePath}|{b.DestRelativePath}"));
+        var geckoBrowsers = m.Browsers
+            .Where(b => string.Equals(b.Engine, "gecko", StringComparison.OrdinalIgnoreCase)
+                     && !string.IsNullOrEmpty(b.SourceRelativePath)
+                     && !string.IsNullOrEmpty(b.DestRelativePath))
+            .ToArray();
+        var stagedBrowserMap = string.Join("\n", geckoBrowsers
+            .Select(b => $"{SafeStagedBrowserPath(b)}|{SafeBrowserPath(b.DestRelativePath)}"));
 
         // Chromium map: one "Browser Name|source/relative" entry. The name is the
         // key the agent maps to a Flatpak id and config directory, which is why
         // this half cannot name its own destination the way the Gecko map does.
-        var chromiumMap = string.Join("\n",
-            m.Browsers
-                .Where(b => string.Equals(b.Engine, "chromium", StringComparison.OrdinalIgnoreCase)
-                         && !string.IsNullOrEmpty(b.SourceRelativePath))
-                .Select(b => $"{b.Name}|{b.SourceRelativePath}"));
+        var chromiumBrowsers = m.Browsers
+            .Where(b => string.Equals(b.Engine, "chromium", StringComparison.OrdinalIgnoreCase)
+                     && !string.IsNullOrEmpty(b.SourceRelativePath))
+            .ToArray();
+        var stagedChromiumMap = string.Join("\n", chromiumBrowsers
+            .Select(b => $"{SafeBrowserName(b.Name)}|{SafeStagedBrowserPath(b)}"));
+        var selectedFileFolders = selectedFolders.Length > 0 ? "1" : "0";
 
-        // Password: use the user's chosen password (--plaintext). It MUST be double-quoted:
-        // A $6$ crypt hash contains only [./A-Za-z0-9$], so it needs no shlex escaping -
-        // unlike the plain text this used to carry. Quoted anyway to keep the line robust.
+        // The manifest carries a crypt hash, never the chosen plaintext.
         // If somehow empty, fall back to a locked account rather than a passwordless one.
         var password = m.User.LinuxPasswordCrypted;
         string passwordOption;
@@ -351,36 +453,31 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
         }
         else
         {
+            password = SafeInstallerToken(password,
+                @"\A[A-Za-z0-9./$=]{1,512}\z", "Linux password hash");
             var escaped = password
                 .Replace("\\", "\\\\", StringComparison.Ordinal)
                 .Replace("\"", "\\\"", StringComparison.Ordinal);
             passwordOption = $"--password=\"{escaped}\" --iscrypted";
         }
 
-        // Wi-Fi pre-seed for Anaconda: pick the network Windows was connected to
-        // (preferring a WPA-PSK one with a recovered key). The %pre script finds
-        // the wireless interface and emits a `network --essid --wpakey` directive
-        // into /tmp/ks-network.cfg, which the template %include-s. SSID/PSK are
-        // escaped for safe embedding in a bash double-quoted assignment.
+        // Open networks can still be discovered in %pre. Saved PSKs are
+        // refused before rendering because ks.cfg is copied to a FAT USB seed.
         var primaryWifi =
             m.WifiNetworks.FirstOrDefault(w => w.IsPrimary && w.Security == "wpa-psk" && !string.IsNullOrEmpty(w.Psk))
             ?? m.WifiNetworks.FirstOrDefault(w => w.IsPrimary && w.Security == "open");
 
-        var wifiSsid = primaryWifi is not null ? ShellDoubleQuote(primaryWifi.Ssid) : "";
-        var wifiPsk = primaryWifi?.Psk is { Length: > 0 } k ? ShellDoubleQuote(k) : "";
+        var wifiSsid = primaryWifi is not null ? ShellDoubleQuote(SafeWifiField(primaryWifi.Ssid)) : "";
+        var wifiPsk = primaryWifi?.Psk is { Length: > 0 } k ? ShellDoubleQuote(SafeWifiField(k)) : "";
 
-        // Every saved Wi-Fi network (WPA-PSK with a recovered key, or open) as
-        // tab-separated "SSID<TAB>PSK" lines for the %pre auto-connect loop. That
-        // loop brings the radio up, scans, and connects to the first one that is
-        // actually in range - so the netinstall associates automatically instead
-        // of Anaconda falling back to a manual Wi-Fi prompt. Tab-delimited so
-        // SSIDs/PSKs containing spaces survive; the lines live inside a quoted
-        // heredoc in %pre, so no shell escaping is needed here.
+        // Tab-separated "SSID<TAB>PSK" lines for %pre. At this point every
+        // selected PSK must be absent, leaving only open networks for automatic
+        // association. Unattended netinstall needs Ethernet or an open network.
         var wifiList = string.Join("\n",
             m.WifiNetworks
                 .Where(w => (w.Security == "wpa-psk" && !string.IsNullOrEmpty(w.Psk))
                             || w.Security == "open")
-                .Select(w => $"{w.Ssid}\t{(w.Security == "open" ? "" : w.Psk)}"));
+                .Select(w => $"{SafeWifiField(w.Ssid)}\t{(w.Security == "open" ? "" : SafeWifiField(w.Psk!))}"));
 
         // Install-source directive for the netinstall. Without this Anaconda has
         // no package repository and stops with "Error setting up repositories"
@@ -390,24 +487,27 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
 
         return template
             .Replace("{{INSTALL_SOURCE_URL}}", installSource, StringComparison.Ordinal)
-            .Replace("{{LOCALE}}", m.User.Locale, StringComparison.Ordinal)
-            .Replace("{{KEYMAP}}", m.User.Keymap, StringComparison.Ordinal)
-            .Replace("{{XLAYOUT}}", m.User.Keymap, StringComparison.Ordinal)
-            .Replace("{{TIMEZONE}}", m.User.Timezone, StringComparison.Ordinal)
-            .Replace("{{HOSTNAME}}", LinuxHostname.FromMachine(m.User.WindowsComputerName, m.User.PreferredLinuxUsername), StringComparison.Ordinal)
-            .Replace("{{WINDOWS_USERNAME}}", m.User.WindowsUsername, StringComparison.Ordinal)
-            .Replace("{{LINUX_USERNAME}}", m.User.PreferredLinuxUsername, StringComparison.Ordinal)
-            .Replace("{{FULL_NAME}}", m.User.FullName ?? m.User.PreferredLinuxUsername, StringComparison.Ordinal)
+            .Replace("{{LOCALE}}", locale, StringComparison.Ordinal)
+            .Replace("{{KEYMAP}}", keymap, StringComparison.Ordinal)
+            .Replace("{{XLAYOUT}}", keymap, StringComparison.Ordinal)
+            .Replace("{{TIMEZONE}}", timezone, StringComparison.Ordinal)
+            .Replace("{{HOSTNAME}}", LinuxHostname.FromMachine(m.User.WindowsComputerName, linuxUsername), StringComparison.Ordinal)
+            .Replace("{{WINDOWS_USERNAME}}", ShellDoubleQuote(m.User.WindowsUsername), StringComparison.Ordinal)
+            .Replace("{{LINUX_USERNAME}}", linuxUsername, StringComparison.Ordinal)
+            .Replace("{{FULL_NAME}}", fullName, StringComparison.Ordinal)
             .Replace("{{PASSWORD_OPTION}}", passwordOption, StringComparison.Ordinal)
             .Replace("{{TARGET_DISK_BYTES}}", m.Hardware.TargetDiskBytes > 0
                                                 ? m.Hardware.TargetDiskBytes.ToString(CultureInfo.InvariantCulture)
                                                 : "0", StringComparison.Ordinal)
-            .Replace("{{TARGET_DISK_MODEL}}", m.Hardware.TargetDiskModel ?? "", StringComparison.Ordinal)
+            .Replace("{{TARGET_DISK_GUID}}", m.Hardware.TargetDiskGuid?.ToString("D", CultureInfo.InvariantCulture) ?? "",
+                StringComparison.Ordinal)
+            .Replace("{{TARGET_DISK_MODEL}}", ShellDoubleQuote(m.Hardware.TargetDiskModel ?? ""), StringComparison.Ordinal)
             .Replace("{{INSTALL_MODE}}", m.Hardware.InstallMode, StringComparison.Ordinal)
-            .Replace("{{INCLUDED_FOLDERS}}", folderList, StringComparison.Ordinal)
-            .Replace("{{FOLDER_MAP}}", folderMap, StringComparison.Ordinal)
-            .Replace("{{BROWSER_MAP}}", browserMap, StringComparison.Ordinal)
-            .Replace("{{CHROMIUM_MAP}}", chromiumMap, StringComparison.Ordinal)
+            .Replace("{{INCLUDED_FOLDERS}}", ShellDoubleQuote(folderList), StringComparison.Ordinal)
+            .Replace("{{STAGED_FOLDER_NAMES}}", stagedFolderNames, StringComparison.Ordinal)
+            .Replace("{{STAGED_BROWSER_MAP}}", stagedBrowserMap, StringComparison.Ordinal)
+            .Replace("{{STAGED_CHROMIUM_MAP}}", stagedChromiumMap, StringComparison.Ordinal)
+            .Replace("{{SELECTED_FILE_FOLDERS}}", selectedFileFolders, StringComparison.Ordinal)
             .Replace("{{WIFI_SSID}}", wifiSsid, StringComparison.Ordinal)
             .Replace("{{WIFI_PSK}}", wifiPsk, StringComparison.Ordinal)
             .Replace("{{WIFI_LIST}}", wifiList, StringComparison.Ordinal);
@@ -415,8 +515,11 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
 
     private static string BuildInstallSourceLine(Uri? stage2Url)
     {
-        if (stage2Url is null)
-            return "# url: no stage2Url configured in distro.json - Anaconda will prompt for a source";
+        if (stage2Url is null || !stage2Url.IsAbsoluteUri ||
+            !string.Equals(stage2Url.Scheme, Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException(
+                "Fedora requires a configured HTTPS package source for unattended installation.");
 
         var stage2 = stage2Url.AbsoluteUri;
 
@@ -434,11 +537,86 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
         return $"url --url=\"{stage2}\"";
     }
 
+    private static string SafeInstallerToken(string? value, string pattern, string field)
+    {
+        if (string.IsNullOrWhiteSpace(value) ||
+            !Regex.IsMatch(value, pattern, RegexOptions.CultureInvariant))
+            throw new InvalidDataException($"Fedora {field} is unsafe for kickstart.");
+        return value;
+    }
+
+    private static void ValidateSelectedPackages(IReadOnlyList<SuggestedPackage> packages)
+    {
+        // First boot passes these values to a root package manager. Reject a
+        // malformed selected package while rendering, before preparing the USB.
+        foreach (var package in packages.Where(package => package.AutoInstall))
+        {
+            var flatpakId = package.FlatpakId;
+            var nativePackage = package.NativePackage;
+            if (string.IsNullOrEmpty(flatpakId) && string.IsNullOrEmpty(nativePackage))
+                throw new InvalidDataException("A selected Fedora application has no installable package identifier.");
+            if (!string.IsNullOrEmpty(flatpakId) &&
+                (!Regex.IsMatch(flatpakId, @"\A[A-Za-z0-9_][A-Za-z0-9_.-]{2,127}\z", RegexOptions.CultureInvariant) ||
+                 flatpakId.Count(character => character == '.') < 2 ||
+                 flatpakId.Contains("..", StringComparison.Ordinal)))
+                throw new InvalidDataException("A selected Fedora Flatpak identifier is unsafe.");
+            if (!string.IsNullOrEmpty(nativePackage) &&
+                (!Regex.IsMatch(nativePackage, @"\A[A-Za-z0-9][A-Za-z0-9_.+:-]{0,127}\z", RegexOptions.CultureInvariant) ||
+                 nativePackage.Contains("..", StringComparison.Ordinal)))
+                throw new InvalidDataException("A selected Fedora RPM identifier is unsafe.");
+        }
+    }
+
     private static string ShellDoubleQuote(string value) =>
-        value.Replace("\\", "\\\\", StringComparison.Ordinal)
+        (value.Any(char.IsControl)
+            ? throw new InvalidDataException("A Fedora installer field contains a control character.")
+            : value).Replace("\\", "\\\\", StringComparison.Ordinal)
              .Replace("\"", "\\\"", StringComparison.Ordinal)
              .Replace("$", "\\$", StringComparison.Ordinal)
              .Replace("`", "\\`", StringComparison.Ordinal);
+
+    private static string SafeStagedBrowserPath(BrowserMigration browser)
+    {
+        var expected = "browser-profiles/" + SafeBrowserPath(browser.SourceRelativePath);
+        if (!string.Equals(browser.ProfileStagingPath, expected, StringComparison.Ordinal))
+            throw new InvalidDataException("A Fedora browser staging path does not match its selected source.");
+        return expected;
+    }
+
+    private static string SafeStagedFolderName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name is "." or ".." or "STAGEDFOLDERS" ||
+            name.Any(c => char.IsControl(c) || "\\/:*?\"<>|".Contains(c, StringComparison.Ordinal)))
+            throw new InvalidDataException("A selected Fedora folder has an unsafe staging name.");
+        return name;
+    }
+
+    private static string SafeBrowserPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || path.StartsWith('/') ||
+            path.Contains('\\', StringComparison.Ordinal) ||
+            path.Contains('|', StringComparison.Ordinal) ||
+            path.Contains(':', StringComparison.Ordinal) ||
+            path.Any(char.IsControl) ||
+            path.Split('/').Any(segment => segment is "" or "." or ".."))
+            throw new InvalidDataException("A Fedora browser path must be a safe relative path.");
+        return path;
+    }
+
+    private static string SafeBrowserName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) ||
+            name.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not (' ' or '-' or '_')))
+            throw new InvalidDataException("A Fedora browser name must be a safe directory name.");
+        return name;
+    }
+
+    private static string SafeWifiField(string value)
+    {
+        if (value.Any(char.IsControl))
+            throw new InvalidDataException("Fedora Wi-Fi handoff cannot encode control characters in a kickstart line.");
+        return value;
+    }
 
     private static DistroMetadata BuildMetadata(DistroManifest raw)
     {

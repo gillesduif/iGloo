@@ -10,32 +10,19 @@
 #   {{LINUX_USERNAME}}     the user's chosen Linux login name
 #   {{FULL_NAME}}          display name (falls back to username)
 #   {{TARGET_DISK_BYTES}}  exact byte size of the user-selected target disk
+#   {{TARGET_DISK_GUID}}   Windows-observed GPT disk GUID of that selected disk
 #   {{TARGET_DISK_MODEL}}  model string of the target disk (informational)
-#   {{WINDOWS_USERNAME}}   Windows login name (used by direct-install %post to
-#                          locate the user's home directory on the NTFS partition)
+#   {{WINDOWS_USERNAME}}   Windows login name retained for migration metadata
 #   {{INSTALL_MODE}}       "replace"   → wipe entire disk (clearpart --all)
 #                          "dual-boot" → keep existing partitions, use free space
 #                                        (clearpart --none; Windows was already
 #                                         shrunk by the Igloo app before boot)
 #   {{INCLUDED_FOLDERS}}   space-separated list of folder names (informational)
 #                          (e.g. "Documents Downloads Pictures")
-#   FOLDER_MAP (no braces - multi-line value; literal token only in the %post heredoc below)
-#                          newline-separated "DestName|source/relative/path" pairs
-#                          for the %post copy loop. The relative path is resolved
-#                          on the Windows side (Known Folder API) so OneDrive
-#                          redirection is honoured, e.g.:
-#                              Documents|OneDrive/Documents
-#                              Downloads|Downloads
-#   BROWSER_MAP (no braces - multi-line value; literal token only in the %post heredoc below)
-#                          newline-separated "source/relative|dest/relative" pairs
-#                          for the %post browser-profile copy loop. Phase 1 covers
-#                          Gecko browsers only (Firefox / Zen / Waterfox), whose
-#                          profile roots are OS-portable and include saved
-#                          passwords. Empty when no such browser was selected, e.g.:
-#                              AppData/Roaming/Mozilla/Firefox|.mozilla/firefox
-#                              AppData/Roaming/zen|.zen
+#   {{STAGED_BROWSER_MAP}} selected Gecko OEMDRV paths and Linux destinations
+#   {{STAGED_CHROMIUM_MAP}} selected Chromium OEMDRV paths
 #   {{PASSWORD_OPTION}}    rendered by the plugin as either
-#                          "--password=<plaintext> --plaintext"  (normal case)
+#                          "--password=<crypt-hash> --iscrypted"
 #                          "--lock"                              (fallback if no password)
 #   {{WIFI_SSID}}          SSID of the network Windows was connected to, escaped
 #                          for a bash double-quoted string ("" if none / wired-only)
@@ -47,11 +34,14 @@
 #                          Fedora metalink ("Closest mirror"). Without it Anaconda
 #                          stops with "Error setting up repositories".
 #
-# Picked up by Anaconda automatically: OEMDRV is a FAT32 volume with that
-# label, which Anaconda has scanned for kickstart files for many years.
+# The boot entry points Anaconda to this file by exact OEMDRV GPT partition ID.
 # ============================================================================
 
-graphical
+# The Windows client has already collected every installer choice. Anaconda's
+# graphical ProgressSpoke still requests interaction under inst.noninteractive
+# on Fedora 44 and aborts before touching the disk. cmdline honors this complete
+# kickstart and stops if a required choice is missing.
+cmdline
 
 # Do NOT run the post-install setup wizard (initial-setup / the GTK first-boot
 # wizard) on first boot. Without this line the kickstart default is --enable,
@@ -73,7 +63,7 @@ timezone {{TIMEZONE}} --utc
 network --bootproto=dhcp --device=link --activate --hostname={{HOSTNAME}}
 
 # ── Install source ────────────────────────────────────────────────────────────
-# Direct-install boots with a LOCAL stage-2 (inst.stage2=hd:LABEL=OEMDRV) but the
+# Direct-install boots with a LOCAL stage-2 on the bound OEMDRV partition, but the
 # RPM packages for a netinstall must come from the network. This line points
 # Anaconda at the Fedora mirror metalink (the "Closest mirror" option) so the
 # repository is configured automatically - no interactive source prompt.
@@ -84,26 +74,311 @@ user --name={{LINUX_USERNAME}} --groups=wheel --gecos="{{FULL_NAME}}" {{PASSWORD
 
 # ── Disk detection ───────────────────────────────────────────────────────────
 # The %pre script runs before the installer initialises storage. It finds the
-# target disk by matching the exact byte size stored in the manifest at
-# image-build time, writes the bootloader / ignoredisk / clearpart / autopart
+# target disk by matching both its GPT disk GUID and exact byte size stored
+# in the manifest, writes the bootloader / ignoredisk / clearpart / autopart
 # commands to /tmp/ks-storage.cfg, and the %include below pulls them in.
 #
-# If no disk matches the expected size (e.g. the disk was replaced since the
-# USB was written) the script falls back to the largest non-removable,
-# non-USB disk so the installation still succeeds rather than hanging.
+# If the identity or size is absent or ambiguous, stop before Anaconda can
+# select another disk. The selected target may have changed since seed creation.
 # ─────────────────────────────────────────────────────────────────────────────
 
-%pre --interpreter=/bin/bash
+%pre --erroronfail --interpreter=/bin/bash
 set -euo pipefail
 
 TARGET_BYTES="{{TARGET_DISK_BYTES}}"
+TARGET_DISK_GUID="{{TARGET_DISK_GUID}}"
 TARGET_MODEL="{{TARGET_DISK_MODEL}}"
 INSTALL_MODE="{{INSTALL_MODE}}"
 TARGET_DISK=""
-OEMDRV_DEV=""
+MATCHES=0
+GUID_MATCHES=0
 
 log() { echo "[igloo-pre] $*" >&2; }
-log "Searching for target disk: model='$TARGET_MODEL' size=${TARGET_BYTES} bytes"
+log "Searching for target disk: GPT=$TARGET_DISK_GUID model='$TARGET_MODEL' size=${TARGET_BYTES} bytes"
+
+# Verify one exact seed before emitting any destructive storage directives.
+# This validator is also rerun by %post before it copies the agent or manifest.
+cat > /tmp/igloo-validate-seed.py <<'IGLOO_SEED_VALIDATOR'
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+import unicodedata
+import uuid
+
+device = os.path.realpath(sys.argv[1])
+seed = Path(sys.argv[2])
+if not stat.S_ISBLK(os.stat(device).st_mode):
+    raise RuntimeError("OEMDRV is not a block partition")
+identity_bytes = (seed / "igloo-seed-identity.json").read_bytes()
+identity = json.loads(identity_bytes)
+if identity.get("version") != 1:
+    raise RuntimeError("Unsupported OEMDRV identity version")
+expected_partition = uuid.UUID(identity["partitionGuid"])
+expected_disk = uuid.UUID(identity["diskGuid"])
+if expected_partition.int == 0 or expected_disk.int == 0:
+    raise RuntimeError("OEMDRV has an empty GPT identity")
+
+def read_id(args):
+    return subprocess.check_output(args, text=True).strip()
+
+partition = uuid.UUID(read_id(["blkid", "-s", "PARTUUID", "-o", "value", device]))
+parents = read_id(["lsblk", "-n", "-o", "PKNAME", device]).splitlines()
+if len(parents) != 1 or not re.fullmatch(r"[A-Za-z0-9._-]+", parents[0]):
+    raise RuntimeError("OEMDRV parent disk is unavailable or ambiguous")
+disk = uuid.UUID(read_id(["blkid", "-s", "PTUUID", "-o", "value", "/dev/" + parents[0]]))
+if partition != expected_partition or disk != expected_disk:
+    raise RuntimeError("OEMDRV GPT identity does not match its seed identity")
+
+# Direct-install carries the Windows-observed seed IDs in the kernel command
+# line. Raw USB boot has no external seed hint; the one OEMDRV must still prove
+# its own GPT identity and exact staged file hashes.
+hints = {"igloo.seedpartuuid": [], "igloo.seeddiskguid": []}
+for token in Path("/proc/cmdline").read_text().split():
+    for key in hints:
+        if token.startswith(key + "="):
+            hints[key].append(token.split("=", 1)[1])
+if any(hints.values()):
+    if len(hints["igloo.seedpartuuid"]) != 1 or len(hints["igloo.seeddiskguid"]) != 1:
+        raise RuntimeError("Incomplete or ambiguous OEMDRV boot identity")
+    if (uuid.UUID(hints["igloo.seedpartuuid"][0]) != expected_partition or
+            uuid.UUID(hints["igloo.seeddiskguid"][0]) != expected_disk):
+        raise RuntimeError("OEMDRV does not match the Windows-observed boot identity")
+
+entries = identity.get("files")
+if not isinstance(entries, list):
+    raise RuntimeError("OEMDRV file identity list is missing")
+seen = set()
+bound_inputs = {"migration-manifest.json", "ks.cfg", "preseed.cfg", "igloo-boot/initrd"}
+required_agent = {"agent.py", "first-boot.sh", "display-apply.py", "igloo_boot.py"}
+manifest = json.loads((seed / "migration-manifest.json").read_bytes())
+selected_media = set()
+for key, pattern in (("wallpaper", r"igloo-wallpaper\.[A-Za-z0-9]{2,8}"),
+                     ("accountPicture", r"igloo-avatar\.jpg")):
+    item = manifest.get(key)
+    if item is None:
+        continue
+    name = item.get("fileName") if isinstance(item, dict) else None
+    valid = (isinstance(name, str) and
+             (name == "igloo-avatar.jpg" if key == "accountPicture" else
+              re.fullmatch(pattern, name, flags=re.IGNORECASE) is not None))
+    if not valid:
+        raise RuntimeError("Selected OEMDRV media has an unsafe file name")
+    selected_media.add(name)
+
+def safe_user_segment(segment):
+    base = segment.split(".", 1)[0].upper()
+    reserved = base in {"CON", "PRN", "AUX", "NUL"} or re.fullmatch(
+        r"(?:COM|LPT)[1-9]", base) is not None
+    return (bool(segment) and not segment.isspace() and segment not in {".", ".."}
+            and segment == unicodedata.normalize("NFC", segment) and not reserved
+            and not segment.endswith((" ", "."))
+            and all(unicodedata.category(char) != "Cc" and
+                    char not in '<>":|?*/\\' for char in segment))
+
+def safe_user_path(path):
+    return (isinstance(path, str) and 0 < len(path) <= 1024 and
+            "\\" not in path and all(safe_user_segment(part)
+                                      for part in path.split("/")))
+
+def selected_user_paths():
+    roots = set()
+    root_aliases = set()
+
+    def add_root(path):
+        if not safe_user_path(path):
+            raise RuntimeError("Selected OEMDRV user-data path is unsafe")
+        if len(roots) >= 1024:
+            raise RuntimeError("Selected OEMDRV user-data root inventory is too large")
+        alias = unicodedata.normalize("NFC", path).casefold()
+        if alias in root_aliases:
+            raise RuntimeError("Selected OEMDRV user-data roots are ambiguous")
+        root_aliases.add(alias)
+        roots.add(path)
+
+    selected_files = manifest.get("files")
+    if selected_files is None:
+        selected_files = {}
+    if not isinstance(selected_files, dict):
+        raise RuntimeError("Selected OEMDRV folder metadata is invalid")
+    folders = selected_files.get("folders")
+    if folders is None:
+        folders = []
+    if not isinstance(folders, list):
+        raise RuntimeError("Selected OEMDRV folder metadata is invalid")
+    if folders:
+        if any(not isinstance(folder, dict) or not isinstance(folder.get("name"), str)
+               for folder in folders):
+            raise RuntimeError("Selected OEMDRV folder metadata is invalid")
+        folder_names = [folder["name"] for folder in folders]
+    else:
+        folder_names = selected_files.get("includedFolders")
+        if folder_names is None:
+            folder_names = []
+        if not isinstance(folder_names, list) or any(
+                not isinstance(name, str) for name in folder_names):
+            raise RuntimeError("Selected OEMDRV folder metadata is invalid")
+    staging_path = selected_files.get("stagingPath")
+    if staging_path is not None and not isinstance(staging_path, str):
+        raise RuntimeError("Selected OEMDRV folder staging metadata is invalid")
+    if (staging_path and not staging_path.isspace()) or (seed / "files").exists():
+        for name in folder_names:
+            add_root("files/" + name)
+
+    browsers = manifest.get("browsers")
+    if browsers is None:
+        browsers = []
+    if not isinstance(browsers, list):
+        raise RuntimeError("Selected OEMDRV browser metadata is invalid")
+    for browser in browsers:
+        if not isinstance(browser, dict):
+            raise RuntimeError("Selected OEMDRV browser metadata is invalid")
+        staged = browser.get("profileStagingPath")
+        if staged is None or staged == "":
+            continue  # Historical NTFS-only browser selection.
+        source = browser.get("sourceRelativePath")
+        if not isinstance(staged, str) or not isinstance(source, str):
+            raise RuntimeError("Staged browser selection has no source binding")
+        source = source.replace("\\", "/")
+        if not safe_user_path(source) or staged != "browser-profiles/" + source:
+            raise RuntimeError("Staged browser selection differs from its source")
+        add_root(staged)
+
+    observed = set()
+    directories = set()
+    aliases = set()
+    entries_seen = 0
+    path_characters = 0
+    for namespace in ("files", "browser-profiles"):
+        namespace_root = seed / namespace
+        chosen = {root for root in roots if root.startswith(namespace + "/")}
+        if namespace_root.is_symlink() or (namespace_root.exists() and
+                                           (not namespace_root.is_dir() or not chosen)):
+            raise RuntimeError("OEMDRV contains an unselected or redirected user-data root")
+        if not namespace_root.is_dir():
+            if chosen:
+                raise RuntimeError("Selected OEMDRV user-data root is missing")
+            continue
+        pending = [namespace_root]
+        while pending:
+            for item in pending.pop().iterdir():
+                if item.is_symlink():
+                    raise RuntimeError("Selected OEMDRV user data contains a redirected entry")
+                relative = item.relative_to(seed).as_posix()
+                if not safe_user_path(relative):
+                    raise RuntimeError("Selected OEMDRV user-data path is unsafe")
+                alias = unicodedata.normalize("NFC", relative).casefold()
+                entries_seen += 1
+                if alias in aliases or entries_seen > 20000:
+                    raise RuntimeError("Selected OEMDRV user-data inventory is ambiguous or excessive")
+                aliases.add(alias)
+                if item.is_dir():
+                    if not any(relative == root or relative.startswith(root + "/") or
+                               root.startswith(relative + "/") for root in chosen):
+                        raise RuntimeError("OEMDRV contains an unselected user-data directory")
+                    directories.add(relative)
+                    pending.append(item)
+                elif item.is_file():
+                    if not any(relative.startswith(root + "/") for root in chosen):
+                        raise RuntimeError("OEMDRV contains an unselected user-data file")
+                    path_characters += len(relative)
+                    if len(observed) >= 10000 or path_characters > 2000000:
+                        raise RuntimeError("Selected OEMDRV user-data inventory is too large")
+                    observed.add(relative)
+                else:
+                    raise RuntimeError("Selected OEMDRV user data contains a special entry")
+    for root in roots:
+        selected = seed / root
+        if selected.is_symlink() or not selected.is_dir():
+            raise RuntimeError("Selected OEMDRV user-data directory is missing")
+    for directory in directories:
+        if (not any(directory == root or root.startswith(directory + "/")
+                    for root in roots) and
+                not any(path.startswith(directory + "/") for path in observed)):
+            raise RuntimeError("Selected OEMDRV user data contains an unbound empty directory")
+    return observed
+
+selected_user = selected_user_paths()
+
+def safe_provider_path(name):
+    if not isinstance(name, str) or len(name) > 256 or "\\" in name or ":" in name:
+        return False
+    parts = name.split("/")
+    return (len(parts) >= 2 and all(re.fullmatch(r"[A-Za-z0-9_.-]+", part)
+                                    and part not in {".", ".."} for part in parts)
+            and parts[0].lower() not in {"files", "browser-profiles", "efi",
+                                         "images", "igloo-boot"})
+
+for entry in entries:
+    if not isinstance(entry, dict):
+        raise RuntimeError("Malformed OEMDRV file identity")
+    name, expected_hash = entry.get("path"), entry.get("sha256")
+    if (not isinstance(name, str) or
+            (name not in bound_inputs and name not in selected_media
+             and name not in selected_user
+             and not safe_provider_path(name)) or
+            name in seen or
+            not isinstance(expected_hash, str) or
+            re.fullmatch(r"[0-9A-F]{64}", expected_hash) is None):
+        raise RuntimeError("Unsafe or duplicated OEMDRV file identity")
+    seen.add(name)
+    path = seed / name
+    if path.is_symlink() or not path.is_file():
+        raise RuntimeError("OEMDRV file is missing or redirected: " + name)
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    actual_hash = digest.hexdigest().upper()
+    if actual_hash != expected_hash:
+        raise RuntimeError("OEMDRV file differs from its bound identity: " + name)
+if not {"migration-manifest.json", "ks.cfg"}.issubset(seen):
+    raise RuntimeError("OEMDRV lacks bound Fedora inputs")
+bound_media = {name for name in seen if name.lower().startswith(
+    "igloo-wallpaper.") or name.lower() == "igloo-avatar.jpg"}
+if bound_media != selected_media:
+    raise RuntimeError("Selected OEMDRV media differs from its identity")
+if {name for name in seen if name in selected_user} != selected_user:
+    raise RuntimeError("Selected OEMDRV user data differs from its identity")
+agent_root = seed / "igloo-agent"
+if not agent_root.is_dir() or agent_root.is_symlink():
+    raise RuntimeError("OEMDRV first-boot agent directory is unavailable")
+actual_agent = set()
+for path in agent_root.iterdir():
+    if path.is_symlink() or not path.is_file():
+        raise RuntimeError("OEMDRV first-boot agent has an unexpected entry")
+    actual_agent.add("igloo-agent/" + path.name)
+bound_agent = {name for name in seen if name.startswith("igloo-agent/")}
+if (actual_agent != bound_agent or
+        not {"igloo-agent/" + name for name in required_agent}.issubset(bound_agent)):
+    raise RuntimeError("OEMDRV first-boot agent inventory differs from its identity")
+print(str(disk))
+IGLOO_SEED_VALIDATOR
+
+mapfile -t SEED_DEVICES < <(blkid -t LABEL=OEMDRV -o device 2>/dev/null)
+if [ "${#SEED_DEVICES[@]}" -ne 1 ]; then
+    log "ERROR: expected exactly one OEMDRV partition; found ${#SEED_DEVICES[@]}"
+    exit 1
+fi
+PRE_SEED=/tmp/igloo_pre_oemdrv
+mkdir -p "$PRE_SEED"
+mount -t vfat -o ro,nosuid,nodev,noexec "${SEED_DEVICES[0]}" "$PRE_SEED"
+SEED_DISK_GUID=$(python3 /tmp/igloo-validate-seed.py "${SEED_DEVICES[0]}" "$PRE_SEED")
+umount "$PRE_SEED"
+if [ -z "$SEED_DISK_GUID" ] || [ "${SEED_DISK_GUID,,}" = "${TARGET_DISK_GUID,,}" ]; then
+    log "ERROR: selected target is the installer seed disk or seed identity is unavailable"
+    exit 1
+fi
+log "Bound OEMDRV identity and staged inputs verified"
+
+if [ -z "$TARGET_DISK_GUID" ] || [ "$TARGET_DISK_GUID" = "00000000-0000-0000-0000-000000000000" ]; then
+    log "ERROR: selected GPT disk identity is unavailable"
+    exit 1
+fi
 
 # Enumerate all physical (non-partition) block devices.
 # /sys/block/*/size is in 512-byte sectors; multiply to get bytes.
@@ -119,31 +394,28 @@ for sys_dev in /sys/block/sd* /sys/block/nvme*n1 /sys/block/vd* /sys/block/xvd*;
     size_bytes=$(( size_sectors * 512 ))
     log "  $devname: ${size_bytes} bytes"
 
-    if [ "$size_bytes" = "$TARGET_BYTES" ] && [ "$TARGET_BYTES" != "0" ]; then
-        TARGET_DISK="$devname"
-        log "  --> matched by size"
-        break
+    observed_guid=$(blkid -p -s PTUUID -o value "/dev/$devname" 2>/dev/null || true)
+    if [ -n "$observed_guid" ] && [ "${observed_guid,,}" = "${TARGET_DISK_GUID,,}" ]; then
+        GUID_MATCHES=$(( GUID_MATCHES + 1 ))
+        if [ "$size_bytes" = "$TARGET_BYTES" ] && [ "$TARGET_BYTES" != "0" ]; then
+            TARGET_DISK="$devname"
+            MATCHES=$(( MATCHES + 1 ))
+            log "  --> matched exact GPT identity and size (candidate $MATCHES)"
+        else
+            log "  --> GPT identity matched but size changed; refusing this disk"
+        fi
     fi
 done
 
-# Fallback: largest non-removable, non-USB disk
-if [ -z "$TARGET_DISK" ]; then
-    log "No exact size match; falling back to largest non-removable disk"
-    TARGET_DISK=$(
-        lsblk -d -o NAME,SIZE,TYPE,TRAN -b -n 2>/dev/null \
-            | awk '$3=="disk" && $4!="usb"' \
-            | sort -k2 -rn \
-            | head -1 \
-            | awk '{print $1}'
-    )
-    log "  fallback target: $TARGET_DISK"
+if [ "$GUID_MATCHES" -ne 1 ] || [ "$MATCHES" -ne 1 ]; then
+    log "ERROR: expected exactly one disk matching GPT $TARGET_DISK_GUID and $TARGET_BYTES bytes; found $GUID_MATCHES identity and $MATCHES exact matches"
+    exit 1
+fi
+if [ "$INSTALL_MODE" != "replace" ] && [ "$INSTALL_MODE" != "dual-boot" ]; then
+    log "ERROR: unsupported install mode '$INSTALL_MODE'"
+    exit 1
 fi
 
-if [ -z "$TARGET_DISK" ]; then
-    log "ERROR: could not identify a target disk - kickstart will fail"
-    # Write a dummy that produces a clear error instead of a silent hang
-    echo "# ERROR: target disk not found" > /tmp/ks-storage.cfg
-else
     log "Target disk: /dev/$TARGET_DISK  (mode: $INSTALL_MODE)"
 
     # NVIDIA GPUs: do NOT blacklist nouveau on the installed kernel cmdline
@@ -201,7 +473,6 @@ else
     } > /tmp/ks-storage.cfg
     log "Storage config written to /tmp/ks-storage.cfg:"
     cat /tmp/ks-storage.cfg >&2
-fi
 
 # ── Wi-Fi connectivity for the netinstall ─────────────────────────────────────
 # Anaconda's `network --essid --wpakey` kickstart directive is applied very
@@ -217,11 +488,10 @@ fi
 # do NOT need a `network` directive at all - /tmp/ks-network.cfg stays empty and
 # its %include below is a harmless no-op. Wired links are already handled by the
 # `network --device=link --activate` line near the top of this kickstart.
-# Auto-connect Wi-Fi for the netinstall. We try EVERY network the user had saved
-# on Windows (not just one pre-picked "primary"): bring the radio up, scan, and
-# associate with the first known network currently in range. This gets the
-# netinstall online without Anaconda falling back to a manual Wi-Fi prompt.
-# Each WIFI_LIST line is "SSID<TAB>PSK" (PSK empty for open networks). The
+# Auto-connect an open Wi-Fi network for the netinstall if one was selected.
+# Saved PSKs are refused before this Kickstart is staged on the installer USB;
+# unattended installation needs wired Ethernet or an open network in range.
+# Each WIFI_LIST line is "SSID<TAB>PSK"; PSK is empty on this product path. The
 # installed system's Wi-Fi is configured separately by the first-boot agent, so
 # /tmp/ks-network.cfg stays empty (its %include below is a harmless no-op).
 : > /tmp/ks-network.cfg
@@ -271,7 +541,7 @@ WIFILIST
     if [ "$connected" = "1" ]; then
         log "Wi-Fi connected on $WLAN_DEV"
     else
-        log "WARNING: no saved Wi-Fi network in range - Anaconda may prompt for one"
+        log "No open Wi-Fi network connected - wired Ethernet is required for unattended netinstall"
     fi
 else
     log "No wireless interface found - relying on a wired link if present"
@@ -294,7 +564,8 @@ python3
 python3-pip
 rsync
 git
-ntfs-3g
+libnotify
+mokutil
 %end
 
 reboot
@@ -307,25 +578,35 @@ reboot
 #   3. Register the igloo-first-boot.service systemd unit.
 # ─────────────────────────────────────────────────────────────────────────────
 
-%post --nochroot --interpreter=/bin/bash --log=/mnt/sysimage/var/log/igloo-post.log
+%post --nochroot --erroronfail --interpreter=/bin/bash --log=/mnt/sysimage/var/log/igloo-post.log
 set -euo pipefail
 
 SYSIMAGE="/mnt/sysimage"
 
-# Locate the OEMDRV partition by its FAT32 filesystem label.
-# With netinstall, /run/install/repo is the network package repo - NOT the OEMDRV
-# device.  We must find OEMDRV explicitly by label and mount it ourselves.
-OEMDRV_DEV=$(blkid -L OEMDRV 2>/dev/null || true)
-OEMDRV=""
-if [ -n "$OEMDRV_DEV" ]; then
-    OEMDRV="/tmp/igloo_oemdrv"
-    mkdir -p "$OEMDRV"
-    if ! mount -o ro "$OEMDRV_DEV" "$OEMDRV" 2>/dev/null; then
-        OEMDRV=""
-    fi
+# With netinstall, /run/install/repo is the network package source. Locate
+# exactly one OEMDRV and revalidate the same GPT seed and file hashes that %pre
+# checked before storage mutation.
+mapfile -t SEED_DEVICES < <(blkid -t LABEL=OEMDRV -o device 2>/dev/null)
+if [ "${#SEED_DEVICES[@]}" -ne 1 ]; then
+    echo "[igloo-post] ERROR: expected exactly one OEMDRV partition; found ${#SEED_DEVICES[@]}" >&2
+    exit 1
 fi
-if [ -z "$OEMDRV" ]; then
-    echo "[igloo-post] WARNING: Could not mount OEMDRV (tried $OEMDRV_DEV) - agent/manifest copy skipped" >&2
+OEMDRV_DEV="${SEED_DEVICES[0]}"
+OEMDRV="/tmp/igloo_oemdrv"
+mkdir -p "$OEMDRV"
+mount -t vfat -o ro,nosuid,nodev,noexec "$OEMDRV_DEV" "$OEMDRV"
+python3 /tmp/igloo-validate-seed.py "$OEMDRV_DEV" "$OEMDRV" >/dev/null
+if [ ! -f "$OEMDRV/igloo-agent/first-boot.sh" ] || [ ! -f "$OEMDRV/igloo-agent/agent.py" ]; then
+    echo "[igloo-post] ERROR: Required first-boot agent files are missing on OEMDRV" >&2
+    exit 1
+fi
+if [ ! -f "$OEMDRV/migration-manifest.json" ]; then
+    echo "[igloo-post] ERROR: Migration manifest is missing on OEMDRV" >&2
+    exit 1
+fi
+if [ ! -f "$OEMDRV/igloo-seed-identity.json" ] || [ ! -f "$OEMDRV/ks.cfg" ]; then
+    echo "[igloo-post] ERROR: Bound installer seed identity or kickstart is missing on OEMDRV" >&2
+    exit 1
 fi
 USERNAME="{{LINUX_USERNAME}}"
 WINDOWS_USERNAME="{{WINDOWS_USERNAME}}"
@@ -333,6 +614,44 @@ INCLUDED_FOLDERS="{{INCLUDED_FOLDERS}}"
 USER_HOME="$SYSIMAGE/home/$USERNAME"
 
 log() { echo "[igloo-post] $*"; }
+
+stage_chromium_plain() {
+    local cname="$1" src="$2" stage staged_any f
+    stage="$SYSIMAGE/var/lib/igloo/chromium/$cname"
+    install -d -m 0700 "$stage" "$stage/Network"
+    staged_any=0
+    # A committed SQLite row can still live only in its WAL. Carry it with
+    # the database; SQLite rebuilds the transient -shm file on Linux.
+    for f in Bookmarks History History-wal Favicons Favicons-wal \
+             "Top Sites" "Top Sites-wal" "Network/Cookies" \
+             "Network/Cookies-wal"; do
+        [ -f "$src/$f" ] || continue
+        case "$f" in
+            *-wal)
+                if [ ! -f "$src/${f%-wal}" ]; then
+                    log "ERROR: selected $cname WAL has no database: $f"
+                    return 1
+                fi
+                ;;
+        esac
+        if ! cp -p "$src/$f" "$stage/$f"; then
+            log "ERROR: could not stage selected $cname file $f"
+            return 1
+        fi
+        chmod 0600 "$stage/$f"
+        staged_any=1
+    done
+    if [ -d "$src/Sessions" ]; then
+        if ! cp -a "$src/Sessions" "$stage/"; then
+            log "ERROR: could not stage selected $cname Sessions"
+            return 1
+        fi
+        staged_any=1
+    fi
+    [ "$staged_any" = "1" ] \
+        && log "  Staged $cname profile files for the first-boot agent" \
+        || rmdir "$stage/Network" "$stage" 2>/dev/null || true
+}
 
 log "Starting Igloo post-install (nochroot)"
 log "  OEMDRV   : $OEMDRV"
@@ -364,181 +683,166 @@ if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/igloo-agent" ]; then
         cp "$src" "$SYSIMAGE/opt/igloo/" && log "  Installed $(basename "$src") (binary)"
     done
     log "Agent installed to /opt/igloo"
-else
-    log "WARNING: igloo-agent directory not found on OEMDRV"
 fi
 
 # ── 3. Copy the migration manifest ──────────────────────────────────────────
 if [ -n "$OEMDRV" ] && [ -f "$OEMDRV/migration-manifest.json" ]; then
-    cp "$OEMDRV/migration-manifest.json" "$SYSIMAGE/var/lib/igloo/manifest.json"
+    install -m 0600 "$OEMDRV/migration-manifest.json" "$SYSIMAGE/var/lib/igloo/manifest.json"
+    install -m 0600 "$OEMDRV/igloo-seed-identity.json" "$SYSIMAGE/var/lib/igloo/seed-identity.json"
     log "Manifest copied to /var/lib/igloo/manifest.json"
-else
-    log "WARNING: migration-manifest.json not found on OEMDRV"
 fi
 
-# ── 3b. Copy the migrated wallpaper (optional) ──────────────────────────────
-# The agent's wallpaper step looks for it in /opt/igloo under its staged name.
-if [ -n "$OEMDRV" ]; then
-    for wp in "$OEMDRV"/igloo-wallpaper.* "$OEMDRV"/igloo-avatar.*; do
-        [ -f "$wp" ] || continue
-        cp "$wp" "$SYSIMAGE/opt/igloo/$(basename "$wp")"
-        log "Copied: $(basename "$wp")"
-    done
-fi
+# ── 3b. Copy exactly the selected, identity-verified media ──────────────────
+# The validator above proved the manifest-selected names and their file hashes.
+python3 - "$OEMDRV/migration-manifest.json" > /tmp/igloo-selected-media.lst <<'IGLOO_SELECTED_MEDIA'
+import json
+from pathlib import Path
+import re
+import sys
+
+manifest = json.loads(Path(sys.argv[1]).read_bytes())
+for key, pattern in (("wallpaper", r"igloo-wallpaper\.[A-Za-z0-9]{2,8}"),
+                     ("accountPicture", r"igloo-avatar\.jpg")):
+    item = manifest.get(key)
+    if item is None:
+        continue
+    name = item.get("fileName") if isinstance(item, dict) else None
+    valid = (isinstance(name, str) and
+             (name == "igloo-avatar.jpg" if key == "accountPicture" else
+              re.fullmatch(pattern, name, flags=re.IGNORECASE) is not None))
+    if not valid:
+        raise RuntimeError("Selected OEMDRV media has an unsafe file name")
+    print(name)
+IGLOO_SELECTED_MEDIA
+while IFS= read -r media; do
+    [ -f "$OEMDRV/$media" ] || { log "ERROR: selected media is missing: $media"; exit 1; }
+    cp "$OEMDRV/$media" "$SYSIMAGE/opt/igloo/$media"
+    log "Copied: $media"
+done < /tmp/igloo-selected-media.lst
 
 # ── 4. Copy user files ───────────────────────────────────────────────────────
-# Two strategies depending on how Igloo wrote the installer:
-#
-#   USB mode:    OEMDRV/files/<FolderName>/  (user files were staged to USB)
-#   Direct mode: OEMDRV has no files/ dir → mount Windows NTFS and copy directly
+# Core stages each selected folder under OEMDRV/files for USB and direct mode.
 
 copy_user_files_done=0
 
+prepare_private_user_copy_target() {
+    local target="$1" relative component current redirected
+    local -a components
+    case "$target" in
+        "$USER_HOME"/*) ;;
+        *) log "ERROR: selected user destination is outside the installed home"; return 1 ;;
+    esac
+    if [ -L "$USER_HOME" ] || [ ! -d "$USER_HOME" ]; then
+        log "ERROR: installed user home is missing or redirected"
+        return 1
+    fi
+    relative="${target#"$USER_HOME"/}"
+    IFS='/' read -r -a components <<< "$relative"
+    current="$USER_HOME"
+    for component in "${components[@]}"; do
+        if [ -z "$component" ] || [ "$component" = "." ] || [ "$component" = ".." ]; then
+            log "ERROR: selected user destination has an unsafe component"
+            return 1
+        fi
+        current="$current/$component"
+        if [ -L "$current" ] || { [ -e "$current" ] && [ ! -d "$current" ]; }; then
+            log "ERROR: selected user destination is redirected or is not a directory"
+            return 1
+        fi
+        if [ ! -d "$current" ]; then
+            mkdir -m 0700 "$current"
+        fi
+    done
+    # A pre-existing nested link can redirect cp -a even if the root itself is
+    # a real directory. Reject it before copying or changing existing content.
+    redirected=$(find "$target" -type l -print -quit) || return 1
+    if [ -n "$redirected" ]; then
+        log "ERROR: selected user destination contains a redirected entry"
+        return 1
+    fi
+    chmod 0700 "$target"
+}
+
+if [ ! -d "$USER_HOME" ]; then
+    log "ERROR: installed user home is missing: $USER_HOME"
+    exit 1
+fi
 if [ -d "$USER_HOME" ]; then
     if [ -n "$OEMDRV" ] && [ -d "$OEMDRV/files" ]; then
-        # ── USB mode ─────────────────────────────────────────────────────────
-        log "Copying staged user files from OEMDRV/files/ to $USER_HOME"
-        for folder_src in "$OEMDRV/files"/*/; do
-            [ -d "$folder_src" ] || continue
-            folder_name=$(basename "$folder_src")
-            folder_dst="$USER_HOME/$folder_name"
-            mkdir -p "$folder_dst"
-            cp -a "$folder_src/." "$folder_dst/"
-            log "  Copied $folder_name"
-        done
-        copy_user_files_done=1
-    else
-        # ── Direct install mode ───────────────────────────────────────────────
-        log "OEMDRV/files not present - attempting direct copy from Windows NTFS partition"
-        NTFS_MNT="/tmp/igloo_ntfs_src"
-        mkdir -p "$NTFS_MNT"
-
-        for ntfs_dev in /dev/sd?[0-9]* /dev/nvme?n?p* /dev/vd?[0-9]*; do
-            [ -b "$ntfs_dev" ] || continue
-            blkid "$ntfs_dev" 2>/dev/null | grep -q 'TYPE="ntfs"' || continue
-
-            mount -t ntfs-3g "$ntfs_dev" "$NTFS_MNT" -o ro 2>/dev/null || continue
-            WIN_HOME="$NTFS_MNT/Users/$WINDOWS_USERNAME"
-
-            if [ -d "$WIN_HOME" ]; then
-                log "Found Windows home at $ntfs_dev : $WIN_HOME"
-                # FOLDER_MAP holds one "DestName|source/relative/path" entry per
-                # line (rendered from the manifest). The relative path is resolved
-                # on the Windows side via the Known Folder API, so OneDrive-
-                # redirected folders carry their real location (e.g.
-                # "OneDrive/Documents") instead of a guessed "$WIN_HOME/Documents".
-                # IFS='|' splits each line into dest name + relative source path;
-                # the heredoc body/delimiter sit at column 0 as bash requires.
-                while IFS='|' read -r fname frel; do
-                    [ -n "$fname" ] || continue
-                    src="$WIN_HOME/$frel"
-                    dst="$USER_HOME/$fname"
-                    if [ ! -d "$src" ]; then
-                        log "  Skipping $fname (source '$frel' not found)"
-                        continue
-                    fi
-                    mkdir -p "$dst"
-                    # Tolerate individual unreadable files (e.g. OneDrive online-only
-                    # placeholders) without aborting the whole %post under set -e.
-                    cp -a "$src/." "$dst/" 2>/dev/null \
-                        || log "  WARNING: some files in $fname could not be copied"
-                    log "  Copied $fname from $frel"
-                done <<'FOLDERMAP'
-{{FOLDER_MAP}}
-FOLDERMAP
-
-                # ── Browser profiles (Phase 1: Gecko only) ───────────────────
-                # BROWSER_MAP holds one "source/relative|dest/relative" entry per
-                # migratable browser. Source is relative to the Windows home (e.g.
-                # "AppData/Roaming/Mozilla/Firefox"); dest is relative to the Linux
-                # $HOME (e.g. ".mozilla/firefox"). Only Gecko browsers (Firefox /
-                # Zen / Waterfox) appear here - their profile roots are OS-portable
-                # and carry saved passwords (NSS). Chromium passwords are DPAPI-
-                # bound to the Windows account, so those browsers are not migrated.
-                # The map is empty when no Gecko browser was selected, making the
-                # loop a no-op.
-                while IFS='|' read -r bsrc bdst; do
-                    [ -n "$bsrc" ] || continue
-                    src="$WIN_HOME/$bsrc"
-                    dst="$USER_HOME/$bdst"
-                    if [ ! -d "$src" ]; then
-                        log "  Skipping browser '$bsrc' (source not found)"
-                        continue
-                    fi
-                    mkdir -p "$dst"
-                    cp -a "$src/." "$dst/" 2>/dev/null \
-                        || log "  WARNING: some files in browser profile '$bsrc' could not be copied"
-                    log "  Copied browser profile $bsrc -> $bdst"
-                done <<'BROWSERMAP'
-{{BROWSER_MAP}}
-BROWSERMAP
-
-                # ── Chromium profiles (the plain half) ───────────────────────
-                # CHROMIUM_MAP holds one "Browser Name|source/relative" entry per
-                # Chromium browser. Bookmarks, history, favicons, top sites and
-                # the cookie jar are NOT protected by the Windows master key, so
-                # they cross as ordinary files. They are staged rather than placed:
-                # the destination depends on whether the browser turns out to be a
-                # Flatpak, and nothing is installed yet at %post time. The
-                # first-boot agent moves them once it knows, then clears the
-                # staging directory. Passwords and cookie values still ride the
-                # encrypted blob. See docs/reference/browser-migration.md.
-                while IFS='|' read -r cname csrc; do
-                    [ -n "$cname" ] || continue
-                    src="$WIN_HOME/$csrc/Default"
-                    if [ ! -d "$src" ]; then
-                        log "  Skipping $cname (no Default profile under '$csrc')"
-                        continue
-                    fi
-                    stage="$SYSIMAGE/var/lib/igloo/chromium/$cname"
-                    install -d -m 0700 "$stage" "$stage/Network"
-                    staged_any=0
-                    for f in Bookmarks History Favicons "Top Sites" "Network/Cookies"; do
-                        [ -f "$src/$f" ] || continue
-                        if cp -p "$src/$f" "$stage/$f" 2>/dev/null; then
-                            chmod 0600 "$stage/$f"
-                            staged_any=1
-                        else
-                            log "  WARNING: could not stage $f for $cname"
-                        fi
-                    done
-                    # Open tabs: a directory of Session_* / Tabs_* files.
-                    if [ -d "$src/Sessions" ]; then
-                        if cp -a "$src/Sessions" "$stage/" 2>/dev/null; then
-                            staged_any=1
-                        else
-                            log "  WARNING: could not stage Sessions for $cname"
-                        fi
-                    fi
-                    [ "$staged_any" = "1" ] \
-                        && log "  Staged $cname profile files for the first-boot agent" \
-                        || rmdir "$stage/Network" "$stage" 2>/dev/null || true
-                done <<'CHROMIUMMAP'
-{{CHROMIUM_MAP}}
-CHROMIUMMAP
-
-                umount "$NTFS_MNT"
-                copy_user_files_done=1
-                break
+        # ── Staged USB or direct mode ────────────────────────────────────────
+        log "Copying selected staged user files from OEMDRV/files/ to $USER_HOME"
+        while IFS= read -r folder_name; do
+            [ -n "$folder_name" ] || continue
+            folder_src="$OEMDRV/files/$folder_name"
+            if [ ! -d "$folder_src" ]; then
+                log "ERROR: selected folder is missing from OEMDRV/files: $folder_name"
+                exit 1
             fi
-
-            umount "$NTFS_MNT"
-        done
-
-        [ "$copy_user_files_done" = "1" ] || \
-            log "WARNING: Windows home directory not found on any NTFS partition"
+            folder_dst="$USER_HOME/$folder_name"
+            prepare_private_user_copy_target "$folder_dst"
+            cp -a "$folder_src/." "$folder_dst/"
+            find "$folder_dst" -type d -exec chmod 0700 {} +
+            # Remove public FAT modes while keeping an existing owner's execute
+            # bit on scripts in selected folders.
+            find "$folder_dst" -type f -exec chmod go-rwx {} +
+            log "  Copied $folder_name"
+        done <<'STAGEDFOLDERS'
+{{STAGED_FOLDER_NAMES}}
+STAGEDFOLDERS
+        copy_user_files_done=1
     fi
+    if [ "$copy_user_files_done" != "1" ] && [ "{{SELECTED_FILE_FOLDERS}}" = "1" ]; then
+        # A username and directory name cannot prove which NTFS partition owns
+        # the selected profile. Current Core stages selected content on OEMDRV.
+        log "ERROR: selected Windows content is absent from the bound OEMDRV staging tree"
+        exit 1
+    fi
+    # Current staging binds each selected browser to an explicit path inside
+    # OEMDRV. Missing selected data is a migration failure, not a silent skip.
+    while IFS='|' read -r brel bdst; do
+        [ -n "$brel" ] || continue
+        src="$OEMDRV/$brel"
+        if [ ! -d "$src" ]; then
+            log "ERROR: selected Gecko profile is missing from $brel"
+            exit 1
+        fi
+        dst="$USER_HOME/$bdst"
+        prepare_private_user_copy_target "$dst"
+        # FAT stages expose copied profile modes as public. Keep the root
+        # private throughout the copy, then normalize every copied entry before
+        # the installed user can access the profile.
+        cp -a "$src/." "$dst/"
+        find "$dst" -type d -exec chmod 0700 {} +
+        find "$dst" -type f -exec chmod 0600 {} +
+        log "Copied selected Gecko profile $brel -> $bdst"
+    done <<'STAGED_BROWSERMAP'
+{{STAGED_BROWSER_MAP}}
+STAGED_BROWSERMAP
+
+    while IFS='|' read -r cname brel; do
+        [ -n "$cname" ] || continue
+        src="$OEMDRV/$brel/Default"
+        if [ ! -d "$src" ]; then
+            log "ERROR: selected Chromium Default profile is missing from $brel"
+            exit 1
+        fi
+        stage_chromium_plain "$cname" "$src"
+    done <<'STAGED_CHROMIUMMAP'
+{{STAGED_CHROMIUM_MAP}}
+STAGED_CHROMIUMMAP
 fi
 
-# Fix ownership (only when files were actually copied).
-if [ "$copy_user_files_done" = "1" ] && [ -d "$USER_HOME" ]; then
+# The selected browser may be the only staged user data. Anaconda creates the
+# account home, but these %post copies run as root and must belong to the user.
+if [ -d "$USER_HOME" ]; then
     USER_UID=$(grep "^${USERNAME}:" "$SYSIMAGE/etc/passwd" 2>/dev/null | cut -d: -f3 || true)
     USER_GID=$(grep "^${USERNAME}:" "$SYSIMAGE/etc/passwd" 2>/dev/null | cut -d: -f4 || true)
     if [ -n "${USER_UID:-}" ] && [ -n "${USER_GID:-}" ]; then
         chown -R "${USER_UID}:${USER_GID}" "$USER_HOME"
         log "Ownership set to ${USER_UID}:${USER_GID} on $USER_HOME"
     else
-        log "WARNING: could not determine uid:gid for $USERNAME - skipping chown"
+        log "ERROR: could not determine uid:gid for $USERNAME"
+        exit 1
     fi
 fi
 
@@ -557,11 +861,11 @@ Wants=network-online.target
 # graphical session is created.
 Before=display-manager.service
 ConditionPathExists=/var/lib/igloo/manifest.json
-ConditionPathExists=!/var/lib/igloo/.done
 
 [Service]
 Type=oneshot
 ExecStart=/opt/igloo/first-boot.sh
+RemainAfterExit=yes
 StandardOutput=append:/var/log/igloo/first-boot.log
 StandardError=append:/var/log/igloo/first-boot.log
 # The agent builds the NVIDIA kernel module for EVERY installed kernel (an install
@@ -582,6 +886,22 @@ chroot "$SYSIMAGE" systemctl enable igloo-first-boot.service 2>/dev/null || \
            "$SYSIMAGE/etc/systemd/system/multi-user.target.wants/igloo-first-boot.service"
 
 log "igloo-first-boot.service registered"
+
+# Anaconda's unattended cmdline mode leaves the installed system at
+# multi-user.target. Fedora 44 KDE includes Plasma Login Manager rather than
+# SDDM; explicitly enable its display-manager alias and the graphical target.
+# Fail the install if the KDE login screen cannot be made reachable.
+chroot "$SYSIMAGE" rpm -q plasma-login-manager >/dev/null
+chroot "$SYSIMAGE" systemctl enable --force plasmalogin.service
+chroot "$SYSIMAGE" systemctl set-default graphical.target
+log "Plasma Login Manager and graphical.target enabled"
+
+# Fedora 44's KDE package group also enables Plasma Setup, whose wizard asks
+# for a second account before the login screen. This kickstart has already
+# created and verified the migrated account, so use the wizard's own completion
+# flag to let the display manager show that account directly.
+touch "$SYSIMAGE/etc/plasma-setup-done"
+log "Skipped duplicate Plasma Setup account wizard"
 
 # ── 6. Enable os-prober so GRUB detects Windows for dual-boot ───────────────
 # Fedora 37+ disables os-prober by default (GRUB 2.06 security change).
@@ -613,20 +933,14 @@ else
 fi
 # Regenerate GRUB config now that os-prober is enabled.
 # Anaconda already ran grub2-mkconfig during install (without os-prober).
-# We run it again here so the Windows entry is present on first boot.
+# We run it again here so a detected Windows Boot Manager is included.
 chroot "$SYSIMAGE" grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null \
-    && log "GRUB config regenerated - Windows entry added" \
+    && log "GRUB config regenerated" \
     || log "WARNING: grub2-mkconfig failed; run 'sudo grub2-mkconfig -o /boot/grub2/grub.cfg' after first boot"
 
-# ── 7. Remove EFI bootloader from installer partition (direct install only) ──
-# The OEMDRV partition lives on the internal disk. Strip its EFI boot files so
-# the firmware cannot accidentally restart the installer on the next boot.
-# (BootNext is a one-shot NVRAM variable the firmware clears automatically after
-#  use, but removing the EFI binary is belt-and-suspenders.)
-if [ -n "$OEMDRV" ] && [ ! -d "$OEMDRV/files" ] && [ -d "$OEMDRV/EFI" ]; then
-    rm -rf "$OEMDRV/EFI" 2>/dev/null || true
-    log "Removed EFI boot files from installer partition (direct-install cleanup)"
-fi
+# The installer seed is mounted read-only. EFI and partition cleanup wait for
+# an exact owned partition and boot-entry identity; a label or description
+# alone cannot authorize deleting either one.
 
 # Unmount OEMDRV if we mounted it.
 if [ -n "$OEMDRV" ] && mountpoint -q "$OEMDRV" 2>/dev/null; then

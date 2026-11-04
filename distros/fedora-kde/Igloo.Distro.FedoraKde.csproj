@@ -14,15 +14,21 @@
 
   <ItemGroup>
     <!-- Bundle the kickstart template and agent files into the assembly's output -->
-    <Content Include="kickstart\**\*" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="agent\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="kickstart\**\*"
+             Link="fedora-kde\kickstart\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="agent\**\*"
+             Exclude="agent\**\__pycache__\**;agent\**\*.pyc"
+             Link="fedora-kde\agent\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\_shared\grub-theme\grub-theme-stylish-*.tar.gz"
-             Link="agent\%(Filename)%(Extension)"
+             Link="fedora-kde\agent\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\_shared\agent\igloo_boot.py"
-             Link="agent\igloo_boot.py"
+             Link="fedora-kde\agent\igloo_boot.py"
              CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="distro.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="distro.json" Link="fedora-kde\distro.json"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!--

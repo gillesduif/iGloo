@@ -14,12 +14,13 @@ under kernel 6.19.10/nouveau and as DP-1 under 7.1.5/nvidia on the RTX 5070
 bare-metal test machine). The PnP id comes from the monitor's own EDID, so it
 always matches what KWin sees.
 
-Exit code 0 = layout applied (or nothing to apply); 1 = transient failure,
-the wrapper leaves the done-marker absent so the next login retries.
+Exit code 0 = layout applied; 1 = missing, ambiguous or transient failure.
+The wrapper leaves the done-marker absent so the next login retries.
 """
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import subprocess
 import sys
@@ -57,8 +58,9 @@ def edid_pnp_id(edid: bytes) -> str | None:
 
 
 def connector_by_pnp() -> dict[str, str]:
-    """Map PnP id -> current DRM connector name for every connected output."""
+    """Map only unique PnP ids to current DRM connector names."""
     mapping: dict[str, str] = {}
+    ambiguous: set[str] = set()
     for card in sorted(Path("/sys/class/drm").glob("card*-*")):
         try:
             if (card / "status").read_text().strip() != "connected":
@@ -67,8 +69,17 @@ def connector_by_pnp() -> dict[str, str]:
         except OSError:
             continue
         if pnp:
-            # "card1-HDMI-A-1" -> "HDMI-A-1", the name kscreen-doctor uses.
-            mapping[pnp.upper()] = card.name.split("-", 1)[1]
+            pnp = pnp.upper()
+            if pnp in mapping:
+                # Identical panels can share even an EDID serial. Choosing the
+                # last connector would apply a different screen's rotation.
+                mapping.pop(pnp)
+                ambiguous.add(pnp)
+            elif pnp not in ambiguous:
+                # "card1-HDMI-A-1" -> "HDMI-A-1", kscreen-doctor's name.
+                mapping[pnp] = card.name.split("-", 1)[1]
+    for pnp in sorted(ambiguous):
+        log(f"monitor identity {pnp} is shared by multiple panels - leaving their layout unchanged")
     return mapping
 
 
@@ -91,12 +102,11 @@ def main() -> int:
     try:
         layout = json.loads(args.layout.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        # Nothing (valid) to apply - treat as done so we do not retry forever.
-        log(f"no usable layout at {args.layout} ({exc}) - nothing to do")
-        return 0
+        log(f"no usable layout at {args.layout} ({exc}) - will retry at next login")
+        return 1
     if not layout:
-        log("layout is empty - nothing to do")
-        return 0
+        log("layout is empty - will retry at next login")
+        return 1
 
     if not wait_for_kscreen():
         log("kscreen-doctor could not reach KWin within 90s - will retry at next login")
@@ -104,6 +114,7 @@ def main() -> int:
 
     by_pnp = connector_by_pnp()
     log(f"connected outputs by PnP id: {by_pnp}")
+    selected_counts = Counter(str(mon.get("pnpId") or "").upper() for mon in layout)
 
     # One atomic kscreen-doctor call: per output set mode, rotation, scale,
     # position; priority 1 marks the primary (Plasma 6 convention), the rest follow.
@@ -128,7 +139,11 @@ def main() -> int:
     applied = 0
     priority = 1
     for mon in sorted(layout, key=lambda m: not m.get("primary")):
-        conn = by_pnp.get(str(mon.get("pnpId", "")).upper())
+        pnp = str(mon.get("pnpId") or "").upper()
+        if pnp and selected_counts[pnp] > 1:
+            log(f"monitor identity {pnp} appears more than once in the staged layout - skipped")
+            continue
+        conn = by_pnp.get(pnp)
         if not conn:
             log(f"monitor {mon.get('pnpId')} is not attached - skipped")
             continue
@@ -151,8 +166,8 @@ def main() -> int:
         applied += 1
 
     if applied == 0:
-        log("no staged monitor matched an attached output - nothing to do")
-        return 0
+        log("no staged monitor matched an unambiguous attached output - will retry at next login")
+        return 1
 
     log("running: " + " ".join(cmd))
     res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)

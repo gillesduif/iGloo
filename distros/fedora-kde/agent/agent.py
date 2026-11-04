@@ -21,19 +21,26 @@ NOTE: User files (Documents, Downloads, …) are NOT handled here.
 
       The same applies to Gecko browser profiles (Firefox / Zen / Waterfox):
       their OS-portable profile roots are copied by the same %post phase, so
-      saved passwords and settings are present before first login. Chromium
-      browsers are not migrated (passwords are DPAPI-bound to Windows).
+      saved passwords and settings are present before first login. Portable
+      Chromium files are staged by %post; its encrypted credential envelopes
+      are imported after the user supplies the account password at login.
 """
 from __future__ import annotations
 
 import argparse
+from collections import Counter
+import hashlib
 import json
 import logging
 import os
 import platform
 import re
+import shlex
+import stat
 import subprocess
 import sys
+import tempfile
+import unicodedata
 import uuid
 from pathlib import Path
 
@@ -109,13 +116,20 @@ def _is_dnf5() -> bool:
     was removed in DNF 5; group installs use ``dnf install @<group>`` instead.
     """
     try:
-        r = subprocess.run(
+        result = subprocess.run(
             ["dnf", "--version"], capture_output=True, text=True, timeout=10
         )
-        first_line = (r.stdout.strip().splitlines() or [""])[0]
-        return first_line.startswith("5.")
-    except Exception:
-        return False
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError("Cannot determine the installed DNF major version") from error
+    if result.returncode != 0:
+        raise RuntimeError("Cannot determine the installed DNF major version")
+    first_line = (result.stdout.strip().splitlines() or [""])[0]
+    # DNF 4 prints "4.x"; DNF 5 prints "dnf5 version 5.x". A bare
+    # startswith("5.") silently took the DNF 4 groupupdate path on Fedora 44.
+    match = re.match(r"\A(?:dnf5?\s+version\s+)?([45])\.", first_line)
+    if match is None:
+        raise RuntimeError("The installed DNF version has an unknown format")
+    return match.group(1) == "5"
 
 
 # ---------------------------------------------------------------------------
@@ -181,12 +195,15 @@ def installed_kernel_versions() -> list[str]:
     repairs per-kernel content has to cover all of them, because GRUB boots the
     NEWEST one - not the one that happened to be running.
     """
-    res = run_cmd(["rpm", "-q", "kernel-core"], check=False)
-    return [
+    res = run_cmd(["rpm", "-q", "kernel-core"])
+    versions = [
         line.strip()[len("kernel-core-"):]
         for line in (res.stdout or "").splitlines()
         if line.strip().startswith("kernel-core-")
     ]
+    if not versions:
+        raise RuntimeError("No installed Fedora kernel-core version was reported")
+    return versions
 
 
 def nvidia_pci_ids() -> list[str]:
@@ -255,9 +272,18 @@ def _secure_boot_enabled() -> bool:
     blacklisting the in-tree drivers would leave the machine with NO display
     driver at all, so the caller must keep the nouveau/nova_core fallback.
     """
-    res = run_cmd(["mokutil", "--sb-state"], check=False, timeout=30)
+    try:
+        res = run_cmd(["mokutil", "--sb-state"], check=False, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError("Cannot verify the current Secure Boot state") from error
     out = ((res.stdout or "") + "\n" + (res.stderr or "")).lower()
-    return "secureboot enabled" in out or "secure boot enabled" in out
+    if res.returncode != 0:
+        raise RuntimeError("Cannot verify the current Secure Boot state")
+    if "secureboot enabled" in out or "secure boot enabled" in out:
+        return True
+    if "secureboot disabled" in out or "secure boot disabled" in out:
+        return False
+    raise RuntimeError("The current Secure Boot state is unknown")
 
 
 def ensure_nvidia_kernel_cmdline(module_ok_for_all: bool, kvers: list[str]) -> None:
@@ -290,23 +316,12 @@ def ensure_nvidia_kernel_cmdline(module_ok_for_all: bool, kvers: list[str]) -> N
     remediation instead of bricking the display.
     """
     if not module_ok_for_all:
-        logger.error(
-            "nvidia module not present for every installed kernel (%s) - "
-            "leaving nouveau/nova_core loadable so the next boot still has a "
-            "display driver. Re-run the agent after fixing the akmod build.",
-            ", ".join(kvers) or "unknown",
-        )
-        return
+        raise RuntimeError(
+            "NVIDIA module is not verified for every installed kernel: "
+            + (", ".join(kvers) or "unknown"))
 
     if _secure_boot_enabled():
-        logger.error(
-            "Secure Boot is ENABLED: the unsigned nvidia module will be rejected. "
-            "NOT blacklisting nouveau/nova_core on the cmdline (the machine would "
-            "lose its only working display driver). Fix: disable Secure Boot in "
-            "firmware, or enrol the akmods MOK ('mokutil --import "
-            "/etc/pki/akmods/certs/public_key.der') and re-run the agent."
-        )
-        return
+        raise RuntimeError("NVIDIA module signing under Secure Boot is unavailable")
 
     # Same argument set RPM Fusion's own xorg-x11-drv-nvidia scriptlet uses,
     # plus nova_core: Fedora kernels ship the in-tree Rust driver for
@@ -321,15 +336,10 @@ def ensure_nvidia_kernel_cmdline(module_ok_for_all: bool, kvers: list[str]) -> N
     # Fedora 44: an arg set with grubby lands in /boot/loader/entries/*.conf and
     # never reaches /boot/grub2/grub.cfg. This is the same mechanism the
     # Debian-family preseed already uses for the same blacklist.
-    if _merge_kernel_cmdline(add=args.split(), remove=["nomodeset"]):
-        run_cmd(["grub2-mkconfig", "-o", "/boot/grub2/grub.cfg"], check=False, timeout=300)
-        logger.info("Kernel cmdline updated in /etc/default/grub: %s", args)
-    else:
-        logger.error(
-            "Could not update GRUB_CMDLINE_LINUX - the next boot may load "
-            "nouveau/nova_core alongside nvidia again. Add manually to "
-            "/etc/default/grub: %s", args,
-        )
+    if not _merge_kernel_cmdline(add=args.split(), remove=["nomodeset"]):
+        raise RuntimeError("Cannot update GRUB_CMDLINE_LINUX for the NVIDIA driver")
+    run_cmd(["grub2-mkconfig", "-o", "/boot/grub2/grub.cfg"], timeout=300)
+    logger.info("Kernel cmdline updated in /etc/default/grub: %s", args)
 
 
 _GRUB_DEFAULT_FILE = Path("/etc/default/grub")
@@ -411,9 +421,15 @@ def _remove_unverified_kernels(candidates: list[str], keep: str) -> list[str]:
 
 
 def _nvidia_module_present(kver: str) -> bool:
-    """True when the akmods-built nvidia module exists on disk for this kernel."""
+    """True when akmods left a nonempty nvidia module file for this kernel."""
     base = Path(f"/lib/modules/{kver}")
-    return (base / "extra/nvidia").is_dir() or bool(list(base.glob("extra/nvidia*")))
+    # akmods may create the destination directory before the build fails.
+    # Only an actual module file can authorize blacklisting the fallback driver.
+    return any(
+        candidate.is_file() and candidate.stat().st_size > 0
+        for pattern in ("extra/nvidia*/nvidia.ko*", "extra/nvidia.ko*")
+        for candidate in base.glob(pattern)
+    )
 
 
 def install_gpu_drivers(manifest: dict[str, Any]) -> None:
@@ -422,6 +438,11 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     if gpu != "nvidia":
         logger.info("GPU driver: vendor=%r, skipping NVIDIA step", gpu)
         return
+    if manifest.get("hardware", {}).get("secureBootEnabled") or _secure_boot_enabled():
+        # Module existence is not proof that Secure Boot will load it. Without
+        # a verified MOK enrollment the reboot could reject nvidia while the
+        # new kernel command line prevents nouveau from loading.
+        raise RuntimeError("NVIDIA module signing under Secure Boot is unavailable")
 
     # Neutralise the kernel pull BEFORE the driver install. Verified against the
     # Fedora 44 updates repodata (3 Aug 2026): akmods-0.6.2-14.fc44 has the HARD
@@ -470,7 +491,8 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
                         "(required by this GPU; the proprietary module does not support it)")
         except OSError:
             logger.exception("Could not write /etc/rpm/macros.nvidia-kmod - "
-                             "the open module cannot be selected, the GPU may get no driver")
+                             "the required open module cannot be selected")
+            raise
 
     # Build the module for EVERY installed kernel, not just the running one.
     # A bare `akmods --force` builds only for the running kernel. When the install
@@ -543,18 +565,21 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     else:
         _KERNEL_UNVERIFIED.unlink(missing_ok=True)
 
-    # An incomplete GPU driver is a FAILED run for forensics, even though no
-    # step raised: mark it so cleanup-seed keeps the installer partitions (and
-    # the exported logs) instead of deleting the evidence along with the
-    # broken boot that follows.
-    if len(good_kvers) < len(kvers):
+    # Reobserve after removing any unverified newer kernel. A module on one
+    # kernel cannot authorize completion while another installed boot choice
+    # still lacks it. Do not blacklist nouveau or publish .done in that state.
+    remaining_kvers = installed_kernel_versions()
+    unverified = [kver for kver in remaining_kvers if not _nvidia_module_present(kver)]
+    if unverified:
         try:
             Path("/var/lib/igloo/.had-failures").write_text(
                 "gpu-drivers: nvidia module missing for "
-                f"{len(kvers) - len(good_kvers)} of {len(kvers)} kernel(s)\n",
+                f"{len(unverified)} of {len(remaining_kvers)} kernel(s)\n",
                 encoding="utf-8")
         except OSError:
             pass
+        raise RuntimeError("NVIDIA module is missing for installed kernel(s): "
+                           + ", ".join(unverified))
 
     # Now that the module is confirmed on disk, take nouveau/nova_core off the
     # kernel cmdline path: their /etc/modprobe.d blacklist does not apply inside
@@ -564,7 +589,7 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     # verified module - a failed build for a NEWER, non-default kernel must not
     # keep nouveau loadable on the good one, which is the known panic state.
     # Only when NO kernel has a module does the in-tree driver stay loadable.
-    ensure_nvidia_kernel_cmdline(pinned_kver is not None, kvers)
+    ensure_nvidia_kernel_cmdline(pinned_kver is not None, remaining_kvers)
 
     # Installing the NVIDIA driver blacklists nouveau and builds a new kernel
     # module that only loads on the next boot.  Starting the Plasma session now
@@ -572,14 +597,37 @@ def install_gpu_drivers(manifest: dict[str, Any]) -> None:
     # Signal first-boot.sh to reboot once before the display manager starts so
     # the user's first real session comes up cleanly on the nvidia driver.
     try:
-        Path("/var/lib/igloo/.reboot-required").write_text(
-            "nvidia-driver-installed\n", encoding="utf-8"
-        )
+        _flag_driver_reboot_required(Path("/var/lib/igloo/.reboot-required"))
         logger.info("Flagged reboot-required (NVIDIA driver needs a clean boot)")
     except Exception:
-        logger.exception("Could not write reboot-required marker (non-fatal)")
+        logger.exception("Could not durably record the required NVIDIA driver reboot")
+        raise
 
     logger.info("NVIDIA drivers installed")
+
+
+def _flag_driver_reboot_required(marker: Path) -> None:
+    """Commit the driver reboot request before first boot can publish .done."""
+    payload = b"nvidia-driver-installed\n"
+    temporary = marker.with_name(marker.name + "." + uuid.uuid4().hex + ".writing")
+    try:
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+        if temporary.read_bytes() != payload:
+            raise OSError("Driver reboot request staging readback failed")
+        os.replace(temporary, marker)
+        if marker.read_bytes() != payload:
+            raise OSError("Driver reboot request readback failed")
+        directory = os.open(marker.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def ensure_kernel_modules(manifest: dict[str, Any]) -> None:
@@ -595,9 +643,6 @@ def ensure_kernel_modules(manifest: dict[str, Any]) -> None:
     support.
     """
     versions = installed_kernel_versions()
-    if not versions:
-        logger.warning("Could not list installed kernels - skipping kernel-modules check")
-        return
 
     missing = [
         kver for kver in versions
@@ -649,21 +694,57 @@ def setup_flathub(manifest: dict[str, Any]) -> None:
 
 
 def install_suggested_packages(manifest: dict[str, Any]) -> None:
-    """Install any auto-install packages listed in the manifest."""
-    pkgs = [
-        p for p in manifest.get("suggestedPackages", [])
-        if p.get("autoInstall")
-    ]
-    if not pkgs:
-        logger.info("No auto-install packages in manifest")
-        return
+    """Install selected apps and browsers before moving their profiles."""
+    declared = manifest.get("suggestedPackages") or []
+    if not isinstance(declared, list) or any(not isinstance(p, dict) for p in declared):
+        raise ValueError("Suggested packages must be an array of objects")
+    pkgs = [p for p in declared if p.get("autoInstall")]
+
+    if any(not p.get("flatpakId") and not p.get("nativePackage") for p in pkgs):
+        raise ValueError("Selected application has no installable package identifier")
 
     flatpak_ids = [p["flatpakId"] for p in pkgs if p.get("flatpakId")]
     dnf_pkgs = [p["nativePackage"] for p in pkgs if p.get("nativePackage")]
 
+    # The GUI normally adds a companion package for every selected browser.
+    # An older or CLI manifest can select a profile and credential envelope
+    # without that package, leaving first-login import permanently waiting for
+    # a browser that was never installed. Use only known browser mappings.
+    browsers = manifest.get("browsers") or []
+    if not isinstance(browsers, list) or any(not isinstance(b, dict) for b in browsers):
+        raise ValueError("Selected browsers must be an array of objects")
+    gecko_flatpaks = {"Zen Browser": _GECKO_FLATPAKS[".zen"],
+                      "Waterfox": _GECKO_FLATPAKS[".waterfox"]}
+    for browser in browsers:
+        name = browser.get("name")
+        if not isinstance(name, str):
+            raise ValueError("Selected browser has no valid name")
+        chromium = _CHROMIUM_LINUX_DIRS.get(name)
+        app_id = chromium[0] if chromium else gecko_flatpaks.get(name)
+        if app_id and app_id not in flatpak_ids:
+            flatpak_ids.append(app_id)
+
+    if not flatpak_ids and not dnf_pkgs:
+        logger.info("No selected application or browser packages in manifest")
+        return
+
+    # These values reach a root package-manager process as separate argv items.
+    # A manifest value that begins with an option must not change the command's
+    # installation root, remote, or other behavior. The current Windows catalog
+    # uses reverse-DNS Flatpak IDs and ordinary RPM names only.
+    for app_id in flatpak_ids:
+        if (not isinstance(app_id, str)
+                or re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{2,127}", app_id) is None
+                or app_id.count(".") < 2 or ".." in app_id):
+            raise ValueError("Selected Flatpak identifier is unsafe")
+    for package in dnf_pkgs:
+        if (not isinstance(package, str)
+                or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.+:-]{0,127}", package) is None
+                or ".." in package):
+            raise ValueError("Selected RPM identifier is unsafe")
+
     if flatpak_ids:
-        labels = [p.get("linuxAppName") or p["flatpakId"] for p in pkgs if p.get("flatpakId")]
-        logger.info("Installing Flatpak: %s", ", ".join(labels))
+        logger.info("Installing Flatpaks: %s", ", ".join(flatpak_ids))
         run_cmd(
             ["flatpak", "install", "-y", "--noninteractive", "flathub"] + flatpak_ids,
             timeout=600,
@@ -677,29 +758,42 @@ def install_suggested_packages(manifest: dict[str, Any]) -> None:
     logger.info("Suggested packages installed")
 
 
+def _nm_string(value: str) -> str:
+    """Escape GLib keyfile backslashes and significant leading spaces."""
+    leading_spaces = len(value) - len(value.lstrip(" "))
+    return r"\s" * leading_spaces + value[leading_spaces:].replace("\\", r"\\")
+
+
 def _nm_keyfile(ssid: str, security: str, psk: str | None, hidden: bool) -> str:
     """Render a NetworkManager keyfile (.nmconnection) for one Wi-Fi network."""
+    connection_uuid = uuid.uuid5(uuid.NAMESPACE_URL, "igloo:wifi:" + ssid)
     lines = [
         "[connection]",
-        f"id={ssid}",
-        f"uuid={uuid.uuid4()}",
+        f"id={_nm_string(ssid)}",
+        f"uuid={connection_uuid}",
         "type=wifi",
-        "autoconnect=true",
+        f"autoconnect={'false' if security == 'wpa-psk' and not psk else 'true'}",
         "",
         "[wifi]",
         "mode=infrastructure",
-        f"ssid={ssid}",
+        f"ssid={_nm_string(ssid)}",
     ]
+    if security == "wpa-psk":
+        lines.append("security=802-11-wireless-security")
     if hidden:
         lines.append("hidden=true")
 
-    if security == "wpa-psk" and psk:
+    if security == "wpa-psk":
         lines += [
             "",
             "[wifi-security]",
             "key-mgmt=wpa-psk",
-            f"psk={psk}",
         ]
+        if psk:
+            lines.append(f"psk={_nm_string(psk)}")
+        else:
+            # NetworkManager asks the user's session secret agent on connect.
+            lines.append("psk-flags=1")
 
     lines += [
         "",
@@ -714,9 +808,48 @@ def _nm_keyfile(ssid: str, security: str, psk: str | None, hidden: bool) -> str:
 
 
 def _safe_filename(ssid: str) -> str:
-    """Turn an SSID into a filesystem-safe .nmconnection basename."""
-    safe = re.sub(r"[^A-Za-z0-9._-]", "_", ssid).strip("_")
-    return (safe or "wifi") + ".nmconnection"
+    """Keep distinct SSIDs distinct even when their readable stems collide."""
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", ssid).strip("_")[:48]
+    digest = hashlib.sha256(ssid.encode("utf-8")).hexdigest()
+    return f"igloo-{safe or 'wifi'}-{digest}.nmconnection"
+
+
+def _write_wifi_profile(path: Path, content: bytes) -> None:
+    """Publish a private, read-back keyfile without ever exposing a PSK at 0644."""
+    try:
+        existing = path.lstat()
+    except FileNotFoundError:
+        existing = None
+    if existing is not None:
+        if not stat.S_ISREG(existing.st_mode) or stat.S_IMODE(existing.st_mode) != 0o600:
+            raise RuntimeError(f"Wi-Fi profile destination is unsafe: {path}")
+        if path.read_bytes() != content:
+            raise RuntimeError(f"Existing Wi-Fi profile differs from selected input: {path}")
+        return
+
+    temporary = path.with_name(path.name + "." + uuid.uuid4().hex + ".writing")
+    try:
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as output:
+            os.fchmod(output.fileno(), 0o600)
+            output.write(content)
+            output.flush()
+            os.fsync(output.fileno())
+        if temporary.read_bytes() != content:
+            raise RuntimeError(f"Wi-Fi profile staging readback failed: {path}")
+        # link is an atomic no-clobber publication on the installed Linux
+        # filesystem: a profile appearing concurrently is never overwritten.
+        os.link(temporary, path)
+        if path.read_bytes() != content or stat.S_IMODE(path.lstat().st_mode) != 0o600:
+            raise RuntimeError(f"Wi-Fi profile readback failed: {path}")
+        if hasattr(os, "O_DIRECTORY"):
+            directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 #   Gecko browser profiles
@@ -823,10 +956,8 @@ def ensure_matching_firefox(user_home: Path) -> None:
     # Only now that it is really there: hiding the packaged launcher before
     # knowing the download worked would leave the user with no browser at all.
     if not _flatpak_installed(app_id):
-        logger.warning("%s did not install - keeping the distribution build as it "
-                       "is, the profile stays where the packaged Firefox reads it",
-                       app_id)
-        return
+        raise RuntimeError(
+            f"{app_id} did not install for a newer selected Firefox profile")
     _hide_packaged_firefox()
     _set_default_browser(user_home, f"{app_id}.desktop")
 
@@ -917,8 +1048,7 @@ def relocate_gecko_profiles(user_home: Path) -> None:
             continue
         dst = home / rel
         if dst.exists():
-            logger.info("%s already exists - leaving %s where it is", dst, src)
-            continue
+            raise RuntimeError(f"Selected Gecko profile destination already exists: {dst}")
         try:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(src), str(dst))
@@ -926,6 +1056,7 @@ def relocate_gecko_profiles(user_home: Path) -> None:
         except OSError:
             logger.exception("Could not move %s to %s - the Flatpak build will "
                              "start with an empty profile", src, dst)
+            raise
 
 
 def _ini_split(text: str) -> list[tuple[str, list[str]]]:
@@ -1067,8 +1198,8 @@ def normalise_gecko_profiles(user_home: Path) -> None:
                 _clear_windows_install_paths(ini.parent)
                 _restore_session_on_next_start(ini.parent)
             except OSError:
-                logger.warning("Could not normalise %s - the browser may open an "
-                               "empty profile", ini)
+                logger.exception("Could not normalise selected Gecko profile %s", ini)
+                raise
 
 
 # Portable files in a Chromium profile: no master key is involved, so they cross
@@ -1078,9 +1209,13 @@ def normalise_gecko_profiles(user_home: Path) -> None:
 _CHROMIUM_PLAIN_FILES = (
     "Bookmarks",
     "History",
+    "History-wal",
     "Favicons",
+    "Favicons-wal",
     "Top Sites",
+    "Top Sites-wal",
     "Network/Cookies",
+    "Network/Cookies-wal",
 )
 
 # Open tabs. Chromium keeps them in a directory of Session_* / Tabs_* files, not
@@ -1095,39 +1230,113 @@ _CHROMIUM_PLAIN_DIRS = ("Sessions",)
 _CHROMIUM_STAGE_DIR = Path("/var/lib/igloo/chromium")
 
 
+def _check_browser_directory_path(directory: Path, user_home: Path) -> None:
+    if not directory.is_relative_to(user_home):
+        raise RuntimeError("Selected Chromium profile target escapes the user home")
+    current = directory
+    while True:
+        if current.is_symlink():
+            raise RuntimeError("Selected Chromium profile target is redirected")
+        if current == user_home:
+            return
+        current = current.parent
+
+
+def _copy_private_browser_file(source: Path, target: Path) -> None:
+    """Replace a portable profile file without exposing new content in old modes."""
+    if source.is_symlink() or source.parent.is_symlink() or not source.is_file():
+        raise RuntimeError("Selected Chromium file source is redirected or missing")
+    if target.parent.is_symlink() or not target.parent.is_dir() or \
+            target.is_symlink() or (target.exists() and not target.is_file()):
+        raise RuntimeError("Selected Chromium file target is redirected or unsafe")
+    fd, temp_name = tempfile.mkstemp(prefix=".igloo-browser-", dir=target.parent)
+    temporary = Path(temp_name)
+    try:
+        with os.fdopen(fd, "wb") as output, source.open("rb") as input_file:
+            shutil.copyfileobj(input_file, output)
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _copy_private_browser_tree(source: Path, destination: Path) -> None:
+    """Copy staged session files without retaining OEMDRV's synthetic modes."""
+    if source.is_symlink() or not source.is_dir():
+        raise RuntimeError("Selected Chromium session source is not a regular directory")
+    if destination.is_symlink() or (destination.exists() and not destination.is_dir()):
+        raise RuntimeError("Selected Chromium session target is not a regular directory")
+
+    def fail_walk(error: OSError) -> None:
+        raise error
+
+    for directory, subdirs, files in os.walk(source, followlinks=False, onerror=fail_walk):
+        source_dir = Path(directory)
+        target_dir = destination / source_dir.relative_to(source)
+        if target_dir.is_symlink() or (target_dir.exists() and not target_dir.is_dir()):
+            raise RuntimeError("Selected Chromium session target contains a redirected directory")
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_dir.chmod(0o700)
+        for name in subdirs:
+            child = source_dir / name
+            target = target_dir / name
+            if child.is_symlink() or not child.is_dir() or target.is_symlink():
+                raise RuntimeError("Selected Chromium session contains a redirected directory")
+        for name in files:
+            child = source_dir / name
+            target = target_dir / name
+            if child.is_symlink() or not child.is_file() or target.is_symlink():
+                raise RuntimeError("Selected Chromium session contains a redirected file")
+            _copy_private_browser_file(child, target)
+
+
 def _place_chromium_files(name: str, src_default: Path, user_home: Path) -> None:
     """Put one profile's portable files where the installed browser will read them."""
     mapping = _CHROMIUM_LINUX_DIRS.get(name)
     if mapping is None:
-        logger.info("  No Linux profile mapping for %r - skipping its files", name)
-        return
+        raise RuntimeError(f"No Linux profile mapping for selected browser {name!r}")
     app_id, config_rel, binaries = mapping
+    roots = _chromium_config_homes(app_id, binaries, user_home)
+    if not roots:
+        # Keep the historical portable-profile handoff when a selected browser
+        # is not installed at first boot. Credential import still requires an
+        # installed browser and a browser-created Login Data database.
+        roots = [_native_config_home(user_home)]
 
-    for root in _chromium_config_homes(app_id, binaries, user_home):
+    for root in roots:
         dst = root / config_rel / "Default"
+        _check_browser_directory_path(dst, user_home)
+        if dst.is_symlink() or (dst.exists() and not dst.is_dir()):
+            raise RuntimeError("Selected Chromium profile target is redirected or unsafe")
         copied = []
         for rel in _CHROMIUM_PLAIN_FILES:
             source = src_default / rel
             if not source.is_file():
                 continue
+            if rel.endswith("-wal") and not (src_default / rel[:-4]).is_file():
+                raise RuntimeError(f"Selected Chromium WAL has no database: {rel}")
             target = dst / rel
             try:
+                _check_browser_directory_path(target.parent, user_home)
                 target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(source, target)
-                target.chmod(0o600)
+                _check_browser_directory_path(target.parent, user_home)
+                target.parent.chmod(0o700)
+                _copy_private_browser_file(source, target)
                 copied.append(rel)
             except OSError:
-                logger.warning("  Could not place %s for %s", rel, name)
+                logger.exception("  Could not place %s for %s", rel, name)
+                raise
 
         for rel in _CHROMIUM_PLAIN_DIRS:
             source = src_default / rel
             if not source.is_dir():
                 continue
             try:
-                shutil.copytree(source, dst / rel, dirs_exist_ok=True)
+                _check_browser_directory_path(dst / rel, user_home)
+                _copy_private_browser_tree(source, dst / rel)
                 copied.append(f"{rel}/")
             except OSError:
-                logger.warning("  Could not place %s for %s", rel, name)
+                logger.exception("  Could not place %s for %s", rel, name)
+                raise
 
         if copied:
             logger.info("  Placed %s profile files in %s: %s",
@@ -1158,19 +1367,17 @@ def place_staged_chromium_profiles(user_home: Path) -> None:
         if not staged.is_dir():
             continue
         _place_chromium_files(staged.name, staged, user_home)
-        shutil.rmtree(staged, ignore_errors=True)
+        shutil.rmtree(staged)
 
 
 def migrate_browser_profiles(manifest: dict[str, Any]) -> None:
     """Fix up the Gecko profiles the kickstart %post copied from Windows."""
     username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
     if not username:
-        logger.info("No username in manifest - skipping browser profiles")
-        return
+        raise RuntimeError("No Linux username in the Fedora migration manifest")
     home = Path("/home") / username
     if not home.is_dir():
-        logger.warning("User home %s does not exist - skipping browser profiles", home)
-        return
+        raise RuntimeError(f"Fedora user home does not exist for browser migration: {home}")
 
     # The kickstart %post already copied the profile roots into the home, so this
     # picks up where it left off. Same order as the Debian family: the version
@@ -1178,10 +1385,10 @@ def migrate_browser_profiles(manifest: dict[str, Any]) -> None:
     ensure_matching_firefox(home)
     relocate_gecko_profiles(home)
     normalise_gecko_profiles(home)
-    # Fedora's kickstart reads the Windows partition, the agent cannot; the
-    # Chromium files therefore arrive staged rather than already in place.
+    # Kickstart stages the portable Chromium files before first boot. The
+    # source is the explicit OEMDRV browser path for current manifests.
     place_staged_chromium_profiles(home)
-    run_cmd(["chown", "-R", f"{username}:{username}", str(home)], check=False)
+    run_cmd(["chown", "-R", f"{username}:{username}", str(home)])
 
 
 def migrate_wifi(manifest: dict[str, Any]) -> None:
@@ -1189,47 +1396,65 @@ def migrate_wifi(manifest: dict[str, Any]) -> None:
 
     Networks come from the Windows-side ``netsh wlan export profile key=clear``
     scan. WPA/WPA2/WPA3-personal networks include their pre-shared key; open
-    networks are written without a security section; enterprise (802.1X)
-    networks are skipped (their credentials cannot be carried as a simple PSK).
+    networks are written without a security section; personal networks with no
+    recovered key are staged for a user-session password prompt. Enterprise
+    (802.1X) networks are skipped (they cannot be carried as a simple PSK).
     """
     nets = manifest.get("wifiNetworks", [])
     if not nets:
         logger.info("No Wi-Fi networks in manifest")
         return
 
-    sysconn = Path("/etc/NetworkManager/system-connections")
-    sysconn.mkdir(parents=True, exist_ok=True)
-
-    written = 0
+    # Validate the complete selected set before writing any profile. A failed
+    # first-boot step keeps the source manifest for an exact retry.
+    planned: list[tuple[str, str, bytes]] = []
+    names: set[str] = set()
+    ssids: set[str] = set()
     for net in nets:
-        ssid = (net.get("ssid") or "").strip()
+        if not isinstance(net, dict):
+            raise ValueError("Selected Wi-Fi profile is malformed")
+        ssid = net.get("ssid")
+        if not isinstance(ssid, str):
+            raise ValueError("Selected Wi-Fi SSID is malformed")
         if not ssid:
             continue
-
+        if any(ord(char) < 32 or ord(char) == 127 for char in ssid):
+            raise ValueError("Selected Wi-Fi SSID contains a keyfile control character")
         security = net.get("security", "wpa-psk")
         if security == "unsupported":
             logger.info("Skipping enterprise/unsupported network %r", ssid)
             continue
-
+        if security not in ("open", "wpa-psk"):
+            raise ValueError("Selected Wi-Fi security is unsupported")
         psk = net.get("psk")
-        if security == "wpa-psk" and not psk:
-            logger.info("Skipping %r: WPA-PSK network but no key was recovered", ssid)
-            continue
-
+        if psk is not None and (not isinstance(psk, str) or any(
+                ord(char) < 32 or ord(char) == 127 for char in psk)):
+            raise ValueError("Selected Wi-Fi key contains a keyfile control character")
+        if ssid in ssids:
+            raise ValueError("Selected Wi-Fi SSID appears more than once")
+        ssids.add(ssid)
+        name = _safe_filename(ssid)
+        if name in names:
+            raise ValueError("Selected Wi-Fi filenames collide")
+        names.add(name)
         content = _nm_keyfile(ssid, security, psk, bool(net.get("hidden", False)))
-        path = sysconn / _safe_filename(ssid)
-        try:
-            path.write_text(content, encoding="utf-8")
-            path.chmod(0o600)   # NetworkManager refuses to load world-readable keyfiles
-            written += 1
-            logger.info("Wrote NetworkManager profile for %r (%s)", ssid, security)
-        except Exception:
-            logger.exception("Failed to write Wi-Fi profile for %r (non-fatal)", ssid)
+        planned.append((ssid, name, content.encode("utf-8")))
 
-    if written:
-        # Pick up the new keyfiles without a reboot.
-        run_cmd(["nmcli", "connection", "reload"], check=False, timeout=60)
-    logger.info("Wi-Fi migration complete: %d profile(s) written", written)
+    if not planned:
+        logger.info("Wi-Fi migration complete: no supported selected profiles")
+        return
+    sysconn = Path("/etc/NetworkManager/system-connections")
+    sysconn.mkdir(parents=True, exist_ok=True)
+    observed = sysconn.lstat()
+    if not stat.S_ISDIR(observed.st_mode):
+        raise RuntimeError("NetworkManager profile directory is redirected")
+    for ssid, name, content in planned:
+        _write_wifi_profile(sysconn / name, content)
+        logger.info("Wrote NetworkManager profile for %r", ssid)
+    # A failed reload is a failed migration: first boot must retain credentials
+    # and retry instead of redacting the manifest and writing .done.
+    run_cmd(["nmcli", "connection", "reload"], timeout=60)
+    logger.info("Wi-Fi migration complete: %d profile(s) written", len(planned))
 
 
 # === BEGIN AGENT SECTION =================================================
@@ -1530,8 +1755,8 @@ def _chromium_config_homes(app_id: str, binaries: tuple[str, ...],
 
     Flatpak overrides XDG_CONFIG_HOME, so a Flatpak build never sees ~/.config
     and a packaged build never sees ~/.var/app. Picking one means guessing, and
-    a wrong guess writes the passwords where nothing reads them - so write to
-    each root that has a matching install, and to ~/.config when neither does.
+    a wrong guess writes the passwords where nothing reads them. Return only
+    roots backed by an observed install; an absent browser can be retried.
     """
     base = home or Path.home()
     roots: list[Path] = []
@@ -1541,63 +1766,41 @@ def _chromium_config_homes(app_id: str, binaries: tuple[str, ...],
         roots.append(base / ".var" / "app" / app_id / "config")
     if any(shutil.which(b) for b in binaries):
         roots.append(_native_config_home(home))
-    return roots or [_native_config_home(home)]
+    return roots
 
 # Chromium timestamps count microseconds since 1601-01-01 UTC.
 _CHROMIUM_EPOCH_OFFSET_US = 11644473600 * 1_000_000
 
-# The logins table exactly as Chromium's own builder produces it at schema
-# version 31, and labelled 31 - the two must agree. Labelling a modern table as
-# an old version is what emptied Brave on 2026-08-21: the stored version drives
-# LoginDatabase::MigrateDatabase, which then runs "ALTER TABLE logins ADD COLUMN
-# possible_username_pairs" (a version 19 step) against a column that is already
-# there, the migration fails, Init returns false and the caller recreates the
-# file from scratch.
-#
-# 31 is chosen because every later step only ADDS columns (37, 39, 41, 42, 43),
-# so any Brave from 31 onwards migrates this table upwards cleanly. Chromium
-# creates the logins table before migrating and insecure_credentials /
-# password_notes after it, so the tables we leave out are not our problem.
-# See docs/reference/browser-migration.md.
-_LOGINS_SCHEMA_VERSION = 31
-_LOGINS_SCHEMA = f"""
-CREATE TABLE IF NOT EXISTS logins (
-    origin_url VARCHAR NOT NULL,
-    action_url VARCHAR,
-    username_element VARCHAR,
-    username_value VARCHAR,
-    password_element VARCHAR,
-    password_value BLOB,
-    submit_element VARCHAR,
-    signon_realm VARCHAR NOT NULL,
-    date_created INTEGER NOT NULL,
-    blacklisted_by_user INTEGER NOT NULL,
-    scheme INTEGER NOT NULL,
-    password_type INTEGER,
-    times_used INTEGER,
-    form_data BLOB,
-    display_name VARCHAR,
-    icon_url VARCHAR,
-    federation_url VARCHAR,
-    skip_zero_click INTEGER,
-    generation_upload_status INTEGER,
-    possible_username_pairs BLOB,
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date_last_used INTEGER NOT NULL DEFAULT 0,
-    moving_blocked_for BLOB,
-    date_password_modified INTEGER NOT NULL DEFAULT 0,
-    UNIQUE (origin_url, username_element, username_value, password_element,
-            signon_realm)
-);
-CREATE INDEX IF NOT EXISTS logins_signon ON logins (signon_realm);
-CREATE TABLE IF NOT EXISTS meta (
-    key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY,
-    value LONGVARCHAR
-);
-INSERT OR IGNORE INTO meta(key, value)
-    VALUES ('version', '{_LOGINS_SCHEMA_VERSION}'),
-           ('last_compatible_version', '{_LOGINS_SCHEMA_VERSION}');
-"""
+# Chrome's Login Data is a set of related tables, not just logins and meta.
+# A hand-built version-31 pair passed SQLite readback but Chrome 155 rejected
+# it during migration because insecure_credentials and sync metadata were
+# absent. Let the installed browser create and migrate its own database.
+_CHROMIUM_NATIVE_DB_TABLES = frozenset({
+    "logins", "meta", "insecure_credentials",
+    "sync_entities_metadata", "sync_model_metadata",
+})
+
+
+def _chromium_login_db_ready(db_path: Path) -> bool:
+    """Whether a browser-created Login Data can safely receive migrated rows."""
+    if db_path.is_symlink() or not db_path.is_file():
+        return False
+    try:
+        con = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            tables = {row[0] for row in con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'")}
+            if not _CHROMIUM_NATIVE_DB_TABLES.issubset(tables):
+                return False
+            meta = dict(con.execute("SELECT key, value FROM meta WHERE key IN "
+                                    "('version', 'last_compatible_version')"))
+            version = int(meta["version"])
+            compatible = int(meta["last_compatible_version"])
+            return version >= 31 and 0 < compatible <= version
+        finally:
+            con.close()
+    except (OSError, sqlite3.Error, ValueError, KeyError, TypeError):
+        return False
 
 
 def _chromium_v10_encrypt_bytes(data: bytes) -> bytes:
@@ -1615,6 +1818,13 @@ def _chromium_v10_encrypt(password: str) -> bytes:
 
 # The cookie jar moved under Network/ in Chromium 77; both layouts still exist.
 _COOKIE_DB_NAMES = ("Network/Cookies", "Cookies")
+
+
+def _chromium_credential_profile_ready(profile_dir: Path) -> bool:
+    """A browser-created login DB or a copied cookie jar can be imported."""
+    if _chromium_login_db_ready(profile_dir / "Login Data"):
+        return True
+    return any((profile_dir / name).is_file() for name in _COOKIE_DB_NAMES)
 
 
 def _reencrypt_cookies(profile_dir: Path, cookies: list[dict]) -> int:
@@ -1717,12 +1927,13 @@ def _import_into_login_data(db_path: Path, logins: list[dict]) -> int:
     """Insert logins into a Chromium Login Data database. Returns the number
     of rows inserted. Existing (origin_url, username_value) pairs are kept,
     so re-running the agent never duplicates entries."""
-    is_new_db = not db_path.exists()
-    con = sqlite3.connect(db_path)
+    if not _chromium_login_db_ready(db_path):
+        raise RuntimeError(
+            f"Browser-created Login Data is unavailable or incomplete: {db_path}")
+    # SQLite's default connect() silently creates a missing file. Keep that
+    # failure mode closed if the browser profile changes after the probe.
+    con = sqlite3.connect(db_path.resolve().as_uri() + "?mode=rw", uri=True)
     try:
-        if is_new_db:
-            con.executescript(_LOGINS_SCHEMA)
-
         # PRAGMA table_info: (cid, name, type, notnull, dflt_value, pk).
         table_cols = {row[1]: row for row in con.execute("PRAGMA table_info(logins)")}
         fillable_probe = _login_row_values("", "", b"", 0)
@@ -1730,10 +1941,8 @@ def _import_into_login_data(db_path: Path, logins: list[dict]) -> int:
                     if row[3] and row[4] is None
                     and name not in fillable_probe and name != "id"]
         if required:
-            logger.warning("logins table in %s has unsupported NOT NULL columns "
-                           "%s - skipping credential import for this browser",
-                           db_path, required)
-            return 0
+            raise RuntimeError(
+                f"logins table in {db_path} has unsupported required columns: {required}")
 
         existing = {(r[0], r[1]) for r in con.execute(
             "SELECT origin_url, username_value FROM logins")}
@@ -1766,9 +1975,62 @@ def _import_into_login_data(db_path: Path, logins: list[dict]) -> int:
 
 
 # Where the envelopes wait between first boot and the user's first login,
-# and how many logins we keep asking before giving up and deleting them.
+# and how many incorrect decryption passwords are allowed before retirement.
 _CRED_STORE_REL = ".local/share/igloo/credentials.json"
 _CRED_MAX_ATTEMPTS = 3
+
+
+def _persist_credential_retry(store: Path, data: dict) -> None:
+    """Replace the owner-only encrypted retry store without truncating it."""
+    payload = json.dumps(data).encode("utf-8")
+    temporary = store.with_name(store.name + "." + uuid.uuid4().hex + ".writing")
+    try:
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+        if temporary.read_bytes() != payload:
+            raise OSError("Credential retry staging readback failed")
+        os.replace(temporary, store)
+        if store.read_bytes() != payload:
+            raise OSError("Credential retry readback failed")
+        if hasattr(os, "O_DIRECTORY"):
+            directory = os.open(store.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _prepare_credential_store(home: Path, *, create: bool = True) -> Path:
+    """Create only the intended home-local directories without link/mount redirection."""
+    if home.parent.is_symlink() or home.is_symlink() or not home.is_dir():
+        raise RuntimeError(f"Chromium credential destination is unsafe: {home}")
+    home_device = home.stat().st_dev
+    for relative in (".local", ".local/share", ".local/share/igloo"):
+        directory = home / relative
+        try:
+            observed = directory.lstat()
+        except FileNotFoundError:
+            if not create:
+                raise RuntimeError(f"Chromium credential destination changed: {directory}")
+            directory.mkdir(mode=0o700)
+            observed = directory.lstat()
+        if not stat.S_ISDIR(observed.st_mode) or observed.st_dev != home_device:
+            raise RuntimeError(f"Chromium credential destination is redirected: {directory}")
+    store = home / _CRED_STORE_REL
+    try:
+        observed = store.lstat()
+    except FileNotFoundError:
+        if not create:
+            raise RuntimeError(f"Chromium credential store changed: {store}")
+    else:
+        if not stat.S_ISREG(observed.st_mode) or observed.st_dev != home_device:
+            raise RuntimeError(f"Chromium credential store is redirected: {store}")
+    return store
 
 
 def stage_credential_import(manifest: dict) -> None:
@@ -1784,31 +2046,35 @@ def stage_credential_import(manifest: dict) -> None:
 
     linux_user = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
     if not linux_user:
-        logger.info("Chromium credentials staged but no user in the manifest "
-                    "- skipping credential import")
-        return
-
-    home = Path("/home") / linux_user
-    if not home.is_dir():
-        logger.warning("User home %s does not exist - skipping Chromium "
-                       "credential import", home)
-        return
+        raise RuntimeError("Chromium credentials cannot be staged without a Linux user")
+    if re.fullmatch(r"[a-z_][a-z0-9_.-]{0,31}", linux_user) is None:
+        raise RuntimeError("Chromium credential Linux username is unsafe")
 
     try:
-        store = home / _CRED_STORE_REL
-        store.parent.mkdir(parents=True, exist_ok=True)
-        store.write_text(json.dumps({
+        import pwd
+        home = Path("/home") / linux_user
+        account = pwd.getpwnam(linux_user)
+        if account.pw_dir != str(home) or home.is_symlink() or not home.is_dir() or \
+                home.stat().st_uid != account.pw_uid:
+            raise RuntimeError("The credential target account does not own its home")
+        store = _prepare_credential_store(home)
+        _persist_credential_retry(store, {
             "attempts": 0,
             "browsers": [{"name": e.get("name", ""), "blob": e["credentialsBlob"]}
                          for e in entries],
-        }), encoding="utf-8")
-        store.chmod(0o600)
-        # Chown from .local down, not just the igloo directory: mkdir(parents=True) ran
-        # as root, so any level it had to create is root-owned. Leaving .local that way
-        # locks the user out of their own ~/.local/state - which breaks gnome-keyring,
-        # xdg-user-dirs and every autostart hook, not only ours.
-        run_cmd(["chown", "-R", f"{linux_user}:{linux_user}",
-                 str(home / ".local")], check=False)
+        })
+        if _prepare_credential_store(home, create=False) != store:
+            raise RuntimeError("Chromium credential destination changed during staging")
+        # Only these exact directories and the encrypted store may be chowned.
+        # A recursive chown under a user-controlled home can cross a mount or
+        # encounter unrelated content.
+        for relative in (_CRED_STORE_REL, ".local/share/igloo", ".local/share",
+                         ".local"):
+            path = home / relative
+            if path.is_symlink():
+                raise RuntimeError(f"Chromium credential destination changed: {path}")
+            os.chown(path, account.pw_uid, account.pw_gid,
+                     follow_symlinks=False)
 
         hook = Path("/opt/igloo/credential-import.sh")
         hook.write_text(
@@ -1816,6 +2082,9 @@ def stage_credential_import(manifest: dict) -> None:
             "# iGloo credential import - retries at each login until the\n"
             "# envelope store is consumed, then does nothing.\n"
             'STORE="$HOME/' + _CRED_STORE_REL + '"\n'
+            '[ -f "$STORE" ] || exit 0\n'
+            # The KDE welcome window can cover an earlier password dialog.
+            'sleep 12\n'
             '[ -f "$STORE" ] || exit 0\n'
             "exec python3 /opt/igloo/agent.py --import-credentials\n",
             encoding="utf-8")
@@ -1832,11 +2101,13 @@ def stage_credential_import(manifest: dict) -> None:
             "Type=Application\n"
             "X-GNOME-Autostart-enabled=true\n",
             encoding="utf-8")
+        autostart.chmod(0o644)
 
         logger.info("Staged %d credential envelope(s) for %s and installed the "
                     "login hook", len(entries), linux_user)
     except OSError:
-        logger.exception("Could not stage the credential import (non-fatal)")
+        logger.exception("Could not stage the credential import")
+        raise
 
 
 def _ask_password() -> tuple[bool, str | None]:
@@ -1846,7 +2117,8 @@ def _ask_password() -> tuple[bool, str | None]:
     which is different from the user cancelling."""
     attempts = [
         (["zenity", "--password",
-          "--title=iGloo", "--timeout=300"], None),
+          "--title=iGloo", "--text=Enter your Linux password to import saved browser passwords.",
+          "--timeout=300"], None),
         (["kdialog", "--password",
           "Enter your account password to import the browser passwords "
           "migrated from Windows."], None),
@@ -1860,16 +2132,34 @@ def _ask_password() -> tuple[bool, str | None]:
             logger.exception("%s failed while asking for the password", argv[0])
             return True, None
         if res.returncode != 0:
+            # Only record the tool and status: its output could contain a
+            # password or desktop-session details.
+            logger.warning("%s password dialog exited with status %d",
+                           argv[0], res.returncode)
             return True, None
         return True, res.stdout.rstrip("\n")
     return False, None
 
 
+def _installed_os_id() -> str | None:
+    """Read the running OS identity before any standalone agent mutation."""
+    try:
+        return platform.freedesktop_os_release().get("ID")
+    except (OSError, ValueError):
+        return None
+
+
 def _run_user_mode() -> int:
     """Entry point for --import-credentials: logging the user can actually write
-    to, then the import. Never returns non-zero - a failed import must not make
-    the desktop report a broken autostart entry."""
+    to, then the import. An ordinary import failure remains non-fatal, but a
+    copied agent must fail before touching another distribution's user data."""
     import logging
+
+    installed_os = _installed_os_id()
+    if installed_os != "fedora":
+        logger.error("Installed OS ID %r is not Fedora; credential import refused",
+                     installed_os)
+        return 4
 
     state = Path.home() / ".local" / "state"
     try:
@@ -1899,8 +2189,7 @@ def run_user_credential_import() -> int:
     try:
         data = json.loads(store.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        logger.exception("Credential store is unreadable - removing it")
-        store.unlink(missing_ok=True)
+        logger.exception("Credential store is unreadable - retaining it for diagnosis")
         return 0
 
     attempts = int(data.get("attempts", 0)) + 1
@@ -1915,7 +2204,20 @@ def run_user_credential_import() -> int:
         _aes_self_test()
     except AssertionError:
         logger.exception("AES self-test failed - credential import disabled")
-        store.unlink(missing_ok=True)
+        return 0
+
+    # An absent browser cannot read an imported profile. Do not ask for the
+    # account password at every login while its encrypted envelope waits for
+    # the selected browser to be installed.
+    if not any(
+            (mapping := _CHROMIUM_LINUX_DIRS.get(entry.get("name", "")))
+            and any(_chromium_credential_profile_ready(
+                        root / mapping[1] / "Default")
+                    for root in _chromium_config_homes(mapping[0], mapping[2]))
+            for entry in entries):
+        logger.info("Open the selected browser once, close it, then sign in "
+                    "again to finish password import; encrypted credentials "
+                    "retained until its native Login Data is ready")
         return 0
 
     asked, password = _ask_password()
@@ -1924,19 +2226,24 @@ def run_user_credential_import() -> int:
                        "for the password, leaving the envelopes in place")
         return 0
     if not password:
-        data["attempts"] = attempts
-        store.write_text(json.dumps(data), encoding="utf-8")
-        logger.info("Password prompt cancelled (attempt %d of %d)",
-                    attempts, _CRED_MAX_ATTEMPTS)
+        # A desktop dialog can fail before it is shown (for example while the
+        # portal starts). Neither that failure nor a user cancellation is a
+        # wrong decryption password. Keep the owner-only envelope and budget.
+        logger.info("Password prompt closed without a password; encrypted "
+                    "credentials retained for the next login")
         return 0
 
     imported = 0
     wrong_password = False
+    write_failed = False
+    remaining = []
     for entry in entries:
         name = entry.get("name", "")
         mapping = _CHROMIUM_LINUX_DIRS.get(name)
         if mapping is None:
-            logger.info("No Linux profile mapping for browser %r - skipping", name)
+            logger.warning("No Linux profile mapping for browser %r - retaining encrypted credentials", name)
+            write_failed = True
+            remaining.append(entry)
             continue
         app_id, config_rel, binaries = mapping
         try:
@@ -1945,6 +2252,7 @@ def run_user_credential_import() -> int:
             # A bad tag is indistinguishable from a corrupt envelope here, but
             # a wrong password is overwhelmingly the likelier cause.
             wrong_password = True
+            remaining.append(entry)
             logger.warning("Could not decrypt the envelope for %s", name)
             continue
 
@@ -1952,10 +2260,17 @@ def run_user_credential_import() -> int:
         cookies = payload.get("cookies", [])
         if not logins and not cookies:
             continue
+        roots = _chromium_config_homes(app_id, binaries)
+        if not roots:
+            logger.warning("Selected browser %s is not installed - retaining encrypted credentials", name)
+            write_failed = True
+            remaining.append(entry)
+            continue
         # Counted per browser, not per root: the same logins written to both a
         # Flatpak and a packaged install is one migration, not two.
         landed = 0
-        for root in _chromium_config_homes(app_id, binaries):
+        browser_failed = False
+        for root in roots:
             profile_dir = root / config_rel / "Default"
             try:
                 if logins:
@@ -1964,6 +2279,7 @@ def run_user_credential_import() -> int:
                                  _import_into_login_data(profile_dir / "Login Data", logins))
                     logger.info("Imported %s logins into %s", name, profile_dir)
             except Exception:
+                browser_failed = True
                 logger.exception("Failed to import credentials for %s into %s "
                                  "(non-fatal)", name, root)
             try:
@@ -1971,18 +2287,28 @@ def run_user_credential_import() -> int:
                 # must not cost the passwords that came from the same profile.
                 if cookies:
                     rewritten = _reencrypt_cookies(profile_dir, cookies)
+                    if rewritten != len(cookies):
+                        raise RuntimeError("Selected browser cookies are missing from the copied profile")
                     logger.info("Re-encrypted %d %s cookie(s) in %s",
                                 rewritten, name, profile_dir)
             except Exception:
+                browser_failed = True
                 logger.exception("Failed to re-encrypt cookies for %s in %s "
                                  "(non-fatal)", name, profile_dir)
         imported += landed
+        if browser_failed:
+            write_failed = True
+            remaining.append(entry)
 
-    if wrong_password and imported == 0:
-        data["attempts"] = attempts
-        store.write_text(json.dumps(data), encoding="utf-8")
-        logger.info("Nothing decrypted (attempt %d of %d) - will ask again at "
-                    "the next login", attempts, _CRED_MAX_ATTEMPTS)
+    if remaining:
+        data["browsers"] = remaining
+        # A browser database failure is not a password mistake. Keep its
+        # encrypted envelope available without consuming the password budget.
+        if wrong_password and not write_failed:
+            data["attempts"] = attempts
+        _persist_credential_retry(store, data)
+        logger.info("Imported %d browser login(s); %d encrypted browser "
+                    "envelope(s) retained for retry", imported, len(remaining))
         return 0
 
     store.unlink(missing_ok=True)
@@ -1993,46 +2319,639 @@ def run_user_credential_import() -> int:
 # === END AGENT SECTION ===================================================
 
 
-def redact_manifest(manifest: dict[str, Any]) -> None:
-    """Remove sensitive fields from the on-disk manifest.
+_BOUND_SEED_FILES = frozenset({"migration-manifest.json", "ks.cfg",
+                               "preseed.cfg", "igloo-boot/initrd"})
+_REQUIRED_AGENT_FILES = frozenset({"agent.py", "first-boot.sh",
+                                   "display-apply.py", "igloo_boot.py"})
+# Inventory bounds cap memory while reading an untrusted seed; they do not decide how
+# much a user may migrate. They must match SeedIdentityWriter on the Windows side
+# (1,000,000 files / 2,000,000 entries / 256,000,000 path characters).
+_MAX_USER_FILES = 1_000_000
+_MAX_USER_ENTRIES = 2_000_000
+_MAX_USER_PATH_CHARACTERS = 256_000_000
 
-    Wi-Fi ``psk`` values travel in plaintext so the agent can write
-    NetworkManager profiles, and ``credentialsBlob`` holds the browser
-    envelopes until stage-credentials has moved them into the user's home.
-    Once applied they serve no further purpose, but
-    ``/var/lib/igloo/manifest.json`` is world-readable by default, so both are
-    overwritten with ``null``. The account password is not in the manifest at
-    all - see docs/reference/password-hashing.md.
+
+def _selected_media_paths(manifest: dict[str, Any]) -> set[str]:
+    selected: set[str] = set()
+    for key, pattern in (("wallpaper", r"igloo-wallpaper\.[A-Za-z0-9]{2,8}"),
+                         ("accountPicture", r"igloo-avatar\.jpg")):
+        item = manifest.get(key)
+        if item is None:
+            continue
+        name = item.get("fileName") if isinstance(item, dict) else None
+        valid = (isinstance(name, str) and
+                 (name == "igloo-avatar.jpg" if key == "accountPicture" else
+                  re.fullmatch(pattern, name, flags=re.IGNORECASE) is not None))
+        if not valid:
+            raise RuntimeError(f"Selected {key} has an unsafe staged file name")
+        selected.add(name)
+    return selected
+
+
+def _safe_user_segment(segment: str) -> bool:
+    base = segment.split(".", 1)[0].upper()
+    reserved = base in {"CON", "PRN", "AUX", "NUL"} or re.fullmatch(
+        r"(?:COM|LPT)[1-9]", base) is not None
+    return (bool(segment) and not segment.isspace() and segment not in {".", ".."}
+            and segment == unicodedata.normalize("NFC", segment) and not reserved
+            and not segment.endswith((" ", "."))
+            and all(unicodedata.category(char) != "Cc" and
+                    char not in '<>":|?*/\\' for char in segment))
+
+
+def _safe_user_path(path: str) -> bool:
+    return (isinstance(path, str) and 0 < len(path) <= 1024 and
+            "\\" not in path and all(_safe_user_segment(segment)
+                                      for segment in path.split("/")))
+
+
+def _selected_user_paths(seed_root: Path, manifest: dict[str, Any]) -> set[str]:
+    """Inventory exactly the selected staged files, including empty files."""
+    roots: set[str] = set()
+    aliases: set[str] = set()
+
+    def add_root(path: str) -> None:
+        if not _safe_user_path(path):
+            raise RuntimeError("Selected user-data path is unsafe")
+        if len(roots) >= 1024:
+            raise RuntimeError("Selected user-data root inventory is too large")
+        alias = unicodedata.normalize("NFC", path).casefold()
+        if alias in aliases:
+            raise RuntimeError("Selected user-data roots are ambiguous")
+        aliases.add(alias)
+        roots.add(path)
+
+    selected_files = manifest.get("files")
+    if selected_files is None:
+        selected_files = {}
+    if not isinstance(selected_files, dict):
+        raise RuntimeError("Selected folder metadata is invalid")
+    folders = selected_files.get("folders")
+    if folders is None:
+        folders = []
+    if not isinstance(folders, list):
+        raise RuntimeError("Selected folder metadata is invalid")
+    if folders:
+        if any(not isinstance(folder, dict) or not isinstance(folder.get("name"), str)
+               for folder in folders):
+            raise RuntimeError("Selected folder metadata is invalid")
+        folder_names = [folder["name"] for folder in folders]
+    else:
+        folder_names = selected_files.get("includedFolders")
+        if folder_names is None:
+            folder_names = []
+        if not isinstance(folder_names, list) or any(
+                not isinstance(name, str) for name in folder_names):
+            raise RuntimeError("Selected folder metadata is invalid")
+    staging_path = selected_files.get("stagingPath")
+    if staging_path is not None and not isinstance(staging_path, str):
+        raise RuntimeError("Selected folder staging metadata is invalid")
+    if (staging_path and not staging_path.isspace()) or (seed_root / "files").exists():
+        for name in folder_names:
+            add_root("files/" + name)
+
+    browsers = manifest.get("browsers")
+    if browsers is None:
+        browsers = []
+    if not isinstance(browsers, list):
+        raise RuntimeError("Selected browser metadata is invalid")
+    for browser in browsers:
+        if not isinstance(browser, dict):
+            raise RuntimeError("Selected browser metadata is invalid")
+        staged = browser.get("profileStagingPath")
+        if staged is None or staged == "":
+            continue  # Historical NTFS-only browser selection.
+        source = browser.get("sourceRelativePath")
+        if not isinstance(staged, str) or not isinstance(source, str):
+            raise RuntimeError("Staged browser selection has no source binding")
+        source = source.replace("\\", "/")
+        if not _safe_user_path(source) or staged != "browser-profiles/" + source:
+            raise RuntimeError("Staged browser selection differs from its source")
+        add_root(staged)
+
+    observed: set[str] = set()
+    directories: set[str] = set()
+    aliases.clear()
+    entry_count = 0
+    path_characters = 0
+    for namespace in ("files", "browser-profiles"):
+        namespace_root = seed_root / namespace
+        chosen = {root for root in roots if root.startswith(namespace + "/")}
+        if namespace_root.is_symlink() or (namespace_root.exists() and
+                                           (not namespace_root.is_dir() or not chosen)):
+            raise RuntimeError("Seed contains an unselected or redirected user-data root")
+        if not namespace_root.is_dir():
+            if chosen:
+                raise RuntimeError("Selected user-data root is missing")
+            continue
+        pending = [namespace_root]
+        while pending:
+            for entry in pending.pop().iterdir():
+                if entry.is_symlink():
+                    raise RuntimeError("Selected user data contains a redirected entry")
+                relative = entry.relative_to(seed_root).as_posix()
+                if not _safe_user_path(relative):
+                    raise RuntimeError("Selected user-data path is unsafe")
+                alias = unicodedata.normalize("NFC", relative).casefold()
+                entry_count += 1
+                if alias in aliases or entry_count > _MAX_USER_ENTRIES:
+                    raise RuntimeError("Selected user-data inventory is ambiguous or excessive")
+                aliases.add(alias)
+                if entry.is_dir():
+                    if not any(relative == root or relative.startswith(root + "/") or
+                               root.startswith(relative + "/") for root in chosen):
+                        raise RuntimeError("Seed contains an unselected user-data directory")
+                    directories.add(relative)
+                    pending.append(entry)
+                elif entry.is_file():
+                    if not any(relative.startswith(root + "/") for root in chosen):
+                        raise RuntimeError("Seed contains an unselected user-data file")
+                    path_characters += len(relative)
+                    if (len(observed) >= _MAX_USER_FILES or
+                            path_characters > _MAX_USER_PATH_CHARACTERS):
+                        raise RuntimeError("Selected user-data inventory is too large")
+                    observed.add(relative)
+                else:
+                    raise RuntimeError("Selected user data contains a special entry")
+    for root in roots:
+        selected = seed_root / root
+        if selected.is_symlink() or not selected.is_dir():
+            raise RuntimeError("Selected user-data directory is missing or redirected")
+    for directory in directories:
+        if (not any(directory == root or root.startswith(directory + "/")
+                    for root in roots) and
+                not any(path.startswith(directory + "/") for path in observed)):
+            raise RuntimeError("Selected user data contains an unbound empty directory")
+    return observed
+
+
+def _hash_bound_file(path: Path) -> str:
+    if path.is_symlink() or not path.is_file():
+        raise RuntimeError(f"Installer seed has a missing or redirected file: {path}")
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest().upper()
+
+
+def _safe_bound_provider_path(relative: str) -> bool:
+    if len(relative) > 256 or "\\" in relative or ":" in relative:
+        return False
+    segments = relative.split("/")
+    return (len(segments) >= 2
+            and all(re.fullmatch(r"[A-Za-z0-9_.-]+", segment)
+                    and segment not in {".", ".."} for segment in segments)
+            and segments[0].lower() not in {"files", "browser-profiles",
+                                             "efi", "images", "igloo-boot"})
+
+
+def _require_bound_agent_inventory(seed_root: Path, paths: set[str]) -> None:
+    agent_root = seed_root / "igloo-agent"
+    if not agent_root.is_dir() or agent_root.is_symlink():
+        raise RuntimeError("Installer seed first-boot agent directory is unavailable")
+    actual = set()
+    for file in agent_root.iterdir():
+        if file.is_symlink() or not file.is_file():
+            raise RuntimeError("Installer seed first-boot agent has an unexpected entry")
+        actual.add("igloo-agent/" + file.name)
+    bound = {path for path in paths if path.startswith("igloo-agent/")}
+    if (actual != bound or
+            not {"igloo-agent/" + name for name in _REQUIRED_AGENT_FILES}.issubset(bound)):
+        raise RuntimeError("Installer seed first-boot agent inventory differs from its identity")
+
+
+def _read_bound_seed_files(seed_root: Path, seed_device: str,
+                           installed_identity: Path,
+                           allowed_replacements: dict[str, str] | None = None
+                           ) -> dict[str, bytes]:
+    """Prove the exact GPT seed and copied inputs before retiring credentials."""
+    identity_bytes = installed_identity.read_bytes()
+    if (seed_root / "igloo-seed-identity.json").read_bytes() != identity_bytes:
+        raise RuntimeError("Installer seed identity differs from its protected copy")
+    identity = json.loads(identity_bytes)
+    if identity.get("version") != 1:
+        raise RuntimeError("Unsupported installer seed identity version")
+    try:
+        expected_disk = uuid.UUID(identity["diskGuid"])
+        expected_partition = uuid.UUID(identity["partitionGuid"])
+    except (KeyError, ValueError, TypeError) as error:
+        raise RuntimeError("Installer seed has invalid GPT identity") from error
+    if expected_disk.int == 0 or expected_partition.int == 0:
+        raise RuntimeError("Installer seed has empty GPT identity")
+
+    actual_device = os.path.realpath(seed_device)
+    if not Path(actual_device).is_block_device():
+        raise RuntimeError("Installer seed is not a block partition")
+    part_uuid = run_cmd(["blkid", "-s", "PARTUUID", "-o", "value",
+                         actual_device]).stdout.strip()
+    parents = run_cmd(["lsblk", "-n", "-o", "PKNAME", actual_device]).stdout.splitlines()
+    if len(parents) != 1 or not re.fullmatch(r"[A-Za-z0-9._-]+", parents[0].strip()):
+        raise RuntimeError("Installer seed parent disk is unavailable or ambiguous")
+    disk_uuid = run_cmd(["blkid", "-s", "PTUUID", "-o", "value",
+                         "/dev/" + parents[0].strip()]).stdout.strip()
+    try:
+        match = (uuid.UUID(part_uuid) == expected_partition
+                 and uuid.UUID(disk_uuid) == expected_disk)
+    except (ValueError, TypeError):
+        match = False
+    if not match:
+        raise RuntimeError("Installer seed GPT disk or partition identity changed")
+
+    entries = identity.get("files")
+    if not isinstance(entries, list):
+        raise RuntimeError("Installer seed file identity list is missing")
+    manifest_path = seed_root / "migration-manifest.json"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise RuntimeError("Installer seed manifest is missing or redirected")
+    manifest = json.loads(manifest_path.read_bytes())
+    if not isinstance(manifest, dict):
+        raise RuntimeError("Installer seed manifest is invalid")
+    selected_media = _selected_media_paths(manifest)
+    selected_user = _selected_user_paths(seed_root, manifest)
+    files: dict[str, bytes] = {}
+    seen: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise RuntimeError("Installer seed file identity is malformed")
+        relative, expected_sha = entry.get("path"), entry.get("sha256")
+        if (not isinstance(relative, str)
+                or (relative not in _BOUND_SEED_FILES
+                    and relative not in selected_media
+                    and relative not in selected_user
+                    and not _safe_bound_provider_path(relative)) or relative in seen
+                or not isinstance(expected_sha, str)
+                or re.fullmatch(r"[0-9A-F]{64}", expected_sha) is None):
+            raise RuntimeError("Installer seed file identity is unsafe or duplicated")
+        seen.add(relative)
+        actual_sha = _hash_bound_file(seed_root / relative)
+        if (actual_sha != expected_sha
+                and actual_sha != (allowed_replacements or {}).get(relative)):
+            raise RuntimeError(f"Installer seed file changed: {relative}")
+        if relative in {"migration-manifest.json", "ks.cfg"}:
+            payload = (seed_root / relative).read_bytes()
+            if hashlib.sha256(payload).hexdigest().upper() != actual_sha:
+                raise RuntimeError(f"Installer seed file changed while reading: {relative}")
+            files[relative] = payload
+    if not {"migration-manifest.json", "ks.cfg"}.issubset(seen):
+        raise RuntimeError("Installer seed lacks a bound manifest or kickstart")
+    if {name for name in seen if name in selected_user} != selected_user:
+        raise RuntimeError("Selected installer user data differs from its bound identity")
+    bound_media = {name for name in seen if name.lower().startswith(
+        "igloo-wallpaper.") or name.lower() == "igloo-avatar.jpg"}
+    if bound_media != selected_media:
+        raise RuntimeError("Selected installer media differs from its bound identity")
+    _require_bound_agent_inventory(seed_root, seen)
+    return files
+
+
+def _verify_bound_seed_before_firstboot(installed_manifest: Path) -> None:
+    """Check the protected GPT seed and every selected input before setup."""
+    seed_devices = {
+        os.path.realpath(candidate)
+        for candidate in (Path("/dev/disk/by-label") / label
+                          for label in IGLOO_SEED_LABELS)
+        if candidate.exists()
+    }
+    if len(seed_devices) != 1:
+        raise RuntimeError("Expected exactly one installer seed before first boot")
+    mountpoint = Path("/run/igloo-seed-verify")
+    if mountpoint.is_symlink():
+        raise RuntimeError("Seed verification mountpoint is redirected")
+    mountpoint.mkdir(parents=True, exist_ok=True)
+    if run_cmd(["mountpoint", "-q", str(mountpoint)], check=False).returncode == 0:
+        raise RuntimeError("Seed verification mountpoint is already in use")
+    seed_device = next(iter(seed_devices))
+    run_cmd(["mount", "-t", "vfat", "-o", "ro,nosuid,nodev,noexec",
+             seed_device, str(mountpoint)])
+    try:
+        bound = _read_bound_seed_files(
+            mountpoint, seed_device, Path("/var/lib/igloo/seed-identity.json"))
+        if installed_manifest.read_bytes() != bound["migration-manifest.json"]:
+            raise RuntimeError("Installed manifest differs from the bound installer seed")
+    finally:
+        run_cmd(["umount", str(mountpoint)])
+
+
+def _replace_bound_file_with_readback(path: Path, expected: bytes,
+                                      replacement: bytes, *, private: bool) -> None:
+    if path.read_bytes() != expected:
+        raise RuntimeError(f"Bound seed file changed before redaction: {path}")
+    temporary = path.with_name(path.name + ".igloo-redacting")
+    try:
+        with temporary.open("wb") as output:
+            if private:
+                temporary.chmod(0o600)
+            output.write(replacement)
+            output.flush()
+            os.fsync(output.fileno())
+        if temporary.read_bytes() != replacement:
+            raise RuntimeError(f"Seed redaction staging readback failed: {temporary}")
+        os.replace(temporary, path)
+        if path.read_bytes() != replacement:
+            raise RuntimeError(f"Seed redaction readback failed: {path}")
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _redacted_manifest_bytes(original: bytes) -> bytes:
+    data = json.loads(original)
+    changed = False
+    user = data.get("user", {})
+    if user.get("linuxPasswordCrypted") is not None:
+        user["linuxPasswordCrypted"] = None
+        changed = True
+    for net in data.get("wifiNetworks", []):
+        if net.get("psk") is not None:
+            net["psk"] = None
+            changed = True
+    for browser in data.get("browsers", []):
+        if browser.get("credentialsBlob") is not None:
+            browser["credentialsBlob"] = None
+            changed = True
+
+    return json.dumps(data, indent=2).encode("utf-8") if changed else original
+
+
+def _redact_matching_manifest_pair(installed: Path, seed: Path,
+                                   manifest: dict[str, Any]) -> None:
+    original = installed.read_bytes()
+    if seed.read_bytes() != original:
+        raise RuntimeError("Seed manifest does not byte-match the installed input")
+    if json.loads(original) != manifest:
+        raise RuntimeError("Installed manifest changed during first-boot setup")
+    replacement = _redacted_manifest_bytes(original)
+
+    if replacement != original:
+        # Keep the installed original until the exact matching seed has been
+        # rewritten and read back. A failure still leaves first-boot inputs.
+        _replace_bound_file_with_readback(seed, original, replacement, private=False)
+        try:
+            _replace_bound_file_with_readback(installed, original, replacement, private=True)
+        except Exception:
+            # The local original still carries all retry inputs. Restore the
+            # seed to that same byte stream if the second write fails, so a
+            # later first-boot attempt can pass the exact-match gate again.
+            _replace_bound_file_with_readback(seed, replacement, original, private=False)
+            raise
+        logger.info("Redacted and verified the seed and installed manifests")
+    else:
+        logger.info("Matching seed and installed manifests contain no plaintext secrets")
+
+
+_SCRUB_JOURNAL = Path("/var/lib/igloo/seed-scrub-state.json")
+
+
+def _sha256(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest().upper()
+
+
+def _scrubbed_kickstart(original: bytes) -> bytes:
+    marker = b"# iGloo setup complete; installer credentials retired\n"
+    if len(original) < len(marker):
+        raise RuntimeError("Bound kickstart is too short to retire safely")
+    return marker + b" " * (len(original) - len(marker))
+
+
+def _installed_anaconda_inputs(root: Path, bound_kickstart: bytes,
+                               manifest: dict[str, Any]) -> dict[str, bytes]:
+    """Prove Anaconda's two installed copies before including them in scrub."""
+    paths = {name: root / name for name in
+             ("original-ks.cfg", "anaconda-ks.cfg")}
+    for path in paths.values():
+        if path.is_symlink() or not path.is_file():
+            raise RuntimeError(f"Anaconda installer copy is missing or unsafe: {path}")
+    original = paths["original-ks.cfg"].read_bytes()
+    if original != bound_kickstart:
+        raise RuntimeError("Anaconda original kickstart differs from the bound seed")
+
+    generated = paths["anaconda-ks.cfg"].read_bytes()
+    if not generated.startswith(b"# Generated by Anaconda "):
+        raise RuntimeError("Anaconda generated kickstart has no installer signature")
+    try:
+        lines = generated.decode("utf-8").splitlines()
+        users = [shlex.split(line) for line in lines if line.startswith("user ")]
+    except (UnicodeError, ValueError) as error:
+        raise RuntimeError("Anaconda generated kickstart is malformed") from error
+    linux_user = manifest.get("user", {}).get("preferredLinuxUsername")
+    if (not isinstance(linux_user, str) or len(users) != 1
+            or f"--name={linux_user}" not in users[0]):
+        raise RuntimeError("Anaconda generated kickstart has the wrong Linux user")
+    crypt = manifest.get("user", {}).get("linuxPasswordCrypted")
+    if crypt:
+        if f"--password={crypt}" not in users[0] or "--iscrypted" not in users[0]:
+            raise RuntimeError("Anaconda generated kickstart has the wrong password hash")
+    elif "--lock" not in users[0]:
+        raise RuntimeError("Anaconda generated kickstart lacks the locked user")
+    return {"original-ks.cfg": original, "anaconda-ks.cfg": generated}
+
+
+def _write_scrub_journal(path: Path, plan: dict[str, Any]) -> None:
+    payload = json.dumps(plan, sort_keys=True).encode("utf-8")
+    # A crash before replace may leave a protected hash-only temporary file;
+    # use a fresh name so the next boot can still publish the journal.
+    temporary = path.with_name(path.name + "." + uuid.uuid4().hex + ".igloo-writing")
+    try:
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+        if temporary.read_bytes() != payload:
+            raise RuntimeError("Seed scrub journal staging readback failed")
+        os.replace(temporary, path)
+        if path.read_bytes() != payload:
+            raise RuntimeError("Seed scrub journal readback failed")
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _scrub_bound_seed_inputs(installed: Path, installed_identity: Path,
+                             seed_root: Path, seed_device: str,
+                             manifest: dict[str, Any], journal: Path,
+                             anaconda_root: Path) -> None:
+    """Finish an exact, journaled scrub on one GPT seed and installed root.
+
+    The journal contains only hashes. If power fails between file replacements,
+    a later boot accepts only the original or planned replacement bytes on the
+    same bound partition and completes the scrub without rerunning migration.
+    """
+    identity_bytes = installed_identity.read_bytes()
+    identity = json.loads(identity_bytes)
+    entries = identity.get("files")
+    if not isinstance(entries, list):
+        raise RuntimeError("Protected seed identity has no file list")
+    original_hashes: dict[str, str] = {}
+    selected_media = _selected_media_paths(manifest)
+    selected_user = _selected_user_paths(seed_root, manifest)
+    for entry in entries:
+        if (not isinstance(entry, dict)
+                or not isinstance(entry.get("path"), str)
+                or (entry["path"] not in _BOUND_SEED_FILES
+                    and entry["path"] not in selected_media
+                    and entry["path"] not in selected_user
+                    and not _safe_bound_provider_path(entry["path"]))
+                or entry["path"] in original_hashes
+                or not isinstance(entry.get("sha256"), str)
+                or re.fullmatch(r"[0-9A-F]{64}", entry["sha256"]) is None):
+            raise RuntimeError("Protected seed identity file list is malformed")
+        original_hashes[entry["path"]] = entry["sha256"]
+    if not {"migration-manifest.json", "ks.cfg"}.issubset(original_hashes):
+        raise RuntimeError("Protected seed identity omits Fedora inputs")
+    bound_media = {name for name in original_hashes if name.lower().startswith(
+        "igloo-wallpaper.") or name.lower() == "igloo-avatar.jpg"}
+    if bound_media != selected_media:
+        raise RuntimeError("Protected seed identity omits selected installer media")
+    if {name for name in original_hashes if name in selected_user} != selected_user:
+        raise RuntimeError("Protected seed identity omits selected user data")
+    if journal.exists():
+        plan = json.loads(journal.read_bytes())
+        replacements = plan.get("replacements")
+        installed_copies = plan.get("installedCopies")
+        if (plan.get("version") != 2
+                or plan.get("seedIdentitySha256") != _sha256(identity_bytes)
+                or not isinstance(replacements, dict)
+                or set(replacements) != {"migration-manifest.json", "ks.cfg"}
+                or any(not isinstance(value, str)
+                       or re.fullmatch(r"[0-9A-F]{64}", value) is None
+                       for value in replacements.values())
+                or not isinstance(installed_copies, dict)
+                or set(installed_copies) != {"original-ks.cfg", "anaconda-ks.cfg"}
+                or any(not isinstance(hashes, list) or len(hashes) != 2
+                       or any(not isinstance(value, str)
+                              or re.fullmatch(r"[0-9A-F]{64}", value) is None
+                              for value in hashes)
+                       for hashes in installed_copies.values())
+                or installed_copies["original-ks.cfg"][0] != original_hashes["ks.cfg"]):
+            raise RuntimeError("Protected seed scrub journal is invalid")
+        files = _read_bound_seed_files(seed_root, seed_device, installed_identity,
+                                       replacements)
+    else:
+        files = _read_bound_seed_files(seed_root, seed_device, installed_identity)
+        if installed.read_bytes() != files["migration-manifest.json"]:
+            raise RuntimeError("Seed manifest does not byte-match the installed input")
+        if json.loads(installed.read_bytes()) != manifest:
+            raise RuntimeError("Installed manifest changed during first-boot setup")
+        copies = _installed_anaconda_inputs(anaconda_root, files["ks.cfg"], manifest)
+        replacements = {
+            "migration-manifest.json": _sha256(_redacted_manifest_bytes(
+                files["migration-manifest.json"])),
+            "ks.cfg": _sha256(_scrubbed_kickstart(files["ks.cfg"])),
+        }
+        installed_copies = {
+            name: [_sha256(payload), _sha256(_scrubbed_kickstart(payload))]
+            for name, payload in copies.items()
+        }
+        plan = {"version": 2, "seedIdentitySha256": _sha256(identity_bytes),
+                "replacements": replacements, "installedCopies": installed_copies}
+        _write_scrub_journal(journal, plan)
+
+    installed_bytes = installed.read_bytes()
+    if json.loads(installed_bytes) != manifest:
+        raise RuntimeError("Installed manifest changed during seed scrub")
+    if _sha256(installed_bytes) not in {
+            original_hashes["migration-manifest.json"],
+            replacements["migration-manifest.json"]}:
+        raise RuntimeError("Installed manifest is neither the bound input nor scrubbed output")
+
+    seed_manifest = files["migration-manifest.json"]
+    manifest_replacement = next(
+        (payload for payload in (seed_manifest, installed_bytes)
+         if _sha256(payload) == replacements["migration-manifest.json"]), None)
+    if manifest_replacement is None:
+        manifest_replacement = _redacted_manifest_bytes(seed_manifest)
+    if _sha256(manifest_replacement) != replacements["migration-manifest.json"]:
+        raise RuntimeError("Planned manifest scrub no longer matches its journal")
+
+    seed_ks = files["ks.cfg"]
+    ks_replacement = (seed_ks if _sha256(seed_ks) == replacements["ks.cfg"]
+                      else _scrubbed_kickstart(seed_ks))
+    if _sha256(ks_replacement) != replacements["ks.cfg"]:
+        raise RuntimeError("Planned kickstart scrub no longer matches its journal")
+
+    if anaconda_root.is_symlink() or not anaconda_root.is_dir():
+        raise RuntimeError("Installed Anaconda root directory is unavailable or unsafe")
+    copy_payloads: dict[str, bytes] = {}
+    copy_replacements: dict[str, bytes] = {}
+    for name, (original_sha, replacement_sha) in installed_copies.items():
+        path = anaconda_root / name
+        if path.is_symlink() or not path.is_file():
+            raise RuntimeError(f"Installed Anaconda copy is missing or unsafe: {path}")
+        payload = path.read_bytes()
+        actual_sha = _sha256(payload)
+        if actual_sha not in {original_sha, replacement_sha}:
+            raise RuntimeError(f"Installed Anaconda copy differs from its scrub journal: {path}")
+        replacement = (payload if actual_sha == replacement_sha
+                       else _scrubbed_kickstart(payload))
+        if _sha256(replacement) != replacement_sha:
+            raise RuntimeError(f"Installed Anaconda scrub no longer matches its journal: {path}")
+        copy_payloads[name] = payload
+        copy_replacements[name] = replacement
+
+    kickstart = seed_root / "ks.cfg"
+    seed = seed_root / "migration-manifest.json"
+    if seed_ks != ks_replacement:
+        _replace_bound_file_with_readback(kickstart, seed_ks, ks_replacement,
+                                          private=False)
+    if seed_manifest != manifest_replacement:
+        _replace_bound_file_with_readback(seed, seed_manifest, manifest_replacement,
+                                          private=False)
+    if installed_bytes != manifest_replacement:
+        _replace_bound_file_with_readback(installed, installed_bytes,
+                                          manifest_replacement, private=True)
+    for name, payload in copy_payloads.items():
+        replacement = copy_replacements[name]
+        if payload != replacement:
+            _replace_bound_file_with_readback(anaconda_root / name, payload,
+                                              replacement, private=True)
+    # The seed is FAT32. File fsync plus logical readback alone does not make
+    # its directory replacements durable before the launcher publishes .done.
+    run_cmd(["sync", "-f", str(seed_root)])
+    run_cmd(["sync", "-f", str(installed.parent)])
+    run_cmd(["sync", "-f", str(anaconda_root)])
+    if (kickstart.read_bytes() != ks_replacement
+            or seed.read_bytes() != manifest_replacement
+            or installed.read_bytes() != manifest_replacement
+            or any((anaconda_root / name).read_bytes() != replacement
+                   for name, replacement in copy_replacements.items())):
+        raise RuntimeError("Seed scrub final readback does not match the journal")
+    logger.info("Redacted and verified credential fields in bound seed and installed installer inputs")
+
+
+def redact_manifest(manifest: dict[str, Any]) -> None:
+    """Retire credential-bearing files only on the bound GPT seed.
+
+    No partition or EFI entry is deleted here. A hash-only journal allows an
+    interrupted scrub to finish without rerunning earlier migration steps.
     """
     manifest_path = Path("/var/lib/igloo/manifest.json")
-    if not manifest_path.exists():
-        return
-
+    identity_path = Path("/var/lib/igloo/seed-identity.json")
+    seed_devices = {
+        os.path.realpath(candidate)
+        for candidate in (Path("/dev/disk/by-label") / label
+                          for label in IGLOO_SEED_LABELS)
+        if candidate.exists()
+    }
+    if len(seed_devices) != 1:
+        raise RuntimeError("Expected exactly one available installer seed for redaction")
+    mountpoint = Path("/run/igloo-seed-redaction")
+    mountpoint.mkdir(parents=True, exist_ok=True)
+    if run_cmd(["mountpoint", "-q", str(mountpoint)], check=False).returncode == 0:
+        raise RuntimeError("Seed redaction mountpoint is already in use")
+    seed_device = next(iter(seed_devices))
+    run_cmd(["mount", "-t", "vfat", "-o", "rw,nosuid,nodev,noexec",
+             seed_device, str(mountpoint)])
     try:
-        with manifest_path.open(encoding="utf-8") as f:
-            data: dict[str, Any] = json.load(f)
-
-        changed = False
-
-        for net in data.get("wifiNetworks", []):
-            if net.get("psk") is not None:
-                net["psk"] = None
-                changed = True
-
-        for br in data.get("browsers", []):
-            if br.get("credentialsBlob") is not None:
-                br["credentialsBlob"] = None
-                changed = True
-
-        if changed:
-            with manifest_path.open("w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-            manifest_path.chmod(0o640)   # root:root rw-r-----
-            logger.info("Redacted plaintext secrets (Wi-Fi PSKs, credential envelopes) from manifest")
-        else:
-            logger.info("No plaintext secrets present in manifest")
-    except Exception:
-        logger.exception("Failed to redact manifest (non-fatal)")
+        _scrub_bound_seed_inputs(manifest_path, identity_path, mountpoint,
+                                 seed_device, manifest, _SCRUB_JOURNAL,
+                                 Path("/root"))
+    finally:
+        run_cmd(["umount", str(mountpoint)])
 
 
 #   Display layout migration (resolution / refresh rate / rotation / position)
@@ -2103,11 +3022,11 @@ def _mode_is_supported(connector: str, width: int, height: int) -> bool:
     """
     modes_file = next(Path("/sys/class/drm").glob(f"card*-{connector}/modes"), None)
     if modes_file is None:
-        return True   # cannot tell - do not block on it
+        return False
     try:
         modes = modes_file.read_text().split()
     except OSError:
-        return True
+        return False
     return f"{width}x{height}" in modes
 
 
@@ -2136,17 +3055,22 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
     for o in outputs:
         logger.info("Detected output %s: %s (%s)", o["connector"], o["pnp_id"], o["product"])
 
-    by_pnp = {o["pnp_id"]: o for o in outputs}
-    logical: list[str] = []
-    kde_layout: list[dict[str, Any]] = []
-    matched = 0
-
-    # Mutter discards the whole file over one negative coordinate - shift to 0,0.
-    origin_x = min((int(w.get("positionX") or 0) for w in wanted), default=0)
-    origin_y = min((int(w.get("positionY") or 0) for w in wanted), default=0)
+    # PnP manufacturer/product IDs are not unique. Two identical monitors can
+    # report the same ID (and even the same EDID serial). In that case neither
+    # Windows nor this first-boot pass can prove which Linux connector is which.
+    # Leave both at the desktop defaults instead of rotating the wrong panel.
+    output_counts = Counter(o["pnp_id"].upper() for o in outputs)
+    wanted_counts = Counter(str(w.get("pnpId") or "").upper() for w in wanted)
+    by_pnp = {o["pnp_id"].upper(): o for o in outputs
+              if output_counts[o["pnp_id"].upper()] == 1}
+    candidates = []
 
     for want in wanted:
         pnp = (want.get("pnpId") or "").upper()
+        if pnp and (output_counts[pnp] > 1 or wanted_counts[pnp] > 1):
+            logger.warning("  Monitor identity %s is shared by multiple panels - "
+                           "leaving those outputs at the desktop defaults", pnp)
+            continue
         out = by_pnp.get(pnp)
         if out is None:
             logger.info("  Monitor %s from Windows is not attached here - skipped", pnp or "?")
@@ -2168,6 +3092,22 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             logger.warning("  %s does not advertise %dx%d - leaving this output alone",
                            out["connector"], mode_w, mode_h)
             continue
+        candidates.append((want, out, mode_w, mode_h, rotation_deg, pnp))
+
+    if not candidates:
+        logger.info("No Windows monitors matched the attached outputs - nothing written")
+        return
+
+    logical: list[str] = []
+    kde_layout: list[dict[str, Any]] = []
+    matched = 0
+    # Normalize only monitors that can actually be applied. A missing or
+    # ambiguous panel at the left edge must not leave the remaining output at
+    # a nonzero origin that KWin rejects as a gap.
+    origin_x = min(int(w.get("positionX") or 0) for w, *_ in candidates)
+    origin_y = min(int(w.get("positionY") or 0) for w, *_ in candidates)
+
+    for want, out, mode_w, mode_h, rotation_deg, pnp in candidates:
 
         # Windows reports whole Hz; panels advertise fractional rates (143.998).
         # Mutter tolerates a near match, so the integer value is written as-is.
@@ -2235,14 +3175,18 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
 
     username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
     home = Path("/home") / username if username else None
-    if home is None or not home.is_dir():
-        logger.warning("User home not found - cannot write the display layout")
-        return
+    if (home is None or home.parent.is_symlink() or home.is_symlink()
+            or not home.is_dir()):
+        raise RuntimeError("Selected display layout has no installed user home")
 
     cfg = home / ".config"
     cfg.mkdir(parents=True, exist_ok=True)
+    observed_cfg = cfg.lstat()
+    if (not stat.S_ISDIR(observed_cfg.st_mode)
+            or observed_cfg.st_dev != home.stat().st_dev):
+        raise RuntimeError("Selected display layout destination is redirected")
     (cfg / "monitors.xml").write_text(xml, encoding="utf-8")
-    run_cmd(["chown", "-R", f"{username}:{username}", str(cfg)], check=False)
+    run_cmd(["chown", "-R", f"{username}:{username}", str(cfg)])
     logger.info("Wrote %s for %d monitor(s)", cfg / "monitors.xml", matched)
 
     # The greeter runs as its own user and reads its own copy, so a portrait screen
@@ -2286,9 +3230,8 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             "#!/usr/bin/env bash\n"
             "# iGloo display layout for KDE Plasma - runs at EVERY login.\n"
             "# The layout only survives a logout if the compositor's own stored\n"
-            "# configuration matches the attached monitors, and where two panels\n"
-            "# share an EDID serial it does not. Re-asserting each login is what\n"
-            "# the user needs; the marker is kept for the log bundle to read.\n"
+            "# configuration matches the attached monitors. Re-asserting on\n"
+            "# each login keeps it aligned; the marker is for the log bundle.\n"
             'DONE_MARKER="$HOME/.config/.igloo-display-done"\n'
             "python3 /opt/igloo/display-apply.py --layout /opt/igloo/display-layout.json \\\n"
             '  && touch "$DONE_MARKER"\n',
@@ -2310,9 +3253,24 @@ def migrate_display_layout(manifest: dict[str, Any]) -> None:
             "OnlyShowIn=KDE;\n",
             encoding="utf-8",
         )
+        autostart.chmod(0o644)
         logger.info("KDE display layout staged: %s + autostart %s", layout_path, autostart)
     except OSError:
-        logger.exception("Could not stage the KDE display layout (non-fatal)")
+        logger.exception("Could not stage the selected KDE display layout")
+        raise
+
+
+def _selected_media_source(file_name: str, kind: str) -> Path:
+    """Resolve one selected image staged at the top of /opt/igloo."""
+    valid = (re.fullmatch(r"igloo-wallpaper\.[A-Za-z0-9]{2,8}", file_name,
+                          flags=re.IGNORECASE) is not None if kind == "wallpaper"
+             else file_name == "igloo-avatar.jpg")
+    if not valid:
+        raise RuntimeError(f"Selected {kind} has an unsafe staged file name")
+    source = Path("/opt/igloo") / file_name
+    if source.is_symlink() or not source.is_file():
+        raise RuntimeError(f"Selected {kind} is missing from installed agent data: {source}")
+    return source
 
 
 def migrate_wallpaper(manifest: dict[str, Any]) -> None:
@@ -2332,27 +3290,23 @@ def migrate_wallpaper(manifest: dict[str, Any]) -> None:
     if not fname:
         logger.info("No wallpaper in the manifest - keeping the Fedora default")
         return
-    src = Path("/opt/igloo") / fname
-    if not src.is_file():
-        logger.warning("Manifest names wallpaper %r but %s is missing - skipped", fname, src)
-        return
+    src = _selected_media_source(fname, "wallpaper")
 
     username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
     home = Path("/home") / username if username else None
     if home is None or not home.is_dir():
-        logger.warning("User home not found - cannot install the wallpaper")
-        return
+        raise RuntimeError("User home not found for selected wallpaper")
 
     try:
         pictures = home / "Pictures"
         pictures.mkdir(parents=True, exist_ok=True)
         dst = pictures / f"wallpaper{src.suffix or '.jpg'}"
         dst.write_bytes(src.read_bytes())
-        run_cmd(["chown", "-R", f"{username}:{username}", str(pictures)], check=False)
+        run_cmd(["chown", "-R", f"{username}:{username}", str(pictures)])
         logger.info("Wallpaper installed at %s", dst)
     except OSError:
-        logger.exception("Could not copy the wallpaper into the user home (non-fatal)")
-        return
+        logger.exception("Could not copy the selected wallpaper into the user home")
+        raise
 
     try:
         apply_sh = Path("/opt/igloo/wallpaper-apply.sh")
@@ -2362,17 +3316,15 @@ def migrate_wallpaper(manifest: dict[str, Any]) -> None:
             "# Retries on later logins until plasma-apply-wallpaperimage succeeds.\n"
             'DONE_MARKER="$HOME/.config/.igloo-wallpaper-done"\n'
             '[ -f "$DONE_MARKER" ] && exit 0\n'
-            'for wp in "$HOME/Pictures"/wallpaper.*; do\n'
-            '  [ -f "$wp" ] || exit 0\n'
-            "  if ! command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then\n"
-            '    mkdir -p "$HOME/.local/state"\n'
-            '    echo "[$(date +%F\\ %T)] ERROR: plasma-apply-wallpaperimage not found" '
+            f'WALLPAPER="$HOME/Pictures/{dst.name}"\n'
+            '[ -f "$WALLPAPER" ] || exit 1\n'
+            "if ! command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then\n"
+            '  mkdir -p "$HOME/.local/state"\n'
+            '  echo "[$(date +%F\\ %T)] ERROR: plasma-apply-wallpaperimage not found" '
             '>> "$HOME/.local/state/igloo-display.log"\n'
-            "    exit 1\n"
-            "  fi\n"
-            '  plasma-apply-wallpaperimage "$wp" && touch "$DONE_MARKER"\n'
-            "  exit $?\n"
-            "done\n",
+            "  exit 1\n"
+            "fi\n"
+            'plasma-apply-wallpaperimage "$WALLPAPER" && touch "$DONE_MARKER"\n',
             encoding="utf-8",
         )
         apply_sh.chmod(0o755)
@@ -2390,9 +3342,11 @@ def migrate_wallpaper(manifest: dict[str, Any]) -> None:
             "OnlyShowIn=KDE;\n",
             encoding="utf-8",
         )
+        autostart.chmod(0o644)
         logger.info("KDE wallpaper hook staged (runs at first login)")
     except OSError:
-        logger.exception("Could not stage the KDE wallpaper hook (non-fatal)")
+        logger.exception("Could not stage the selected KDE wallpaper hook")
+        raise
 
 
 def migrate_account_picture(manifest: dict[str, Any]) -> None:
@@ -2409,17 +3363,12 @@ def migrate_account_picture(manifest: dict[str, Any]) -> None:
         logger.info("No account picture in the manifest - keeping the distro default")
         return
 
-    src = Path("/opt/igloo") / fname
-    if not src.is_file():
-        logger.warning("Manifest names account picture %r but %s is missing - skipped",
-                       fname, src)
-        return
+    src = _selected_media_source(fname, "account picture")
 
     username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
     home = Path("/home") / username if username else None
     if home is None or not home.is_dir():
-        logger.warning("User home not found - cannot install the account picture")
-        return
+        raise RuntimeError("User home not found for selected account picture")
 
     data = src.read_bytes()
 
@@ -2435,16 +3384,18 @@ def migrate_account_picture(manifest: dict[str, Any]) -> None:
         _set_accountsservice_icon(users_dir / username, icon_path)
         logger.info("Account picture installed at %s", icon_path)
     except OSError:
-        logger.exception("Could not write the AccountsService avatar (non-fatal)")
+        logger.exception("Could not write the selected AccountsService avatar")
+        raise
 
     try:
         face = home / ".face"
         face.write_bytes(data)
         face.chmod(0o644)
-        run_cmd(["chown", f"{username}:{username}", str(face)], check=False)
+        run_cmd(["chown", f"{username}:{username}", str(face)])
         logger.info("Account picture also written to %s", face)
     except OSError:
-        logger.exception("Could not write ~/.face (non-fatal)")
+        logger.exception("Could not write the selected ~/.face avatar")
+        raise
 
 
 def _set_accountsservice_icon(user_file: Path, icon_path: Path) -> None:
@@ -2490,12 +3441,14 @@ def install_welcome_app(manifest: dict[str, Any]) -> None:
         "# iGloo welcome notification - runs once on first login\n"
         f'DONE_MARKER="$HOME/.igloo-welcome-done"\n'
         '[ -f "$DONE_MARKER" ] && exit 0\n'
+        '# An incomplete first-boot migration must not announce success.\n'
+        'systemctl is-active --quiet igloo-first-boot.service || exit 0\n'
         'notify-send \\\n'
         '  --icon=distributor-logo \\\n'
         '  --urgency=normal \\\n'
         '  --expire-time=15000 \\\n'
         '  "Welcome to Linux!" \\\n'
-        f'  "Your files have been migrated from Windows. Log files are in /var/log/igloo/."\n'
+        f'  "Your files have been migrated from Windows. Log files are in /var/log/igloo/." || exit $?\n'
         'touch "$DONE_MARKER"\n',
         encoding="utf-8",
     )
@@ -2515,6 +3468,7 @@ def install_welcome_app(manifest: dict[str, Any]) -> None:
         "OnlyShowIn=KDE;GNOME;\n",
         encoding="utf-8",
     )
+    desktop_entry.chmod(0o644)
     logger.info("Welcome autostart entry written to %s", desktop_entry)
 
 
@@ -2551,11 +3505,16 @@ def _run_boot_order_mode() -> int:
 
     The first-boot agent sets the order once, but choosing Windows can put it
     back, and by then the unit that would repair it is the thing that no longer
-    runs. So a unit re-asserts it on every boot. Never returns non-zero: a
-    failure here must not show up as a failed unit on a working machine.
+    runs. So a unit re-asserts it on every boot. A copied agent must fail
+    before changing another distribution's UEFI boot order.
     """
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    installed_os = _installed_os_id()
+    if installed_os != "fedora":
+        logger.error("Installed OS ID %r is not Fedora; boot order untouched",
+                     installed_os)
+        return 4
     if igloo_boot is None:
         logger.error("igloo_boot.py is not staged in /opt/igloo - boot order untouched")
         return 0
@@ -2593,26 +3552,38 @@ def export_logs_to_seed(manifest: dict[str, Any]) -> None:
     logs on the Linux root are nearly unreachable - but the seed partition is
     FAT32, readable straight from Windows, and in USB mode it is never
     deleted. Dropping the logs there turns a blind failure into a one-plug
-    diagnosis. Best-effort: any problem here just leaves the logs in place.
+    diagnosis. A seed identity mismatch fails first boot before any seed write;
+    ordinary log-copy I/O failure leaves the logs on the installed root.
     """
     log_dir = Path("/var/log/igloo")
     if not log_dir.is_dir():
         return
-    seed_dev = next((p for p in (Path("/dev/disk/by-label") / label
-                                 for label in IGLOO_SEED_LABELS) if p.exists()), None)
-    if seed_dev is None:
+    seed_devices = {
+        os.path.realpath(candidate)
+        for candidate in (Path("/dev/disk/by-label") / label
+                          for label in IGLOO_SEED_LABELS)
+        if candidate.exists()
+    }
+    if not seed_devices:
         logger.info("No seed partition present - logs stay in %s", log_dir)
         return
+    if len(seed_devices) != 1:
+        raise RuntimeError("Expected exactly one installer seed for log export")
+    seed_dev = next(iter(seed_devices))
 
     mountpoint = Path("/run/igloo-seed-export")
     mounted = False
     try:
         mountpoint.mkdir(parents=True, exist_ok=True)
+        if run_cmd(["mountpoint", "-q", str(mountpoint)], check=False).returncode == 0:
+            raise RuntimeError("Seed log mountpoint is already in use")
         if run_cmd(["mount", "-t", "vfat", str(seed_dev), str(mountpoint)],
                    check=False).returncode != 0:
             logger.info("Could not mount the seed partition for log export (non-fatal)")
             return
         mounted = True
+        _read_bound_seed_files(mountpoint, seed_dev,
+                               Path("/var/lib/igloo/seed-identity.json"))
         dest = mountpoint / "igloo-logs"
         dest.mkdir(exist_ok=True)
         for f in sorted(log_dir.glob("*.log")):
@@ -2647,83 +3618,18 @@ def export_logs_to_seed(manifest: dict[str, Any]) -> None:
 
 
 def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
-    """Remove Igloo's temporary installer artifacts from the machine.
+    """Retain installer transport until its exact ownership can be verified.
 
-    Once this agent has run, the staging partition(s)  OEMDRV with the
-    kickstart, agent payload and Anaconda stage2  serve no further purpose.
-    Leaving them wastes space and confuses users ("what is this OEMDRV
-    drive?"), so the FINAL agent step deletes them, along with Igloo's
-    now-dangling one-shot UEFI boot entry.
-
-    Safety rules (BR-01/BR-03, docs/business/business-rules.md):
-      * delete ONLY by exact filesystem-label match on Igloo's staging labels 
-        never by partition number, position, or size;
-      * the partition must sit on the same physical disk as the Linux root;
-      * every action is best-effort and logged  any doubt leaves the partition
-        in place, never a broken disk.
-    The freed space is intentionally left unallocated: it borders the Windows
-    partition, so Windows' own Disk Management can extend C: into it.
+    The protected seed identity binds a disk/partition GUID and selected files
+    for readback and credential redaction. It does not prove that deleting the
+    partition is owned by this installation, and there is no bound UEFI Boot####
+    identity. A label, root-disk match, ordinal or entry description cannot
+    authorize deletion. Keeping the seed preserves copied files and logs.
     """
-    # A failed run keeps its seed partitions: they carry the exported logs and
-    # the entire agent payload for forensics, and a rerun of the installer
-    # wipes them anyway. Deleting them would destroy the evidence along with
-    # the failure.
-    if Path("/var/lib/igloo/.had-failures").exists():
-        logger.warning("Earlier steps failed - leaving the installer partitions in place "
-                       "for diagnosis")
-        return
-
-    # --nofsroot strips the subvolume suffix: without it findmnt returns
-    # "/dev/nvme0n1p3[/root]" on Fedora's btrfs root, which is not a valid device
-    # path  lsblk then fails, `disk` stays empty, and the whole cleanup silently
-    # bails, leaving OEMDRV behind to break later installs. (ext4 roots on
-    # Debian/Mint have no suffix, which is why this only ever bit Fedora.)
-    src = run_cmd(["findmnt", "-rno", "SOURCE", "--nofsroot", "/"], check=False)
-    root_dev = re.sub(r"\[.*\]$", "", (src.stdout or "").strip())
-    disk = ""
-    if root_dev.startswith("/dev/"):
-        r = run_cmd(["lsblk", "-rno", "PKNAME", root_dev], check=False)
-        out = (r.stdout or "").strip()
-        disk = out.splitlines()[0].strip() if out else ""
-    if not disk:
-        logger.warning("Could not resolve the root disk - skipping partition cleanup")
-        return
-
-    for label in IGLOO_SEED_LABELS:
-        by_label = Path("/dev/disk/by-label") / label
-        if not by_label.exists():
-            continue
-        part_dev = os.path.realpath(by_label)
-        r = run_cmd(["lsblk", "-rno", "PKNAME", part_dev], check=False)
-        parent = (r.stdout or "").strip()
-        if parent != disk:
-            logger.warning("%s lives on /dev/%s, not root disk /dev/%s - leaving it alone",
-                           label, parent, disk)
-            continue
-        r = run_cmd(["lsblk", "-rno", "PARTN", part_dev], check=False)
-        partn = (r.stdout or "").strip()
-        if not partn.isdigit():
-            m = re.search(r"(\d+)$", part_dev)
-            partn = m.group(1) if m else ""
-        if not partn:
-            logger.warning("Could not determine partition number of %s - skipped", part_dev)
-            continue
-        run_cmd(["umount", "-A", "-l", part_dev], check=False)
-        run_cmd(["sfdisk", "--delete", f"/dev/{disk}", partn], check=False)
-        logger.info("Deleted installer partition %s (%s = partition %s on /dev/%s)",
-                    label, part_dev, partn, disk)
-
-    # iGloo's one-shot UEFI entry ("iGloo distribution installer") now points at
-    # nothing. efibootmgr -B also removes it from BootOrder. Only entries whose
-    # description contains "igloo" (case-insensitive, matching the Windows side's
-    # BootEntryDescription) are touched; the distro's entry and Windows Boot
-    # Manager never are.
-    r = run_cmd(["efibootmgr"], check=False)
-    for line in (r.stdout or "").splitlines():
-        m = re.match(r"^Boot([0-9A-Fa-f]{4})\*?\s+(.*)$", line.strip())
-        if m and "igloo" in m.group(2).lower():
-            run_cmd(["efibootmgr", "-b", m.group(1), "-B"], check=False)
-            logger.info("Removed stale UEFI boot entry Boot%s (%s)", m.group(1), m.group(2))
+    logger.warning("Installer seed still holds copied migration files and logs. "
+                   "Keep it private and confirm imported data before reusing it; "
+                   "automatic partition and EFI cleanup needs exact ownership "
+                   "of both the seed and boot entry")
 
 
 # ---------------------------------------------------------------------------
@@ -2762,7 +3668,34 @@ def main() -> int:
         logger.error("Manifest is for distro %r, not fedora-kde", distro)
         return 3
 
-    # Steps - each is best-effort; a failure is logged and the rest continue.
+    # A valid seed manifest does not establish which OS actually booted. Stop
+    # before package, account, boot or migration changes if this agent was
+    # copied to another installed distribution or os-release is unavailable.
+    installed_os = _installed_os_id()
+    if installed_os != "fedora":
+        logger.error("Installed OS ID %r is not Fedora", installed_os)
+        return 4
+
+    # The hash-only journal exists only after every preceding step succeeded.
+    # After a power loss mid-scrub, finish that exact GPT-bound scrub and let
+    # the launcher write .done; rerunning migration could duplicate user data.
+    if _SCRUB_JOURNAL.exists():
+        try:
+            redact_manifest(manifest)
+            logger.info("Resumed protected installer seed scrub")
+            return 0
+        except Exception:
+            logger.exception("Protected installer seed scrub retry failed")
+            return 1
+
+    try:
+        _verify_bound_seed_before_firstboot(args.manifest)
+    except Exception:
+        logger.exception("Installer seed validation failed before first-boot setup")
+        return 1
+
+    # Independent steps continue after a failure so the log includes every issue.
+    # A failed pass must still exit nonzero and remain eligible for retry.
     # Order matters: RPM Fusion must be enabled before codecs/GPU drivers;
     # Flathub must be registered before suggested-pkgs; redact runs last.
     # kernel-modules runs AFTER every step whose dnf transaction can pull in a
@@ -2788,19 +3721,23 @@ def main() -> int:
         ("account-picture", lambda: migrate_account_picture(manifest)),
         ("browser-profiles", lambda: migrate_browser_profiles(manifest)),
         ("welcome-app",     lambda: install_welcome_app(manifest)),
-        # Hands the envelopes to the user's first login; must run before
-        # redact-manifest, which clears credentialsBlob from the manifest.
+        # Hands the envelopes to the user's first login before redaction.
         ("stage-credentials", lambda: stage_credential_import(manifest)),
-        ("redact-manifest", lambda: redact_manifest(manifest)),
-        # export-logs must run BEFORE cleanup-seed: it copies the install logs
-        # onto the seed partition, which cleanup then deletes on a successful
-        # direct-install run (the USB-mode seed survives either way).
+        # Export logs before redaction; both are read back from the seed.
         ("export-logs",     lambda: export_logs_to_seed(manifest)),
+        # Partition/EFI cleanup is deferred until an exact ownership binding
+        # exists. A failing earlier step keeps every retry input in place.
         ("cleanup-seed",    lambda: cleanup_installer_partitions(manifest)),
+        ("redact-manifest", lambda: redact_manifest(manifest)),
     ]
 
     failures: list[str] = []
     for name, step in steps:
+        # Keep source credentials for a retry. Cleanup also waits for a complete
+        # pass, while export-logs still runs after failure for diagnosis.
+        if failures and name in ("redact-manifest", "cleanup-seed"):
+            logger.warning("Skipping %s until failed first-boot steps are repaired", name)
+            continue
         logger.info("--- step: %s ---", name)
         try:
             step()
@@ -2820,6 +3757,7 @@ def main() -> int:
             "First-boot agent finished with %d failed step(s): %s",
             len(failures), ", ".join(failures),
         )
+        return 1
     else:
         logger.info("All steps completed successfully")
 
