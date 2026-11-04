@@ -103,6 +103,43 @@ public class PgpDetachedVerifierTests : IClassFixture<PgpDetachedVerifierTests.S
     }
 
     [Fact]
+    public void Unbound_attacker_subkey_in_a_pinned_primary_ring_is_rejected()
+    {
+        var generator = new RsaKeyPairGenerator();
+        generator.Init(new KeyGenerationParameters(new SecureRandom(), 2048));
+        var attacker = new PgpKeyPair(PublicKeyAlgorithmTag.RsaGeneral,
+            generator.GenerateKeyPair(), DateTime.UtcNow);
+        var packet = attacker.PublicKey.PublicKeyPacket;
+        var unboundSubkey = new PgpPublicKey(new PublicSubkeyPacket(packet.Algorithm,
+            packet.GetTime(), packet.Key));
+        unboundSubkey.IsMasterKey.Should().BeFalse();
+        var pinnedRing = new PgpPublicKeyRing(_key.PublicKeyRingBytes);
+        var forgedRing = PgpPublicKeyRing.InsertPublicKey(pinnedRing, unboundSubkey);
+        var signature = SigningKeyFixture.Sign(attacker, _key.Data);
+
+        Verify(keyRing: forgedRing.GetEncoded(), sig: signature,
+            fingerprint: _key.Fingerprint).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Authentically_bound_signing_subkey_is_accepted_under_pinned_primary()
+    {
+        var generator = new RsaKeyPairGenerator();
+        generator.Init(new KeyGenerationParameters(new SecureRandom(), 2048));
+        var subkey = new PgpKeyPair(PublicKeyAlgorithmTag.RsaGeneral,
+            generator.GenerateKeyPair(), DateTime.UtcNow);
+        var ringGenerator = new PgpKeyRingGenerator(PgpSignature.PositiveCertification,
+            _key.KeyPair, "iGloo test", SymmetricKeyAlgorithmTag.Aes256,
+            "fixture".ToCharArray(), true, null, null, new SecureRandom());
+        ringGenerator.AddSubKey(subkey);
+        var boundRing = ringGenerator.GeneratePublicKeyRing();
+        var signature = SigningKeyFixture.Sign(subkey, _key.Data);
+
+        Verify(keyRing: boundRing.GetEncoded(), sig: signature,
+            fingerprint: _key.Fingerprint).Should().BeTrue();
+    }
+
+    [Fact]
     public void Garbage_inputs_return_false_instead_of_throwing()
     {
         Verify(sig: [1, 2, 3]).Should().BeFalse();

@@ -51,10 +51,13 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         //   Step 2: Resolve the download URL + filename (pattern-aware).
         var (downloadUrl, fileName) = ResolveDownloadTarget(spec, checksumContent, gpgVerified);
 
+        RejectRedirectedCacheEntry(_cacheDir);
         var distroDir = Path.Join(_cacheDir, spec.DistroId);
-        var isoPath = Path.Join(distroDir, fileName);
-        var partialPath = isoPath + ".partial";
         Directory.CreateDirectory(distroDir);
+        RejectRedirectedCacheEntry(distroDir);
+        var (isoPath, partialPath) = SelectRegularCachePaths(distroDir, fileName);
+        RejectRedirectedCacheEntry(isoPath);
+        RejectRedirectedCacheEntry(partialPath);
 
         //   Step 3: Resolve the authoritative SHA-256 for that filename.
         var resolvedSha256 = ResolveTrustedSha256(spec, checksumContent, gpgVerified, fileName);
@@ -62,15 +65,28 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         //   Step 4: Download ISO (resumable)
         _logger.LogInformation("Acquiring ISO for {DistroId} from {Url}", spec.DistroId, downloadUrl);
         await DownloadWithResumeAsync(downloadUrl, isoPath, partialPath, progress, ct).ConfigureAwait(false);
+        RejectRedirectedCacheEntry(_cacheDir);
+        RejectRedirectedCacheEntry(distroDir);
+        RejectRedirectedCacheEntry(Path.GetDirectoryName(isoPath)!);
+        RejectRedirectedCacheEntry(isoPath);
 
         //   Step 5: Verify SHA-256 (mandatory - resolvedSha256 is never null here)
-        string computedHash = await ComputeSha256Async(isoPath, progress, ct).ConfigureAwait(false);
+        var (computedHash, sizeBytes) = await ComputeSha256Async(isoPath, progress, ct).ConfigureAwait(false);
+        RejectRedirectedCacheEntry(Path.GetDirectoryName(isoPath)!);
+        RejectRedirectedCacheEntry(isoPath);
+
+        if (sizeBytes <= 0)
+        {
+            DeleteRegularCacheFile(isoPath);
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.VerificationFailed,
+                "The cached installer image is empty.");
+        }
 
         if (!string.Equals(computedHash, resolvedSha256, StringComparison.OrdinalIgnoreCase))
         {
             // Corrupt or tampered - delete so next run re-downloads.
-            File.Delete(isoPath);
-            throw new InvalidOperationException(
+            DeleteRegularCacheFile(isoPath);
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.VerificationFailed,
                 $"SHA-256 mismatch for {spec.DistroId}. " +
                 $"Expected {resolvedSha256[..16]}…, computed {computedHash[..16]}…");
         }
@@ -80,7 +96,50 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         progress?.Report(new IsoAcquisitionProgress(IsoAcquisitionPhase.Complete, 0, null, null));
 
         return new IsoAcquisitionResult(isoPath, Sha256Verified: true, gpgVerified,
-            new FileInfo(isoPath).Length, computedHash);
+            sizeBytes, computedHash);
+    }
+
+    private static void RejectRedirectedCacheEntry(string path)
+    {
+        if (IsRedirectedCacheEntry(path))
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.CacheUnavailable,
+                "The ISO cache contains a redirected entry.");
+    }
+
+    private static bool IsRedirectedCacheEntry(string path)
+    {
+        try
+        {
+            return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+        }
+        catch (FileNotFoundException) { return false; }
+        catch (DirectoryNotFoundException) { return false; }
+    }
+
+    private static void DeleteRegularCacheFile(string path)
+    {
+        RejectRedirectedCacheEntry(Path.GetDirectoryName(path)!);
+        RejectRedirectedCacheEntry(path);
+        File.Delete(path);
+    }
+
+    private static (string IsoPath, string PartialPath) SelectRegularCachePaths(
+        string distroDir, string fileName)
+    {
+        var isoPath = Path.Join(distroDir, fileName);
+        var partialPath = isoPath + ".partial";
+        if (!IsRedirectedCacheEntry(isoPath) && !IsRedirectedCacheEntry(partialPath))
+            return (isoPath, partialPath);
+
+        // A previous lab may have left a link at the conventional cache name.
+        // Preserve it and acquire into a separate, regular cache slot instead.
+        // Never follow or replace either redirected entry.
+        var regularDir = Path.Join(distroDir, "regular-downloads");
+        RejectRedirectedCacheEntry(distroDir);
+        RejectRedirectedCacheEntry(regularDir);
+        Directory.CreateDirectory(regularDir);
+        RejectRedirectedCacheEntry(regularDir);
+        return (Path.Join(regularDir, fileName), Path.Join(regularDir, fileName + ".partial"));
     }
 
     /// <summary>
@@ -91,29 +150,35 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
     private async Task<(string? Content, bool GpgVerified)> ResolveChecksumAsync(
         IsoSpecification spec, IProgress<IsoAcquisitionProgress>? progress, CancellationToken ct)
     {
-        bool gpgDeclared = spec.GpgSignatureUrl is not null
-                        && (spec.GpgKeyData is { Length: > 0 } || spec.GpgKeyUrl is not null);
-
-        if (!gpgDeclared)
+        bool hasKey = spec.GpgKeyData is { Length: > 0 } || spec.GpgKeyUrl is not null;
+        bool hasGpgMetadata = spec.GpgSignatureUrl is not null ||
+                              spec.GpgSignedDataUrl is not null || hasKey ||
+                              !string.IsNullOrWhiteSpace(spec.GpgKeyFingerprint);
+        if (!hasGpgMetadata)
         {
-            if (spec.GpgSignatureUrl is not null || spec.GpgSignedDataUrl is not null)
-                _logger.LogWarning(
-                    "GPG signature declared for {DistroId} but no key source (bundled key or key URL) - " +
-                    "signature cannot be verified; relying on the pinned SHA-256", spec.DistroId);
-            else
-                _logger.LogWarning("No GPG signature declared for {DistroId}; relying on the pinned SHA-256", spec.DistroId);
+            _logger.LogWarning("No GPG signature declared for {DistroId}; relying on the pinned SHA-256", spec.DistroId);
             return (null, false);
         }
+        if (spec.GpgSignatureUrl is null || !hasKey)
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.SourceMetadataUnavailable,
+                "Declared GPG verification requires a signature and a signing key.");
+        var fingerprint = spec.GpgKeyFingerprint;
+        var normalizedFingerprint = new string((fingerprint ?? string.Empty)
+            .Where(Uri.IsHexDigit).ToArray());
+        if (fingerprint is null ||
+            fingerprint.Any(c => !Uri.IsHexDigit(c) && !char.IsWhiteSpace(c) && c is not (':' or '-')) ||
+            normalizedFingerprint.Length is not (40 or 64))
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.SourceMetadataUnavailable,
+                "Declared GPG verification requires a pinned signing-key fingerprint.");
 
         progress?.Report(new IsoAcquisitionProgress(
             IsoAcquisitionPhase.VerifyingGpg, 0, null, "Fetching & verifying CHECKSUM file…"));
 
         var (checksumContent, gpgOk) = await FetchAndVerifyChecksumAsync(spec, ct).ConfigureAwait(false);
         if (!gpgOk)
-            throw new InvalidOperationException(
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.VerificationFailed,
                 $"GPG verification failed for {spec.DistroId}: the checksum file could not be authenticated " +
-                "against the distribution's signing key. Refusing to continue - this can mean a network problem " +
-                "or a tampered mirror. Check your connection and retry.");
+                "against the distribution's signing key. Refusing to continue.");
 
         return (checksumContent, true);
     }
@@ -131,12 +196,12 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             return (spec.DownloadUrl, Path.GetFileName(spec.DownloadUrl.AbsolutePath));
 
         if (!gpgVerified || checksumContent is null)
-            throw new InvalidOperationException(
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.SourceMetadataUnavailable,
                 $"{spec.DistroId} resolves its ISO filename from the signed checksum file, but that file was " +
                 "not available and GPG-verified. Refusing to guess a download URL.");
 
         var fileName = ResolveIsoFileName(checksumContent, spec.IsoFilePattern)
-            ?? throw new InvalidOperationException(
+            ?? throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.SourceMetadataUnavailable,
                 $"No ISO matching '{spec.IsoFilePattern}' was found in {spec.DistroId}'s checksum file.");
 
         var url = new Uri(spec.DownloadUrl, fileName);
@@ -178,7 +243,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
         if (signedHash is not null && resolved is not null &&
             !string.Equals(signedHash, resolved, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException(
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.VerificationFailed,
                 $"Checksum conflict for {spec.DistroId}: the manifest pins SHA-256 {resolved[..16]}… but the " +
                 $"GPG-signed checksum file says {signedHash[..16]}…. One of them is wrong or tampered with. " +
                 "Refusing to continue.");
@@ -190,7 +255,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         }
 
         if (resolved is null)
-            throw new InvalidOperationException(
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.SourceMetadataUnavailable,
                 $"No SHA-256 hash available for {spec.DistroId} (none pinned in the manifest and none resolvable " +
                 "from a signed checksum file). Refusing to download an unverifiable image.");
 
@@ -203,7 +268,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             .FirstOrDefault(u => u is not null
                 && !string.Equals(u.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase));
         if (insecure is not null)
-            throw new InvalidOperationException(
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.SourceMetadataUnavailable,
                 $"Insecure URL rejected: {insecure}. All ISO, checksum, signature and key URLs must use HTTPS.");
     }
 
@@ -216,10 +281,20 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         IProgress<IsoAcquisitionProgress>? progress,
         CancellationToken ct)
     {
+        RejectRedirectedCacheEntry(Path.GetDirectoryName(isoPath)!);
+        RejectRedirectedCacheEntry(isoPath);
+        RejectRedirectedCacheEntry(partialPath);
         if (File.Exists(isoPath))
         {
-            _logger.LogInformation("ISO already cached at {Path}, skipping download", isoPath);
-            return;
+            if (new FileInfo(isoPath).Length > 0)
+            {
+                _logger.LogInformation("ISO already cached at {Path}, skipping download", isoPath);
+                return;
+            }
+            // A cancelled or interrupted acquisition may leave an empty final
+            // file. Retire it now so this request can resume or download.
+            DeleteRegularCacheFile(isoPath);
+            _logger.LogWarning("Removed an empty cached installer image at {Path}", isoPath);
         }
 
         long resumeFrom = File.Exists(partialPath) ? new FileInfo(partialPath).Length : 0;
@@ -241,7 +316,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             _logger.LogWarning("Server does not support Range; restarting download from the beginning");
             resumeFrom = 0;
             if (File.Exists(partialPath))
-                File.Delete(partialPath);
+                DeleteRegularCacheFile(partialPath);
         }
 
         response.EnsureSuccessStatusCode();
@@ -251,6 +326,8 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
         var fileMode = resumeFrom > 0 ? FileMode.Append : FileMode.Create;
         bool downloadComplete = false;
+        RejectRedirectedCacheEntry(Path.GetDirectoryName(partialPath)!);
+        RejectRedirectedCacheEntry(partialPath);
         using (var fileStream = new FileStream(
                    partialPath, fileMode, FileAccess.Write, FileShare.None, BufferSize, useAsync: true))
         {
@@ -274,8 +351,14 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
         if (downloadComplete)
         {
+            RejectRedirectedCacheEntry(Path.GetDirectoryName(isoPath)!);
+            RejectRedirectedCacheEntry(isoPath);
+            RejectRedirectedCacheEntry(partialPath);
             if (File.Exists(isoPath))
-                File.Delete(isoPath);
+                DeleteRegularCacheFile(isoPath);
+            RejectRedirectedCacheEntry(Path.GetDirectoryName(isoPath)!);
+            RejectRedirectedCacheEntry(isoPath);
+            RejectRedirectedCacheEntry(partialPath);
             File.Move(partialPath, isoPath);
             _logger.LogInformation("Download complete: {Path}", isoPath);
         }
@@ -283,7 +366,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
 
     //   SHA-256                                ─
 
-    private static async Task<string> ComputeSha256Async(
+    private static async Task<(string Sha256, long SizeBytes)> ComputeSha256Async(
         string filePath,
         IProgress<IsoAcquisitionProgress>? progress,
         CancellationToken ct)
@@ -291,11 +374,10 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         progress?.Report(new IsoAcquisitionProgress(
             IsoAcquisitionPhase.VerifyingSha256, 0, null, "Computing SHA-256…"));
 
-        long totalBytes = new FileInfo(filePath).Length;
-
         using var sha256 = SHA256.Create();
         using var stream = new FileStream(
             filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize * 2, useAsync: true);
+        long totalBytes = stream.Length;
 
         var buffer = new byte[BufferSize * 2];
         long bytesProcessed = 0;
@@ -310,7 +392,7 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         }
 
         sha256.TransformFinalBlock([], 0, 0);
-        return ToLowerHex(sha256.Hash!);
+        return (ToLowerHex(sha256.Hash!), totalBytes);
     }
 
     
@@ -345,10 +427,12 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             _logger.LogInformation("Fetching CHECKSUM from {Url}", spec.GpgSignatureUrl);
             checksumContent = await client.GetStringAsync(spec.GpgSignatureUrl!, ct).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+        catch (Exception ex) when (!ct.IsCancellationRequested &&
+                                   (ex is HttpRequestException or IOException or TaskCanceledException))
         {
             _logger.LogWarning(ex, "CHECKSUM download failed for {DistroId}", spec.DistroId);
-            return (null, false);
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.NetworkUnavailable,
+                "The signed checksum could not be fetched.", ex);
         }
 
         //   Step B: GPG verification (result enforced fail-closed by the caller)
@@ -357,12 +441,18 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
         try
         {
             var keyBytes = await GetSigningKeyAsync(spec, client, ct).ConfigureAwait(false);
-            gpgVerified = PgpCleartextVerifier.Verify(keyBytes, checksumContent, _logger, spec.GpgKeyFingerprint);
+            gpgVerified = PgpCleartextVerifier.Verify(keyBytes, checksumContent, _logger,
+                out var verifiedBody, spec.GpgKeyFingerprint);
+            if (gpgVerified)
+                checksumContent = verifiedBody;
             _logger.LogInformation("GPG verification result for {DistroId}: {Result}", spec.DistroId, gpgVerified);
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+        catch (Exception ex) when (!ct.IsCancellationRequested &&
+                                   (ex is HttpRequestException or IOException or TaskCanceledException))
         {
             _logger.LogWarning(ex, "GPG key download/verification failed for {DistroId}", spec.DistroId);
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.NetworkUnavailable,
+                "The signing key could not be fetched.", ex);
         }
 
         return (checksumContent, gpgVerified);
@@ -379,10 +469,12 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             dataBytes = await client.GetByteArrayAsync(spec.GpgSignedDataUrl!, ct).ConfigureAwait(false);
             dataText = Encoding.UTF8.GetString(dataBytes);
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+        catch (Exception ex) when (!ct.IsCancellationRequested &&
+                                   (ex is HttpRequestException or IOException or TaskCanceledException))
         {
             _logger.LogWarning(ex, "SHA256SUMS download failed for {DistroId}", spec.DistroId);
-            return (null, false);
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.NetworkUnavailable,
+                "The signed checksum data could not be fetched.", ex);
         }
 
         // Verify itself never throws; only the downloads can, so this catch is HTTP-scoped.
@@ -395,9 +487,12 @@ public sealed class IsoAcquisitionService : IIsoAcquisitionService
             gpgVerified = PgpDetachedVerifier.Verify(keyBytes, dataBytes, sigBytes, _logger, spec.GpgKeyFingerprint);
             _logger.LogInformation("Detached GPG verification result for {DistroId}: {Result}", spec.DistroId, gpgVerified);
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+        catch (Exception ex) when (!ct.IsCancellationRequested &&
+                                   (ex is HttpRequestException or IOException or TaskCanceledException))
         {
             _logger.LogWarning(ex, "Detached GPG download/verification failed for {DistroId}", spec.DistroId);
+            throw new IsoAcquisitionFailureException(IsoAcquisitionFailureKind.NetworkUnavailable,
+                "The checksum signature or signing key could not be fetched.", ex);
         }
 
         return (dataText, gpgVerified);

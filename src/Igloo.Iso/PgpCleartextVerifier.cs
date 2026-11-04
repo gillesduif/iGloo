@@ -10,7 +10,12 @@ internal static class PgpCleartextVerifier
 
     internal static bool Verify(byte[] publicKeyRingBytes, string cleartextMessage, ILogger logger,
         string? expectedFingerprint = null)
+        => Verify(publicKeyRingBytes, cleartextMessage, logger, out _, expectedFingerprint);
+
+    internal static bool Verify(byte[] publicKeyRingBytes, string cleartextMessage, ILogger logger,
+        out string verifiedBody, string? expectedFingerprint = null)
     {
+        verifiedBody = string.Empty;
         try
         {
             //   Load public key ring                     
@@ -61,6 +66,7 @@ internal static class PgpCleartextVerifier
 
                 if (sig.Verify())
                 {
+                    verifiedBody = body;
                     logger.LogInformation("GPG signature valid (key ID {KeyId:X16})", sig.KeyId);
                     return true;
                 }
@@ -94,7 +100,8 @@ internal static class PgpCleartextVerifier
         int sigStart = message.IndexOf(SigHeader, StringComparison.Ordinal);
         int sigEnd = message.IndexOf(SigFooter, StringComparison.Ordinal);
 
-        if (msgStart < 0 || sigStart < 0 || sigEnd < 0)
+        if (msgStart != 0 || sigStart <= msgStart || sigEnd <= sigStart ||
+            message[(sigEnd + SigFooter.Length)..].Any(c => !char.IsWhiteSpace(c)))
             return false;
 
         // Skip the "Hash: xx" headers after the BEGIN line - look for the first blank line
@@ -139,16 +146,25 @@ internal static class PgpCleartextVerifier
         if (Matches(signingKey, want))
             return true;
 
-        // Subkey case: the checksum may be signed by a subkey whose fingerprint
-        // differs from the published (primary) one. Accept iff the primary key of
-        // the ring holding the signing key carries the pinned fingerprint.
+        // The ring parser groups packets but does not authenticate subkey binding.
+        // A fetched ring can contain an unrelated attacker subkey next to the
+        // pinned primary, so the primary must have signed this exact subkey.
         var primary = bundle.GetPublicKeyRing(signingKey.KeyId)?
             .GetPublicKeys().OfType<PgpPublicKey>().FirstOrDefault(k => k.IsMasterKey);
-        if (primary is not null && Matches(primary, want))
-            return true;
+        if (!signingKey.IsMasterKey && primary is not null && Matches(primary, want))
+        {
+            foreach (var binding in signingKey.GetSignaturesOfType(PgpSignature.SubkeyBinding))
+            {
+                if (binding.KeyId != primary.KeyId)
+                    continue;
+                binding.InitVerify(primary);
+                if (binding.VerifyCertification(primary, signingKey))
+                    return true;
+            }
+        }
 
         logger.LogWarning(
-            "Signing key fingerprint {Actual} (primary {Primary}) does not match pinned {Want} - rejecting signature",
+            "Signing key fingerprint {Actual} has no valid binding to pinned primary {Want} (ring primary {Primary})",
             Convert.ToHexString(signingKey.GetFingerprint()),
             primary is not null ? Convert.ToHexString(primary.GetFingerprint()) : "n/a",
             want);
