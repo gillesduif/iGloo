@@ -15,6 +15,69 @@ This page describes the existing Community migration pipeline. The
 documents the shared engine and Fleet's separate, read-only assessment host.
 Fleet never uploads the local migration manifest.
 
+The [command contract V1](spec/command-contract/README.md) defines the public
+query, advisory plan, status and ISO acquisition subset. Logical Core is the
+execution engine; physical assemblies remain split for safety and ownership.
+`Igloo.Command.Contracts` is the neutral protocol model. `Igloo.Core.Runtime`
+owns read-only dispatch and planning; `Igloo.Core.Runtime.Execution` owns the
+ISO command, private staging coordination, resource leases and operation journal.
+`Igloo.Core.Host` composes the internal backend. `Igloo.Cli.exe` is the distinct
+CLI executable and the intended sole public executable gateway; `iGloo.exe`
+remains the Community WPF application. `Igloo.Cli.Client` speaks the CLI's V1
+JSON Lines protocol without linking execution assemblies. One's unfinished
+shell and Fleet's development assessment now use it. Fleet's trusted dry-run
+also calls the CLI for inspection, advisory planning and compatibility, while
+Community's operational workflows still call Host directly because their
+private result and safety semantics have not been migrated to public commands.
+Those are transitional paths, not evidence that the target is complete. Fleet
+Server stays isolated. No public installation, recovery or remote destructive
+Fleet command is registered; `MigrationManifest` remains local handoff state.
+
+The intended public path is:
+
+```mermaid
+flowchart LR
+  Community --> CLI[iGloo CLI]
+  One --> CLI
+  FleetAgent --> CLI
+  Humans --> CLI
+  Scripts --> CLI
+  External[Independent consumers] --> CLI
+  CLI --> Host[Igloo.Core.Host]
+  Host --> Engine[Runtime / execution / providers]
+```
+
+```mermaid
+flowchart LR
+  Community --> Host[Igloo.Core.Host]
+  One --> CliClient[Igloo.Cli.Client]
+  CLI --> Host
+  FleetAgent --> Host
+  FleetAgent --> CliClient
+  CliClient -. launches process .-> CLI
+  Community --> Contract[Igloo.Command.Contracts]
+  One --> Contract
+  CliClient --> Contract
+  CLI --> Contract
+  FleetAgent --> Contract
+  Host --> Runtime[Igloo.Core.Runtime]
+  Host --> Execution[Igloo.Core.Runtime.Execution]
+  Host --> Services[Core / Preflight / Iso / Migration / UsbWriter]
+  Runtime --> Contract
+  Execution --> Runtime
+  Services --> Core[Igloo.Core]
+  Providers[Distro providers] --> Core
+  FleetServer --> FleetDomain[Fleet Domain / Persistence]
+```
+
+Solid arrows above are current project-reference directions; the dotted arrow
+is a process invocation. One also references Command.Contracts directly.
+Community and Fleet Agent still reference Command.Contracts and Host directly.
+Transitive .NET references make Core model types available to the remaining
+in-process clients. The logical Core includes Host, runtime, execution services,
+recovery and provider infrastructure. Host is not the public protocol. A
+distro-owned UI can consume CLI JSON without Community.
+
 The [shared recovery snapshot V1 design](architecture/recovery-snapshot-v1.md)
 defines Core/Preflight boot recovery observations used by both products. It is
 read-only and does not implement restoration or authorize execution.
@@ -81,6 +144,9 @@ flowchart TD
 ```
 
 Rules of the dependency graph:
+
+The component diagram above shows the original functional data flow, not current
+project-reference edges. Community now reaches `SVC` through `Igloo.Core.Host`.
 
 - **Core never references a concrete distro.** Plugins are discovered at runtime from
   `distros/` and loaded into isolated `AssemblyLoadContext`s.

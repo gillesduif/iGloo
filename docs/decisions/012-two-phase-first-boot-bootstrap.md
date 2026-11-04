@@ -37,3 +37,10 @@ agent and manifest, and hands over to the agent before any login screen exists.
 - **Negative:** first boot takes visibly longer (agent runs before the greeter);
   mitigated by messaging, and by the fact that a *working* delay beats a silent failure.
 - **Rule of thumb for future distros:** if a hook needs `mount`, it is in the wrong phase.
+
+## Current relationship
+
+The [Debian target-root continuation](../architecture/debian-target-root-deployment.md)
+separates retained input composition from agent installation and a completed
+first-boot result. This ADR explains the original phase split, not completion
+of those later producers.

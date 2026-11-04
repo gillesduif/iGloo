@@ -1,5 +1,11 @@
 # The GRUB menu on a multi-boot disk
 
+This is a dated hardware findings record. The [hardware register](hardware-findings.md)
+provides the broader physical-test context; the later
+[installation ownership review](../architecture/community-installation-ownership.md)
+controls current exact-target and ESP readiness. A boot-menu fix observed on an
+earlier build does not validate every later installer path.
+
 What `configure_boot_menu()` in `distros/_shared/agent/igloo_boot.py` changes about
 the generated menu, and which bare-metal failure each change answers. Every finding
 below was measured on igloo-lab, not read in documentation.

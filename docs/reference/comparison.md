@@ -20,3 +20,9 @@ iGloo also supports the reverse operation. It detects an existing Linux
 installation and removes it: it deletes the Linux partitions, removes the EFI
 boot entries, restores the Windows bootloader and extends the Windows volume
 into the resulting unallocated space.
+
+This is product comparison context. The [use cases](../business/use-cases.md)
+define iGloo's intended user journeys; the later
+[installation ownership review](../architecture/community-installation-ownership.md)
+should be consulted before treating the paragraph above as a current
+end-to-end removal or install validation result.

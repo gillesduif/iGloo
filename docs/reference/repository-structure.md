@@ -4,6 +4,7 @@
 iGloo/
 ├── src/
 │   ├── Igloo.Community.App/             # WPF application (wizard UI, dependency injection)
+│   ├── Igloo.Cli/              # untracked placeholder project; no commands yet
 │   ├── Igloo.Core/            # Plugin abstractions (IDistroPlugin, InstallerBootSpec),
 │   │                          #   manifest models, service contracts
 │   ├── Igloo.Preflight/       # Hardware detection (WMI), DirectInstallService
@@ -36,3 +37,10 @@ iGloo/
 │   └── whitepaper/            # Technical white paper (draft)
 └── .github/workflows/         # CI
 ```
+
+For the current solution folders and project-reference graph, use the
+[[architecture/product-boundaries|product boundary record]]. This tree
+predates some Fleet and Debian continuation work. The solution also contains
+an empty `AI` folder, not an AI project. The target groups Shared and Distros
+conceptually under Platform; that grouping has not been applied to the solution.
+See [[cli]] and [[ai]] for the difference between product direction and code.

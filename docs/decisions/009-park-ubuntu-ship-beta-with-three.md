@@ -48,3 +48,9 @@ alternative avenues (Ubuntu Server ISO route; upstream subiquity fix).
   or an upstream subiquity release that skips table writes for all-preserved
   configs - whichever comes first. Estimated resumption cost: an afternoon,
   thanks to the dossier.
+
+## Current relationship
+
+The [hardware findings](../reference/hardware-findings.md) record the earlier
+three-distro runs. The current Ubuntu catalog manifest still says
+`in-development`; this decision does not make its installer path available.

@@ -40,3 +40,10 @@ layout unchanged.
 - **Negative:** one more partition to create, declare (preserve!) and clean up.
 - **Note:** future distros crossing 4 GiB inherit this automatically; nothing to
   configure beyond `CopyFullIsoToVolume`.
+
+## Current relationship
+
+The [Community architecture](../architecture.md) shows where ISO staging fits
+between verification and installer handoff. The later
+[installation ownership review](../architecture/community-installation-ownership.md)
+still requires exact identity for every created or reused target.

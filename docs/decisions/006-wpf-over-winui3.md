@@ -51,3 +51,6 @@ WinUI 3 can be re-adopted once the project has a CI pipeline that pins a specifi
 version, and once the WinAppSDK self-contained crash is reproduced on a clean VM and reported
 upstream. ADR-005 documents the deployment model that was in place; ADR-001 documents the
 original rationale. Neither is deleted - they form the audit trail.
+
+The current WPF project and component references are mapped in the
+[product boundary record](../architecture/product-boundaries.md).

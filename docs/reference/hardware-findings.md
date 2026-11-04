@@ -166,3 +166,8 @@ when either changes.
   screen was zoomed instead of fit (Mint run). Debian handled both correctly.
   Per-monitor fit policy (zoom for portrait, scaled for landscape) is tracked
   as GitHub issue #2.
+
+The [multi-boot menu record](boot-menu.md) expands the GRUB findings. The
+[Community installation ownership review](../architecture/community-installation-ownership.md)
+describes later exact-target requirements; these July–August hardware runs
+cannot validate all subsequent commits.

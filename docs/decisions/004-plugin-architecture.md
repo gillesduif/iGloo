@@ -29,3 +29,10 @@ Igloo's long-term goal is distro-agnostic migration. The short-term reality is s
 - **Positive:** The reference (Fedora KDE) functions as the contributor documentation. "Look at how Fedora does it" is the answer to most questions.
 - **Negative:** Slightly more initial complexity. `IDistroPlugin` has to be designed thoughtfully because changing it later forces every plugin to update.
 - **Open:** Plugin discovery mechanism (AssemblyLoadContext details, plugin signing for trusted-source guarantees) implemented in M2.
+
+## Current relationship
+
+The [product boundary](../architecture/product-boundaries.md) confirms Core has no
+static concrete-distro references. The [Fleet security record](../fleet/security.md)
+also makes clear that isolated load contexts are not a security sandbox against
+malicious local plugins; distro code must remain trusted.

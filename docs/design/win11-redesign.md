@@ -81,3 +81,7 @@ badges) follows the Fluent language so the 3D stage feels curated, not themed.
 3. No new one-off hex values in pages; tokens only. New needs → new token here.
 4. WPF hygiene per iteration: extract repeated XAML into styles/controls,
    flatten gratuitous Grid nesting, keep MVVM (no code-behind logic).
+
+The [WPF decision](../decisions/006-wpf-over-winui3.md) explains the UI
+technology choice behind this design charter. The charter is direction for
+future work, not evidence that every page has been implemented.

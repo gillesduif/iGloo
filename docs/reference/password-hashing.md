@@ -100,3 +100,8 @@ useless to anyone holding the seed partition.
 - <https://www.akkadia.org/drepper/SHA-crypt.txt>
 - <https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html>
 - <https://bugs.launchpad.net/bugs/1578369>
+
+This installer account handling is part of Community's local
+[migration workflow](operation.md). Fleet's
+[data boundary](../architecture/product-boundaries.md#execution-artifacts-are-not-fleet-records)
+does not upload the private migration manifest.

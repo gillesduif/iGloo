@@ -51,3 +51,11 @@ The installer is never allowed to make partitioning decisions on the shared disk
 - **Open:** curtin still runs `sfdisk`+`partprobe` unconditionally even for
   all-preserved configs (verified in its source); the remaining Ubuntu work is
   keeping the disk's partitions unheld at that moment (ADR-009 / STATUS.md).
+
+## Current relationship
+
+The later [installation ownership review](../architecture/community-installation-ownership.md)
+and [ESP binding audit](../architecture/installer-esp-binding.md) document what
+must still be proved for current media and exact targets. This ADR preserves
+the historical design intent; its broad consequence statement is not a
+present-day end-to-end safety certificate.

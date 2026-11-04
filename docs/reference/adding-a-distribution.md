@@ -15,3 +15,9 @@ procedure:
 5. Provide or reuse a first-boot agent that applies the migration manifest.
 6. Validate an unattended end-to-end installation in a VM and open a pull
    request.
+
+The [plugin decision](../decisions/004-plugin-architecture.md) explains why
+concrete distros are loaded dynamically. The later
+[installation ownership review](../architecture/community-installation-ownership.md)
+adds exact-target and ESP requirements that a new plugin must meet before
+catalog availability or VM validation can be claimed.

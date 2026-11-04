@@ -1,3 +1,19 @@
+---
+title: ADR-001 language and original UI choice
+type: decision
+area: direction
+status: historical
+implementation: not-applicable
+tags:
+  - igloo
+aliases: []
+reviewed: 2026-10-03
+reviewed_commit: 5e4ebe846b488d8609612d37665aaefd4d203c88
+sources:
+  - docs/decisions/006-wpf-over-winui3.md
+  - src/Igloo.Community.App/Igloo.Community.App.csproj
+---
+
 # ADR-001: C# / .NET 8 / WinUI 3 (unpackaged)
 
 **Status:** Partially superseded - the WinUI 3 choice was reversed by ADR-006 (WPF) on 2026-05-18. The C#/.NET choice stands: the app target framework later moved from .NET 8 to .NET 9 (`net9.0-windows10.0.19041.0`), recorded here since no standalone ADR was written for it.
@@ -38,3 +54,9 @@ The Windows-side app does heavy WMI work (BitLocker, TPM, GPU detection, partiti
 
 - Single-binary distribution requires self-contained publish (~80-100 MB compressed). Acceptable for an installer-grade one-shot tool.
 - The custom unpackaged `Program.cs` bootstrap is non-trivial. Documented in `Program.cs` and considered the "weird part" of the project - every WinUI 3 unpackaged app needs it.
+
+## Current relationship
+
+[ADR-006](006-wpf-over-winui3.md) replaces the WinUI portion with WPF; the current
+Community project targets .NET 9 Windows. The C# rationale remains historical
+context, while the old WinUI deployment steps no longer describe the build.

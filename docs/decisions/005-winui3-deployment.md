@@ -1,3 +1,19 @@
+---
+title: ADR-005 former WinUI deployment
+type: decision
+area: direction
+status: superseded
+implementation: not-applicable
+tags:
+  - igloo
+aliases: []
+reviewed: 2026-10-03
+reviewed_commit: 5e4ebe846b488d8609612d37665aaefd4d203c88
+sources:
+  - docs/decisions/006-wpf-over-winui3.md
+  - src/Igloo.Community.App/Igloo.Community.App.csproj
+---
+
 # ADR-005: WinUI 3 Deployment - Unpackaged, Framework-Dependent Dev, Self-Contained Release
 
 **Status:** Superseded by ADR-006 (WPF replaces WinUI 3) 2026-05-18. Kept as audit trail: the WinUI 3 deployment model below no longer applies to the project.
@@ -70,3 +86,8 @@ WinUI 3 and `WindowsAppSDKSelfContained` require a concrete platform (`x64` or `
 - No MSIX signing or Store submission required for release.
 - No runtime prerequisite on any machine - dev or end-user.
 - The `Directory.Build.props` workaround is VS-version-specific: if the project ever moves to a CI agent without VS 2022, it would need a Build Tools installation.
+
+## Current relationship
+
+[ADR-006](006-wpf-over-winui3.md) supersedes this deployment model. It remains
+readable as the decision history, not as current build instructions.

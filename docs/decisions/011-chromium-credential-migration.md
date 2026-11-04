@@ -102,3 +102,9 @@ like the existing Wi-Fi section.
   `Login Data` schema is created in the classic form Chromium upgrades on
   first launch; the upgrade path is validated in VM testing per
   CONTRIBUTING.md rule 4.
+
+## Current relationship
+
+The [browser migration guide](../reference/browser-migration.md) explains the
+user-data workflow. Fleet's [security boundary](../fleet/security.md) excludes
+browser credentials from uploaded assessment evidence.

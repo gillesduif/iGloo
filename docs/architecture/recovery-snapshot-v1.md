@@ -271,7 +271,7 @@ Canonical getters ran without machine configuration writes. The reader now adjus
 its own process token for firmware reads and fails closed if that is unsuccessful.
 The remaining WinRE state, active RAM-disk and optional-data gaps and the repository's
 runtime VM validation are still outstanding. See the
-[issue #242 validation record](../fleet/phase-2.md#issue-242--production-capture-blockers-2026-09-26).
+[issue #242 validation record](../fleet/phase-2.md).
 Primary references for the supported acquisition and its limits are Microsoft's
 [firmware getter contract](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfirmwareenvironmentvariableexw),
 [ReAgent.xml evidence](https://learn.microsoft.com/en-us/troubleshoot/windows-client/setup-upgrade-and-drivers/winre-cannot-built-deploy-image-captured-non-uefi-computer),

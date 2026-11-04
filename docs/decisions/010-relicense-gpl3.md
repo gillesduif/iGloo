@@ -54,3 +54,11 @@ Relicense the project to **GPL-3.0-or-later**:
   so no GPL-2.0-only source can be copied in (none exists or is planned).
 - **Neutral:** distro logos and trademarks remain excluded from the project's
   license, as documented in THIRD-PARTY-NOTICES.md.
+
+## Relationship to project direction
+
+The current repository license is stated in the root `README.md` and `LICENSE`;
+this ADR records the reason for the change. The
+[business risk register](../business/risk-register.md) refers to the license as
+part of the project's continuity plan. The [direction map](../direction.md)
+places this decision alongside the other product and release decisions.

@@ -56,3 +56,7 @@ Once captures exist, this README becomes the guide itself: one H2 per act,
 each image followed by one or two plain-language sentences ("iGloo now checks
 your computer. Green means go."). Written for someone who has never installed
 an operating system - no jargon, no acronyms without explanation.
+
+For the actual sequence behind the walkthrough, read the
+[operation guide](../reference/operation.md). Its visuals are not evidence
+that a current build completed a migration.

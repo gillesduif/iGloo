@@ -1,5 +1,15 @@
 # Code guide - for newcomers
 
+> **Current checkout context (2026-10-03):** This file-level tour describes the
+> original Community pipeline. The [current-state note](../current-state.md)
+> and [installation ownership review](../architecture/community-installation-ownership.md)
+> take precedence for capability and safety claims. In particular, current
+> Debian legacy plugin entry points reject installation; the sequence below
+> must not be read as a presently qualified Debian run.
+> The three flows here cover Community only. [[cli|CLI]] is a placeholder and
+> [[ai|AI]] has no project. [[architecture/shared-orchestration|Shared orchestration]]
+> identifies work still held by the WPF ViewModel.
+
 How to find your way around the iGloo codebase without a guide dog. This
 document tells you **what lives where, which files carry the weight, and how the
 three big flows run through the code**. Read
@@ -30,9 +40,13 @@ Agent registers only the existing preflight checker; it does not run the wizard.
 PluginArtifactWriter in Igloo.Migration now owns the plugin-generated local
 installer/first-boot artifact writes previously embedded in FileStagingViewModel.
 
-Two dependency rules keep this sane (enforced by review, stated in
-[BR-08](../business/business-rules.md)): **Core references nothing**, and
-**plugins never touch disk/network/firmware** - they only declare and render.
+The project-reference rule in [BR-08](../business/business-rules.md) keeps
+Core independent of concrete distros. The host-facing plugin contract supplies
+metadata, compatibility findings and rendered artifacts, but plugin packages
+also contain installer templates and Linux first-boot agents that can perform
+distro-specific operations after handoff. “Plugins only declare” is the
+[[decisions/013-product-family-and-platform|target ownership rule]], not proof
+that all current plugin-supplied code has no disk, network or firmware effects.
 
 ## Per-project tour
 
@@ -50,7 +64,7 @@ Two dependency rules keep this sane (enforced by review, stated in
 | File | Why it matters |
 |---|---|
 | [`Abstractions/IDistroPlugin.cs`](../../src/Igloo.Core/Abstractions/IDistroPlugin.cs) | **The** contract. `IDistroPlugin` (metadata, `CheckCompatibility`, `RenderInstallerConfigAsync`, `GetAgentPayloadAsync`, `GetInstallerBootSpec`) and `InstallerBootSpec` - the ~12 declarative fields that capture a distro's *entire* boot delta (cmdline, artifact paths, config delivery, full-ISO copy, pre-created root…). Read the XML docs here first; they encode the field lessons |
-| [`Abstractions/CoreServices.cs`](../../src/Igloo.Core/Abstractions/CoreServices.cs) | Service interfaces (`IIsoAcquisitionService`, `IDirectInstallService`, …) + `IsoSpecification` |
+| [`IIsoAcquisitionService.cs`](../../src/Igloo.Core/Abstractions/IIsoAcquisitionService.cs) and [`IDirectInstallService.cs`](../../src/Igloo.Core/Abstractions/IDirectInstallService.cs) | Split service interfaces; `IsoSpecification` is declared with `IIsoAcquisitionService`. |
 | [`Models/MigrationManifest.cs`](../../src/Igloo.Core/Models/MigrationManifest.cs) | The single source of truth the wizard writes and everything downstream reads (user, hardware, files, Wi-Fi, apps) |
 | [`Models/DistroManifest.cs`](../../src/Igloo.Core/Models/DistroManifest.cs) | Parsed `distro.json` (ISO/GPG spec, tags, requirements, `status` → catalog availability) |
 | [`Plugins/`](../../src/Igloo.Core/Plugins/) | `DistroLoader` (manifests) + `DistroRegistry` (plugin DLLs, isolated `AssemblyLoadContext` each) |

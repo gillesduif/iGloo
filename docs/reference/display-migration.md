@@ -60,3 +60,7 @@ name `HDMI-A-2` to mutter's `HDMI-2`. Covered by
 the Windows scaling percentage is a separate decision — Windows and GNOME apply
 scaling differently, and a wrong value invalidates the whole configuration under
 the parser behaviour described above.
+
+The [hardware findings register](hardware-findings.md) records the observed
+display failures and guards on specific physical runs. This guide describes
+the migration mechanism, not universal monitor compatibility.

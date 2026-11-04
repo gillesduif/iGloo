@@ -1,5 +1,12 @@
 # Safety and security model
 
+> **Scope:** This note describes the original design and guards. The later
+> [Community installation ownership review](../architecture/community-installation-ownership.md),
+> [ESP binding audit](../architecture/installer-esp-binding.md) and
+> [current-state note](../current-state.md) record remaining exact-target
+> blockers. A design measure listed below is not proof of current
+> end-to-end installation safety.
+
 iGloo writes to the partition table and the boot manager. The design target
 for every failure in this class of operation is a clean abort with no data
 modification. The implementation applies the following measures:

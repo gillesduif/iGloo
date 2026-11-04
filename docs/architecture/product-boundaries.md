@@ -1,4 +1,63 @@
-# Community and Fleet product boundaries
+# Product boundaries: current foundation and four-product target
+
+## Current architectural direction (2026-10-03)
+
+**Decided target:** [[community|Community]] (human-operated GUI), [[ai|One]]
+(conversational client), [[fleet-map|Fleet Agent]], humans and independent tools
+invoke [[cli|CLI]] through its versioned command contract. CLI alone composes
+the local [[shared-engine|Core backend]]. Fleet Server remains an isolated
+control plane. Distribution plugins remain below Core and independent of all
+product frontends. [[decisions/013-product-family-and-platform|ADR-013]] records
+the product family; this executable boundary is the current direction.
+
+```mermaid
+flowchart LR
+  Community --> CLI
+  One --> CLI
+  FleetAgent --> CLI
+  External[Humans / scripts / third parties] --> CLI
+  CLI --> Host["Core.Host / Runtime"]
+  Host --> Shared["Core, Preflight, Iso, Migration, UsbWriter"]
+  Shared --> Distros["Distro plugins"]
+```
+
+**Current code (2026-10-06, CLI transition):** `Igloo.Core.Host` still composes
+the local backend. `Igloo.Cli.Client` launches the actual `Igloo.Cli.exe` with
+typed JSON Lines. One's unfinished shell and Fleet's development assessment
+use this path. Community's preflight cleanup, ISO, private staging,
+installation preparation, USB and Windows-maintenance calls still use Host
+interfaces; Fleet's trusted dry-run still uses Host for private capacity and
+provider facts. These paths require capability and parity work before their
+Host references can be removed safely. Fleet Server has no Host, Runtime or
+endpoint execution reference. The V1 contract exposes advisory
+`migration.plan`, typed status and an explicitly unavailable recovery inspection
+alongside the existing queries and ISO cache acquisition. No public installation
+or recovery mutation follows from those descriptors. The [implementation
+report](../spec/command-contract/implementation-report.md) records the exact
+physical graph, remaining safety gaps and validation.
+
+### Trust and execution ownership
+
+Community UI input, CLI arguments, AI intent and Fleet instructions are
+untrusted proposals. The Platform must validate a concrete, reviewable plan
+against current observations, supported distro capabilities and exact target
+identity before trusted services may act. The proposed
+[[architecture/shared-orchestration|shared orchestration boundary]] explains
+where plan validation and Community workflow extraction are still missing.
+[[architecture/migration-rules|Migration rules]] are a separate planned input
+model. Frontends may present or collect choices; they must not implement their
+own partitioning, boot setup, ISO verification or distro installation logic.
+Plugins declare supported behavior and supply distro-specific artifacts;
+trusted iGloo services control and verify execution. Fleet's current
+read-only planning protocol remains separate from any local installation plan.
+
+### Historical Phase 1 baseline below
+
+The rest of this note records the inspected Community/Fleet foundation at its
+original review. Its two-host language and solution tree describe that phase,
+not a claim that CLI and AI are already implemented. The old `Igloo.App` label
+in the original-reference diagram names the pre-rename project; the current
+project is `Igloo.Community.App`. See [[current-state]] for the current snapshot.
 
 One canonical upstream repository and solution, `Igloo.sln`, contains two hosts
 around the same migration engine. Community is the local, human-operated WPF
