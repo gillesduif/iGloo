@@ -19,6 +19,7 @@ import importlib.util
 import types
 import sys
 from pathlib import Path
+from unittest import mock
 
 MOD_PATH = Path(__file__).resolve().parents[2] / "distros/_debian-family/agent/agent.py"
 spec = importlib.util.spec_from_file_location("ag", MOD_PATH)
@@ -518,6 +519,33 @@ Default=1
           prefs.read_text(encoding="utf-8") == REAL_PREFS_JS)
 
 
+def test_selected_profile_io_failure_is_reported(tmp: Path) -> None:
+    """A selected profile must not be marked migrated if its rewrite fails."""
+    root = build(tmp, REAL_WINDOWS_INI, ("Profiles/vjncdvaw.default-release",))
+    ini = root / "profiles.ini"
+    with mock.patch.object(ag, "_normalise_profiles_ini", side_effect=OSError("write denied")):
+        try:
+            ag.normalise_gecko_profiles(tmp)
+        except RuntimeError as exc:
+            check("selected profile rewrite failure reaches the agent",
+                  str(ini) in str(exc) and isinstance(exc.__cause__, OSError))
+        else:
+            check("selected profile rewrite failure reaches the agent", False)
+
+
+def test_profile_stamp_io_failure_is_reported(tmp: Path) -> None:
+    """Compatibility and tab restoration are part of the selected migration."""
+    root = build(tmp, REAL_WINDOWS_INI, ("Profiles/vjncdvaw.default-release",))
+    for helper in (ag._clear_windows_install_paths, ag._restore_session_on_next_start):
+        with mock.patch.object(Path, "read_text", side_effect=OSError("read denied")):
+            try:
+                helper(root)
+            except OSError:
+                check(f"{helper.__name__} does not hide an unreadable profile", True)
+            else:
+                check(f"{helper.__name__} does not hide an unreadable profile", False)
+
+
 if __name__ == "__main__":
     import tempfile
     for test in (test_real_windows_profile, test_idempotent,
@@ -538,7 +566,9 @@ if __name__ == "__main__":
                  test_default_browser_keeps_other_handlers,
                  test_migrated_profile_restores_its_session,
                  test_profile_without_prefs_js,
-                 test_linux_profile_keeps_its_own_startup_page):
+                 test_linux_profile_keeps_its_own_startup_page,
+                 test_selected_profile_io_failure_is_reported,
+                 test_profile_stamp_io_failure_is_reported):
         with tempfile.TemporaryDirectory(prefix="gecko-test-") as d:
             test(Path(d))
     print()

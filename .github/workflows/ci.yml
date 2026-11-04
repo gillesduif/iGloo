@@ -25,6 +25,7 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
+            10.0.x
 
       - name: Restore
         run: dotnet restore Igloo.sln
@@ -37,3 +38,11 @@ jobs:
 
       - name: Test
         run: dotnet test Igloo.sln -c Release --no-build --verbosity normal
+
+  linux-agent-regressions:
+    # File modes, symlinks and installer shell fixtures need Linux semantics.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run first-boot regression fixtures
+        run: python3 scripts/test_agent_regressions.py

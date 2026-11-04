@@ -10,7 +10,6 @@ Wants=network-online.target
 # reboots) before any graphical session is created.
 Before=display-manager.service
 ConditionPathExists=/var/lib/igloo/manifest.json
-ConditionPathExists=!/var/lib/igloo/.done
 
 [Service]
 Type=oneshot

@@ -295,8 +295,48 @@ def _install_fixup_unit(b: Boot) -> None:
                            "still covers kernel updates")
 
 
-def _regenerate(b: Boot) -> None:
-    b.run_cmd(b.regenerate_cmd, check=False, timeout=300)
+def require_windows_boot_entry(path: Path) -> None:
+    """Require an actual EFI chainloader in a Windows menu entry.
+
+    This checks generated configuration, not Windows bootability or ESP ownership.
+    A Windows title, diagnostic message or commented-out command is not enough.
+    """
+    try:
+        cfg = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise RuntimeError("The generated GRUB menu is unreadable; dual-boot setup is incomplete") from error
+    entries = re.finditer(
+        r"^[ \t]*menuentry[ \t]+([^\n]+)\n(.*?)^[ \t]*}[ \t]*(?:#.*)?$",
+        cfg, re.MULTILINE | re.DOTALL)
+    for entry in entries:
+        header, body = entry.groups()
+        if not re.search(r"\bwindows\b", header, re.IGNORECASE):
+            continue
+        if re.search(
+                r"^[ \t]*chainloader[ \t]+(?:\([^\r\n)]+\))?"
+                r"/EFI/Microsoft/Boot/bootmgfw\.efi[ \t]*(?:#.*)?$",
+                body, re.MULTILINE | re.IGNORECASE):
+            return
+    raise RuntimeError("The generated GRUB menu has no Windows EFI boot entry; dual-boot setup is incomplete")
+
+
+def _regenerate(b: Boot, *, require_windows: bool = False) -> None:
+    b.run_cmd(b.regenerate_cmd, check=require_windows, timeout=300)
+    if require_windows:
+        require_windows_boot_entry(b.grub_cfg)
+
+
+def _uses_text_terminal(cfg: str) -> bool:
+    """Recognize an explicit GRUB text/serial terminal in generated output.
+
+    Fedora preserves the serial console selected for unattended VM installs.
+    GRUB cannot render a graphical theme there, and replacing that terminal
+    would remove the recovery console. Multiple output directives are left
+    ambiguous so the normal theme verification still runs.
+    """
+    outputs = [line.strip().split()[1:] for line in cfg.splitlines()
+               if line.strip().startswith("terminal_output ")]
+    return len(outputs) == 1 and bool(outputs[0]) and "gfxterm" not in outputs[0]
 
 
 def _verify(b: Boot, themed: bool) -> None:
@@ -310,6 +350,9 @@ def _verify(b: Boot, themed: bool) -> None:
     # Two different failures look identical in grub.cfg, so split them here.
     if "stylish/theme.txt" in cfg:
         b.logger.info("verified: Stylish theme is referenced in grub.cfg")
+    elif themed and _uses_text_terminal(cfg):
+        b.logger.info("Stylish theme installed; GRUB uses a text/serial terminal "
+                      "and keeps that recovery console")
     elif not themed:
         b.logger.error("no theme in grub.cfg because none was installed - the theme "
                        "archive was missing from /opt/igloo, not a drop-in problem")
@@ -423,12 +466,12 @@ def put_self_first_in_boot_order(b: Boot) -> None:
 
 
 def configure_boot_menu(manifest: dict[str, Any], b: Boot,
-                        collapse: bool = True) -> None:
+                        collapse: bool = True, *, require_windows: bool = False) -> None:
     """Theme the menu, boot this system by default, rename the Windows entry.
 
-    Every failure here is cosmetic: the stock menu remains and the system stays
-    bootable. collapse=False keeps the per-kernel submenu, for the case where the
-    newest kernel is not the one that boots correctly.
+    Cosmetic failures retain the stock menu. require_windows makes regeneration
+    and the Windows EFI entry mandatory. collapse=False keeps the per-kernel
+    submenu, for the case where the newest kernel is not the one that boots.
     """
     variant = theme_variant(manifest)
     themed = _install_theme(b, variant)
@@ -443,15 +486,16 @@ def configure_boot_menu(manifest: dict[str, Any], b: Boot,
         if shutil.which(editenv):
             b.run_cmd([editenv, "-", "unset", "saved_entry"], check=False)
             break
-    _regenerate(b)
-    put_self_first_in_boot_order(b)
-    install_boot_order_unit(b)
+    _regenerate(b, require_windows=require_windows)
+    if not require_windows:
+        put_self_first_in_boot_order(b)
+        install_boot_order_unit(b)
 
     try:
         cfg = b.grub_cfg.read_text(encoding="utf-8", errors="replace")
     except OSError:
         cfg = ""
-    if themed and "stylish/theme.txt" not in cfg:
+    if themed and "stylish/theme.txt" not in cfg and not _uses_text_terminal(cfg):
         b.logger.warning("grub.d drop-in not sourced - falling back to /etc/default/grub")
         try:
             body = _DROPIN.read_text(encoding="utf-8")
@@ -468,8 +512,14 @@ def configure_boot_menu(manifest: dict[str, Any], b: Boot,
         except OSError:
             b.logger.exception("Could not append to /etc/default/grub (non-fatal)")
         _DROPIN.unlink(missing_ok=True)
-        _regenerate(b)
+        _regenerate(b, require_windows=require_windows)
 
     # After the last regeneration: every one of them drops the hint again.
     _apply_grub_fixups(b)
     _verify(b, themed)
+    if require_windows:
+        require_windows_boot_entry(b.grub_cfg)
+        # The theme fallback and fixups can change the first generated menu.
+        # Do not activate this boot path until its final content is accepted.
+        put_self_first_in_boot_order(b)
+        install_boot_order_unit(b)

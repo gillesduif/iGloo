@@ -19,6 +19,7 @@ The cookie jar is copied verbatim rather than rebuilt, so its schema is a real
 Chromium's; only the values are rewritten, by the login hook.
 """
 import importlib.util
+import os
 import sqlite3
 import sys
 import types
@@ -56,6 +57,8 @@ class Stub:
 
         shim = types.SimpleNamespace(
             copyfile=real_shutil.copyfile,
+            copyfileobj=real_shutil.copyfileobj,
+            copy2=real_shutil.copy2,
             copytree=real_shutil.copytree,
             rmtree=real_shutil.rmtree,
             which=lambda n: ("/usr/bin/flatpak" if n == "flatpak" and self.flatpak
@@ -85,6 +88,7 @@ def make_windows_profile(tmp: Path) -> Path:
     (default / "Sessions").mkdir()
     (default / "Sessions" / "Session_13431778520312982").write_bytes(b"session")
     (default / "Sessions" / "Tabs_13431778520454243").write_bytes(b"tabs")
+    (default / "Sessions" / "Tabs_13431778520454243").chmod(0o777)
 
     con = sqlite3.connect(default / "History")
     con.execute("CREATE TABLE urls (url TEXT, title TEXT)")
@@ -123,6 +127,9 @@ def test_flatpak_destination(tmp: Path) -> None:
     check("the whole Sessions directory came",
           sorted(p.name for p in (dst / "Sessions").iterdir())
           == ["Session_13431778520312982", "Tabs_13431778520454243"])
+    if os.name == "posix":
+        check("FAT execute bits are not carried into Sessions",
+              (dst / "Sessions" / "Tabs_13431778520454243").stat().st_mode & 0o777 == 0o600)
     check("nothing landed in ~/.config", not (tmp / ".config").exists())
 
 
@@ -159,10 +166,15 @@ def test_native_destination(tmp: Path) -> None:
 
 
 def test_unmapped_browser_is_skipped(tmp: Path) -> None:
-    print("a browser iGloo has no mapping for")
+    print("a selected browser iGloo has no mapping for")
     src = make_windows_profile(tmp)
     with Stub(flatpak=True):
-        ag._copy_chromium_profile("Some Other Browser", src, tmp)
+        try:
+            ag._copy_chromium_profile("Some Other Browser", src, tmp)
+        except RuntimeError as exc:
+            check("unsupported selected browser is reported", "no Linux profile mapping" in str(exc))
+        else:
+            check("unsupported selected browser is reported", False)
     check("nothing written", not (tmp / ".var").exists() and not (tmp / ".config").exists())
 
 
@@ -171,8 +183,28 @@ def test_missing_default_profile(tmp: Path) -> None:
     root = tmp / "win" / "User Data"
     root.mkdir(parents=True)
     with Stub(flatpak=True):
-        ag._copy_chromium_profile("Brave", root, tmp)
+        try:
+            ag._copy_chromium_profile("Brave", root, tmp)
+        except RuntimeError as exc:
+            check("missing selected Default is reported", "Default profile is absent" in str(exc))
+        else:
+            check("missing selected Default is reported", False)
     check("nothing written", not (tmp / ".var").exists())
+
+
+def test_selected_copy_failure_is_reported(tmp: Path) -> None:
+    print("a selected profile copy fails")
+    root = make_windows_profile(tmp)
+    with Stub(flatpak=True):
+        def fail_copy(*_args, **_kwargs):
+            raise OSError("fixture copy failure")
+        ag.shutil.copyfileobj = fail_copy
+        try:
+            ag._copy_chromium_profile("Brave", root, tmp)
+        except OSError as exc:
+            check("copy error reaches first-boot step", "fixture copy failure" in str(exc))
+        else:
+            check("copy error reaches first-boot step", False)
 
 
 #   Fedora: the installer stages, the agent places
@@ -227,10 +259,16 @@ def test_staged_unmapped_browser_is_left_alone(tmp: Path) -> None:
     ag._CHROMIUM_STAGE_DIR = tmp / "stage"
     try:
         with Stub(flatpak=True):
-            ag.place_staged_chromium_profiles(tmp)
+            try:
+                ag.place_staged_chromium_profiles(tmp)
+            except RuntimeError as exc:
+                check("unmapped staged browser is reported", "no Linux profile mapping" in str(exc))
+            else:
+                check("unmapped staged browser is reported", False)
     finally:
         ag._CHROMIUM_STAGE_DIR = saved
     check("nothing written", not (tmp / ".var").exists())
+    check("staged browser retained for retry", (tmp / "stage" / "Some Other Browser").is_dir())
 
 
 if __name__ == "__main__":
@@ -238,6 +276,7 @@ if __name__ == "__main__":
     for test in (test_flatpak_destination, test_history_survives_the_copy,
                  test_machine_state_is_left_behind, test_native_destination,
                  test_unmapped_browser_is_skipped, test_missing_default_profile,
+                 test_selected_copy_failure_is_reported,
                  test_staged_files_are_placed_and_cleared,
                  test_staging_absent_is_a_no_op,
                  test_staged_unmapped_browser_is_left_alone):
