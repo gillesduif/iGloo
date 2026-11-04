@@ -202,11 +202,16 @@ public sealed class DebianContentFoundationTests
     }
 
     [Fact]
-    public async Task LegacyAgentPayloadCannotBeReturnedByDebianPlugin()
+    public async Task HistoricalBootRecipeAndAgentPayloadCanStage()
     {
         var plugin = new Igloo.Distro.Debian.DebianPlugin();
-        await Assert.ThrowsAsync<NotSupportedException>(() => plugin.GetAgentPayloadAsync());
-        Assert.Throws<NotSupportedException>(() => plugin.GetInstallerBootSpec());
+        var payload = await plugin.GetAgentPayloadAsync();
+        Assert.Contains(payload.Files, file => file.RelativePath == "first-boot.sh");
+        Assert.Contains(payload.Files, file => file.RelativePath == "agent.py");
+        var boot = plugin.GetInstallerBootSpec();
+        Assert.Equal(ConfigDelivery.InjectIntoInitrd, boot.ConfigDelivery);
+        Assert.Equal("preseed.cfg", boot.InitrdConfigPath);
+        Assert.True(boot.CopyFullIsoToVolume);
     }
 
     [Fact]

@@ -5,6 +5,7 @@ using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
 using Igloo.Distro.Debian.Deployment;
 using Igloo.TestData;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using static Igloo.Migration.Tests.DebianDeploymentFixture;
 using static Igloo.TestData.InstallationOwnershipFixture;
@@ -309,14 +310,130 @@ public sealed class DebianDeploymentTests
     }
 
     [Fact]
-    public async Task LegacyPartmanConfigCannotBeExportedAsFallback()
+    public void DebianInstallerKeepsSecureBootAvailableAndBlocksInsufficientRam()
     {
         var plugin = new Igloo.Distro.Debian.DebianPlugin();
-        await Assert.ThrowsAsync<NotSupportedException>(() => plugin.RenderInstallerConfigAsync(new Igloo.Core.Models.MigrationManifest
+        var report = new PreflightReport
         {
-            DistroId = "debian", User = new() { WindowsUsername = "fixture", PreferredLinuxUsername = "fixture" },
-            Files = new() { StagingPath = "fixture" }, Hardware = new(),
-        }));
+            IsUefi = true, SecureBootEnabled = true, TpmPresent = true,
+            BitLocker = BitLockerState.NotEncrypted, Disks = [], GpuVendor = "none",
+            TotalRamBytes = 8L * 1024 * 1024 * 1024, Findings = [],
+        };
+        Assert.DoesNotContain(plugin.CheckCompatibility(report), finding =>
+            finding.Severity == FindingSeverity.Blocker);
+        Assert.Contains(plugin.CheckCompatibility(report with
+        {
+            SecureBootEnabled = false,
+            TotalRamBytes = 4L * 1024 * 1024 * 1024,
+        }), finding => finding.Code == "DEBIAN_INSTALL_RAM_BELOW_MINIMUM" &&
+                       finding.Severity == FindingSeverity.Blocker);
+    }
+
+    [Fact]
+    public async Task DebianArtifactsAndHistoricalBootRecipeCanBeStaged()
+    {
+        var plugin = new Igloo.Distro.Debian.DebianPlugin();
+        Assert.True(plugin.Metadata.MinimumRequirements.RequiresUefi);
+        var manifest = new Igloo.Core.Models.MigrationManifest
+        {
+            DistroId = "debian",
+            User = new()
+            {
+                WindowsUsername = "fixture", PreferredLinuxUsername = "fixture",
+                LinuxPasswordCrypted = "$6$salt$hashedpassword",
+            },
+            Files = new() { StagingPath = "fixture" },
+            Hardware = new()
+            {
+                InstallMode = "dual-boot",
+                TargetDiskGuid = Guid.Parse("9b940faa-958e-4df8-931e-2549b9e9427b"),
+                TargetDiskBytes = 30L * 1024 * 1024 * 1024,
+            },
+        };
+        var config = await plugin.RenderInstallerConfigAsync(manifest);
+        var contents = System.Text.Encoding.UTF8.GetString(config.Contents.Span);
+        Assert.Equal("preseed.cfg", config.FileName);
+        Assert.Contains("partman-auto/init_automatically_partition select igloo_bound_free", contents, StringComparison.Ordinal);
+        Assert.Contains("partman/early_command string sh /igloo-bound-free-setup.sh", contents, StringComparison.Ordinal);
+        Assert.Contains("cp /igloo-verify-seed.py /target/opt/igloo/igloo-verify-seed.py", contents, StringComparison.Ordinal);
+        Assert.Contains("igloo.seedpartuuid=", contents, StringComparison.Ordinal);
+        Assert.Contains("igloo.seeddiskguid=", contents, StringComparison.Ordinal);
+        Assert.Contains("/dev/disk/by-partuuid/", contents, StringComparison.Ordinal);
+        Assert.DoesNotContain("/dev/disk/by-label/OEMDRV", contents, StringComparison.Ordinal);
+        Assert.DoesNotContain("partman-auto/init_automatically_partition select biggest_free", contents, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{", contents, StringComparison.Ordinal);
+        Assert.DoesNotContain('\r', contents);
+        Assert.All(contents.Split('\n'), line => Assert.True(line.Length <= 320,
+            $"Debian preseed physical line is {line.Length} characters."));
+        Assert.DoesNotContain("gzip -dc", contents, StringComparison.Ordinal);
+        Assert.Equal(4, config.Extras.Count);
+        Assert.Contains(config.Extras, extra => extra.RelativePath == "igloo-initrd/igloo-bound-free-setup.sh" &&
+            System.Text.Encoding.UTF8.GetString(extra.Contents.Span).Contains(
+                "9b940faa-958e-4df8-931e-2549b9e9427b", StringComparison.Ordinal));
+        Assert.Contains(config.Extras, extra => extra.RelativePath == "igloo-initrd/igloo-bound-free-choices.sh");
+        Assert.Contains(config.Extras, extra => extra.RelativePath == "igloo-initrd/igloo-bound-free-do-option.sh");
+        var boundAction = System.Text.Encoding.UTF8.GetString(config.Extras.Single(extra =>
+            extra.RelativePath == "igloo-initrd/igloo-bound-free-do-option.sh").Contents.Span);
+        Assert.Contains("igloo.linuxesppartuuid=", boundAction, StringComparison.Ordinal);
+        Assert.DoesNotContain("igloo.linuxesppartuuid=", contents, StringComparison.Ordinal);
+        Assert.Contains(config.Extras, extra => extra.RelativePath == "igloo-initrd/igloo-verify-seed.py");
+        var labSetup = System.Text.Encoding.UTF8.GetString(config.Extras.Single(extra =>
+            extra.RelativePath == "igloo-initrd/igloo-bound-free-setup.sh").Contents.Span);
+        Assert.Contains("expected_free_offset=\"none\"", labSetup, StringComparison.Ordinal);
+        Assert.Contains("expected_free_size=\"none\"", labSetup, StringComparison.Ordinal);
+        Assert.Contains("minimum_install_bytes=\"21474836480\"", labSetup, StringComparison.Ordinal);
+        var payload = await plugin.GetAgentPayloadAsync();
+        Assert.Contains(payload.Files, file => file.RelativePath == "agent.py");
+        Assert.Contains(payload.Files, file => file.RelativePath == "first-boot.sh");
+        Assert.Contains(payload.Files, file => file.RelativePath == "igloo_boot.py");
+        var boot = plugin.GetInstallerBootSpec();
+        Assert.Equal(ConfigDelivery.InjectIntoInitrd, boot.ConfigDelivery);
+        Assert.Equal("preseed.cfg", boot.InitrdConfigPath);
+        Assert.Equal(config.Extras.Select(extra => extra.RelativePath), boot.InitrdExtraPaths);
+        Assert.Equal("debian.iso", boot.IsoVolumeFileName);
+        Assert.True(boot.CopyFullIsoToVolume);
+        Assert.Equal(["live/vmlinuz"], boot.KernelIsoPaths);
+        Assert.Equal(["live/initrd.img"], boot.InitrdIsoPaths);
+        Assert.Equal("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/vmlinuz",
+            boot.KernelUrl?.AbsoluteUri);
+        Assert.Equal("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/gtk/initrd.gz",
+            boot.InitrdUrl?.AbsoluteUri);
+        Assert.Equal("2b2358b37674d2505350528875bb17afae2a36522a9e8a9417eaca65a7da0e08",
+            boot.KernelSha256);
+        Assert.Equal("5a9afef23f35af5ca68b6898f4d877a6ad434053bd2f738a4e58093736323838",
+            boot.InitrdSha256);
+        Assert.Contains("iso-scan/copy_iso_to_ram=true", boot.KernelCmdline, StringComparison.Ordinal);
+        Assert.Contains("DEBIAN_FRONTEND=gtk", boot.KernelCmdline, StringComparison.Ordinal);
+        Assert.DoesNotContain("igloo.linuxesppartuuid=", boot.KernelCmdline, StringComparison.Ordinal);
+        await Assert.ThrowsAsync<NotSupportedException>(() => plugin.RenderInstallerConfigAsync(
+            manifest with { Hardware = new() { InstallMode = "replace" } }));
+        await Assert.ThrowsAsync<InvalidDataException>(() => plugin.RenderInstallerConfigAsync(
+            manifest with { User = manifest.User with { LinuxPasswordCrypted = "plaintext" } }));
+        await Assert.ThrowsAsync<InvalidDataException>(() => plugin.RenderInstallerConfigAsync(
+            manifest with { Hardware = manifest.Hardware with { TargetDiskGuid = null } }));
+        await Assert.ThrowsAsync<InvalidDataException>(() => plugin.RenderInstallerConfigAsync(
+            manifest with { Hardware = manifest.Hardware with { TargetDiskBytes = 0 } }));
+        await Assert.ThrowsAsync<InvalidDataException>(() => plugin.RenderInstallerConfigAsync(
+            manifest with { User = manifest.User with { FullName = "User\\" } }));
+
+        var staging = Path.Join(Path.GetTempPath(), "igloo-debian-artifacts-" + Guid.NewGuid());
+        Directory.CreateDirectory(staging);
+        try
+        {
+            await PluginArtifactWriter.WriteAsync(plugin, manifest, staging, NullLogger.Instance);
+            Assert.Equal(config.Contents.ToArray(), await File.ReadAllBytesAsync(Path.Join(staging, "preseed.cfg")));
+            foreach (var extra in config.Extras)
+                Assert.Equal(extra.Contents.ToArray(), await File.ReadAllBytesAsync(
+                    Path.Join(staging, extra.RelativePath.Replace('/', Path.DirectorySeparatorChar))));
+            var stagedAgent = Path.Join(staging, "igloo-agent");
+            Assert.Equal(payload.Files.Select(file => file.RelativePath).Order(),
+                Directory.GetFiles(stagedAgent).Select(Path.GetFileName).Order());
+            Assert.All(Directory.GetFiles(stagedAgent), path => Assert.True(new FileInfo(path).Length > 0, path));
+        }
+        finally
+        {
+            Directory.Delete(staging, recursive: true);
+        }
     }
 
     [Fact]

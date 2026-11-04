@@ -20,10 +20,10 @@
 # Rendered on Windows; the app forces LF so a CRLF checkout can't break the
 # busybox late_command (the bug that once broke the Fedora kickstart).
 #
-# STATUS: the one part that needs a bare-metal test is that d-i engages
-# live-installer (rather than debootstrap) when it reaches the Live ISO via
-# hd-media/iso-scan. The boot, iso-scan, partitioning and first-boot bootstrap
-# all reuse paths already exercised on hardware.
+# The hd-media/live-installer path installed and booted Debian in a disposable
+# UEFI VM. A same-size decoy test verified the selected-disk partman choice and
+# installer-seed kernel binding. Precreated Linux ESP reuse and physical target
+# execution still require separate proof and remain gated.
 # ============================================================================
 
 #   Localization
@@ -72,15 +72,15 @@ d-i user-setup/allow-password-weak boolean true
 d-i user-setup/encrypt-home boolean false
 
 #   Partitioning
-# UNCHANGED from the netinst path, and deliberately so  this is the data-loss
-# boundary. Igloo already shrank Windows, leaving unallocated free space.
-#   dual-boot → install ONLY into the biggest free region (Windows + ESP kept).
-#   replace   → whole disk.
-# CRITICAL (data-loss): do NOT set partman-auto/method or partman-auto/disk.
-# "biggest_free" is honoured ONLY when partman-auto/method is unset. Setting
-# method (or disk) forces whole-disk mode, which WIPES every partition  exactly
-# what destroyed Windows in early testing.
-d-i partman-auto/init_automatically_partition select biggest_free
+# Igloo already prepared free space on the selected GPT disk. partman's stock
+# biggest_free scans EVERY disk, including a same-size decoy; partman-auto/disk
+# plus method=regular would instead erase an entire disk. Keep method unset and
+# expose one free-space choice bound to the selected disk's GUID and byte size.
+# The initrd setup helper installs a choice/action pair after validating the
+# selected disk. partman invokes the choice after disk discovery; its action
+# rechecks disk identity and the exact free extent before partitioning.
+d-i partman/early_command string sh /igloo-bound-free-setup.sh
+d-i partman-auto/init_automatically_partition select igloo_bound_free
 d-i partman-auto/choose_recipe select atomic
 d-i partman-lvm/device_remove_lvm boolean true
 d-i partman-md/device_remove_md boolean true
@@ -129,6 +129,19 @@ d-i finish-install/reboot_in_progress note
 # (black, no cursor). Blacklist-only is the validated set — same as the Fedora
 # kickstart, which carries the same warning.
 d-i preseed/late_command string \
+    set -eu ; umask 077 ; \
+    seed_partuuid='' ; seed_diskguid='' ; part_count=0 ; disk_count=0 ; \
+    for arg in $(cat /proc/cmdline) ; do \
+        case "$arg" in \
+            igloo.seedpartuuid=*) seed_partuuid=${arg#*=} ; part_count=$((part_count + 1)) ;; \
+            igloo.seeddiskguid=*) seed_diskguid=${arg#*=} ; disk_count=$((disk_count + 1)) ;; \
+        esac ; \
+    done ; \
+    [ "$part_count" -eq 1 ] || exit 1 ; [ "$disk_count" -eq 1 ] || exit 1 ; \
+    echo "$seed_partuuid" | grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$' || exit 1 ; \
+    echo "$seed_diskguid" | grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$' || exit 1 ; \
+    seed_partuuid=$(printf '%s' "$seed_partuuid" | tr '[:upper:]' '[:lower:]') ; \
+    seed_diskguid=$(printf '%s' "$seed_diskguid" | tr '[:upper:]' '[:lower:]') ; \
     echo "deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware"                       >  /target/etc/apt/sources.list ; \
     echo "deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware"               >> /target/etc/apt/sources.list ; \
     echo "deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware" >> /target/etc/apt/sources.list ; \
@@ -138,22 +151,40 @@ d-i preseed/late_command string \
     echo "GRUB_DISABLE_OS_PROBER=false" >> /target/etc/default/grub ; \
     in-target update-grub || true ; \
     mkdir -p /target/opt/igloo /target/var/lib/igloo /target/var/log/igloo /target/etc/systemd/system/multi-user.target.wants ; \
+    chmod 0755 /target/opt /target/opt/igloo ; \
+    echo "$seed_partuuid" > /target/var/lib/igloo/selected-seed-partuuid ; \
+    echo "$seed_diskguid" > /target/var/lib/igloo/selected-seed-diskguid ; \
+    chmod 0600 /target/var/lib/igloo/selected-seed-partuuid /target/var/lib/igloo/selected-seed-diskguid ; \
+    cp /igloo-verify-seed.py /target/opt/igloo/igloo-verify-seed.py ; \
+    chmod 0700 /target/opt/igloo/igloo-verify-seed.py ; \
     echo "#!/bin/sh"                                                                       >  /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "set -eu ; umask 077"                                                            >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "mkdir -p /opt/igloo /var/lib/igloo /var/log/igloo /run/igloo-seed"               >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "chmod 0755 /opt /opt/igloo"                                                   >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "exec >> /var/log/igloo/bootstrap.log 2>&1 ; set -x"                              >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "if test -f /var/lib/igloo/.done ; then exec /opt/igloo/first-boot.sh ; fi"       >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "modprobe vfat 2>/dev/null || true"                                               >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "for d in /dev/disk/by-label/OEMDRV /dev/nvme*n*p* /dev/sd*[0-9]* /dev/vd*[0-9]* /dev/mmcblk*p* ; do umount /run/igloo-seed 2>/dev/null ; mount -t vfat -o ro \"\$d\" /run/igloo-seed 2>/dev/null && [ -d /run/igloo-seed/igloo-agent ] && { echo \"igloo: seed on \$d\" ; break ; } ; done" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "seed_partuuid=\$(cat /var/lib/igloo/selected-seed-partuuid)"                      >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "echo \"\$seed_partuuid\" | grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\$' || exit 1" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "if mountpoint -q /run/igloo-seed ; then"                                           >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "    findmnt -rn -o OPTIONS --mountpoint /run/igloo-seed | grep -Eq '(^|,)ro(,|\$)' || exit 1" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "else mount -t vfat -o ro /dev/disk/by-partuuid/\$seed_partuuid /run/igloo-seed ; fi" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "selected_media=\$(python3 /opt/igloo/igloo-verify-seed.py /var/lib/igloo/selected-seed-partuuid /var/lib/igloo/selected-seed-diskguid /run/igloo-seed)" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "test -s /run/igloo-seed/migration-manifest.json"                                 >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "test -s /run/igloo-seed/igloo-seed-identity.json"                                >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "for file in agent.py first-boot.sh display-apply.py display-apply-gnome.py igloo_boot.py igloo-first-boot.service grub-theme-stylish-1080p.tar.gz grub-theme-stylish-4k.tar.gz ; do test -s \"/run/igloo-seed/igloo-agent/\$file\" ; done" >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "cp /run/igloo-seed/igloo-agent/agent.py      /opt/igloo/agent.py"                >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "cp /run/igloo-seed/igloo-agent/first-boot.sh /opt/igloo/first-boot.sh"           >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-agent/display-apply.py /opt/igloo/display-apply.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-agent/display-apply-gnome.py /opt/igloo/display-apply-gnome.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-agent/igloo_boot.py /opt/igloo/igloo_boot.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-agent/grub-theme-stylish-*.tar.gz /opt/igloo/ 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-wallpaper.* /opt/igloo/ 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/igloo-avatar.* /opt/igloo/ 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "cp /run/igloo-seed/migration-manifest.json   /var/lib/igloo/manifest.json"       >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "chmod 0755 /opt/igloo/agent.py /opt/igloo/first-boot.sh /opt/igloo/display-apply.py /opt/igloo/display-apply-gnome.py 2>/dev/null || true" >> /target/opt/igloo/igloo-bootstrap.sh ; \
-    echo "umount /run/igloo-seed 2>/dev/null || true"                                      >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/display-apply.py /opt/igloo/display-apply.py"    >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/display-apply-gnome.py /opt/igloo/display-apply-gnome.py" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/igloo_boot.py /opt/igloo/igloo_boot.py"           >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "cp /run/igloo-seed/igloo-agent/grub-theme-stylish-*.tar.gz /opt/igloo/"         >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "for file in \$selected_media ; do cp \"/run/igloo-seed/\$file\" \"/opt/igloo/\$file\" ; done" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "if test -s /var/lib/igloo/manifest.retry.json ; then install -m 0600 /var/lib/igloo/manifest.retry.json /var/lib/igloo/manifest.json ; else install -m 0600 /run/igloo-seed/migration-manifest.json /var/lib/igloo/manifest.json ; fi" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "install -m 0600 /run/igloo-seed/igloo-seed-identity.json /var/lib/igloo/seed-identity.json" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "chmod 0755 /opt/igloo/agent.py /opt/igloo/first-boot.sh /opt/igloo/display-apply.py /opt/igloo/display-apply-gnome.py" >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "chmod 0644 /opt/igloo/igloo_boot.py"                                         >> /target/opt/igloo/igloo-bootstrap.sh ; \
+    echo "# Keep the seed mounted read-only while the agent copies staged user files."      >> /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "exec /opt/igloo/first-boot.sh"                                                   >> /target/opt/igloo/igloo-bootstrap.sh ; \
     chmod 0755 /target/opt/igloo/igloo-bootstrap.sh ; \
     echo "[Unit]"                                          >  /target/etc/systemd/system/igloo-bootstrap.service ; \
@@ -161,7 +192,6 @@ d-i preseed/late_command string \
     echo "After=network-online.target local-fs.target"    >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "Wants=network-online.target"                    >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "Before=display-manager.service"                 >> /target/etc/systemd/system/igloo-bootstrap.service ; \
-    echo "ConditionPathExists=!/var/lib/igloo/.done"      >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo ""                                               >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "[Service]"                                      >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "Type=oneshot"                                   >> /target/etc/systemd/system/igloo-bootstrap.service ; \
@@ -171,5 +201,6 @@ d-i preseed/late_command string \
     echo ""                                               >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "[Install]"                                      >> /target/etc/systemd/system/igloo-bootstrap.service ; \
     echo "WantedBy=multi-user.target"                     >> /target/etc/systemd/system/igloo-bootstrap.service ; \
+    chmod 0644 /target/etc/systemd/system/igloo-bootstrap.service ; \
     ln -sf /etc/systemd/system/igloo-bootstrap.service /target/etc/systemd/system/multi-user.target.wants/igloo-bootstrap.service ; \
     echo "igloo: install-time bootstrap written"
