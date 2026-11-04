@@ -110,6 +110,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
     private readonly IWindowsStorageReader _storage;
     private readonly IWindowsBcdReader _bcd;
+    private readonly IWindowsFirmwareReader _firmware;
     private readonly IPartitionResizeService _resizer;
     private readonly ILogger<DirectInstallService> _logger;
     private readonly CommunityRecoveryBoundary _bootRecovery = new(new WindowsRecoverySnapshotCapture(),
@@ -127,7 +128,11 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
     public DirectInstallService(IPartitionResizeService resizer, ILogger<DirectInstallService> logger,
         IWindowsStorageReader storage, IWindowsBcdReader bcd)
-    { _resizer = resizer; _logger = logger; _storage = storage; _bcd = bcd; }
+        : this(resizer, logger, storage, bcd, WindowsFirmwareReader.Shared) { }
+
+    internal DirectInstallService(IPartitionResizeService resizer, ILogger<DirectInstallService> logger,
+        IWindowsStorageReader storage, IWindowsBcdReader bcd, IWindowsFirmwareReader firmware)
+    { _resizer = resizer; _logger = logger; _storage = storage; _bcd = bcd; _firmware = firmware; }
 
     //   IDirectInstallService                         ─
 
@@ -365,6 +370,16 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             initrdFiles.AddRange(initrdExtras);
         }
 
+        // Every check that can still refuse runs here, read-only, before the ISO
+        // mount and the NTFS shrink (B-02): seed inventory bounds, NVRAM access, a
+        // free Boot#### slot, bcdedit, and the storage inventory that pins the seed.
+        Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Checking seed limits and boot registration…");
+        var stagedAgentPaths = StagedAgentPaths(stagedFiles);
+        RequirePlannedSeedWithinBounds(stagingDirectory, stagedFiles, stagedAgentPaths);
+        RequireBootRegistrationReadiness(_firmware, _bcd, _logger);
+        RequireStorageIdentityReadable(diskNumber);
+        ct.ThrowIfCancellationRequested();
+
         //   Step 1: Measure ISO content to size the OEMDRV partition     ─
         // Mount the ISO just long enough to stat kernel + initrd + install.img sizes.
         // install.img is Anaconda's stage2 squashfs (~870 MiB on Fedora 44).
@@ -449,6 +464,9 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         {
             Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Querying Windows partition…");
             long totalShrink = sizing.TotalShrinkBytes;
+            // Last read-only refusal: the new partitions need letters, and diskpart's
+            // assign would otherwise fail after the shrink.
+            RequireAvailableDriveLetters(isoOnOwnPartition ? 2 : 1);
 
             // Existing unallocated space that already fits the installer partition
             // plus the Linux allocation is used as is: no shrink. Otherwise Windows is
@@ -553,14 +571,6 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         if (finalSeedTarget.Availability != ObservationAvailability.Available ||
             finalSeedTarget.Value != _preparedBootTarget.Value)
             throw new InvalidOperationException("The prepared installer seed identity changed during staging.");
-        var stagedAgentPaths = stagedFiles
-            .Where(file => file.RelativePath.StartsWith("igloo-agent" +
-                Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            .Select(file => file.RelativePath.Replace('\\', '/'))
-            .OrderBy(path => path, StringComparer.Ordinal)
-            .ToArray();
-        if (stagedAgentPaths.Length == 0)
-            throw new InvalidDataException("The installer seed has no bound first-boot agent files.");
         SeedIdentityWriter.WriteAsync($"{driveLetter}:\\",
             _preparedBootTarget.Value.Disk.GptDiskGuid,
             _preparedBootTarget.Value.PartitionGuid, stagedAgentPaths, writtenHashes, ct)
@@ -863,7 +873,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         var used = DriveInfo.GetDrives()
             .Select(d => char.ToUpperInvariant(d.Name[0]))
             .ToHashSet();
-        var free = "IJKLMNOPQRSTUVWXYZ"
+        var free = CandidateDriveLetters
             .Where(c => !used.Contains(c))
             .Select(c => (char?)c)
             .FirstOrDefault();

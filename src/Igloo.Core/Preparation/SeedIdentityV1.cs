@@ -84,6 +84,25 @@ public static class SeedIdentityWriter
         }
     }
 
+    /// <summary>Applies the identity inventory bounds to a planned seed before anything is written.</summary>
+    public static void RequirePlannedInventoryWithinBounds(IReadOnlyCollection<string> providerArtifactPaths,
+        int selectedDataFiles, int selectedDataEntries, long selectedPathCharacters)
+    {
+        ArgumentNullException.ThrowIfNull(providerArtifactPaths);
+        if (providerArtifactPaths.Count > 128)
+            throw new InvalidDataException("The installer seed has too many provider artifacts.");
+        var seen = SecretBearingFiles.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var relative in providerArtifactPaths)
+        {
+            RequireSafeAdditionalPath(relative);
+            if (!seen.Add(relative))
+                throw new InvalidDataException("The installer seed has a duplicate provider artifact.");
+        }
+        if (selectedDataFiles > MaxSelectedDataFiles || selectedDataEntries > MaxSelectedDataEntries ||
+            selectedPathCharacters > MaxSelectedPathCharacters)
+            throw new InvalidDataException("The selected user-data inventory is too large.");
+    }
+
     /// <summary>Build the exact identity payload without creating or replacing a seed file.</summary>
     public static async Task<byte[]> BuildBytesAsync(string seedRoot, Guid diskGuid,
         Guid partitionGuid, IReadOnlyCollection<string> additionalRelativePaths,
