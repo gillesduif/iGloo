@@ -15,3 +15,9 @@ You should have received a copy of the GNU General Public License along with
 this program. If not, see <https://www.gnu.org/licenses/>.
 
 The full license text is in the LICENSE file in this repository.
+
+The command contract and process client in src/Igloo.Command.Contracts and
+src/Igloo.Cli.Client are licensed under the Apache License, Version 2.0; each
+directory carries its own LICENSE and NOTICE. iGloo Fleet is maintained in a
+separate repository under its own license; see
+docs/decisions/016-fleet-source-available-and-contract-apache.md.

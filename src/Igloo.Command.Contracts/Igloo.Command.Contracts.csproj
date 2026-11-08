@@ -3,5 +3,22 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <PackageId>Igloo.Command.Contracts</PackageId>
+    <Version>1.0.0-alpha.1</Version>
+    <Authors>Gilles D'huyvetter</Authors>
+    <Copyright>Copyright 2025-2026 Gilles D'huyvetter</Copyright>
+    <Description>Typed V1 command contract of the iGloo CLI: capability descriptors, requests, results and JSON Lines stream events.</Description>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/gillesduif/iGloo</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/gillesduif/iGloo</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>igloo;linux;migration;cli;contract</PackageTags>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)..\..\artifacts\packages\</PackageOutputPath>
   </PropertyGroup>
+  <ItemGroup>
+    <None Update="README.md" Pack="true" PackagePath="\" />
+    <None Update="LICENSE" Pack="true" PackagePath="\" />
+    <None Update="NOTICE" Pack="true" PackagePath="\" />
+  </ItemGroup>
 </Project>

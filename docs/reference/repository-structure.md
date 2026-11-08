@@ -13,12 +13,8 @@ iGloo/
 │   ├── Igloo.Iso/             # Resumable download, SHA-256 and GPG verification
 │   ├── Igloo.Migration/       # User file staging to the staging volume
 │   ├── Igloo.UsbWriter/       # USB fallback: raw ISO write + staging partition
-│   ├── Igloo.Fleet.Contracts/ # Versioned sanitized transport records
-│   ├── Igloo.Fleet.Domain/    # Lifecycle, eligibility, evidence, storage interfaces
-│   ├── Igloo.Fleet.Agent/     # Read-only Windows assessment host
-│   ├── Igloo.Fleet.Server/    # Trusted HTTPS and local development control plane
-│   ├── Igloo.Fleet.Persistence/ # Durable SQLite planning and Phase 0 memory storage
-│   └── Igloo.Fleet.Web/       # Engineering operator CLI and status API client
+│   ├── Igloo.Command.Contracts/ # Apache-2.0 CLI contract, packaged for any client
+│   └── Igloo.Cli.Client/      # Apache-2.0 process client for Igloo.Cli.exe
 ├── distros/
 │   ├── _schema/               # distro.json JSON Schema (validated in CI)
 │   ├── _template/             # Template for new distribution plugins
@@ -28,7 +24,7 @@ iGloo/
 │   ├── linuxmint-cinnamon/    # Ubiquity / preseed (casper live ISO)
 │   ├── ubuntu/                # subiquity / autoinstall (in development)
 │   └── .../                   # 15 "coming soon" catalog entries
-├── tests/                     # Seven xUnit test projects, including Fleet
+├── tests/                     # Eight xUnit test projects
 ├── docs/
 │   ├── architecture.md        # System architecture
 │   ├── decisions/             # Architecture Decision Records
@@ -40,7 +36,8 @@ iGloo/
 
 For the current solution folders and project-reference graph, use the
 [[architecture/product-boundaries|product boundary record]]. This tree
-predates some Fleet and Debian continuation work. The solution also contains
+predates some Debian continuation work; Fleet moved to its own repository
+(ADR-016). The solution also contains
 an empty `AI` folder, not an AI project. The target groups Shared and Distros
 conceptually under Platform; that grouping has not been applied to the solution.
 See [[cli]] and [[ai]] for the difference between product direction and code.

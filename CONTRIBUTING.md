@@ -10,23 +10,27 @@ how to build it, the rules that keep it safe, and how to get a change merged.
   repartition disks. Use a throwaway Windows VM (or spare machine) with nothing
   you care about on it.
 - Open an issue before a large change so we can agree on the approach.
-- By contributing, you agree your work is licensed under the project's
-  [GPL-3.0-or-later](LICENSE) and you certify the [DCO](#developer-certificate-of-origin).
+- By contributing, you agree your work is licensed under the license of the
+  directory you change: [GPL-3.0-or-later](LICENSE) everywhere except
+  `src/Igloo.Command.Contracts` and `src/Igloo.Cli.Client`, which are Apache-2.0
+  ([ADR-016](docs/decisions/016-fleet-source-available-and-contract-apache.md)). You certify the
+  [DCO](#developer-certificate-of-origin) either way.
 
 ## Building
 
 Requirements:
 
 - Windows 10 (2004+) or Windows 11 - the app is WPF and uses Windows-only APIs.
-- .NET SDK 9.0 or newer (the app targets `net9.0-windows`; the libraries target
-  `net8.0`).
+- .NET SDK 10.0 or newer, plus the .NET 8 and 9 runtimes for `dotnet test`
+  (Community targets `net9.0-windows`, the libraries `net8.0`, Fleet Web and the
+  CLI `net10.0`).
 
 ```bash
 dotnet build Igloo.sln -c Debug
 dotnet test  Igloo.sln -c Debug
 ```
 
-The suite spans six xUnit projects (about 120 tests at the time of writing).
+The suite spans eight xUnit projects (about 1,100 test methods at the time of writing).
 They must stay green.
 
 ## The rules that matter

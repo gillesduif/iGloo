@@ -376,7 +376,7 @@ public sealed class CommandBoundaryTests
     }
 
     [Fact]
-    public void ProjectReferencesKeepProtocolAndFleetServerIsolated()
+    public void ProjectReferencesKeepProtocolAndEngineLayersIsolated()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Join(root.FullName, "Igloo.sln"))) root = root.Parent;
@@ -387,12 +387,9 @@ public sealed class CommandBoundaryTests
         Assert.Empty(Refs(Project("Igloo.Command.Contracts")));
         Assert.Equal(["Igloo.Command.Contracts", "Igloo.Core", "Igloo.Preflight"],
             Refs(Project("Igloo.Core.Runtime")).Order(StringComparer.Ordinal));
-        Assert.DoesNotContain(Refs(Project("Igloo.Fleet.Server")),
-            r => r is "Igloo.Core.Runtime" or "Igloo.Preflight" or "Igloo.Iso" or "Igloo.Migration");
         Assert.All(Directory.EnumerateFiles(Path.Join(root!.FullName, "distros"), "*.csproj", SearchOption.AllDirectories),
             path => Assert.All(Refs(path), r => Assert.Equal("Igloo.Core", r)));
         Assert.DoesNotContain("Igloo.Community.App", Refs(Project("Igloo.Core.Runtime.Execution")));
-        Assert.DoesNotContain("Igloo.Fleet.Server", Refs(Project("Igloo.Core.Runtime.Execution")));
         Assert.Equal(["Igloo.Command.Contracts", "Igloo.Core.Host"],
             Refs(Path.Join(root.FullName, "src", "Igloo.Cli", "Igloo.Cli", "Igloo.Cli.csproj"))
                 .Order(StringComparer.Ordinal));
@@ -414,15 +411,10 @@ public sealed class CommandBoundaryTests
             Assert.DoesNotContain("using Igloo.Iso", clientText, StringComparison.Ordinal);
             Assert.DoesNotContain("IglooHost.", clientText, StringComparison.Ordinal);
         }
-        Assert.Equal(["Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Core.Host", "Igloo.Fleet.Contracts", "Igloo.Fleet.Domain"],
-            Refs(Project("Igloo.Fleet.Agent")).Order(StringComparer.Ordinal));
-        Assert.DoesNotContain(Refs(Project("Igloo.Fleet.Server")), r => r is
-            "Igloo.Core.Host" or "Igloo.Core.Runtime.Execution" or "Igloo.Core.Runtime" or
-            "Igloo.Preflight" or "Igloo.Iso" or "Igloo.Migration" or "Igloo.UsbWriter");
         var host = XDocument.Load(Project("Igloo.Core.Host"));
         Assert.DoesNotContain(host.Descendants("UseWPF"), e => e.Value == "true");
         Assert.DoesNotContain(Refs(Project("Igloo.Core.Host")), r => r.StartsWith("Igloo.Fleet", StringComparison.Ordinal));
-        foreach (var product in new[] { "Igloo.Community.App", "Igloo.Fleet.Agent" })
+        foreach (var product in new[] { "Igloo.Community.App" })
         {
             foreach (var source in Directory.EnumerateFiles(Path.Join(root.FullName, "src", product),
                          "*.cs", SearchOption.AllDirectories).Where(p =>

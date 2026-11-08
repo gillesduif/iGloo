@@ -3,8 +3,9 @@
 ## Requirements
 
 - Windows 10 version 1809 or later / Windows 11
-- .NET 9 SDK (the application targets `net9.0-windows`; the libraries target
-  `net8.0` and are built by the same SDK)
+- .NET 10 SDK (Community targets `net9.0-windows`, the libraries `net8.0`, Fleet
+  Web and the CLI `net10.0`; one SDK builds all of them, and `dotnet test` also
+  needs the .NET 8 and 9 runtimes)
 - Administrator privileges (partition resize and UEFI NVRAM writes require
   elevation)
 
@@ -28,13 +29,13 @@ high-integrity token.
 dotnet test
 ```
 
-Seven xUnit test projects cover the safety-critical logic: manifest handling,
+Eight xUnit test projects cover the safety-critical logic: manifest handling,
 ISO verification, partition calculations, installer configuration rendering
 and progress reporting. CI executes the build and the test suite on every
-push and pull request. Fleet tests also cover protocol/privacy boundaries,
-lifecycle transitions, headless assessment and the local HTTP workflow.
-See [Fleet Phase 1](../fleet/phase-1.md) for trusted planning operations and
-[Fleet Phase 0](../fleet/phase-0.md) for the separate development mode.
+push and pull request. Fleet builds and tests in its own repository,
+[gillesduif/iGloo-Fleet](https://github.com/gillesduif/iGloo-Fleet); it consumes the
+`Igloo.Command.Contracts` and `Igloo.Cli.Client` packages that `dotnet pack`
+produces from this one.
 
 ## Verifying an installation
 

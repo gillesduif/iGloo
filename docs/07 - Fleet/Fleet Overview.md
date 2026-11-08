@@ -16,6 +16,8 @@ tags: [igloo]
 
 # Fleet Overview
 
+> **7 November 2026:** Fleet's code moved to [gillesduif/iGloo-Fleet](https://github.com/gillesduif/iGloo-Fleet) under FSL-1.1-ALv2 ([ADR-016](../decisions/016-fleet-source-available-and-contract-apache.md)). The Agent references `Igloo.Cli.Client` and `Igloo.Command.Contracts` only; the Host seams observed below are gone (AC-10). The code observations on this page predate the move.
+
 Fleet has a Server control plane and an endpoint Agent. **CODE OBSERVATION:** Server references Fleet Domain/Persistence, with no direct CLI/Core.Host endpoint edge. Agent references both `Igloo.Cli.Client` and Host. Its trusted command path invokes CLI for read-only assessment/planning and reports a cycle with no execution capability; Host-backed transition/fixture seams remain. Fleet network work covers assessment and dry-run/prepared planning, not remote destructive execution. See [Fleet architecture](../fleet/architecture.md), [Phase 1](../fleet/phase-1.md) and [Phase 2](../fleet/phase-2.md) for dated evidence.
 
 **NORMATIVE TARGET:** Fleet Server handles identity, cohort policy, scheduling, approvals and allowlisted evidence. Only the local Agent may translate an authorized endpoint task into a CLI request (whitepaper A6, §12.3). The Agent must still obey Core's exact state, privilege, recovery and authority checks; a prepared Fleet plan is not an endpoint execution permit. Sanitized Fleet evidence must not contain private manifests, raw user data, credentials or arbitrary diagnostic paths.

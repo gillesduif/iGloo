@@ -29,7 +29,7 @@ tags: [igloo]
 | AC-07 | Register executable preparation only when AC-04–06 pass together | Core revalidates at commit, acquires leases and creates a durable migration OperationId before irreversible work. No public `migration.prepare` today. |
 | AC-08 | Add replay-safe installer/first-boot continuation and postcondition verification | Crash/reboot/failure injection, status reconnection, explicit failed versus recovery-required states; only then consider execute/verify registrations. |
 | AC-09 | Move Community's private destructive Host path through CLI | Require identical semantics and safe transition tests for staging, install, cleanup, USB and recovery before removing direct Host access. |
-| AC-10 | Remove transitional Fleet Agent Host path without changing Server isolation | Agent local CLI translation must retain trusted authorization and sanitization; no remote destructive job is implied. |
+| AC-10 | Remove transitional Fleet Agent Host path without changing Server isolation (done 2026-11-07, [[decisions/016-fleet-source-available-and-contract-apache|ADR-016]]) | Agent local CLI translation must retain trusted authorization and sanitization; no remote destructive job is implied. |
 | AC-11 | Enforce provider/client separation and public conformance | Provider reference guard, distro fixtures, installer/first-boot VM and hardware evidence, external protocol promise only after tested first-party parity. |
 | AC-12 | Reconcile release/package/hardware claims | Verify shipped bits, signed/trusted CLI placement, distro-specific current evidence and support path; update release docs separately from branch-only architecture. |
 
