@@ -12,8 +12,8 @@ This document is the map. For the *why* behind individual decisions, see
 
 This page describes the existing Community migration pipeline. The
 [Community/Fleet product architecture](architecture/product-boundaries.md)
-documents the shared engine and Fleet's separate, read-only assessment host.
-Fleet never uploads the local migration manifest.
+documents the shared engine and Fleet's separate control plane, now in its own
+repository (ADR-016). Fleet never uploads the local migration manifest.
 
 The [command contract V1](spec/command-contract/README.md) defines the public
 query, advisory plan, status and ISO acquisition subset. Logical Core is the

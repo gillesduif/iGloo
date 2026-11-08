@@ -19,7 +19,7 @@ sources:
 
 # Fleet control plane
 
-Fleet collects endpoint assessments and supports audited operator planning. Its [architecture](fleet/architecture.md) shows Agent, Server, Domain, Persistence, Contracts and Web. The [product boundary](architecture/product-boundaries.md) and [current state](current-state.md) explain why a Prepared plan does not execute Community's migration.
+iGloo Fleet is the organisation product: a European answer to Microsoft's endpoint administration for enterprises and governments that migrate their Windows PCs to Linux and keep managing them from one console. Today it collects endpoint assessments and supports audited operator planning; approved execution on the endpoint and the management modules are later stages. The code lives in [gillesduif/iGloo-Fleet](https://github.com/gillesduif/iGloo-Fleet) since 2026-11-07 ([[decisions/016-fleet-source-available-and-contract-apache|ADR-016]]). Its [architecture](fleet/architecture.md) shows Agent, Server, Domain, Persistence, Contracts and Web. The [product boundary](architecture/product-boundaries.md) and [current state](current-state.md) explain why a Prepared plan does not execute Community's migration.
 As one of the four peer products in [[iGloo Home|the product family]], Fleet may reuse selected Platform modules while keeping organization approval and sanitized evidence distinct from [[community|Community]]'s private local migration state. [[decisions/013-product-family-and-platform|ADR-013]] records that ownership boundary. AI and CLI do not add an execution endpoint to Fleet's current protocol.
 
 ## Follow the read-only path

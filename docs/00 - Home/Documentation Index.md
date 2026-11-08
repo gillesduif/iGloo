@@ -27,7 +27,7 @@ Start with [[00 - Home/Project Dashboard]]. The numbered notes are a working-tre
 | Core | [[04 - Core and Runtime/Core and Runtime Overview]] — Host/Runtime composition and durability |
 | Community | [[05 - Community/Community Overview]] — WPF client and private transition |
 | One | [[06 - One/iGloo One Overview]] — incomplete reasoning-client shell |
-| Fleet | [[07 - Fleet/Fleet Overview]] — Server control plane and endpoint Agent |
+| Fleet | [[07 - Fleet/Fleet Overview]] — the organisation product: endpoint administration to migrate and manage a Windows fleet; code in its own repository since 2026-11-07 |
 | Providers | [[08 - Distribution Providers/Distribution Provider Overview]] — distro extension and support matrix |
 | Workflows | [[09 - Workflows/Workflow Overview]] — current and target sequence diagrams |
 | Safety | [[10 - Safety and Security/Safety and Security Overview]] — authority and closed gates |

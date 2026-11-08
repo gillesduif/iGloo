@@ -18,15 +18,21 @@ Domain and Contracts are not changed in this work.
 
 ## 1. What this console is
 
-The console is a **read-and-approve** interface over Fleet's planning records. An
+The console is the administration surface of iGloo Fleet, the product with
+which enterprises and governments migrate their Windows PCs to Linux and manage
+them afterwards ([ADR-015](../decisions/015-fleet-console-component-library.md)
+names the audience). Its full scope is the module catalogue in section 3.
+
+Today it is a **read-and-approve** interface over Fleet's planning records. An
 operator can enrol devices, set their trust status, define migration profiles,
 request read-only work, read the evidence that comes back, approve a specific
 piece of evidence and prepare a plan from that approval.
 
-It cannot start, schedule or stop anything on an endpoint. A prepared plan is a
-signed-off planning artefact; no code path consumes it to execute. The console
-must never imply otherwise — not in a label, not in an icon, not in an empty
-state, and not in a navigation entry for a page that does not exist.
+Today it cannot start, schedule or stop anything on an endpoint. A prepared plan
+is a signed-off planning artefact; no code path consumes it to execute. Until
+that code path exists the console must never imply otherwise — not in a label,
+not in an icon, not in an empty state, and not in a navigation entry for a page
+that does not exist.
 
 ### Design rules
 

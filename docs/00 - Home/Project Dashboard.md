@@ -32,7 +32,7 @@ iGloo is an open-source Windows-to-Linux installation and migration project. The
 | [CLI](../03%20-%20CLI%20and%20Command%20Contract/CLI%20and%20Command%20Contract%20Overview.md) | Executable human and machine adapter to Host dispatcher; first-party process client exists in untracked working-tree project | Sole executable endpoint gateway with typed public contract |
 | [Logical Core](../04%20-%20Core%20and%20Runtime/Core%20and%20Runtime%20Overview.md) | Host composes Runtime, Core services, Preflight, ISO, Migration, USB and providers; ISO journal and selective locks exist | Sole endpoint execution authority with durable cross-reboot state, recovery and verification |
 | [One](../06%20-%20One/iGloo%20One%20Overview.md) | Unfinished WPF shell uses CLI Client for read-only/planning; no demonstrated AI workflow | Conversational reasoning client, never privileged shell or execution engine |
-| [Fleet](../07%20-%20Fleet/Fleet%20Overview.md) | Agent uses CLI Client for development assessment but retains Host paths; Server is separate control plane; no remote destructive work | Agent translates authorized endpoint work, Server schedules/policies/sanitizes |
+| [Fleet](../07%20-%20Fleet/Fleet%20Overview.md) | Own repository since 2026-11-07 (ADR-016); Agent references Cli.Client and Command.Contracts only; Server is separate control plane; assessment, dry-run, approval and prepared plans exist, no execution stage yet | Organisation endpoint administration: Agent executes authorized endpoint work through CLI, Server schedules/policies/sanitizes, console manages the fleet afterwards |
 | [Providers](../08%20-%20Distribution%20Providers/Distribution%20Provider%20Overview.md) | Debian, Fedora KDE, Mint Cinnamon and Ubuntu projects/manifests exist; scope and validation differ | Provider deltas below Core; independent frontend may consume public CLI |
 
 ## CLI and Command Contract
@@ -53,9 +53,9 @@ The current protocol uses integer `protocolVersion: 1`, typed `capabilityId`/`ca
 
 | Invariant | Current state | Evidence | Blocker | Convergence task |
 | --- | --- | --- | --- | --- |
-| A1–A4 Core/CLI semantic boundary | partial | Host/dispatcher, machine protocol and selected tests | Community/Fleet Host edges, packaging trust and full parity | AC-01–03 |
+| A1–A4 Core/CLI semantic boundary | partial | Host/dispatcher, machine protocol and selected tests | Community Host edge, packaging trust and full parity | AC-01–03 |
 | A5 durable Core operation | ISO scope only | ISO journal and lock code | no public cross-reboot migration OperationId | AC-07–08 |
-| A6 Fleet Server isolation | code boundary present | Server project references Domain/Persistence | remote destructive work remains absent | AC-10 |
+| A6 Fleet Server isolation | code boundary present; Agent Host path removed 2026-11-07 | Server references Domain/Persistence; Agent references no engine project | execution stage not built | AC-10 done |
 | A7 providers below Core | project references present | distro projects and contracts | distro-specific end-to-end proof differs | AC-11 |
 | A8–A10 authority, postconditions, secrets | destructive public gate closed | advisory IDs, unavailable recovery, no prepare/execute/verify | complete layout, custody, approval, recovery, replay and verification | AC-04–09 |
 
