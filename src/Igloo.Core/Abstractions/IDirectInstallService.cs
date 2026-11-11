@@ -14,6 +14,7 @@ public interface IDirectInstallService
         string isoPath,
         string stagingDirectory,
         InstallerBootSpec bootSpec,
+        InstallerTargetRules targetRules,
         Uri? stage2Url = null,
         IProgress<DirectInstallProgress>? progress = null,
         CancellationToken ct = default);
@@ -22,6 +23,12 @@ public interface IDirectInstallService
         IProgress<DirectInstallProgress>? progress = null,
         CancellationToken ct = default);
 }
+
+/// <summary>How the provider's installer picks its target. Layouts it could misread are refused before Windows is resized.</summary>
+/// <param name="MinimumRegionBytes">Smallest unallocated region the installer accepts.</param>
+/// <param name="ScansAllDisks">The installer takes the largest unallocated region on any disk.</param>
+/// <param name="UsesExistingEsp">The installer mounts an EFI system partition it finds on the target disk.</param>
+public sealed record InstallerTargetRules(long MinimumRegionBytes, bool ScansAllDisks, bool UsesExistingEsp);
 
 /// <summary>Read-only capacity estimate; it does not authorize a partition change.</summary>
 /// <param name="ShrinkableBytes">Current Windows boot-volume shrink limit.</param>

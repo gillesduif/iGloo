@@ -191,12 +191,14 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     public Task PrepareAsync(
         int diskNumber, long linuxSizeBytes, string isoPath, string stagingDirectory,
         InstallerBootSpec bootSpec,
+        InstallerTargetRules targetRules,
         Uri? stage2Url = null,
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(targetRules);
         HostProtection.RequireWritable("installer preparation");
         return _preparationCompletion.PrepareAsync(ResetPreparedBootState,
-            () => Prepare(diskNumber, linuxSizeBytes, isoPath, stagingDirectory, bootSpec, stage2Url, progress, ct),
+            () => Prepare(diskNumber, linuxSizeBytes, isoPath, stagingDirectory, bootSpec, targetRules, stage2Url, progress, ct),
             CapturePreparedBootState, ct);
     }
 
@@ -332,7 +334,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
     private void Prepare(
         int diskNumber, long linuxSizeBytes, string isoPath, string stagingDirectory,
-        InstallerBootSpec bootSpec, Uri? stage2Url,
+        InstallerBootSpec bootSpec, InstallerTargetRules targetRules, Uri? stage2Url,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -437,6 +439,10 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             staleSeeds.Add(existing.Value.letter);
             existing = null;
         }
+        // Judged on the layout this run will leave, before the first write.
+        if (!_bootSpec.PreCreateRootPartition)
+            _ = RequireSingleLinuxRegion(diskNumber, sizing.TotalShrinkBytes, oemDrvBytes + isoPartBytes,
+                canReuse, staleSeeds, targetRules);
         foreach (var stale in staleSeeds.Distinct())
         {
             Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Removing an installer partition from an earlier run…");
@@ -473,29 +479,10 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         else
         {
             Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Querying Windows partition…");
-            long totalShrink = sizing.TotalShrinkBytes;
             // Last read-only refusal: the new partitions need letters, and diskpart's
             // assign would otherwise fail after the shrink.
             RequireAvailableDriveLetters(isoOnOwnPartition ? 2 : 1);
-
-            // Existing unallocated space that already fits the installer partition
-            // plus the Linux allocation is used as is: no shrink. Otherwise Windows is
-            // shrunk by the full requirement, as before.
-            var freeExtent = LargestFreeExtentBytes(diskNumber);
-            if (freeExtent >= totalShrink)
-            {
-                _logger.LogInformation("Direct install: disk {Disk} already has {GiB:N1} GiB unallocated (need {NeedGiB:N1} GiB) - Windows is not shrunk",
-                    diskNumber, freeExtent / (1024.0 * 1024 * 1024), totalShrink / (1024.0 * 1024 * 1024));
-                Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Using existing free space; Windows is not resized…");
-            }
-            else
-            {
-                _logger.LogInformation("Direct install: shrinking disk {Disk} by {GiB} GiB",
-                    diskNumber, linuxSizeBytes / MiB / 1024);
-                var shrinkProg = new Progress<string>(msg =>
-                    Report(prog, DirectInstallPhase.ShrinkingPartition, message: msg));
-                _resizer.ShrinkAsync(diskNumber, totalShrink, shrinkProg, ct).GetAwaiter().GetResult();
-            }
+            ReserveLinuxSpace(diskNumber, linuxSizeBytes, sizing, bootSpec, targetRules, prog, ct);
             ct.ThrowIfCancellationRequested();
 
             //   Step 3: Create FAT32 OEMDRV partition (boot + seed)      

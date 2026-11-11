@@ -400,6 +400,46 @@ public sealed class UsbPreparationSafetyTests
     }
 
     [Fact]
+    public async Task Installer_target_rules_follow_the_shipped_plugins()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCommunityBackend();
+        using var provider = services.BuildServiceProvider();
+        var registry = provider.GetRequiredService<DistroRegistry>();
+        var distrosDirectory = Path.Join(FindRepoRoot(), "distros");
+        provider.GetRequiredService<DistroLoader>().Load(distrosDirectory);
+        await registry.LoadAsync(distrosDirectory);
+        (string Id, bool ScansAllDisks, bool UsesExistingEsp)[] expected =
+            [("debian", false, false), ("fedora-kde", false, true), ("linuxmint-cinnamon", true, true)];
+
+        foreach (var (id, scansAllDisks, usesExistingEsp) in expected)
+        {
+            Assert.True(registry.TryGet(id, out var plugin));
+            Assert.Equal(new InstallerTargetRules(plugin.Metadata.MinimumRequirements.MinDiskBytes,
+                scansAllDisks, usesExistingEsp), InstallationPreparation.TargetRulesFor(plugin.Metadata));
+        }
+    }
+
+    [Theory]
+    [InlineData(InstallerType.Subiquity)]
+    [InlineData(InstallerType.Calamares)]
+    [InlineData(InstallerType.Custom)]
+    public void An_installer_without_its_own_rule_gets_the_strictest_reading(InstallerType type)
+    {
+        var metadata = new DistroMetadata
+        {
+            DisplayName = "fixture", Description = "fixture", DefaultDesktopEnvironment = "fixture",
+            InstallerType = type, IsoDownloadUrl = new Uri("https://example.invalid/fixture.iso"),
+            IsoSha256 = new string('a', 64),
+            MinimumRequirements = new HardwareRequirements { MinDiskBytes = 25L << 30 },
+        };
+
+        Assert.Equal(new InstallerTargetRules(25L << 30, ScansAllDisks: true, UsesExistingEsp: true),
+            InstallationPreparation.TargetRulesFor(metadata));
+    }
+
+    [Fact]
     public async Task Direct_preparation_carries_selected_Gpt_identity_and_rejects_stale_staging()
     {
         var events = new List<string>();
@@ -411,8 +451,8 @@ public sealed class UsbPreparationSafetyTests
         services.Replace(ServiceDescriptor.Singleton<IWindowsStorageReader>(storage));
         var preflight = new RecordingPreflight();
         services.Replace(ServiceDescriptor.Singleton<IPreflightChecker>(preflight));
-        services.Replace(ServiceDescriptor.Singleton<IDirectInstallService>(
-            new RecordingDirectInstall(events)));
+        var direct = new RecordingDirectInstall(events);
+        services.Replace(ServiceDescriptor.Singleton<IDirectInstallService>(direct));
         using var provider = services.BuildServiceProvider();
         var registry = provider.GetRequiredService<DistroRegistry>();
         var distrosDirectory = Path.Join(FindRepoRoot(), "distros");
@@ -454,6 +494,8 @@ public sealed class UsbPreparationSafetyTests
             await preparation.PrepareAsync("debian", target, 20L << 30, acquired,
                 stage, null, null);
             Assert.Equal(["direct"], events);
+            Assert.Equal(new InstallerTargetRules(debian.Metadata.MinimumRequirements.MinDiskBytes,
+                ScansAllDisks: false, UsesExistingEsp: false), direct.TargetRules);
 
             events.Clear();
             var readsBeforeRejectedMode = preflight.ReadCount;
@@ -825,12 +867,16 @@ public sealed class UsbPreparationSafetyTests
             return Task.FromResult(estimate);
         }
 
+        public InstallerTargetRules? TargetRules { get; private set; }
+
         public Task PrepareAsync(int diskNumber, long linuxSizeBytes, string isoPath,
-            string stagingDirectory, InstallerBootSpec bootSpec, Uri? stage2Url = null,
+            string stagingDirectory, InstallerBootSpec bootSpec, InstallerTargetRules targetRules,
+            Uri? stage2Url = null,
             IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
         {
             Assert.Equal(2, diskNumber);
             Assert.Equal(20L << 30, linuxSizeBytes);
+            TargetRules = targetRules;
             events.Add("direct");
             return Task.CompletedTask;
         }

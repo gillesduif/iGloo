@@ -682,8 +682,24 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
         await InstallerPreflightGuard.RequireCurrentAsync(preflight, cancellationToken)
             .ConfigureAwait(false);
         await service.PrepareAsync(diskNumber, linuxSizeBytes, verifiedIso.LocalPath, stagingDirectory,
-            plugin.GetInstallerBootSpec() with { IsoSha256 = digest },
+            plugin.GetInstallerBootSpec() with { IsoSha256 = digest }, TargetRulesFor(plugin.Metadata),
             stage2Url, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    // How each installer picks its target, as the shipped templates drive it.
+    internal static InstallerTargetRules TargetRulesFor(DistroMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        var minimum = metadata.MinimumRequirements.MinDiskBytes;
+        return metadata.InstallerType switch
+        {
+            // The preseed binds the disk and creates its own ESP inside the region.
+            InstallerType.DebianInstaller => new(minimum, ScansAllDisks: false, UsesExistingEsp: false),
+            // The kickstart binds the disk; autopart mounts an ESP it finds there.
+            InstallerType.Anaconda => new(minimum, ScansAllDisks: false, UsesExistingEsp: true),
+            // Stock biggest_free takes the largest region on any disk; an unknown installer is read as strictly.
+            _ => new(minimum, ScansAllDisks: true, UsesExistingEsp: true),
+        };
     }
 
     public async Task RegisterBootEntryAsync(IProgress<DirectInstallProgress>? progress,

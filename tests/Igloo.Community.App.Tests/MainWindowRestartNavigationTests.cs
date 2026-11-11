@@ -81,6 +81,27 @@ public sealed class MainWindowRestartNavigationTests
         Assert.Same(fixture.Install, fixture.Wizard.CurrentPage);
     }
 
+    [Fact]
+    public async Task A_refusal_before_the_resize_is_shown_in_its_own_words()
+    {
+        var fixture = new Fixture();
+        fixture.Select();
+        fixture.Preparation.Prepare = () => Task.FromException(
+            new InstallationRefusedException("Disk 2 would have 2 unallocated regions of 20 GiB or more."));
+
+        await fixture.Install.InstallCommand.ExecuteAsync(null);
+
+        Assert.True(fixture.Install.HasError);
+        Assert.False(fixture.Install.IsComplete);
+        Assert.Equal("Disk 2 would have 2 unallocated regions of 20 GiB or more.", fixture.Install.ErrorMessage);
+        Assert.True(fixture.Install.HasErrorDetail);
+
+        fixture.Preparation.Prepare = () => Task.FromException(new System.IO.IOException("copy failed"));
+        await fixture.Install.InstallCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("Inspect the target disk in Disk Management", fixture.Install.ErrorMessage, StringComparison.Ordinal);
+    }
+
     private sealed class Fixture
     {
         public List<string> Calls { get; } = [];
@@ -106,14 +127,16 @@ public sealed class MainWindowRestartNavigationTests
             { CurrentPage = Install };
         }
 
+        public void Select() => Install.Prepare(
+            new IsoAcquisitionResult(@"C:\verified\debian.iso", true, true, 1024, new string('A', 64)),
+            new FileStagingResult(@"C:\staged", 0, 0),
+            new DiskInfo(@"\\.\PHYSICALDRIVE2", "Disposable target", 40L << 30, 0, "GPT", [])
+                { GptDiskGuid = Guid.Parse("0fcc16b4-f462-4251-975c-d67a142d4511") },
+            20, "debian");
+
         public async Task PrepareAsync()
         {
-            Install.Prepare(
-                new IsoAcquisitionResult(@"C:\verified\debian.iso", true, true, 1024, new string('A', 64)),
-                new FileStagingResult(@"C:\staged", 0, 0),
-                new DiskInfo(@"\\.\PHYSICALDRIVE2", "Disposable target", 40L << 30, 0, "GPT", [])
-                    { GptDiskGuid = Guid.Parse("0fcc16b4-f462-4251-975c-d67a142d4511") },
-                20, "debian");
+            Select();
             await Install.InstallCommand.ExecuteAsync(null);
             Assert.True(Install.IsComplete);
         }
@@ -122,6 +145,7 @@ public sealed class MainWindowRestartNavigationTests
     private sealed class RecordingPreparation(List<string> calls) : IInstallationPreparation
     {
         public Func<Task> Register { get; set; } = () => Task.CompletedTask;
+        public Func<Task> Prepare { get; set; } = () => Task.CompletedTask;
         public Observation<bool> PreparationAvailability => Observations.Available(true);
 
         public Task PrepareAsync(string distroId, DiskInfo targetDisk, long linuxSizeBytes,
@@ -129,7 +153,7 @@ public sealed class MainWindowRestartNavigationTests
             IProgress<DirectInstallProgress>? progress, CancellationToken cancellationToken = default)
         {
             calls.Add("prepare");
-            return Task.CompletedTask;
+            return Prepare();
         }
 
         public Task RegisterBootEntryAsync(IProgress<DirectInstallProgress>? progress,

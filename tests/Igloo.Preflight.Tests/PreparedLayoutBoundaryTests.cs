@@ -102,7 +102,8 @@ public sealed class PreparedLayoutBoundaryTests : IDisposable
         Assert.Equal(ObservationAvailability.Available, service.PreparationAvailability.Availability);
         // A missing media pin is rejected before mounting or any storage operation. This test is not elevated.
         var error = await Assert.ThrowsAsync<InvalidDataException>(() => service.PrepareAsync(0, 1,
-            "does-not-exist.iso", "does-not-exist-staging", new InstallerBootSpec { MenuTitle = title, KernelCmdline = cmdline }));
+            "does-not-exist.iso", "does-not-exist-staging", new InstallerBootSpec { MenuTitle = title, KernelCmdline = cmdline },
+            new InstallerTargetRules(20L << 30, ScansAllDisks: true, UsesExistingEsp: true)));
         Assert.Contains("SHA-256 pin", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, resize.Calls);
         Assert.Equal(ObservationAvailability.Unsupported, DedicatedEspPreparationSupport.Production.Availability);

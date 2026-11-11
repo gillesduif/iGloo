@@ -257,8 +257,11 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         {
             _logger.LogError(ex, "Direct install preparation failed");
             HasError = true;
-            ErrorMessage = "Inspect the target disk in Disk Management before retrying. " +
-                "Preparation did not complete.";
+            // A refusal before the resize carries its own instruction for the user.
+            ErrorMessage = ex is InstallationRefusedException
+                ? ex.Message
+                : "Inspect the target disk in Disk Management before retrying. " +
+                  "Preparation did not complete.";
             ErrorDetail = BuildErrorDetail(ex);
         }
         finally

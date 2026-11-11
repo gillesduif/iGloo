@@ -22,7 +22,8 @@ public sealed class HostProtectedWritesTests
 
         await Assert.ThrowsAsync<HostProtectedException>(() => service.PrepareAsync(0, 20L << 30,
             @"C:\absent.iso", @"C:\absent-staging",
-            new InstallerBootSpec { MenuTitle = "fixture", KernelCmdline = "fixture" }));
+            new InstallerBootSpec { MenuTitle = "fixture", KernelCmdline = "fixture" },
+            new InstallerTargetRules(20L << 30, ScansAllDisks: false, UsesExistingEsp: false)));
         await Assert.ThrowsAsync<HostProtectedException>(() => service.RegisterBootEntryAsync());
     }
 

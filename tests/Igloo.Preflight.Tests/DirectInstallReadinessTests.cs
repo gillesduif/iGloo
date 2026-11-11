@@ -10,6 +10,8 @@ namespace Igloo.Preflight.Tests;
 // Beta Track B-02: every check that can refuse runs read-only before the NTFS shrink.
 public sealed class DirectInstallReadinessTests
 {
+    private static readonly InstallerTargetRules Rules = new(20L << 30, ScansAllDisks: false, UsesExistingEsp: false);
+
     [Fact]
     public async Task Denied_nvram_access_stops_before_the_iso_mount_and_the_shrink()
     {
@@ -20,7 +22,7 @@ public sealed class DirectInstallReadinessTests
             new StorageFake(), new BcdFake(), firmware);
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.PrepareAsync(2, 20L << 30, fixture.IsoPath, fixture.StagingDirectory, fixture.BootSpec));
+            service.PrepareAsync(2, 20L << 30, fixture.IsoPath, fixture.StagingDirectory, fixture.BootSpec, Rules));
 
         Assert.Contains("Administrator", refused.Message, StringComparison.Ordinal);
         Assert.Equal(1, firmware.OrderReads);
@@ -38,7 +40,7 @@ public sealed class DirectInstallReadinessTests
             storage, new BcdFake(), firmware);
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.PrepareAsync(2, 20L << 30, fixture.IsoPath, fixture.StagingDirectory, fixture.BootSpec));
+            service.PrepareAsync(2, 20L << 30, fixture.IsoPath, fixture.StagingDirectory, fixture.BootSpec, Rules));
 
         Assert.DoesNotContain("Administrator", refused.Message, StringComparison.Ordinal);
         Assert.Equal(1, firmware.OrderReads);
@@ -59,7 +61,7 @@ public sealed class DirectInstallReadinessTests
             new StorageFake(), new BcdFake(), firmware);
 
         var refused = await Assert.ThrowsAsync<InvalidDataException>(() =>
-            service.PrepareAsync(2, 20L << 30, fixture.IsoPath, fixture.StagingDirectory, fixture.BootSpec));
+            service.PrepareAsync(2, 20L << 30, fixture.IsoPath, fixture.StagingDirectory, fixture.BootSpec, Rules));
 
         Assert.Contains("unselected", refused.Message, StringComparison.Ordinal);
         Assert.Equal(0, firmware.OrderReads);
@@ -79,7 +81,7 @@ public sealed class DirectInstallReadinessTests
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.PrepareAsync(2, 20L << 30, fixture.IsoPath, fixture.StagingDirectory,
-                fixture.BootSpec with { MigrationDataOnSeed = false }));
+                fixture.BootSpec with { MigrationDataOnSeed = false }, Rules));
 
         Assert.Contains("Administrator", refused.Message, StringComparison.Ordinal);
         Assert.Equal(1, firmware.OrderReads);
