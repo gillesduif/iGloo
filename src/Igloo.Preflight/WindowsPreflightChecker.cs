@@ -71,9 +71,24 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         "{4f68bce3-e8cd-4db1-96e7-fbcaf984b709}", // root, x86-64 (discoverable-partitions spec)
     };
 
-    private static readonly string[] SeedLabels = ["OEMDRV", "CIDATA", "IGLOOISO"];
+    internal Func<string, bool> SeedMarkerProbe { get; init; } = DirectInstallService.IsIglooSeedVolume;
 
-    private (IReadOnlyList<LinuxInstallation>, IReadOnlyList<SeedLeftover>)
+    // A seed-labelled partition is offered for removal only when it is provably iGloo's.
+    internal bool IsOwnedSeed(uint diskNumber, PartitionInfo partition)
+    {
+        try
+        {
+            return InstallerSeedOwnership.FindOwnedSeed(_storage.ReadPartitions((int)diskNumber).RowsOrThrow(),
+                partition.OffsetBytes, partition.SizeBytes, SeedMarkerProbe) is not null;
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "Ownership of the {Label} partition on disk {Disk} could not be read; it is left alone", partition.Label, diskNumber);
+            return false;
+        }
+    }
+
+    internal (IReadOnlyList<LinuxInstallation>, IReadOnlyList<SeedLeftover>)
         BuildLinuxInventory(IReadOnlyList<DiskInfo> disks)
     {
         var groups = new List<(uint DiskNumber, string Model, List<PartitionInfo> Parts)>();
@@ -88,9 +103,13 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
             List<PartitionInfo>? run = null;
             foreach (var p in disk.Partitions.OrderBy(p => p.OffsetBytes))
             {
-                if (SeedLabels.Contains(p.Label ?? "", StringComparer.OrdinalIgnoreCase))
+                if (InstallerSeedOwnership.IsSeedLabel(p.Label))
                 {
-                    leftovers.Add(new SeedLeftover(diskNumber, disk.Model, p));
+                    if (IsOwnedSeed(diskNumber, p))
+                        leftovers.Add(new SeedLeftover(diskNumber, disk.Model, p));
+                    else
+                        _logger.LogInformation("Partition {Part} on disk {Disk} is labelled {Label} but is not an iGloo installer partition; not offered for removal",
+                            p.Index, diskNumber, p.Label);
                     continue;   // a seed partition between Linux partitions doesn't split the run
                 }
 

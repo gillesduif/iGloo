@@ -53,8 +53,16 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
         foreach (var leftover in seedLeftovers)
         {
             ct.ThrowIfCancellationRequested();
+            // Proven again on the live disk: the report can be older than the layout.
+            if (FindOwnedSeed(leftover) is not { } owned)
+            {
+                _logger.LogWarning("Partition {Disk}:{Part} ({Label}) is not provably an iGloo installer partition - left in place",
+                    leftover.DiskNumber, leftover.Partition.Index, leftover.Partition.Label);
+                progress?.Report($"Left {leftover.Partition.Label} in place: it is not an iGloo installer partition.");
+                continue;
+            }
             progress?.Report($"Removing iGloo installer partition {leftover.Partition.Label}…");
-            if (!DeletePartition(leftover.DiskNumber, leftover.Partition.Index))
+            if (!DeleteObserved(owned, leftover.DiskNumber))
                 failures++;
         }
 
@@ -405,30 +413,61 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
         }
     }
 
+    internal Func<string, bool> SeedMarkerProbe { get; init; } = DirectInstallService.IsIglooSeedVolume;
+
+    // The live partition behind a reported seed leftover, or null when ownership is not proven.
+    internal WindowsStorageRow? FindOwnedSeed(SeedLeftover leftover)
+    {
+        ArgumentNullException.ThrowIfNull(leftover);
+        try
+        {
+            return InstallerSeedOwnership.IsSeedLabel(leftover.Partition.Label)
+                ? InstallerSeedOwnership.FindOwnedSeed(_storage.ReadPartitions((int)leftover.DiskNumber).RowsOrThrow(),
+                    leftover.Partition.OffsetBytes, leftover.Partition.SizeBytes, SeedMarkerProbe)
+                : null;
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
+        {
+            _logger.LogWarning(ex, "Ownership of partition {Disk}:{Part} could not be read", leftover.DiskNumber, leftover.Partition.Index);
+            return null;
+        }
+    }
+
     private bool DeletePartition(uint diskNumber, int partitionNumber)
     {
         try
         {
             var observed = _storage.ReadPartitions((int)diskNumber, partitionNumber).RowsOrThrow().FirstOrDefault();
-            using var partition = observed is null ? null : new ManagementObject(observed.ObjectPath);
-            if (partition is null)
+            if (observed is null)
             {
                 _logger.LogWarning("Partition {Disk}:{Part} no longer exists - skipped",
                     diskNumber, partitionNumber);
                 return true;
             }
+            return DeleteObserved(observed, diskNumber);
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or FormatException or OverflowException or InvalidCastException or InvalidOperationException)
+        {
+            _logger.LogError(ex, "DeletePartition({Disk}:{Part}) failed", diskNumber, partitionNumber);
+            return false;
+        }
+    }
 
-            using (partition)
+    private bool DeleteObserved(WindowsStorageRow observed, uint diskNumber)
+    {
+        var partitionNumber = -1;
+        try
+        {
+            partitionNumber = Convert.ToInt32(observed["PartitionNumber"], CultureInfo.InvariantCulture);
+            using var partition = new ManagementObject(observed.ObjectPath);
+            HostProtection.RequireWritable("partition deletion");
+            var result = partition.InvokeMethod("DeleteObject", partition.GetMethodParameters("DeleteObject"), null)!;
+            var returnValue = Convert.ToUInt32(result["ReturnValue"], CultureInfo.InvariantCulture);
+            if (returnValue != 0)
             {
-                HostProtection.RequireWritable("partition deletion");
-                var result = partition.InvokeMethod("DeleteObject", partition.GetMethodParameters("DeleteObject"), null)!;
-                var returnValue = Convert.ToUInt32(result["ReturnValue"], CultureInfo.InvariantCulture);
-                if (returnValue != 0)
-                {
-                    _logger.LogError("MSFT_Partition.DeleteObject({Disk}:{Part}) returned {Code}",
-                        diskNumber, partitionNumber, returnValue);
-                    return false;
-                }
+                _logger.LogError("MSFT_Partition.DeleteObject({Disk}:{Part}) returned {Code}",
+                    diskNumber, partitionNumber, returnValue);
+                return false;
             }
 
             _logger.LogInformation("Deleted partition {Disk}:{Part}", diskNumber, partitionNumber);
