@@ -34,88 +34,76 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
         IReadOnlyList<SeedLeftover> seedLeftovers, bool removingAllLinux,
         IProgress<string>? progress, CancellationToken ct)
     {
-        var failures = 0;
-
-        foreach (var install in installations)
+        // Everything this removal touches is decided on one layout, read before the first delete.
+        WindowsStorageRow[] layout;
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            progress?.Report($"Removing {install.DisplayName} from {install.DiskModel}…");
-
-            // Delete back-to-front so partition numbers stay valid even on
-            // providers that renumber after a deletion.
-            foreach (var p in install.Partitions.OrderByDescending(p => p.OffsetBytes))
-                failures += DeletePartition(install.DiskNumber, p.Index) ? 0 : 1;
-
-            if (install.FirmwareEntryIndex is { } index)
-                EfiBootEntries.Delete(index, _logger);
+            layout = [.. _storage.ReadPartitions().RowsOrThrow()];
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or InvalidCastException or InvalidOperationException)
+        {
+            throw new InvalidOperationException("The partition layout could not be read. Nothing was removed.", ex);
         }
 
+        var ownedSeeds = new List<(uint Disk, WindowsStorageRow Row)>();
         foreach (var leftover in seedLeftovers)
         {
-            ct.ThrowIfCancellationRequested();
-            // Proven again on the live disk: the report can be older than the layout.
-            if (FindOwnedSeed(leftover) is not { } owned)
+            if (FindOwnedSeed(leftover, layout) is { } owned)
             {
-                _logger.LogWarning("Partition {Disk}:{Part} ({Label}) is not provably an iGloo installer partition - left in place",
-                    leftover.DiskNumber, leftover.Partition.Index, leftover.Partition.Label);
-                progress?.Report($"Left {leftover.Partition.Label} in place: it is not an iGloo installer partition.");
+                ownedSeeds.Add((leftover.DiskNumber, owned));
                 continue;
             }
-            progress?.Report($"Removing iGloo installer partition {leftover.Partition.Label}…");
-            if (!DeleteObserved(owned, leftover.DiskNumber))
+            _logger.LogWarning("Partition {Disk}:{Part} ({Label}) is not provably an iGloo installer partition - left in place",
+                leftover.DiskNumber, leftover.Partition.Index, leftover.Partition.Label);
+            progress?.Report($"Left {leftover.Partition.Label} in place: it is not an iGloo installer partition.");
+        }
+
+        var plan = LinuxRemovalPlanner.Plan(installations, ownedSeeds, removingAllLinux, layout,
+            EfiBootEntries.EnumerateTargets(_logger));
+        var failures = plan.UnmatchedPartitions;
+        if (plan.UnmatchedPartitions > 0)
+            _logger.LogWarning("{Count} reported Linux partition(s) are no longer where System Check found them - not deleted",
+                plan.UnmatchedPartitions);
+
+        foreach (var (disk, row, description) in plan.Partitions)
+        {
+            ct.ThrowIfCancellationRequested();
+            progress?.Report($"Removing {description}…");
+            if (!DeleteObserved(row, disk))
                 failures++;
         }
 
-        // Boot-menu hygiene: iGloo's one-shot entries are always ours to delete;
-        // every Linux-classified entry goes only when no Linux remains to boot.
-        foreach (var entry in EfiBootEntries.Enumerate(_logger)
-                     .Where(e => EfiBootEntries.IsIglooDescription(e.Description)
-                         || (removingAllLinux && EfiBootEntries.IsLinuxDescription(e.Description))))
-            EfiBootEntries.Delete(entry.Index, _logger);
+        foreach (var index in plan.BootEntries)
+            EfiBootEntries.Delete(index, _logger);
 
-        // ESP hygiene  the "mountvol S: /S && rmdir \EFI\<distro>" step people
-        // otherwise do by hand. Whitelisted Linux loader folders only, and only
-        // when no Linux remains that could still need them.
-        if (removingAllLinux)
+        if (plan.BootCleanupDisks.Count > 0)
         {
             progress?.Report("Cleaning Linux boot files from the EFI partition…");
-            CleanEfiSystemPartitions();
+            CleanEfiSystemPartitions(plan.BootCleanupDisks);
 
-            // A distribution that built its OWN ESP instead of reusing Windows' leaves
-            // that partition behind once its root is gone: an empty second EFI
-            // partition that still advertises itself to the firmware. Beyond the wasted
-            // space it confuses the next install's boot handoff, so it goes too - under
-            // the strict rules in the method below.
+            // A distribution that built its own ESP leaves it behind once its root is gone.
             progress?.Report("Removing the leftover EFI partition…");
-            foreach (var disk in installations.Select(i => i.DiskNumber).Distinct())
+            foreach (var disk in plan.BootCleanupDisks)
                 RemoveRedundantEfiPartitions(disk);
         }
+        else if (plan.SkippedBootCleanup is { } reason)
+        {
+            _logger.LogWarning("Linux boot files and firmware entries are left in place: {Reason}", reason);
+            progress?.Report($"Left the Linux boot files in place: {reason}.");
+        }
 
-        // Give the space back - and do it LAST, once every partition this removal is
-        // going to delete is actually gone.
-        //
-        // Ordering is load-bearing, not stylistic. A volume can only grow into ADJACENT
-        // trailing free space, so a single surviving partition between Windows and the
-        // freed region caps how far C: can extend. Reclaiming before the leftover ESP
-        // was deleted did exactly that: the ESP sat between Windows and the Linux root,
-        // C: grew by the 4 GB in front of it, and ~50 GB behind it stayed unallocated -
-        // leaving the user to finish the job in Disk Management, which is precisely the
-        // kind of "now go fix it yourself" iGloo exists to avoid.
+        // Last, once every partition is gone: a volume only grows into adjacent free space.
         if (failures == 0)
         {
-            foreach (var disk in installations.Select(i => i.DiskNumber)
-                         .Concat(seedLeftovers.Select(s => s.DiskNumber))
-                         .Distinct())
+            foreach (var disk in plan.Partitions.Select(deleted => deleted.Disk).Distinct())
             {
                 ct.ThrowIfCancellationRequested();
                 TryReclaimFreedSpace(disk, progress);
             }
         }
 
-        // Symmetry with DirectInstallService.SetRtcUniversalTime(): with the last
-        // Linux gone, nothing needs the RTC in UTC anymore  restore Windows'
-        // stock local-time behavior so the machine is left exactly as found.
-        if (removingAllLinux)
+        // Windows goes back to a local-time clock only when no Linux can be left to need UTC.
+        if (plan.BootCleanupDisks.Count > 0)
             RestoreRtcLocalTime();
 
         if (failures > 0)
@@ -210,12 +198,15 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
     private static readonly string[] LinuxEfiFolderPrefixes = ["pop_os", "pop!_os"];
 
-    private void CleanEfiSystemPartitions()
+    // Only on the disks an installation was removed from; another disk's loaders are not this removal's to judge.
+    private void CleanEfiSystemPartitions(IReadOnlyCollection<uint> disks)
     {
         try
         {
             foreach (var esp in _storage.ReadPartitions(efiOnly: true).RowsOrThrow())
             {
+                if (!disks.Contains(Convert.ToUInt32(esp["DiskNumber"], CultureInfo.InvariantCulture)))
+                    continue;
                 var volumePath = (esp["AccessPaths"] as string[])?
                     .FirstOrDefault(p => p.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
                 if (volumePath is null)
@@ -224,7 +215,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 CleanOneEsp(volumePath);
             }
         }
-        catch (Exception ex) when (ex is ManagementException or COMException or InvalidCastException
+        catch (Exception ex) when (ex is ManagementException or COMException or InvalidCastException or FormatException or OverflowException
                                    or InvalidOperationException or IOException or UnauthorizedAccessException or SecurityException)
         {
             _logger.LogWarning(ex, "ESP cleanup failed (non-fatal) - Linux boot " +
@@ -416,13 +407,15 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
     internal Func<string, bool> SeedMarkerProbe { get; init; } = DirectInstallService.IsIglooSeedVolume;
 
     // The live partition behind a reported seed leftover, or null when ownership is not proven.
-    internal WindowsStorageRow? FindOwnedSeed(SeedLeftover leftover)
+    internal WindowsStorageRow? FindOwnedSeed(SeedLeftover leftover, IReadOnlyList<WindowsStorageRow>? layout = null)
     {
         ArgumentNullException.ThrowIfNull(leftover);
         try
         {
+            var onDisk = layout?.Where(row => Convert.ToUInt32(row["DiskNumber"], CultureInfo.InvariantCulture) == leftover.DiskNumber)
+                ?? _storage.ReadPartitions((int)leftover.DiskNumber).RowsOrThrow();
             return InstallerSeedOwnership.IsSeedLabel(leftover.Partition.Label)
-                ? InstallerSeedOwnership.FindOwnedSeed(_storage.ReadPartitions((int)leftover.DiskNumber).RowsOrThrow(),
+                ? InstallerSeedOwnership.FindOwnedSeed(onDisk,
                     leftover.Partition.OffsetBytes, leftover.Partition.SizeBytes, SeedMarkerProbe)
                 : null;
         }

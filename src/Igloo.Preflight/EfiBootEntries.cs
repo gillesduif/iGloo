@@ -59,6 +59,65 @@ internal static partial class EfiBootEntries
         return entries;
     }
 
+    /// <param name="PartitionGuid">The GPT partition the entry's device path names; null when it names none.</param>
+    internal readonly record struct BootEntryTarget(ushort Index, string Description, Guid? PartitionGuid);
+
+    internal static IReadOnlyList<BootEntryTarget> EnumerateTargets(ILogger logger)
+    {
+        try
+        {
+            EnablePrivilege(logger);
+            return EnumerateTargetsObserved(WindowsFirmwareReader.Shared).ToArray();
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or ArgumentException or OverflowException)
+        {
+            logger.LogWarning(ex, "UEFI boot-entry enumeration failed (non-fatal)");
+            return [];
+        }
+    }
+
+    internal static IEnumerable<BootEntryTarget> EnumerateTargetsObserved(IWindowsFirmwareReader reader)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        var indices = new SortedSet<ushort>(DecodeBootOrder(reader.ReadBootOrder().Data?.ToArray()));
+        for (ushort i = 0; i < 0x0100; i++)
+            indices.Add(i);
+
+        foreach (var index in indices)
+        {
+            var raw = reader.ReadBootEntry(index).Data?.ToArray();
+            if (raw is null)
+                continue;
+            var description = ParseDescription(raw);
+            if (description.Length > 0)
+                yield return new BootEntryTarget(index, description, ParsePartitionGuid(raw));
+        }
+    }
+
+    // The GPT partition in the first hard-drive node of a load option's device path.
+    internal static Guid? ParsePartitionGuid(byte[] loadOption)
+    {
+        ArgumentNullException.ThrowIfNull(loadOption);
+        if (loadOption.Length < 8)
+            return null;
+        var pathLength = loadOption[4] | (loadOption[5] << 8);
+        var position = 6;
+        while (position + 1 < loadOption.Length && (loadOption[position] != 0 || loadOption[position + 1] != 0))
+            position += 2;
+        position += 2;
+        var end = Math.Min(loadOption.Length, position + pathLength);
+        while (position + 4 <= end)
+        {
+            var length = loadOption[position + 2] | (loadOption[position + 3] << 8);
+            if (length < 4 || position + length > end || loadOption[position] == 0x7F)
+                return null;
+            if (loadOption[position] == 4 && loadOption[position + 1] == 1 && length >= 42 && loadOption[position + 41] == 2)
+                return new Guid(loadOption.AsSpan(position + 24, 16));
+            position += length;
+        }
+        return null;
+    }
+
     internal static IEnumerable<BootEntry> EnumerateObserved(IWindowsFirmwareReader reader)
     {
         var indices = new SortedSet<ushort>(DecodeBootOrder(reader.ReadBootOrder().Data?.ToArray()));

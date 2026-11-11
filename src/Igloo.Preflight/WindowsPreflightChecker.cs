@@ -60,7 +60,7 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
     //   Linux inventory                            
 
     
-    private static readonly HashSet<string> LinuxGptTypes = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> LinuxGptTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "{0fc63daf-8483-4772-8e79-3d69d8477de4}", // Linux filesystem
         "{0657fd6d-a4ab-43c4-84e5-0933c84b4f4f}", // Linux swap
