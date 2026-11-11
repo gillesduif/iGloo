@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
+using Igloo.Core.Safety;
 using Igloo.Preflight.CommunityPreparation;
 using Igloo.Preflight.CommunityRecovery;
 using Microsoft.Extensions.Logging;
@@ -192,14 +193,20 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         InstallerBootSpec bootSpec,
         Uri? stage2Url = null,
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
-        => _preparationCompletion.PrepareAsync(ResetPreparedBootState,
+    {
+        HostProtection.RequireWritable("installer preparation");
+        return _preparationCompletion.PrepareAsync(ResetPreparedBootState,
             () => Prepare(diskNumber, linuxSizeBytes, isoPath, stagingDirectory, bootSpec, stage2Url, progress, ct),
             CapturePreparedBootState, ct);
+    }
 
     public Task RegisterBootEntryAsync(
         IProgress<DirectInstallProgress>? progress = null, CancellationToken ct = default)
-        => _preparationCompletion.RegisterAsync(CapturePreparedBootState,
+    {
+        HostProtection.RequireWritable("installer boot registration");
+        return _preparationCompletion.RegisterAsync(CapturePreparedBootState,
             completed => RegisterBootEntry(completed, progress, ct), ct);
+    }
 
     private void ResetPreparedBootState()
     {
@@ -546,6 +553,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             var isoDst = Path.Join($"{isoVolLetter}:\\", isoName);
             Report(prog, DirectInstallPhase.CopyingIso, message: "Copying installer ISO…");
             var isoLength = new FileInfo(isoPath).Length;
+            HostProtection.RequireWritable("installer ISO copy");
             var isoCopied = CopyWithProgress(isoPath, isoDst, isoLength, prog, ct);
             ct.ThrowIfCancellationRequested();
             if (isoCopied.Length != isoLength || new FileInfo(isoDst).Length != isoLength)
@@ -678,8 +686,9 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         return letter;
     }
 
-    private static string RunDiskpart(string script)
+    internal static string RunDiskpart(string script)
     {
+        HostProtection.RequireWritable("diskpart");
         var tmp = Path.GetTempFileName();
         File.WriteAllText(tmp, script, Encoding.ASCII);
         try
@@ -1114,6 +1123,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         IReadOnlyList<StagedFile> files, string oemDrvRoot, bool userDataOnSeed,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
+        HostProtection.RequireWritable("installer seed copy");
         var hashes = new Dictionary<string, KnownSeedFileHash>(StringComparer.OrdinalIgnoreCase);
         long totalBytes = files.Sum(file => file.SizeBytes);
         long writtenBytes = 0;
@@ -1292,6 +1302,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         PinnedExternalInstallerMedia? externalMedia,
         IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
+        HostProtection.RequireWritable("installer seed boot files");
         var oemDrvRoot = $"{oemDrvLetter}:\\";
         var bootDst = Path.Join(oemDrvRoot, BootDir);
         Directory.CreateDirectory(bootDst);
@@ -1937,6 +1948,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
     private void SetRtcUniversalTime()
     {
+        HostProtection.RequireWritable("RealTimeIsUniversal registry value");
         try
         {
             using var key = Registry.LocalMachine.CreateSubKey(
@@ -1999,7 +2011,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     /// </remarks>
     private void RemoveStaleBcdEntries()
     {
-        var listing = RunBcdedit("/enum firmware");
+        var listing = RunBcdedit(BcdFirmwareListing);
         if (string.IsNullOrEmpty(listing))
             return;
 
@@ -2010,8 +2022,13 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         }
     }
 
-    private string? RunBcdedit(string arguments)
+    private const string BcdFirmwareListing = "/enum firmware";
+
+    internal string? RunBcdedit(string arguments)
     {
+        // Only the listing reads; every other bcdedit call changes the boot store.
+        if (!string.Equals(arguments, BcdFirmwareListing, StringComparison.Ordinal))
+            HostProtection.RequireWritable("bcdedit " + arguments.Split(' ')[0]);
         using var proc = Process.Start(new ProcessStartInfo(WindowsBcdReader.FindNativeExecutable("bcdedit.exe"), arguments)
         {
             UseShellExecute = false,

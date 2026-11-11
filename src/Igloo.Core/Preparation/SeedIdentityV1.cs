@@ -63,6 +63,7 @@ public static class SeedIdentityWriter
             (File.GetAttributes(destination) & FileAttributes.ReparsePoint) != 0)
             throw new InvalidDataException("The installer seed identity file is redirected.");
         var temporary = Path.Join(root, "." + FileName + "." + Guid.NewGuid().ToString("N") + ".tmp");
+        Safety.HostProtection.RequireWritable("installer seed identity");
         try
         {
             using (var output = new FileStream(temporary, FileMode.CreateNew,

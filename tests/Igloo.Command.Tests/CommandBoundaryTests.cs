@@ -8,6 +8,7 @@ using Igloo.Core.Runtime;
 using Igloo.Core.Runtime.Execution;
 using Igloo.Core.Host;
 using Igloo.Core.Models;
+using Igloo.Core.Safety;
 using Igloo.Core.Services;
 using Igloo.Migration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -353,6 +354,41 @@ public sealed class CommandBoundaryTests
         Assert.Contains("system.inspect v1", output.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("{", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Theory]
+    [InlineData(HostProtectionState.Protected, "marked as a protected host")]
+    [InlineData(HostProtectionState.Unreadable, "could not be read")]
+    public async Task ProtectedHostNoticeAppearsInHumanOutputAndNeverInTheTypedStreams(
+        HostProtectionState state, string expected)
+    {
+        using var scope = HostProtection.UseForCurrentScope(state);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        Assert.Equal(0, await CliApplication.RunAsync(["capabilities", "list"], Dispatcher(),
+            new StringReader(""), output, error));
+        Assert.Contains(expected, error.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(expected, output.ToString(), StringComparison.Ordinal);
+
+        output.GetStringBuilder().Clear();
+        error.GetStringBuilder().Clear();
+        Assert.Equal(0, await CliApplication.RunAsync(["capabilities", "list", "--json"], Dispatcher(),
+            new StringReader(""), output, error));
+        Assert.Equal(string.Empty, error.ToString());
+        using var json = JsonDocument.Parse(output.ToString());
+
+        output.GetStringBuilder().Clear();
+        Assert.Equal(0, await CliApplication.RunAsync(["invoke", "--machine"], Dispatcher(),
+            new StringReader(JsonSerializer.Serialize(Request("system.version"), CommandProtocol.JsonOptions) + "\n"),
+            output, error));
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.DoesNotContain(expected, output.ToString(), StringComparison.Ordinal);
+
+        output.GetStringBuilder().Clear();
+        Assert.Equal(0, await CliApplication.RunAsync(["help"], Dispatcher(), new StringReader(""), output, error));
+        Assert.StartsWith("iGloo CLI commands:", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains(expected, output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

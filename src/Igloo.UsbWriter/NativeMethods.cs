@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Igloo.Core.Safety;
 using Microsoft.Win32.SafeHandles;
 
 // All P/Invokes below target kernel32, a KnownDLL always resolved from System32.
@@ -11,8 +12,11 @@ namespace Igloo.UsbWriter;
 
 internal static partial class NativeMethods
 {
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    internal static partial SafeFileHandle CreateFileW(
+    private const uint GenericWrite = 0x40000000u;
+
+    [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true,
+        StringMarshalling = StringMarshalling.Utf16)]
+    private static partial SafeFileHandle CreateFileNative(
         string lpFileName,
         uint dwDesiredAccess,
         uint dwShareMode,
@@ -20,6 +24,22 @@ internal static partial class NativeMethods
         uint dwCreationDisposition,
         uint dwFlagsAndAttributes,
         nint hTemplateFile);
+
+    // The only door to a raw device or volume handle; a write handle stops on a protected host.
+    internal static SafeFileHandle CreateFileW(
+        string lpFileName,
+        uint dwDesiredAccess,
+        uint dwShareMode,
+        nint lpSecurityAttributes,
+        uint dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        nint hTemplateFile)
+    {
+        if ((dwDesiredAccess & GenericWrite) != 0)
+            HostProtection.RequireWritable("raw write handle on " + lpFileName);
+        return CreateFileNative(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+            dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    }
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
+using Igloo.Core.Safety;
 
 namespace Igloo.Preflight;
 
@@ -39,6 +40,7 @@ public sealed partial class DirectInstallService
         IReadOnlyCollection<string> outputPaths, IReadOnlyDictionary<string, KnownSeedFileHash>? knownHashes,
         CancellationToken ct)
     {
+        HostProtection.RequireWritable("installer seed reuse receipt");
         var files = HashSeedOutputs(seedRoot, outputPaths, ct, knownHashes);
         var receipt = new SeedReuseReceipt(1, target, files);
         var destination = SafeSeedOutputPath(seedRoot, SeedReuseReceiptFileName);

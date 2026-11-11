@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Recovery;
+using Igloo.Core.Safety;
 using Microsoft.Win32;
 
 namespace Igloo.Preflight.CommunityRecovery;
@@ -69,6 +70,7 @@ internal sealed class CommunityBootRegistrationExecutor(CommunityRecoveryBoundar
         }
         public void WriteRtc(ImmutableArray<byte> bytes)
         {
+            HostProtection.RequireWritable("RealTimeIsUniversal registry value");
             using var hive = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = hive.OpenSubKey(RtcRegistryStateV1.KeyPath, writable: true)
                 ?? throw new InvalidOperationException("RTC key disappeared; execution stopped without creating it.");
@@ -77,6 +79,7 @@ internal sealed class CommunityBootRegistrationExecutor(CommunityRecoveryBoundar
         public RtcRegistryStateV1 ReadRtc() => new WindowsRtcRecoveryReader().Capture();
         public void DeleteRtc()
         {
+            HostProtection.RequireWritable("RealTimeIsUniversal registry value");
             using var hive = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
             using var key = hive.OpenSubKey(RtcRegistryStateV1.KeyPath, writable: true)
                 ?? throw new InvalidOperationException("RTC key disappeared; restoration stopped without creating it.");

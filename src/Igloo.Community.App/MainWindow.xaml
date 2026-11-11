@@ -195,12 +195,21 @@
             <Grid Grid.Column="1" Margin="24,4,28,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
+                <!-- Protected-host marker: stays above every step while it is active. -->
+                <Border Grid.Row="0" Style="{StaticResource Card.Warning}" Margin="0,4,0,8"
+                        Visibility="{Binding HasHostProtectionNotice, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="{Binding HostProtectionNotice}" TextWrapping="Wrap" FontSize="13"
+                               Foreground="{StaticResource Brush.Text.Primary}"
+                               AutomationProperties.Name="{Binding HostProtectionNotice}" />
+                </Border>
+
                 <!-- Collapsed (not Hidden) on Welcome, so the Auto row gives its
                      height back to the page instead of leaving a gap. -->
-                <TextBlock Grid.Row="0"
+                <TextBlock Grid.Row="1"
                            Text="{Binding StepDescription}"
                            Visibility="{Binding ShowStepTitle, Converter={StaticResource BoolToVis}}"
                            FontSize="28" FontWeight="SemiBold"
@@ -208,7 +217,7 @@
                            Margin="0,4,0,12" />
 
                 <ContentControl x:Name="StepHost"
-                                Grid.Row="1"
+                                Grid.Row="2"
                                 Content="{Binding CurrentPage, NotifyOnTargetUpdated=True}"
                                 VerticalContentAlignment="Stretch"
                                 HorizontalContentAlignment="Stretch"

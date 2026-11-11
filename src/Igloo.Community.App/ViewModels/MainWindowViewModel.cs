@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
+using Igloo.Core.Safety;
 using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace Igloo.Community.App.ViewModels;
@@ -81,6 +82,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Debug.WriteLine($"Toast suppressed: {ex.Message}");
         }
     }
+
+    /// <summary>Shown above every step while the protected-host marker is active; null otherwise.</summary>
+    public string? HostProtectionNotice { get; } = HostProtection.Describe(HostProtection.ReadState());
+
+    public bool HasHostProtectionNotice => HostProtectionNotice is not null;
 
     //   Computed navigation state
 

@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Management;
 using Igloo.Core.Recovery;
+using Igloo.Core.Safety;
 
 namespace Igloo.Preflight;
 
@@ -58,6 +59,7 @@ internal sealed class WindowsBcdMutationWriter
 
     private static BcdMutationResult Invoke(BcdMutationCall call)
     {
+        HostProtection.RequireWritable("BCD store " + call.Method);
         using var provider = new ManagementClass(@"\\.\root\WMI:BcdStore");
         using var openParameters = provider.GetMethodParameters("OpenStore");
         openParameters["File"] = "";
@@ -83,6 +85,7 @@ internal sealed class WindowsBcdMutationWriter
 
     private static BcdMutationResult InvokeOn(ManagementObject obj, BcdMutationCall call)
     {
+        HostProtection.RequireWritable("BCD store " + call.Method);
         using var parameters = obj.GetMethodParameters(call.Method);
         foreach (var pair in call.Parameters) parameters[pair.Key] = pair.Value;
         using var result = obj.InvokeMethod(call.Method, parameters, null);

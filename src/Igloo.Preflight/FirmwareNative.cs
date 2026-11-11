@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Igloo.Core.Safety;
 using Microsoft.Extensions.Logging;
 
 namespace Igloo.Preflight;
@@ -14,15 +15,31 @@ internal static partial class FirmwareNative
     internal static partial uint GetFirmwareEnvironmentVariableW(
         string lpName, string lpGuid, byte[] pBuffer, uint nSize);
 
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [LibraryImport("kernel32.dll", EntryPoint = "SetFirmwareEnvironmentVariableW", SetLastError = true,
+        StringMarshalling = StringMarshalling.Utf16)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static partial bool SetFirmwareEnvironmentVariableW(
+    private static partial bool WriteVariableNative(
         string lpName, string lpGuid, byte[]? pValue, uint nSize);
 
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [LibraryImport("kernel32.dll", EntryPoint = "SetFirmwareEnvironmentVariableExW", SetLastError = true,
+        StringMarshalling = StringMarshalling.Utf16)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static partial bool SetFirmwareEnvironmentVariableExW(
+    private static partial bool WriteVariableExNative(
         string lpName, string lpGuid, byte[] pValue, uint nSize, uint attributes);
+
+    // The only two doors to a firmware-variable write; both stop on a protected host.
+    internal static bool SetFirmwareEnvironmentVariableW(string lpName, string lpGuid, byte[]? pValue, uint nSize)
+    {
+        HostProtection.RequireWritable("UEFI variable write " + lpName);
+        return WriteVariableNative(lpName, lpGuid, pValue, nSize);
+    }
+
+    internal static bool SetFirmwareEnvironmentVariableExW(string lpName, string lpGuid, byte[] pValue, uint nSize,
+        uint attributes)
+    {
+        HostProtection.RequireWritable("UEFI variable write " + lpName);
+        return WriteVariableExNative(lpName, lpGuid, pValue, nSize, attributes);
+    }
 
     [LibraryImport("advapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

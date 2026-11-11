@@ -3,6 +3,7 @@ using Igloo.Community.App.ViewModels;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Host;
 using Igloo.Core.Models;
+using Igloo.Core.Safety;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -33,6 +34,29 @@ public sealed class MainWindowIsoNavigationTests
             Task.CompletedTask;
         public Task RegisterBootEntryAsync(IProgress<DirectInstallProgress>? progress,
             CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    [Theory]
+    [InlineData(HostProtectionState.Protected, true)]
+    [InlineData(HostProtectionState.Unreadable, true)]
+    [InlineData(HostProtectionState.NotProtected, false)]
+    public void Wizard_shows_the_protected_host_notice_only_while_the_marker_is_active(
+        HostProtectionState state, bool shown)
+    {
+        using var scope = HostProtection.UseForCurrentScope(state);
+        var catalog = new Catalog([]);
+
+        var wizard = new MainWindowViewModel(new WelcomeViewModel(catalog),
+            new PreflightViewModel(null!, null!, NullLogger<PreflightViewModel>.Instance),
+            new DistroSelectionViewModel(catalog, new Compatibility(), NullLogger<DistroSelectionViewModel>.Instance),
+            new IsoAcquisitionViewModel(null!, NullLogger<IsoAcquisitionViewModel>.Instance),
+            new MigrationSetupViewModel(new Profile(), []), new DiskSelectionViewModel(),
+            new FileStagingViewModel(null!, NullLogger<FileStagingViewModel>.Instance),
+            new DirectInstallViewModel(null!, null!, NullLogger<DirectInstallViewModel>.Instance),
+            new UsbWriterViewModel(null!, NullLogger<UsbWriterViewModel>.Instance));
+
+        Assert.Equal(shown, wizard.HasHostProtectionNotice);
+        Assert.Equal(HostProtection.Describe(state), wizard.HostProtectionNotice);
     }
 
     [Fact]

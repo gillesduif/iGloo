@@ -7,6 +7,7 @@ using System.Runtime.Versioning;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
+using Igloo.Core.Safety;
 using Igloo.Preflight.CommunityPreparation;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
@@ -79,7 +80,10 @@ public sealed class PartitionResizeService : IPartitionResizeService
 
     public Task ShrinkAsync(int diskNumber, long linuxSizeBytes,
         IProgress<string>? progress = null, CancellationToken ct = default)
-        => Task.Run(() => Shrink(diskNumber, linuxSizeBytes, progress, ct), ct);
+    {
+        HostProtection.RequireWritable("Windows partition shrink");
+        return Task.Run(() => Shrink(diskNumber, linuxSizeBytes, progress, ct), ct);
+    }
 
     // This is an internal building block for a future reviewed executor. It does not
     // accept an ordinal or select a partition by free space, and the current UI never
@@ -101,6 +105,8 @@ public sealed class PartitionResizeService : IPartitionResizeService
         CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        // Before the catch-all below, which would wrap a refusal as a failed restore.
+        HostProtection.RequireWritable("reviewed Windows partition restore");
         var checkpoint = RequireRestorableCheckpoint(checkpoints, reference);
         var plan = checkpoint.Plan;
         var shrink = checkpoint.ShrinkReceipt!;
@@ -223,6 +229,8 @@ public sealed class PartitionResizeService : IPartitionResizeService
     private ReviewedShrinkReceiptV1 ShrinkReviewed(PreparationPlanV1 plan, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        // Before the catch-all below, which would wrap a refusal as a failed shrink.
+        HostProtection.RequireWritable("reviewed Windows partition shrink");
         var review = PreparedLayoutRules.VerifyReviewedIntent(plan);
         if (review.Availability != ObservationAvailability.Available)
             throw new InvalidOperationException($"The reviewed shrink intent is invalid: {review.Code}.");
@@ -433,6 +441,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
             resultingBytes < supported.Value.Minimum || resultingBytes > supported.Value.Maximum)
             throw new InvalidOperationException("The native Windows partition no longer supports the requested size.");
         ct.ThrowIfCancellationRequested();
+        HostProtection.RequireWritable("Windows partition resize");
         using var input = target.GetMethodParameters("Resize");
         input["Size"] = resultingBytes;
         using var result = target.InvokeMethod("Resize", input, null);

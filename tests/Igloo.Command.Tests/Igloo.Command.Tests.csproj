@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Remove="StreamFixture\**\*.cs" />
     <Compile Include="..\..\Igloo.One.App\OneChatViewModel.cs" Link="OneChatViewModel.cs" />
+    <Compile Include="..\Shared\HostProtectionTestDefaults.cs" Link="HostProtectionTestDefaults.cs" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
     <PackageReference Include="xunit" Version="2.7.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7" />

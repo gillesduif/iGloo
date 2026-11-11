@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security;
 using Igloo.Core.Abstractions;
+using Igloo.Core.Safety;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
@@ -24,7 +25,10 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
     public Task RemoveAsync(IReadOnlyList<LinuxInstallation> installations,
         IReadOnlyList<SeedLeftover> seedLeftovers, bool removingAllLinux,
         IProgress<string>? progress = null, CancellationToken ct = default)
-        => Task.Run(() => Remove(installations, seedLeftovers, removingAllLinux, progress, ct), ct);
+    {
+        HostProtection.RequireWritable("Linux removal");
+        return Task.Run(() => Remove(installations, seedLeftovers, removingAllLinux, progress, ct), ct);
+    }
 
     private void Remove(IReadOnlyList<LinuxInstallation> installations,
         IReadOnlyList<SeedLeftover> seedLeftovers, bool removingAllLinux,
@@ -153,6 +157,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                 var gainGb = gainBytes / (1024.0 * MiB);
                 progress?.Report($"Adding {gainGb:N1} GB back to {bestLetter}:…");
 
+                HostProtection.RequireWritable("Windows volume extension");
                 var inParams = target.GetMethodParameters("Resize");
                 inParams["Size"] = (ulong)sizeMax;
                 var result = target.InvokeMethod("Resize", inParams, null)!;
@@ -179,7 +184,10 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
     public Task<long> ReclaimFreeSpaceAsync(uint diskNumber,
         IProgress<string>? progress = null, CancellationToken ct = default)
-        => Task.Run(() => TryReclaimFreedSpace(diskNumber, progress), ct);
+    {
+        HostProtection.RequireWritable("Windows volume extension");
+        return Task.Run(() => TryReclaimFreedSpace(diskNumber, progress), ct);
+    }
 
     //   EFI System Partition cleanup                     ─
 
@@ -368,6 +376,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
     {
         try
         {
+            HostProtection.RequireWritable("EFI system partition cleanup");
             Directory.Delete(dir, recursive: true);
             _logger.LogInformation("Deleted Linux boot folder {Dir} from the ESP", dir);
         }
@@ -379,6 +388,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
     private void RestoreRtcLocalTime()
     {
+        HostProtection.RequireWritable("RealTimeIsUniversal registry value");
         try
         {
             using var key = Registry.LocalMachine.OpenSubKey(
@@ -410,6 +420,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
             using (partition)
             {
+                HostProtection.RequireWritable("partition deletion");
                 var result = partition.InvokeMethod("DeleteObject", partition.GetMethodParameters("DeleteObject"), null)!;
                 var returnValue = Convert.ToUInt32(result["ReturnValue"], CultureInfo.InvariantCulture);
                 if (returnValue != 0)

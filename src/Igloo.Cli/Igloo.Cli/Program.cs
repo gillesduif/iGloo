@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text;
 using Igloo.Command.Contracts;
 using Igloo.Core.Host;
+using Igloo.Core.Safety;
 
 namespace Igloo.Cli;
 
@@ -148,7 +149,15 @@ internal static class CliApplication
         await output.WriteLineAsync("  migration layout plan <distro> <plan-id> <target-id> <allocation-id> <artifact-id> <linux-bytes> <staging-directory>").ConfigureAwait(false);
         await output.WriteLineAsync("  migration status <operation-id> | recovery inspect").ConfigureAwait(false);
         await output.WriteLineAsync("Add --json to return the typed command result. Layout planning is advisory; it does not prepare a disk.").ConfigureAwait(false);
+        await WriteHostProtectionNoticeAsync(output).ConfigureAwait(false);
         return 0;
+    }
+
+    // Human output only; --json and the machine stream stay exactly the typed protocol.
+    private static async Task WriteHostProtectionNoticeAsync(TextWriter writer)
+    {
+        if (HostProtection.Describe(HostProtection.ReadState()) is { } notice)
+            await writer.WriteLineAsync(notice).ConfigureAwait(false);
     }
 
     public static Task<int> RunAsync(string[] args, ICommandDispatcher dispatcher,
@@ -225,6 +234,8 @@ internal static class CliApplication
             await RenderAsync(bad, json, output, error).ConfigureAwait(false);
             return 2;
         }
+        if (!json)
+            await WriteHostProtectionNoticeAsync(error).ConfigureAwait(false);
         IProgress<CommandProgress>? progress = !json && dispatcher.Capabilities.Any(c =>
             c.Id == request.CapabilityId && c.Kind == CommandKind.Mutation)
             ? new HumanCommandProgress(error)

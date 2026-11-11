@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
 using Igloo.Core.Preparation;
+using Igloo.Core.Safety;
 using Microsoft.Extensions.Logging;
 
 namespace Igloo.UsbWriter;
@@ -35,6 +36,7 @@ public sealed partial class UsbWriterService
     {
         ArgumentNullException.ThrowIfNull(drive);
         ArgumentNullException.ThrowIfNull(stagingIdentity);
+        HostProtection.RequireWritable("USB drive write");
         RequireFedoraFatBootSpec(bootSpec, expectedIsoSha256);
         if (drive.LogicalSectorBytes != 512)
             throw new InvalidOperationException("The selected USB drive must report 512-byte logical sectors.");
@@ -924,6 +926,7 @@ public sealed partial class UsbWriterService
     private static async Task CopyAndReadBackAsync(FileStream src, string destination,
         long expectedSize, CancellationToken ct)
     {
+        HostProtection.RequireWritable("USB seed file copy");
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
         if (src.Length != expectedSize)
             throw new IOException("An installer source file changed size during USB preparation.");
@@ -1134,6 +1137,7 @@ public sealed partial class UsbWriterService
     private async Task RunFatSeedDiskpartAsync(int diskIndex, int partSizeMb,
         char driveLetter)
     {
+        HostProtection.RequireWritable("diskpart");
         var script = FormattableString.Invariant($"""
             select disk {diskIndex}
             clean

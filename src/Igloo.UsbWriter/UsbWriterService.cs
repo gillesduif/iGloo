@@ -11,6 +11,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Preparation;
+using Igloo.Core.Safety;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 
@@ -72,6 +73,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(drive);
+        HostProtection.RequireWritable("USB drive write");
 
         if (drive.LogicalSectorBytes != 512)
             throw new InvalidOperationException(
@@ -569,7 +571,8 @@ public sealed partial class UsbWriterService : IUsbWriterService
         char driveLetter,
         CancellationToken ct)
     {
-        //   TODO v1.1                              
+        HostProtection.RequireWritable("diskpart");
+        //   TODO v1.1
         // Consider replacing this diskpart shell-out with the Windows Storage
         // Management API.  Two concrete options:
         //
@@ -664,6 +667,7 @@ public sealed partial class UsbWriterService : IUsbWriterService
         IProgress<UsbWriteProgress>? progress,
         CancellationToken ct)
     {
+        HostProtection.RequireWritable("USB seed file copy");
         var written = 0L;
 
         foreach (var srcDirectory in Directory.EnumerateDirectories(

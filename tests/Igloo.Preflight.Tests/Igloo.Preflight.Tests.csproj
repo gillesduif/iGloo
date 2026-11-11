@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <Compile Include="..\Shared\HostProtectionTestDefaults.cs" Link="HostProtectionTestDefaults.cs" />
     <Compile Include="..\Shared\InstallationOwnershipFixture.cs" Link="InstallationOwnershipFixture.cs" />
     <Compile Include="..\Shared\TargetRootFixture.cs" Link="TargetRootFixture.cs" />
   </ItemGroup>

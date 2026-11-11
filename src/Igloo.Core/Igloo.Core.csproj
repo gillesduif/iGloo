@@ -13,4 +13,13 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Test assemblies only: they simulate the protected-host marker (Safety/HostProtection.cs). -->
+    <InternalsVisibleTo Include="Igloo.Core.Tests" />
+    <InternalsVisibleTo Include="Igloo.Preflight.Tests" />
+    <InternalsVisibleTo Include="Igloo.UsbWriter.Tests" />
+    <InternalsVisibleTo Include="Igloo.Command.Tests" />
+    <InternalsVisibleTo Include="Igloo.Community.App.Tests" />
+  </ItemGroup>
+
 </Project>

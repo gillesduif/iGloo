@@ -4,6 +4,7 @@ using System.Text;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
+using Igloo.Core.Safety;
 using Igloo.Preflight.CommunityRecovery;
 
 namespace Igloo.Preflight.CommunityPreparation;
@@ -73,6 +74,8 @@ internal sealed class ReviewedSeedFileWriter
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        // Before the copy's own failure handling, which would report a refusal as a failed restoration.
+        HostProtection.RequireWritable("reviewed seed copy");
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(bootSpec);
         RequirePinnedMediaRecipe(content, bootSpec, pinnedKernelPath,
@@ -426,6 +429,8 @@ internal sealed class ReviewedSeedFileWriter
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        // Before the copy's own failure handling, which would report a refusal as a failed restoration.
+        HostProtection.RequireWritable("reviewed Linux ESP copy");
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(content.Storage);
         ArgumentNullException.ThrowIfNull(stagedReference);
@@ -618,6 +623,7 @@ internal sealed class ReviewedSeedFileWriter
         IEnumerable<CanonicalFileIdentityV1> payloadFiles,
         IEnumerable<CanonicalFileIdentityV1> isoFiles)
     {
+        HostProtection.RequireWritable("reviewed seed file restoration");
         RestoreVolume(storage.Payload, payloadRoot, payloadPaths,
             payloadDirectories, payloadFiles);
         if (isoPaths.Count > 0)
@@ -697,6 +703,7 @@ internal sealed class ReviewedSeedFileWriter
         IReadOnlyList<(string Path, bool Existed)> prewriteDirectories,
         IReadOnlyList<ReviewedLinuxEspFileCopyReceiptV1> copied)
     {
+        HostProtection.RequireWritable("reviewed Linux ESP file restoration");
         if (_reviewed.ObserveInstallerHandoff(storage.Checkpoint) != storage)
             throw new InvalidOperationException("The reviewed Linux ESP changed before file restoration.");
         var root = _volumeRoot(storage.LinuxEsp.VolumeGuid);
@@ -1129,6 +1136,7 @@ internal sealed class ReviewedSeedFileWriter
         long expectedLength, string expectedSha256, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        HostProtection.RequireWritable("reviewed seed file copy");
         ArgumentNullException.ThrowIfNull(storage);
         if (role is not (PreparationRole.Payload or PreparationRole.Iso or PreparationRole.LinuxEsp) ||
             (role == PreparationRole.Iso && storage.Iso is null) ||
@@ -1269,6 +1277,7 @@ internal sealed class ReviewedSeedFileWriter
         CanonicalVolumeIdentityV1 volume, string expectedRoot, string parent,
         string temporary, string temporaryRelative)
     {
+        HostProtection.RequireWritable("reviewed seed file cleanup");
         if (_reviewed.ObserveInstallerHandoff(storage.Checkpoint) != storage ||
             !string.Equals(_volumeRoot(volume.VolumeGuid), expectedRoot,
                 StringComparison.OrdinalIgnoreCase))
@@ -1294,6 +1303,7 @@ internal sealed class ReviewedSeedFileWriter
         CanonicalVolumeIdentityV1 volume, string expectedRoot, string parent,
         string destination, string relative, long length, string sha256)
     {
+        HostProtection.RequireWritable("reviewed seed file cleanup");
         if (_reviewed.ObserveInstallerHandoff(storage.Checkpoint) != storage ||
             !string.Equals(_volumeRoot(volume.VolumeGuid), expectedRoot,
                 StringComparison.OrdinalIgnoreCase))

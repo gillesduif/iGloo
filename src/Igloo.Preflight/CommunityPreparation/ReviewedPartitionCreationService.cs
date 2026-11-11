@@ -8,6 +8,7 @@ using System.Text.Json;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
+using Igloo.Core.Safety;
 
 namespace Igloo.Preflight.CommunityPreparation;
 
@@ -803,6 +804,8 @@ internal sealed class ReviewedPartitionCreationService
         ReviewedShrinkReceiptV1 shrink, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        // Before the catch-all below, which would record a refusal as an ambiguous leftover.
+        HostProtection.RequireWritable("reviewed partition creation");
         var checkpoint = _checkpoints.Reopen(reference);
         var plan = checkpoint.Plan;
         var reviewed = PreparedLayoutRules.VerifyReviewedIntent(plan);
@@ -1198,6 +1201,7 @@ internal sealed class ReviewedPartitionCreationService
             if (!Equals(disk[key], target[key]))
                 throw new InvalidOperationException("The native Windows disk changed before CreatePartition.");
         ct.ThrowIfCancellationRequested();
+        HostProtection.RequireWritable("partition creation");
         using var input = target.GetMethodParameters("CreatePartition");
         input["Size"] = allocation.SizeBytes;
         input["UseMaximumSize"] = false;
@@ -1244,6 +1248,7 @@ internal sealed class ReviewedPartitionCreationService
                 foreach (var owner in owners) owner.Dispose();
             }
             ct.ThrowIfCancellationRequested();
+            HostProtection.RequireWritable("volume format");
             using var input = volume.GetMethodParameters("Format");
             input["FileSystem"] = allocation.FileSystem;
             input["FileSystemLabel"] = allocation.Role switch

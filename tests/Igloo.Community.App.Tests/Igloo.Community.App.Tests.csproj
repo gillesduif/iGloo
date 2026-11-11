@@ -17,5 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Igloo.Community.App\Igloo.Community.App.csproj" />
+    <Compile Include="..\Shared\HostProtectionTestDefaults.cs" Link="HostProtectionTestDefaults.cs" />
   </ItemGroup>
 </Project>

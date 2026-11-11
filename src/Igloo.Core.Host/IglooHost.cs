@@ -5,6 +5,7 @@ using Igloo.Core.Preparation;
 using Igloo.Core.Plugins;
 using Igloo.Core.Runtime;
 using Igloo.Core.Runtime.Execution;
+using Igloo.Core.Safety;
 using Igloo.Core.Services;
 using Igloo.Iso;
 using Igloo.Migration;
@@ -1076,32 +1077,41 @@ public interface IWindowsMaintenance
     void RestartToInstaller();
 }
 
-internal sealed class WindowsMaintenance : IWindowsMaintenance
+internal sealed class WindowsMaintenance(Func<ProcessStartInfo, Process?> launch) : IWindowsMaintenance
 {
+    public WindowsMaintenance() : this(Process.Start) { }
+
     public async Task<int> StartBitLockerDecryptionAsync(string systemDrive,
         CancellationToken cancellationToken = default)
     {
         if (systemDrive is not { Length: 2 } || !char.IsAsciiLetter(systemDrive[0]) ||
             systemDrive[1] != ':')
             throw new ArgumentException("The Windows system drive must be an exact drive letter.", nameof(systemDrive));
+        HostProtection.RequireWritable("BitLocker decryption");
         var start = new ProcessStartInfo(FindNativeExe("manage-bde.exe"))
         { UseShellExecute = false, CreateNoWindow = true };
         start.ArgumentList.Add("-off");
         start.ArgumentList.Add(systemDrive);
-        using var process = Process.Start(start)
+        using var process = launch(start)
             ?? throw new InvalidOperationException("BitLocker control could not start.");
         await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
         return process.ExitCode;
     }
 
-    public void RestartToFirmware() => Process.Start(new ProcessStartInfo(
-        FindNativeExe("shutdown.exe"), "/r /fw /t 10")
-    { UseShellExecute = false, CreateNoWindow = true });
+    public void RestartToFirmware()
+    {
+        HostProtection.RequireWritable("restart into firmware settings");
+        launch(new ProcessStartInfo(FindNativeExe("shutdown.exe"), "/r /fw /t 10")
+        { UseShellExecute = false, CreateNoWindow = true });
+    }
 
-    public void RestartToInstaller() => Process.Start(new ProcessStartInfo(
-        FindNativeExe("shutdown.exe"),
-        "/r /t 10 /c \"iGloo is restarting to install Linux. Save any open work now.\"")
-    { UseShellExecute = false, CreateNoWindow = true });
+    public void RestartToInstaller()
+    {
+        HostProtection.RequireWritable("restart into the installer");
+        launch(new ProcessStartInfo(FindNativeExe("shutdown.exe"),
+            "/r /t 10 /c \"iGloo is restarting to install Linux. Save any open work now.\"")
+        { UseShellExecute = false, CreateNoWindow = true });
+    }
 
     private static string FindNativeExe(string exeName)
     {
