@@ -51,6 +51,8 @@ Not a beta condition. It exists because the install path was once started on the
 
 Evidence (`71053e9`, unit tests only): a refusal test per writing service for both states, and a source test that ties every raw write primitive under `src/` to the guard. Outside the marker by decision: the read-only ISO mount and the per-user AutoPlay value. Left as it is: the reviewed and recovery paths without a product caller report a refusal from their inner primitives as a failed mutation; their entry points refuse first where one existed. No further extension before beta.
 
+The test assemblies pin the marker to "not protected", so the suite itself runs unguarded on a protected machine. `Tests_reach_a_real_write_primitive_only_inside_a_refusing_scope` therefore scans `tests/`: a firmware write, `RunDiskpart`, `RunBcdedit`, a raw `CreateFileW`, the default BCD writer, the USB writer and a resizer or removal service on the real storage reader may appear only inside a test that first sets a refusing scope, and only two files may unpin the marker at all. A temporary offending file made it fail. Its limit: `DirectInstallService` keeps `diskpart`, `bcdedit` and the firmware calls as statics, so the tests that build one with fakes rely on its early refusals, which a source scan cannot prove.
+
 ## After beta
 
 Each item was checked against the beta sentence (install, migrate, again after a failed or aborted attempt) and serves none of the three.

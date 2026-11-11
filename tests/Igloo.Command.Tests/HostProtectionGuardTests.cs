@@ -111,15 +111,68 @@ public sealed class HostProtectionGuardTests
             Assert.DoesNotContain(write, marker, StringComparison.Ordinal);
     }
 
+    // Calls and default constructions that reach a real write primitive with no fake in between.
+    private static readonly string[] RealWritesFromTests =
+    [
+        "FirmwareNative.SetFirmwareEnvironmentVariable", ".RunDiskpart(", ".RunBcdedit(", "NativeMethods.CreateFileW(",
+        "EfiBootEntries.Delete(", "new WindowsBcdMutationWriter()", "new WindowsMaintenance()", "new UsbWriterService(",
+        ".InvokeMethod(", "new PartitionResizeService(NullLogger<PartitionResizeService>.Instance)",
+        "new LinuxRemovalService(NullLogger<LinuxRemovalService>.Instance)",
+    ];
+
+    // The test assemblies pin the marker to "not protected", so nothing else may stand between a test and a write.
+    [Fact]
+    public void Tests_reach_a_real_write_primitive_only_inside_a_refusing_scope()
+    {
+        const string refusingScope = "HostProtection.UseForCurrentScope(state)";
+        var offenders = new List<string>();
+        var switchedOff = new List<string>();
+        var reached = 0;
+        foreach (var file in TestSources())
+        {
+            var text = File.ReadAllText(file);
+            var name = Path.GetRelativePath(RepositoryRoot(), file).Replace('\\', '/');
+            if (text.Contains("HostProtection.UseForTestProcess(", StringComparison.Ordinal) ||
+                text.Contains("UseForCurrentScope(HostProtectionState.NotProtected", StringComparison.Ordinal))
+                switchedOff.Add(name);
+            foreach (var primitive in RealWritesFromTests)
+                for (var at = text.IndexOf(primitive, StringComparison.Ordinal); at >= 0;
+                     at = text.IndexOf(primitive, at + primitive.Length, StringComparison.Ordinal))
+                {
+                    reached++;
+                    if (!Encloses(text, at, refusingScope) ||
+                        text.Contains("HostProtectionState.NotProtected", StringComparison.Ordinal))
+                        offenders.Add($"{name}:{LineOf(text, at)} {primitive}");
+                }
+        }
+
+        Assert.Empty(offenders);
+        // One file pins the test process; one more unpins a scope to test the seam itself and names no primitive.
+        Assert.Equal(["tests/Igloo.Core.Tests/HostProtectionTests.cs", "tests/Shared/HostProtectionTestDefaults.cs"],
+            switchedOff.Order(StringComparer.Ordinal));
+        Assert.True(reached >= 8, "The refusal tests no longer name the primitives this test looks for.");
+    }
+
+    private static IEnumerable<string> TestSources()
+    {
+        var separator = Path.DirectorySeparatorChar;
+        return Directory.EnumerateFiles(Path.Join(RepositoryRoot(), "tests"), "*.cs", SearchOption.AllDirectories)
+            .Where(file => !file.Contains($"{separator}bin{separator}", StringComparison.OrdinalIgnoreCase) &&
+                           !file.Contains($"{separator}obj{separator}", StringComparison.OrdinalIgnoreCase) &&
+                           !file.EndsWith("HostProtectionGuardTests.cs", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static bool IsExempt(string file, string text, int at) => Exempt.Any(exempt =>
         file.EndsWith(exempt.File, StringComparison.OrdinalIgnoreCase) &&
         LineText(text, at).Contains(exempt.Primitive, StringComparison.Ordinal));
 
     // The nearest guard call before the primitive counts only when the primitive is still inside
     // the block that made the call: between the two, no brace closes that block.
-    private static bool GuardEncloses(string text, int at)
+    private static bool GuardEncloses(string text, int at) => Encloses(text, at, Guard);
+
+    private static bool Encloses(string text, int at, string marker)
     {
-        var guard = text.LastIndexOf(Guard, at, StringComparison.Ordinal);
+        var guard = text.LastIndexOf(marker, at, StringComparison.Ordinal);
         if (guard < 0) return false;
         var depth = 0;
         for (var index = guard; index < at; index++)
