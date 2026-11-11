@@ -12,8 +12,9 @@
     2. BCD: exactly one firmware application described "iGloo distribution installer"
        and {fwbootmgr} bootsequence points at it. Zero or more than one is a failure
        (stale-entry cleanup did not run, or /copy ran twice).
-    3. Disk: exactly one 6 GiB-class FAT32 data partition on the Windows disk (B-01
-       leftover detection). A warning, not a failure, until B-01 is implemented.
+    3. Disk: exactly one FAT32 volume labelled OEMDRV on the Windows disk. Prepare
+       replaces a stale iGloo seed before it creates the new one (B-01), so zero or
+       more than one is a failure.
   Optionally greps the iGloo log for the expected lines.
 
 .PARAMETER LogPath
@@ -26,7 +27,8 @@
 [CmdletBinding()]
 param(
     [string]$LogPath,
-    [string]$Description = 'iGloo distribution installer'
+    [string]$Description = 'iGloo distribution installer',
+    [string]$SeedLabel = 'OEMDRV'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -121,7 +123,7 @@ for ($i = 0; $i -lt 0x100; $i++) {
     if ($d -match 'igloo') { $iglooEntries += ('Boot{0:X4}' -f $i) }
 }
 Write-Host ("iGloo NVRAM entries: " + ($(if ($iglooEntries) { $iglooEntries -join ',' } else { 'none' })))
-if ($iglooEntries.Count -gt 1) { Warn "More than one iGloo Boot#### exists; earlier runs were not cleaned (the first-boot agent removes them, but leftovers waste slots)" }
+if ($iglooEntries.Count -gt 1) { Warn "More than one iGloo Boot#### exists; entries from earlier runs are still in NVRAM (System Check's Linux removal deletes them)" }
 
 # ---- BCD -------------------------------------------------------------------------
 $enum = & bcdedit /enum firmware 2>&1 | Out-String
@@ -148,13 +150,21 @@ if ($fw -match "(?m)^bootsequence\s+(\{[0-9a-fA-F-]{36}\})") {
 $rtc = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\TimeZoneInformation' -Name RealTimeIsUniversal -ErrorAction SilentlyContinue).RealTimeIsUniversal
 if ($rtc -eq 1) { Pass "RealTimeIsUniversal=1" } else { Warn "RealTimeIsUniversal is not 1 (non-fatal clock drift after dual boot)" }
 
-# ---- Disk leftovers (B-01) ---------------------------------------------------------
+# ---- Installer partition (B-01) ----------------------------------------------------
+# Matched on the volume label: the seed size differs per distribution and selection.
 try {
     $sys = Get-Partition | Where-Object { $_.DriveLetter -eq $env:SystemDrive.TrimEnd(':') } | Select-Object -First 1
-    $fat = Get-Partition -DiskNumber $sys.DiskNumber | Where-Object { $_.Type -eq 'Basic' -and $_.Size -gt 5GB -and $_.Size -lt 8GB }
-    $fatVols = @(); foreach ($p in $fat) { $v = $p | Get-Volume -ErrorAction SilentlyContinue; if ($v -and $v.FileSystem -eq 'FAT32') { $fatVols += ('partition {0} {1}: {2:N0} bytes' -f $p.PartitionNumber, $v.DriveLetter, $p.Size) } }
-    Write-Host ("FAT32 installer-class partitions on disk $($sys.DiskNumber): " + ($(if ($fatVols) { $fatVols -join '; ' } else { 'none' })))
-    if ($fatVols.Count -eq 1) { Pass "One installer partition" } elseif ($fatVols.Count -eq 0) { Fail "No installer (OEMDRV) partition found" } else { Warn "Multiple installer-class partitions; earlier runs left partitions behind (Beta Track B-01)" }
+    $seeds = @()
+    foreach ($p in Get-Partition -DiskNumber $sys.DiskNumber) {
+        $v = $p | Get-Volume -ErrorAction SilentlyContinue
+        if ($v -and $v.FileSystemLabel -eq $SeedLabel -and $v.FileSystem -eq 'FAT32') {
+            $seeds += ('partition {0} {1}: {2:N0} bytes' -f $p.PartitionNumber, $v.DriveLetter, $p.Size)
+        }
+    }
+    Write-Host ("$SeedLabel FAT32 partitions on disk $($sys.DiskNumber): " + ($(if ($seeds) { $seeds -join '; ' } else { 'none' })))
+    if ($seeds.Count -eq 1) { Pass "One installer partition" }
+    elseif ($seeds.Count -eq 0) { Fail "No installer ($SeedLabel) partition found" }
+    else { Fail "$($seeds.Count) $SeedLabel partitions; the seed from an earlier run was not replaced (Beta Track B-01)" }
 } catch { Warn "Partition check skipped: $($_.Exception.Message)" }
 
 # ---- Log -------------------------------------------------------------------------
