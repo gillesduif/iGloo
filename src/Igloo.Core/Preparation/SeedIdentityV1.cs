@@ -103,6 +103,20 @@ public static class SeedIdentityWriter
             throw new InvalidDataException("The selected user-data inventory is too large.");
     }
 
+    /// <summary>Applies the selected-image and selected-data binding rules to a staged tree without hashing or writing.</summary>
+    public static async Task RequireSelectionBindableAsync(string stagedRoot, bool userDataOnSeed,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(stagedRoot);
+        var root = Path.GetFullPath(stagedRoot);
+        if (!Directory.Exists(root) || (File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidDataException("The installer seed root is unavailable or redirected.");
+        var (_, selectedMedia, _) = await ReadSelectedPathsAsync(root, userDataOnSeed, cancellationToken)
+            .ConfigureAwait(false);
+        if (selectedMedia.Any(relative => !File.Exists(Path.Join(root, relative))))
+            throw new InvalidDataException("A selected installer file is missing from the seed.");
+    }
+
     /// <summary>Build the exact identity payload without creating or replacing a seed file.</summary>
     public static async Task<byte[]> BuildBytesAsync(string seedRoot, Guid diskGuid,
         Guid partitionGuid, IReadOnlyCollection<string> additionalRelativePaths,
@@ -126,7 +140,7 @@ public static class SeedIdentityWriter
         if (!Directory.Exists(root) || (File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
             throw new InvalidDataException("The installer seed root is unavailable or redirected.");
         var (manifestSha256, selectedMedia, selectedData) =
-            await ReadSelectedPathsAsync(root, cancellationToken)
+            await ReadSelectedPathsAsync(root, bindSelectedData: true, cancellationToken)
             .ConfigureAwait(false);
         var additional = additionalRelativePaths.ToArray();
         if (additional.Length > 128)
@@ -198,7 +212,7 @@ public static class SeedIdentityWriter
     }
 
     private static async Task<(string? ManifestSha256, string[] Media, string[] Data)> ReadSelectedPathsAsync(string root,
-        CancellationToken cancellationToken)
+        bool bindSelectedData, CancellationToken cancellationToken)
     {
         var manifest = Path.Join(root, "migration-manifest.json");
         if (!File.Exists(manifest)) return (null, [], []);
@@ -217,8 +231,9 @@ public static class SeedIdentityWriter
                 paths);
             AddSelectedMedia(document.RootElement, "accountPicture", "igloo-avatar",
                 paths);
-            var data = EnumerateSelectedData(root, document.RootElement,
-                cancellationToken);
+            var data = bindSelectedData
+                ? EnumerateSelectedData(root, document.RootElement, cancellationToken)
+                : [];
             return (manifestSha256, [.. paths], data);
         }
         catch (JsonException error)

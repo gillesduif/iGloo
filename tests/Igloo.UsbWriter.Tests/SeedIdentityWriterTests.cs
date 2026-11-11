@@ -293,4 +293,37 @@ public sealed class SeedIdentityWriterTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task PlannedSelectionIsCheckedWithoutHashingOrWritingAnIdentity()
+    {
+        var root = Path.Join(Path.GetTempPath(),
+            "igloo-planned-selection-" + Guid.NewGuid().ToString("N"));
+        var nested = Path.Join(root, "files", "Documents", "Sub");
+        Directory.CreateDirectory(nested);
+        try
+        {
+            var manifest = Path.Join(root, "migration-manifest.json");
+            await File.WriteAllTextAsync(manifest,
+                """{"files":{"stagingPath":"selected","folders":[{"name":"Documents"}]}}""");
+            await File.WriteAllTextAsync(Path.Join(nested, "note.txt"), "bound");
+            await SeedIdentityWriter.RequireSelectionBindableAsync(root, userDataOnSeed: true);
+
+            // A decomposed name is one the identity refuses once the data is on the seed.
+            await File.WriteAllTextAsync(Path.Join(nested, "Café.txt"), "decomposed name");
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                SeedIdentityWriter.RequireSelectionBindableAsync(root, userDataOnSeed: true));
+            await SeedIdentityWriter.RequireSelectionBindableAsync(root, userDataOnSeed: false);
+
+            await File.WriteAllTextAsync(manifest,
+                """{"wallpaper":{"fileName":"igloo-wallpaper.jpg"}}""");
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                SeedIdentityWriter.RequireSelectionBindableAsync(root, userDataOnSeed: false));
+            Assert.False(File.Exists(Path.Join(root, SeedIdentityWriter.FileName)));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }

@@ -376,6 +376,9 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Checking seed limits and boot registration…");
         var stagedAgentPaths = StagedAgentPaths(stagedFiles);
         RequirePlannedSeedWithinBounds(stagingDirectory, stagedFiles, stagedAgentPaths);
+        // The seed identity applies these rules again after the copy; a refusal belongs here.
+        SeedIdentityWriter.RequireSelectionBindableAsync(stagingDirectory, _bootSpec.MigrationDataOnSeed, ct)
+            .GetAwaiter().GetResult();
         RequireBootRegistrationReadiness(_firmware, _bcd, _logger);
         RequireStorageIdentityReadable(diskNumber);
         ct.ThrowIfCancellationRequested();

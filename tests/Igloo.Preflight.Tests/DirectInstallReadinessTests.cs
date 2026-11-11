@@ -47,6 +47,45 @@ public sealed class DirectInstallReadinessTests
         Assert.Equal(0, resizer.ShrinkCalls);
     }
 
+    [Fact]
+    public async Task Unbindable_selected_data_stops_before_the_boot_checks_and_the_shrink()
+    {
+        using var fixture = PrepareFixture.Create();
+        Directory.CreateDirectory(Path.Join(fixture.StagingDirectory, "files", "Documents"));
+        await File.WriteAllTextAsync(Path.Join(fixture.StagingDirectory, "files", "Documents", "a.txt"), "a");
+        var firmware = new FirmwareFake();
+        var resizer = new ResizerFake();
+        var service = new DirectInstallService(resizer, NullLogger<DirectInstallService>.Instance,
+            new StorageFake(), new BcdFake(), firmware);
+
+        var refused = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            service.PrepareAsync(2, 20L << 30, fixture.IsoPath, fixture.StagingDirectory, fixture.BootSpec));
+
+        Assert.Contains("unselected", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(0, firmware.OrderReads);
+        Assert.Equal(0, resizer.ShrinkCalls);
+    }
+
+    [Fact]
+    public async Task User_data_that_stays_on_windows_is_not_held_to_the_seed_binding_rules()
+    {
+        using var fixture = PrepareFixture.Create();
+        Directory.CreateDirectory(Path.Join(fixture.StagingDirectory, "files", "Documents"));
+        await File.WriteAllTextAsync(Path.Join(fixture.StagingDirectory, "files", "Documents", "a.txt"), "a");
+        var firmware = new FirmwareFake { OrderError = 1300 };
+        var resizer = new ResizerFake();
+        var service = new DirectInstallService(resizer, NullLogger<DirectInstallService>.Instance,
+            new StorageFake(), new BcdFake(), firmware);
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.PrepareAsync(2, 20L << 30, fixture.IsoPath, fixture.StagingDirectory,
+                fixture.BootSpec with { MigrationDataOnSeed = false }));
+
+        Assert.Contains("Administrator", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(1, firmware.OrderReads);
+        Assert.Equal(0, resizer.ShrinkCalls);
+    }
+
     [Theory]
     [InlineData(1300, "Administrator")]
     [InlineData(1, "UEFI")]
