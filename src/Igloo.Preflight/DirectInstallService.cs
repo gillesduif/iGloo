@@ -666,6 +666,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         }
         if (!Directory.Exists(root))
             throw new InvalidOperationException($"Drive {letter}: did not appear after partition creation.");
+        MarkInstallerVolume(root);
 
         // Record partition number for RegisterBootEntry.
         _partitionNumber = FindPartitionByLetter(diskNumber, letter);
@@ -797,6 +798,13 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         File.Exists(Path.Join(root, SeedIdentityWriter.FileName)) ||
         File.Exists(Path.Join(root, SeedReuseReceiptFileName)) ||
         Directory.Exists(Path.Join(root, BootDir));
+
+    // Written the moment the volume exists, so a run that stops right after still leaves a volume iGloo can prove is its own.
+    internal static void MarkInstallerVolume(string root)
+    {
+        HostProtection.RequireWritable("installer partition marker");
+        Directory.CreateDirectory(Path.Join(root, BootDir));
+    }
 
     /// <summary>Deletes an installer seed volume iGloo wrote on an earlier run (v0.2-alpha behaviour).</summary>
     private void DeleteInstallerVolume(char letter)

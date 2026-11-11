@@ -32,4 +32,23 @@ public sealed class StaleSeedClassificationTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public void A_volume_is_recognisable_as_ours_from_the_moment_it_is_marked()
+    {
+        var root = Path.Join(Path.GetTempPath(), "igloo-seed-mark-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            Assert.False(DirectInstallService.IsIglooSeedVolume(root));
+
+            DirectInstallService.MarkInstallerVolume(root);
+
+            Assert.True(DirectInstallService.IsIglooSeedVolume(root));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }
