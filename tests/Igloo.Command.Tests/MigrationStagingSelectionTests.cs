@@ -136,6 +136,43 @@ public sealed class MigrationStagingSelectionTests
     }
 
     [Fact]
+    public async Task A_running_selected_browser_stops_staging_before_anything_is_copied()
+    {
+        var registry = await LoadProvidersAsync();
+        var staging = new CountingStaging();
+        var edge = new BrowserMigration
+        {
+            Name = "Microsoft Edge", Engine = "chromium",
+            SourceRelativePath = "AppData/Local/Microsoft/Edge/User Data"
+        };
+        var chromeWithoutProfile = new BrowserMigration { Name = "Google Chrome", Engine = "chromium", SourceRelativePath = string.Empty };
+        IReadOnlyList<string>? asked = null;
+        var hooks = new MigrationStagingHooks(
+            _ => Task.FromResult<IReadOnlyList<WifiNetwork>>([]),
+            (browsers, _, _) => Task.FromResult(browsers),
+            (manifest, _) => manifest, (manifest, _) => manifest)
+        {
+            FindRunningBrowsers = names => { asked = names; return ["Microsoft Edge"]; },
+        };
+        var coordinator = new MigrationStagingCoordinator(staging, registry,
+            new FixedChecker(Report()), NullLogger<MigrationStagingCoordinator>.Instance, hooks);
+        var user = new UserSetup
+        {
+            WindowsUsername = "fixture", LinuxUsername = "fixture",
+            SelectedBrowserNames = [edge.Name, chromeWithoutProfile.Name], SelectedBrowsers = [edge, chromeWithoutProfile]
+        };
+
+        var refused = await Assert.ThrowsAsync<BrowserProfileStagingException>(() => coordinator.StageAsync(
+            new MigrationStagingInput(new FileStagingRequest("debian", []), user,
+                Report(), null, DiskInstallMode.ReplaceDisk, 0), null));
+
+        Assert.Equal(BrowserProfileStagingFailure.BrowserRunning, refused.Reason);
+        Assert.Equal(["Microsoft Edge"], refused.Browsers);
+        Assert.Equal(["Microsoft Edge"], asked);
+        Assert.Equal(0, staging.Calls);
+    }
+
+    [Fact]
     public async Task ChangedBrowserDestinationAfterCopyRemovesIncompleteGeneration()
     {
         var registry = await LoadProvidersAsync();

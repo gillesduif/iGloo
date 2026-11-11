@@ -277,10 +277,17 @@ public sealed partial class FileStagingViewModel : ObservableObject
                                "browser processes, and go back one step and continue again. iGloo has not changed your browser files.";
                 ErrorDetail = null;
             }
+            else if (ex.Reason == BrowserProfileStagingFailure.BrowserRunning && ex.Browsers.Count > 0)
+            {
+                BrowserIsInUse = true;
+                (ErrorTitle, ErrorMessage) = RunningBrowserText(ex.Browsers);
+                ErrorDetail = null;
+            }
             else if (ex.Reason == BrowserProfileStagingFailure.BrowserInUse)
             {
                 BrowserIsInUse = true;
-                var browserNames = _setup.GetSelectedBrowserNames();
+                // The browser whose file was locked when the copy names one; otherwise every selected browser.
+                var browserNames = ex.Browsers.Count > 0 ? ex.Browsers : _setup.GetSelectedBrowserNames();
                 var selection = browserNames.Count > 0 ? string.Join(", ", browserNames) : "A selected browser";
                 ErrorTitle = "Browser files are still in use";
                 ErrorMessage = $"{selection} may still be running in the background after its windows close. " +
@@ -321,6 +328,33 @@ public sealed partial class FileStagingViewModel : ObservableObject
         {
             IsRunning = false;
         }
+    }
+
+    // Shown before anything is copied, for the browsers that still have a process.
+    internal static (string Title, string Message) RunningBrowserText(IReadOnlyList<string> browsers)
+    {
+        var names = browsers.Count switch
+        {
+            1 => browsers[0],
+            2 => $"{browsers[0]} and {browsers[1]}",
+            _ => string.Join(", ", browsers.Take(browsers.Count - 1)) + " and " + browsers[^1],
+        };
+        if (browsers.Count != 1)
+            return ($"Close {names} first",
+                $"{names} are still running, possibly in the background after their windows were closed. " +
+                "Save your work and close them. If they keep running, end them in Task Manager (Ctrl+Shift+Esc). " +
+                "Then go back one step and continue. Nothing has been copied yet.");
+        var shortName = browsers[0] switch
+        {
+            "Microsoft Edge" => "Edge",
+            "Google Chrome" => "Chrome",
+            "Mozilla Firefox" => "Firefox",
+            var other => other,
+        };
+        return ($"Close {names} first",
+            $"{names} is still running, possibly in the background after its windows were closed. " +
+            $"Save your work and close {shortName}. If it keeps running, end {names} in Task Manager (Ctrl+Shift+Esc). " +
+            "Then go back one step and continue. Nothing has been copied yet.");
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenTaskManager))]

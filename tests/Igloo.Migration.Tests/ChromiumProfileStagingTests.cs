@@ -288,6 +288,7 @@ public sealed class ChromiumProfileStagingTests : IDisposable
             var error = await Assert.ThrowsAsync<BrowserProfileStagingException>(() => Service.StageAsync(Request, null));
             Assert.Contains("Close the selected browsers", error.Message, StringComparison.Ordinal);
             Assert.Equal(BrowserProfileStagingFailure.BrowserInUse, error.Reason);
+            Assert.Equal(["Microsoft Edge"], error.Browsers);
             Assert.Empty(Directory.GetDirectories(Staging));
         }
 

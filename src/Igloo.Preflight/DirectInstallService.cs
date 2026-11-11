@@ -365,7 +365,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             : allStagedFiles.Where(file => !IsUserDataPath(file.RelativePath)).ToArray();
         foreach (var file in stagedFiles)
             if (file.SizeBytes >= Fat32MaxFileBytes)
-                throw new InvalidDataException("A selected migration file exceeds the FAT32 file-size limit.");
+                throw InstallationRefusedException.FileTooLargeForInstallerPartition(file.RelativePath, file.SizeBytes);
         if (!_bootSpec.MigrationDataOnSeed)
             _logger.LogInformation("Seed excludes user data: {Seed} of {All} staged file(s) go onto the installer partition; " +
                 "{UserMiB} MiB of selected folders/profiles stay on the Windows volume for first boot",
@@ -1096,7 +1096,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
                 }
                 var length = new FileInfo(entry).Length;
                 if (requireFat32Fit && length >= Fat32MaxFileBytes)
-                    throw new InvalidDataException("A selected migration file exceeds the FAT32 file-size limit.");
+                    throw InstallationRefusedException.FileTooLargeForInstallerPartition(Path.GetRelativePath(root, entry), length);
                 files.Add(new(entry, Path.GetRelativePath(root, entry), length));
             }
         }

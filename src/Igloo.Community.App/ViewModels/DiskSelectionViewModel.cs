@@ -252,6 +252,13 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
             _spaceEstimate = null;
             SpaceErrorMessage = "Select the disk again to finish checking available space.";
         }
+        catch (InstallationRefusedException ex)
+        {
+            // A refusal carries its own instruction, such as the file that is too large for the installer partition.
+            if (generation != _spaceGeneration) return;
+            _spaceEstimate = null;
+            SpaceErrorMessage = ex.Message;
+        }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or
             InvalidOperationException or NotSupportedException or ArgumentException or
             System.ComponentModel.Win32Exception or System.Runtime.InteropServices.COMException or

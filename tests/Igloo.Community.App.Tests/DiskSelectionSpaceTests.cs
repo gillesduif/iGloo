@@ -141,6 +141,23 @@ public sealed class DiskSelectionSpaceTests
     }
 
     [Fact]
+    public void A_refusal_names_the_file_instead_of_the_general_message()
+    {
+        var refusal = InstallationRefusedException.FileTooLargeForInstallerPartition(@"C:\Users\fixture\Videos\holiday.mkv", 5 * GiB);
+        var vm = Create(new Preparation
+        {
+            Measure = (_, _, _) => Task.FromException<DirectInstallSpaceEstimate>(refusal),
+        });
+
+        vm.SelectedItem = Assert.Single(vm.DiskItems);
+
+        vm.CanProceed.Should().BeFalse();
+        vm.SpaceErrorMessage.Should().Be(refusal.Message)
+            .And.StartWith(@"'C:\Users\fixture\Videos\holiday.mkv' is 5.0 GiB.");
+        vm.DiskActionMessage.Should().Be(refusal.Message);
+    }
+
+    [Fact]
     public async Task Canceled_refresh_does_not_reuse_the_previous_estimate()
     {
         var cancelMeasurement = false;

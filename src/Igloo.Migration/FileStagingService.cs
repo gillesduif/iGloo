@@ -52,7 +52,7 @@ public sealed partial class FileStagingService : IFileStagingService
 
             LogStagingStart(jobs.Count, totalBytes, request.FolderPaths.Count, stagingRoot);
 
-            long bytesCopied = await CopyJobsAsync(jobs, totalBytes, progress, ct).ConfigureAwait(false);
+            long bytesCopied = await CopyJobsAsync(jobs, totalBytes, request.BrowserProfiles, progress, ct).ConfigureAwait(false);
             // SQLite snapshots fold WAL pages into the database and may be smaller
             // than the reserved source + WAL footprint. Each copy checks its size.
 
@@ -90,8 +90,8 @@ public sealed partial class FileStagingService : IFileStagingService
         ScanBrowserProfiles(request, stagingRoot, jobs,
             ref totalBytes, createDirectories: false, ct: ct);
         const long fat32Limit = 4L * 1024 * 1024 * 1024;
-        if (jobs.Any(job => job.ExpectedLength >= fat32Limit))
-            throw new InvalidDataException("A selected migration file exceeds the FAT32 file-size limit.");
+        if (jobs.FirstOrDefault(job => job.ExpectedLength >= fat32Limit) is { } oversized)
+            throw InstallationRefusedException.FileTooLargeForInstallerPartition(oversized.Source, oversized.ExpectedLength);
         return totalBytes;
     }, ct);
 
@@ -325,8 +325,18 @@ public sealed partial class FileStagingService : IFileStagingService
     }
 
     
+    // The selected browser a staged source file belongs to, for the message that asks to close it.
+    private static string[] BrowserOf(string source, IReadOnlyList<Core.Models.BrowserMigration> browsers)
+    {
+        var profileRoot = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return [.. browsers.Where(browser => browser.SourceRelativePath.Length != 0 && source.StartsWith(
+                Path.Join(profileRoot, Path.Join(browser.SourceRelativePath.Replace('\\', '/').Split('/'))) + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase))
+            .Select(browser => browser.Name).Distinct(StringComparer.Ordinal)];
+    }
+
     private async Task<long> CopyJobsAsync(
-        List<CopyJob> jobs, long totalBytes,
+        List<CopyJob> jobs, long totalBytes, IReadOnlyList<Core.Models.BrowserMigration> browsers,
         IProgress<FileStagingProgress>? progress, CancellationToken ct)
     {
         long bytesCopied = 0;
@@ -351,10 +361,13 @@ public sealed partial class FileStagingService : IFileStagingService
                     : await CopyFileAsync(job, buffer, ct).ConfigureAwait(false);
                 bytesCopied = checked(bytesCopied + copied);
             }
-            catch (BrowserProfileStagingException)
+            catch (BrowserProfileStagingException ex)
             {
-                // Preserve structured recovery advice from the SQLite reader.
-                throw;
+                // Preserve structured recovery advice from the SQLite reader and add whose file it was.
+                var owner = BrowserOf(job.Source, browsers);
+                if (ex.Browsers.Count > 0 || owner.Length == 0)
+                    throw;
+                throw new BrowserProfileStagingException(ex.Message, ex, ex.Reason) { Browsers = owner };
             }
             catch (IOException ex) when (job.IsBrowser)
             {
@@ -362,7 +375,8 @@ public sealed partial class FileStagingService : IFileStagingService
                     ? BrowserProfileStagingFailure.BrowserInUse
                     : BrowserProfileStagingFailure.SnapshotUnavailable;
                 throw new BrowserProfileStagingException(
-                    $"Could not capture selected browser file '{job.Source}'. Close the selected browsers and retry staging.", ex, reason);
+                    $"Could not capture selected browser file '{job.Source}'. Close the selected browsers and retry staging.", ex, reason)
+                    { Browsers = BrowserOf(job.Source, browsers) };
             }
             catch (SqliteException ex) when (job.IsBrowser)
             {
@@ -370,7 +384,8 @@ public sealed partial class FileStagingService : IFileStagingService
                     ? BrowserProfileStagingFailure.BrowserInUse
                     : BrowserProfileStagingFailure.SnapshotUnavailable;
                 throw new BrowserProfileStagingException(
-                    $"Could not capture selected browser file '{job.Source}'. Close the selected browsers and retry staging.", ex, reason);
+                    $"Could not capture selected browser file '{job.Source}'. Close the selected browsers and retry staging.", ex, reason)
+                    { Browsers = BrowserOf(job.Source, browsers) };
             }
         }
 

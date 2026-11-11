@@ -199,6 +199,52 @@ public sealed class FileStagingViewModelTests
         vm.ErrorMessage.Should().BeNull();
     }
 
+    [Fact]
+    public async Task A_running_browser_is_named_before_anything_is_copied()
+    {
+        var vm = new FileStagingViewModel(new FailingStage(new BrowserProfileStagingException("running", null,
+            BrowserProfileStagingFailure.BrowserRunning) { Browsers = ["Microsoft Edge"] }),
+            NullLogger<FileStagingViewModel>.Instance, TestStagingRoot());
+        PrepareForDistro(vm, new MigrationSetupViewModel(new EdgeProfile(),
+            [new BrowserEntry("Microsoft Edge", @"C:\Fixture\Default"), new BrowserEntry("Google Chrome", @"C:\Fixture\Chrome")]), "debian");
+
+        await vm.StageCommand.ExecuteAsync(null);
+
+        vm.HasError.Should().BeTrue();
+        vm.ErrorTitle.Should().Be("Close Microsoft Edge first");
+        vm.ErrorMessage.Should().Be("Microsoft Edge is still running, possibly in the background after its windows were closed. " +
+            "Save your work and close Edge. If it keeps running, end Microsoft Edge in Task Manager (Ctrl+Shift+Esc). " +
+            "Then go back one step and continue. Nothing has been copied yet.");
+        vm.ErrorDetail.Should().BeNull();
+        vm.IsComplete.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Several_running_browsers_are_all_named()
+    {
+        var (title, message) = FileStagingViewModel.RunningBrowserText(["Microsoft Edge", "Google Chrome", "Mozilla Firefox"]);
+
+        title.Should().Be("Close Microsoft Edge, Google Chrome and Mozilla Firefox first");
+        message.Should().StartWith("Microsoft Edge, Google Chrome and Mozilla Firefox are still running")
+            .And.Contain("close them").And.EndWith("Nothing has been copied yet.");
+        FileStagingViewModel.RunningBrowserText(["Brave"]).Message.Should().Contain("close Brave.");
+    }
+
+    [Fact]
+    public async Task A_lock_during_the_copy_names_the_browser_whose_file_failed()
+    {
+        var vm = new FileStagingViewModel(new FailingStage(new BrowserProfileStagingException("locked", null,
+            BrowserProfileStagingFailure.BrowserInUse) { Browsers = ["Google Chrome"] }),
+            NullLogger<FileStagingViewModel>.Instance, TestStagingRoot());
+        PrepareForDistro(vm, new MigrationSetupViewModel(new EdgeProfile(),
+            [new BrowserEntry("Microsoft Edge", @"C:\Fixture\Default"), new BrowserEntry("Google Chrome", @"C:\Fixture\Chrome")]), "debian");
+
+        await vm.StageCommand.ExecuteAsync(null);
+
+        vm.ErrorTitle.Should().Be("Browser files are still in use");
+        vm.ErrorMessage.Should().StartWith("Google Chrome may still be running").And.NotContain("Microsoft Edge");
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

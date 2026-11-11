@@ -22,7 +22,11 @@ internal sealed record MigrationStagingHooks(
     Func<CancellationToken, Task<IReadOnlyList<WifiNetwork>>> ScanWifi,
     Func<IReadOnlyList<BrowserMigration>, string?, CancellationToken, Task<IReadOnlyList<BrowserMigration>>> AttachBrowsers,
     Func<MigrationManifest, string, MigrationManifest> AttachWallpaper,
-    Func<MigrationManifest, string, MigrationManifest> AttachAccountPicture);
+    Func<MigrationManifest, string, MigrationManifest> AttachAccountPicture)
+{
+    // Tests that pass their own hooks stay independent of the browsers open on the machine.
+    public Func<IReadOnlyList<string>, IReadOnlyList<string>> FindRunningBrowsers { get; init; } = _ => [];
+}
 
 public sealed class MigrationStagingCoordinator
 {
@@ -50,7 +54,7 @@ public sealed class MigrationStagingCoordinator
             (browsers, password, ct) => Task.Run(() =>
                 BrowserCredentialMigration.AttachCredentials(browsers, password, logger), ct),
             AttachWallpaper,
-            AttachAccountPicture);
+            AttachAccountPicture) { FindRunningBrowsers = RunningBrowsers.Find };
     }
 
     public async Task<FileStagingResult> StageAsync(MigrationStagingInput input,
@@ -91,6 +95,12 @@ public sealed class MigrationStagingCoordinator
         var browserPaths = browserSources.Distinct(StringComparer.OrdinalIgnoreCase).ToDictionary(
             path => path, FileStagingService.BrowserProfileStagingPath,
             StringComparer.OrdinalIgnoreCase);
+        // Read-only, and before anything is created or copied (Beta Track B-03).
+        var running = _hooks.FindRunningBrowsers([.. input.User.SelectedBrowsers
+            .Where(browser => browser.SourceRelativePath.Length != 0).Select(browser => browser.Name)]);
+        if (running.Count > 0)
+            throw new BrowserProfileStagingException("A selected browser is still running. Nothing has been copied.",
+                null, BrowserProfileStagingFailure.BrowserRunning) { Browsers = running };
         // The wizard's preflight is a selection snapshot, not manifest authority.
         // Reobserve in Core immediately before copying private data, and bind a
         // selected disk by its GPT identity to the current physical layout.

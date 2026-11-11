@@ -60,6 +60,38 @@ public sealed class FileStagingMeasurementTests : IDisposable
     }
 
     [Fact]
+    public async Task AFileTooLargeForTheInstallerPartitionIsRefusedByName()
+    {
+        Write(_sourceRoot, "small.txt", new byte[10]);
+        var large = Path.Join(_sourceRoot, "Videos", "holiday.mkv");
+        Directory.CreateDirectory(Path.GetDirectoryName(large)!);
+        // Length only: no byte is written, and the measurement reads sizes, not content.
+        await using (var stream = new FileStream(large, FileMode.CreateNew, FileAccess.Write))
+            stream.SetLength(4L * 1024 * 1024 * 1024);
+
+        var refused = await Assert.ThrowsAsync<InstallationRefusedException>(() =>
+            FileStagingService.MeasureSelectedBytesAsync(new FileStagingRequest(_distroId, [_sourceRoot])
+            { FolderNames = ["Documents"] }));
+
+        Assert.StartsWith($"'{large}' is 4.0 GiB.", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("Go back to Configuration", refused.Message, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(StagingRoot));
+    }
+
+    [Fact]
+    public void RunningBrowsersAreFoundByTheirProcessNameOnly()
+    {
+        var asked = new List<string>();
+
+        var running = RunningBrowsers.Find(["Microsoft Edge", "microsoft edge", "Google Chrome", "Unlisted Browser"],
+            process => { asked.Add(process); return process == "msedge"; });
+
+        Assert.Equal(["Microsoft Edge"], running);
+        Assert.Equal(["msedge", "chrome"], asked);
+        Assert.Empty(RunningBrowsers.Find([], _ => throw new InvalidOperationException("No process may be read.")));
+    }
+
+    [Fact]
     public async Task CanceledMeasurementDoesNotCreateAStagingGeneration()
     {
         using var cancellation = new CancellationTokenSource();
