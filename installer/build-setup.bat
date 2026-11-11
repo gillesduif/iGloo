@@ -56,6 +56,9 @@ echo     Versie: %VER%
 
 echo [3/5] dotnet publish (win-x64, self-contained) ...
 pushd "%BUILD%"
+rem The packaged CLI is built and published inside this publish; a clean copy needs its win-x64 assets first.
+dotnet restore src\Igloo.Cli\Igloo.Cli\Igloo.Cli.csproj -r win-x64 --nologo -v q
+if errorlevel 1 (echo FOUT: restore van de CLI mislukt & popd & exit /b 1)
 dotnet publish src\Igloo.Community.App\Igloo.Community.App.csproj -c Release -r win-x64 --self-contained true -o publish --nologo -v q
 if errorlevel 1 (echo FOUT: publish mislukt & popd & exit /b 1)
 popd

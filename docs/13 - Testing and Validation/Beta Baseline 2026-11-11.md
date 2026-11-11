@@ -45,6 +45,7 @@ The two failures were `FileStagingViewModelTests.Background_browser_lock_offers_
 - **`6b3a0ef` (L1).** `SeedIdentityWriter.RequireSelectionBindableAsync` applies the identity's selected-image and selected-data rules to the staged tree before the boot checks. Two order tests in `DirectInstallReadinessTests`; `PlannedSelectionIsCheckedWithoutHashingOrWritingAnIdentity` covers a decomposed file name and a missing image.
 - **`cb84450` (L0).** `tools/vm-lab/Check-BootRegistration.ps1` matches the seed by FAT32 volume label; the earlier 5–8 GB window does not contain a seed without user data. More than one `OEMDRV` volume is a failure. Parsed for syntax, not run in a guest.
 - **`a8e9ad7` (L1).** The stale Task Manager assertion follows the current message.
+- **Installer recipe (observed).** The publish command of `installer/build-setup.bat` failed on a clean copy of the tracked files: `NETSDK1004` for `Igloo.Cli` without a restore, and `NETSDK1047` when only a restore without a runtime existed, because `PackagedCli.targets` restores and publishes the CLI inside the same build. The script now restores the CLI for `win-x64` first; with that step a fresh copy published with exit code 0. The script itself was not run, because it replaces `installer\publish`, `installer\output` and `C:\Temp\igloo-build`.
 
 After `6b3a0ef`: `dotnet build Igloo.sln -c Release --no-restore -warnaserror` 0 warnings, 0 errors; `dotnet test Igloo.sln -c Release --no-build` 2,085 tests, 2,084 passed, 0 failed, 1 skipped.
 
