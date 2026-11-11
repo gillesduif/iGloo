@@ -223,7 +223,7 @@ public sealed class FileStagingViewModelTests
 
         vm.ErrorTitle.Should().Be("Browser files are still in use");
         vm.ErrorMessage.Should().Contain("Microsoft Edge").And.Contain("background")
-            .And.Contain("Save your browser work").And.Contain("Open Task Manager")
+            .And.Contain("Save your browser work").And.Contain("open Task Manager (Ctrl+Shift+Esc)")
             .And.NotContain("private");
         vm.ErrorDetail.Should().BeNull();
         vm.CanOpenTaskManager.Should().BeTrue();
