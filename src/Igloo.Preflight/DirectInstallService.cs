@@ -559,7 +559,8 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
         //   Step 5: Copy staging artefacts (ks.cfg, manifest, agent)     ─
         Report(prog, DirectInstallPhase.CopyingFiles, message: "Copying migration files…");
-        foreach (var (path, hash) in CopyStagingArtefacts(stagingDirectory, stagedFiles, $"{driveLetter}:\\", prog, ct))
+        foreach (var (path, hash) in CopyStagingArtefacts(stagingDirectory, stagedFiles, $"{driveLetter}:\\",
+                     _bootSpec.MigrationDataOnSeed, prog, ct))
             writtenHashes[path] = hash;
         ct.ThrowIfCancellationRequested();
 
@@ -734,7 +735,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         IReadOnlyCollection<string> seedOutputPaths, List<char> staleSeeds, CancellationToken ct)
     {
         var incomingPaths = stagedFiles.Select(file => file.RelativePath.Replace('\\', '/'))
-            .Concat(Directory.EnumerateDirectories(stagingDirectory, "*", SearchOption.AllDirectories)
+            .Concat(SeedDirectories(stagingDirectory, _bootSpec.MigrationDataOnSeed)
                 .Select(directory => Path.GetRelativePath(stagingDirectory, directory).Replace('\\', '/') + "/"))
             .ToArray();
         (char letter, uint partitionNumber, CanonicalVolumeIdentityV1 identity)? found = null;
@@ -1099,16 +1100,22 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         return files;
     }
 
-    private Dictionary<string, KnownSeedFileHash> CopyStagingArtefacts(string stagingDirectory,
-        IReadOnlyList<StagedFile> files, string oemDrvRoot, IProgress<DirectInstallProgress>? prog,
-        CancellationToken ct)
+    // Staged directories that belong on the seed. A provider that reads user data from
+    // the Windows volume gets none of the two user-data trees, not even empty ones.
+    internal static IEnumerable<string> SeedDirectories(string stagingDirectory, bool userDataOnSeed) =>
+        Directory.EnumerateDirectories(stagingDirectory, "*", SearchOption.AllDirectories)
+            .Where(directory => userDataOnSeed || !IsUserDataPath(
+                Path.GetRelativePath(stagingDirectory, directory) + Path.DirectorySeparatorChar));
+
+    internal Dictionary<string, KnownSeedFileHash> CopyStagingArtefacts(string stagingDirectory,
+        IReadOnlyList<StagedFile> files, string oemDrvRoot, bool userDataOnSeed,
+        IProgress<DirectInstallProgress>? prog, CancellationToken ct)
     {
         var hashes = new Dictionary<string, KnownSeedFileHash>(StringComparer.OrdinalIgnoreCase);
         long totalBytes = files.Sum(file => file.SizeBytes);
         long writtenBytes = 0;
-        // Copy the complete staged tree, including selected user files. Both the
-        // USB and direct paths must give first boot the same migration source.
-        foreach (var directory in Directory.EnumerateDirectories(stagingDirectory, "*", SearchOption.AllDirectories))
+        // Directories first, so an empty selected folder still reaches a seed that carries user data.
+        foreach (var directory in SeedDirectories(stagingDirectory, userDataOnSeed))
         {
             ct.ThrowIfCancellationRequested();
             if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
