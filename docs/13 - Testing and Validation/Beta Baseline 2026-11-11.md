@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-11
-reviewed_commit: 6b3a0efb154e957af6388aafb6bbe5f1d5bd298a
+reviewed_commit: 71053e91a935f0d382dafe900f9b251a9bd40804
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -47,6 +47,12 @@ The two failures were `FileStagingViewModelTests.Background_browser_lock_offers_
 - **`a8e9ad7` (L1).** The stale Task Manager assertion follows the current message.
 
 After `6b3a0ef`: `dotnet build Igloo.sln -c Release --no-restore -warnaserror` 0 warnings, 0 errors; `dotnet test Igloo.sln -c Release --no-build` 2,085 tests, 2,084 passed, 0 failed, 1 skipped.
+
+## Protected host (`71053e9`)
+
+**[Unit tests, L1]** `HostProtection` in `Igloo.Core` reads `HKLM\SOFTWARE\Policies\iGloo`, `ProtectedHost`, and every write primitive calls `RequireWritable` first. Refusal tests cover installer preparation, boot registration, Windows shrink, Linux removal, volume extension, firmware variable writes, `diskpart`, `bcdedit`, the BCD writer, both USB routes, raw write handles and `WindowsMaintenance`, each for a set and for an unreadable marker. `HostProtectionGuardTests` scans `src/` and fails on a raw write primitive outside the guard, and on product code that writes or overrides the marker. Test assemblies pin the marker to "not protected" through a module initializer, so the suite does not read the registry. After the commit: `dotnet build Igloo.sln -c Release --no-restore -warnaserror` 0 warnings, 0 errors; 2,127 tests, 2,126 passed, 0 failed, 1 skipped.
+
+**[Read in source, three independent sweeps]** A read-only search by mechanism, by entry point and by file-system target found no write primitive under `src/` without a guard. It also found `WindowsMaintenance` (`manage-bde -off`, `shutdown /r`, `shutdown /r /fw`), which is guarded as well. No command of the CLI reaches a write primitive. Not guarded by decision: `Mount-DiskImage` / `Dismount-DiskImage` on the Target Disk page (the dismount also detaches a mount of the same ISO the user made) and the per-user AutoPlay policy value.
 
 ## Read in source, not changed
 

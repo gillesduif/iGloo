@@ -20,7 +20,7 @@ Evidence must name source revision/working-tree state, environment, command or o
 
 | Evidence | Scope | Limit |
 | --- | --- | --- |
-| [[13 - Testing and Validation/Beta Baseline 2026-11-11]] | Build, unit-test and Linux fixture baseline at `68670ad`, the seed-copy probe, four source changes up to `6b3a0ef` and source-reading findings | Host only: no VM, installer, first-boot or hardware run; installer statements are source reading or unit tests |
+| [[13 - Testing and Validation/Beta Baseline 2026-11-11]] | Build, unit-test and Linux fixture baseline at `68670ad`, the seed-copy probe, the source changes up to `71053e9` (protected-host marker) and source-reading findings | Host only: no VM, installer, first-boot or hardware run; installer statements are source reading or unit tests |
 | [[13 - Testing and Validation/Community Repair 2026-10-25]] | Dated Community regression repairs, Windows/Linux checks, package and browser probe observations | Dirty local candidate; installation, reboot and recovery qualification remain separate |
 | [Command implementation report](../spec/command-contract/implementation-report.md) | Dated restore/build/unit and Fleet Phase 0/1 checks on earlier working-tree increments | Historical results, not automatic validation of 10 October dirty bytes; no installation or live ISO acquisition in those reports |
 | [Hardware findings](../reference/hardware-findings.md) | July–August physical runs and specific faults for Fedora/Mint/Debian | Earlier release-era conditions; do not generalize to new branch layout, Debian or recovery changes |
