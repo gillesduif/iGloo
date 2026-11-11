@@ -17,6 +17,8 @@
   prepared  the wizard shows "Ready to reboot" and the restart is cancelled (shutdown /a)
   after     back in Windows after the Linux installation
   error     the wizard stopped with an error
+  refused   the wizard refused before it changed the disk
+  removed   after a removal in System Check
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File .\Collect-WindowsEvidence.ps1 -Run r6-debian -Phase prepared
@@ -24,7 +26,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$')][string]$Run,
-    [ValidateSet('before', 'prepared', 'after', 'error')][string]$Phase = 'prepared',
+    [ValidateSet('before', 'prepared', 'after', 'error', 'refused', 'removed')][string]$Phase = 'prepared',
     [string]$OutputRoot = (Join-Path $env:SystemDrive 'igloo-evidence'),
     [string]$TestDataPath = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'igloo-testdata'),
     [string]$IglooData = (Join-Path $env:LOCALAPPDATA 'Igloo'),
@@ -245,7 +247,7 @@ Invoke-Section 'disks' {
         $regions = @($free | Where-Object { $_.Disk -eq $windows.Disk -and $_.Size -ge 1GB })
         $esp = @($onDisk | Where-Object { $_.GptType -eq '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}' })
         $script:facts.Add(('windows disk {0}: {1} partitions, {2} EFI system partition(s), {3} unallocated region(s) of 1 GiB or more [{4}]' -f $windows.Disk, $onDisk.Count, $esp.Count, $regions.Count, (($regions | ForEach-Object { '{0} GiB at {1}' -f $_.GiB, $_.Offset }) -join '; ')))
-        $script:facts.Add(('disks: {0}' -f $disks.Count))
+        $script:facts.Add(('windows partition {0}: {1:N0} bytes; disks: {2}' -f $windows.Letter, $windows.Size, $disks.Count))
     }
     Save-Text 'disks.txt' $text
     Save-Text 'partitions.json' ($script:partitions | ConvertTo-Json -Depth 3)
