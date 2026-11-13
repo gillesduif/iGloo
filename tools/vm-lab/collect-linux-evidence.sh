@@ -235,8 +235,16 @@ agent_log=/var/log/igloo/agent.log
 if [ -r "$agent_log" ]; then
     fact "agent.log: $(wc -l < "$agent_log") lines, $(grep -cE '\[(ERROR|CRITICAL)\]' "$agent_log") error line(s), $(grep -cE '\[WARNING\]' "$agent_log") warning line(s)"
     grep -E '\[(ERROR|CRITICAL|WARNING)\]' "$agent_log" | redact > "$out/agent-log-problems.txt"
+    seed_line=$(grep -E 'Deleted installer partition|Installer partition cleanup did not finish|No partition carries installer seed GUID' "$agent_log" | tail -n 1 | sed -E 's/^.*\] [^:]+: //' | redact)
+    fact "installer partition, last agent line: ${seed_line:-none}; firmware entries removed with it: $(grep -c 'Removed UEFI entry Boot' "$agent_log")"
 else
     fact 'agent.log: not present'
+fi
+seed_guid=$(sed -n 's/.*"partitionGuid"[[:space:]]*:[[:space:]]*"\([0-9A-Fa-f-]*\)".*/\1/p' /var/lib/igloo/seed-identity.json 2>/dev/null | head -n 1)
+if [ -n "$seed_guid" ]; then
+    fact "installer partition $seed_guid: carried by $(lsblk -rno PARTUUID 2>/dev/null | grep -ci "^$seed_guid\$") partition(s), named by $(efibootmgr -v 2>/dev/null | grep -ci "GPT,$seed_guid,") firmware entry(ies)"
+else
+    fact 'installer partition: no partition GUID in /var/lib/igloo/seed-identity.json'
 fi
 
 echo "... installer logs"
