@@ -645,9 +645,12 @@ class FirstBootOutcomeTests(unittest.TestCase):
 
     def test_cleanup_only_unmounts_and_never_deletes_without_exact_identity(self):
         with patch.object(agent.Path, "is_mount", return_value=True), \
+                patch.object(agent, "igloo_boot") as boot, \
                 patch.object(agent, "run_cmd") as run:
+            boot.seed_carries_user_data.side_effect = FileNotFoundError("no seed identity")
             agent.cleanup_installer_partitions({})
             run.assert_called_once_with(["umount", "/run/igloo-seed"])
+            boot.remove_installer_seed.assert_not_called()
 
     def test_selected_credentials_cannot_disappear_silently(self):
         with self.assertRaisesRegex(RuntimeError, "no target user"):

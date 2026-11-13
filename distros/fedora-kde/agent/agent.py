@@ -3550,9 +3550,9 @@ def export_logs_to_seed(manifest: dict[str, Any]) -> None:
 
     When the post-install boot fails (black screen, broken GPU driver), the
     logs on the Linux root are nearly unreachable - but the seed partition is
-    FAT32, readable straight from Windows, and in USB mode it is never
-    deleted. Dropping the logs there turns a blind failure into a one-plug
-    diagnosis. A seed identity mismatch fails first boot before any seed write;
+    FAT32 and readable straight from Windows. A pass without failures removes
+    the seed on the Windows disk afterwards, so this copy serves a failed pass
+    and a USB seed. A seed identity mismatch fails first boot before any seed write;
     ordinary log-copy I/O failure leaves the logs on the installed root.
     """
     log_dir = Path("/var/log/igloo")
@@ -3617,19 +3617,41 @@ def export_logs_to_seed(manifest: dict[str, Any]) -> None:
             run_cmd(["umount", str(mountpoint)], check=False)
 
 
-def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
-    """Retain installer transport until its exact ownership can be verified.
+def _require_copied_user_files(manifest: dict[str, Any], identity_path: Path,
+                               home_root: Path = Path("/home")) -> None:
+    """Raise unless every user file the seed identity binds is in the home with that hash."""
+    entries = json.loads(identity_path.read_bytes()).get("files")
+    if not isinstance(entries, list):
+        raise RuntimeError("Protected seed identity has no file list")
+    bound = [entry for entry in entries if isinstance(entry, dict)
+             and isinstance(entry.get("path"), str) and entry["path"].lower().startswith("files/")]
+    if not bound:
+        return
+    username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
+    if not username or "/" in username or username in (".", ".."):
+        raise RuntimeError("Copied user files cannot be checked without a Linux user")
+    home = home_root / username
+    for entry in bound:
+        segments = entry["path"].split("/")[1:]
+        if not segments or any(segment in ("", ".", "..") for segment in segments):
+            raise RuntimeError("Protected seed identity names an unsafe user file")
+        if _hash_bound_file(home.joinpath(*segments)) != entry.get("sha256"):
+            raise RuntimeError(f"A copied file differs from the installer partition: {entry['path']}")
+    logger.info("Verified %d copied user file(s) against the installer seed identity", len(bound))
 
-    The protected seed identity binds a disk/partition GUID and selected files
-    for readback and credential redaction. It does not prove that deleting the
-    partition is owned by this installation, and there is no bound UEFI Boot####
-    identity. A label, root-disk match, ordinal or entry description cannot
-    authorize deletion. Keeping the seed preserves copied files and logs.
-    """
-    logger.warning("Installer seed still holds copied migration files and logs. "
-                   "Keep it private and confirm imported data before reusing it; "
-                   "automatic partition and EFI cleanup needs exact ownership "
-                   "of both the seed and boot entry")
+
+def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
+    """Remove the installer partition its seed identity names, once the copied files are verified."""
+    identity = Path("/var/lib/igloo/seed-identity.json")
+    try:
+        if igloo_boot is None:
+            raise RuntimeError("igloo_boot.py is not staged in /opt/igloo")
+        _require_copied_user_files(manifest, identity)
+        igloo_boot.remove_installer_seed(igloo_boot.fedora(run_cmd, logger), identity,
+                                         Path("/var/lib/igloo/.done"))
+    except Exception as error:
+        logger.warning("Installer partition cleanup did not finish; it may still hold "
+                       "the copied files and logs: %s", error)
 
 
 # ---------------------------------------------------------------------------
@@ -3683,6 +3705,7 @@ def main() -> int:
         try:
             redact_manifest(manifest)
             logger.info("Resumed protected installer seed scrub")
+            cleanup_installer_partitions(manifest)
             return 0
         except Exception:
             logger.exception("Protected installer seed scrub retry failed")
@@ -3697,7 +3720,7 @@ def main() -> int:
     # Independent steps continue after a failure so the log includes every issue.
     # A failed pass must still exit nonzero and remain eligible for retry.
     # Order matters: RPM Fusion must be enabled before codecs/GPU drivers;
-    # Flathub must be registered before suggested-pkgs; redact runs last.
+    # Flathub must be registered before suggested-pkgs; redact runs before the seed is removed.
     # kernel-modules runs AFTER every step whose dnf transaction can pull in a
     # new kernel (gpu-drivers installs akmod-nvidia, which depends on
     # kernel-devel-matched -> the LATEST kernel; suggested-pkgs runs dnf too).
@@ -3725,10 +3748,9 @@ def main() -> int:
         ("stage-credentials", lambda: stage_credential_import(manifest)),
         # Export logs before redaction; both are read back from the seed.
         ("export-logs",     lambda: export_logs_to_seed(manifest)),
-        # Partition/EFI cleanup is deferred until an exact ownership binding
-        # exists. A failing earlier step keeps every retry input in place.
-        ("cleanup-seed",    lambda: cleanup_installer_partitions(manifest)),
         ("redact-manifest", lambda: redact_manifest(manifest)),
+        # Last: the redaction above still reads the seed this step removes.
+        ("cleanup-seed",    lambda: cleanup_installer_partitions(manifest)),
     ]
 
     failures: list[str] = []

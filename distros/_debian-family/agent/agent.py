@@ -3715,16 +3715,21 @@ def configure_logging(log_dir: Path) -> None:
 
 
 def cleanup_installer_partitions(manifest: dict[str, Any]) -> None:
-    """Release the read-only seed mount; defer destructive cleanup.
-
-    A filesystem label and shared parent disk do not prove iGloo ownership of
-    a partition or an EFI entry. The manifest carries no exact partition GUID
-    or entry identity, so deleting either here would risk user data.
-    """
+    """Remove the installer partition its seed identity names, and the firmware entries on it."""
     seed_mount = Path("/run/igloo-seed")
-    if seed_mount.is_mount():
-        run_cmd(["umount", str(seed_mount)])
-    logger.info("Installer partition and EFI cleanup deferred: no exact ownership binding")
+    identity = Path("/var/lib/igloo/seed-identity.json")
+    try:
+        if seed_mount.is_mount():
+            run_cmd(["umount", str(seed_mount)])
+        if igloo_boot is None:
+            raise RuntimeError("igloo_boot.py is not staged in /opt/igloo")
+        # This agent copies user files from the Windows volume and verifies none from a seed.
+        if igloo_boot.seed_carries_user_data(identity):
+            raise RuntimeError("it holds user files this agent did not verify")
+        igloo_boot.remove_installer_seed(igloo_boot.debian_family(run_cmd, logger), identity,
+                                         Path("/var/lib/igloo/.done"))
+    except Exception as error:
+        logger.warning("Installer partition cleanup did not finish: %s", error)
 
 
 def _validate_seed_retry_state(private_root: Path) -> bool:

@@ -343,10 +343,24 @@ class FedoraBoundSeedTest(TestCase):
                                       return_value={"ID": "fedora"}), \
                     mock.patch.object(AGENT, "_SCRUB_JOURNAL", journal), \
                     mock.patch.object(AGENT, "redact_manifest") as scrub, \
+                    mock.patch.object(AGENT, "cleanup_installer_partitions",
+                                      side_effect=lambda _: scrub.assert_called_once()) as cleanup, \
                     mock.patch.object(AGENT, "enable_rpmfusion") as rpmfusion:
                 self.assertEqual(AGENT.main(), 0)
             scrub.assert_called_once_with(manifest)
+            cleanup.assert_called_once_with(manifest)
             rpmfusion.assert_not_called()
+
+            with mock.patch.object(AGENT, "parse_args", return_value=args), \
+                    mock.patch.object(AGENT, "configure_logging"), \
+                    mock.patch.object(AGENT, "logger"), \
+                    mock.patch.object(AGENT.platform, "freedesktop_os_release",
+                                      return_value={"ID": "fedora"}), \
+                    mock.patch.object(AGENT, "_SCRUB_JOURNAL", journal), \
+                    mock.patch.object(AGENT, "redact_manifest", side_effect=RuntimeError("scrub failed")), \
+                    mock.patch.object(AGENT, "cleanup_installer_partitions") as kept:
+                self.assertEqual(AGENT.main(), 1)
+            kept.assert_not_called()
 
     @skipUnless(hasattr(os, "O_DIRECTORY"), "Linux launcher semantics are required")
     def test_launcher_keeps_retry_inputs_on_failure_and_skips_rerun_after_done(self):

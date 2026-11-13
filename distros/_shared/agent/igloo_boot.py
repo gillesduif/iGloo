@@ -5,12 +5,14 @@ keeps its files, so both are passed in through Boot rather than imported.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 _LONGNAME_MARKER = "# igloo: rename the Windows Boot Manager entry"
 _SUBMENU_MARKER = "# igloo: one entry per OS - no Advanced options submenu"
@@ -463,6 +465,183 @@ def put_self_first_in_boot_order(b: Boot) -> None:
             b.logger.warning("Could not set the UEFI boot order - Windows may boot directly")
     except Exception:
         b.logger.exception("Boot-order fix failed (non-fatal)")
+
+
+_BASIC_DATA_GPT_TYPE = uuid.UUID("ebd0a0a2-b9e5-4433-87c0-68b6b72699c7")
+_SEED_MOUNTPOINTS = ("/run/igloo-seed", "/run/igloo-seed-verify",
+                     "/run/igloo-seed-export", "/run/igloo-seed-redaction")
+_SEED_TOOLS = ("sfdisk", "partx", "efibootmgr")
+_GUID = r"[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}"
+
+
+class _TableRow(NamedTuple):
+    node: str
+    number: str
+    type: uuid.UUID
+    guid: uuid.UUID
+
+
+class _Seed(NamedTuple):
+    partition: str
+    disk: str
+    number: str
+    table: list[uuid.UUID]
+
+
+def _same_guid(text: Any, expected: uuid.UUID) -> bool:
+    try:
+        return uuid.UUID(str(text).strip()) == expected
+    except ValueError:
+        return False
+
+
+def _seed_identity(identity_path: Path) -> dict[str, Any]:
+    identity = json.loads(identity_path.read_bytes())
+    if not isinstance(identity, dict) or identity.get("version") != 1:
+        raise RuntimeError("Installer seed identity has an unknown version")
+    return identity
+
+
+def seed_identity_guids(identity_path: Path) -> tuple[uuid.UUID, uuid.UUID]:
+    """GPT disk and partition GUID of the seed this installation started from."""
+    identity = _seed_identity(identity_path)
+    try:
+        disk = uuid.UUID(identity["diskGuid"])
+        partition = uuid.UUID(identity["partitionGuid"])
+    except (KeyError, ValueError, TypeError, AttributeError) as error:
+        raise RuntimeError("Installer seed identity has no valid GPT identity") from error
+    if disk.int == 0 or partition.int == 0:
+        raise RuntimeError("Installer seed identity has an empty GPT identity")
+    return disk, partition
+
+
+def seed_carries_user_data(identity_path: Path) -> bool:
+    """True when the seed identity binds a file from the user's folders or browser profiles."""
+    entries = _seed_identity(identity_path).get("files")
+    if not isinstance(entries, list):
+        raise RuntimeError("Installer seed identity has no file list")
+    return any(isinstance(entry, dict) and isinstance(entry.get("path"), str)
+               and entry["path"].lower().startswith(("files/", "browser-profiles/"))
+               for entry in entries)
+
+
+def _table_rows(dump: str) -> list[_TableRow]:
+    """The partition rows of an sfdisk dump of a GPT disk."""
+    if not re.search(r"^label:\s*gpt\s*$", dump, re.M):
+        raise RuntimeError("The installer partition is not on a GPT disk")
+    rows = []
+    for line in dump.splitlines():
+        row = re.match(r"^(\S+?(\d+))\s*:\s*start=(.*)$", line)
+        if not row:
+            continue
+        kind = re.search(rf"\btype=({_GUID})\b", row.group(3))
+        guid = re.search(rf"\buuid=({_GUID})\b", row.group(3))
+        if not kind or not guid:
+            raise RuntimeError("The partition table on disk is not understood")
+        rows.append(_TableRow(row.group(1), row.group(2),
+                              uuid.UUID(kind.group(1)), uuid.UUID(guid.group(1))))
+    return rows
+
+
+def find_seed_partition(b: Boot, disk_guid: uuid.UUID, partition_guid: uuid.UUID) -> _Seed | None:
+    """The one partition with the seed's GPT identity; None when it is gone, an error on any doubt."""
+    listing = b.run_cmd(["lsblk", "-rno", "PATH,PARTUUID"]).stdout or ""
+    matches = [fields[0] for fields in (line.split() for line in listing.splitlines())
+               if len(fields) == 2 and _same_guid(fields[1], partition_guid)]
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise RuntimeError("More than one partition carries the installer seed GUID")
+    partition = matches[0]
+    parents = (b.run_cmd(["lsblk", "-rno", "PKNAME", partition]).stdout or "").split()
+    if len(parents) != 1 or not re.fullmatch(r"[A-Za-z0-9._-]+", parents[0]):
+        raise RuntimeError("The installer partition has no single parent disk")
+    disk = "/dev/" + parents[0]
+    if not _same_guid(b.run_cmd(["blkid", "-s", "PTUUID", "-o", "value", disk]).stdout, disk_guid):
+        raise RuntimeError("The installer partition sits on a disk its identity does not name")
+    # A seed on a USB stick is the user's installer medium, not a leftover on the Windows disk.
+    transport = (b.run_cmd(["lsblk", "-dnro", "RM,TRAN", disk]).stdout or "").split()
+    if not transport or transport[0] != "0" or "usb" in transport[1:]:
+        raise RuntimeError("The installer partition is on a removable or USB disk")
+    file_system = (b.run_cmd(["blkid", "-p", "-s", "TYPE", "-o", "value", partition],
+                             check=False).stdout or "").strip().lower()
+    if file_system != "vfat":
+        raise RuntimeError("The partition with the installer seed GUID is not FAT32")
+
+    # The table on disk decides the number sfdisk is given, not a device name.
+    table = _table_rows(b.run_cmd(["sfdisk", "--dump", disk]).stdout or "")
+    rows = [row for row in table if row.guid == partition_guid]
+    if len(rows) != 1 or os.path.realpath(rows[0].node) != os.path.realpath(partition):
+        raise RuntimeError("The partition table on disk does not match the running kernel")
+    if rows[0].type != _BASIC_DATA_GPT_TYPE:
+        raise RuntimeError("The partition with the installer seed GUID is not a data partition")
+    return _Seed(partition, disk, rows[0].number, [row.guid for row in table])
+
+
+def boot_entries_for_partition(listing: str, partition_guid: uuid.UUID) -> list[str]:
+    """Boot#### numbers whose device path names the partition, from an efibootmgr listing."""
+    numbers = []
+    for line in listing.splitlines():
+        entry = re.match(r"^Boot([0-9A-Fa-f]{4})\*?\s", line)
+        target = re.search(rf"HD\(\d+,GPT,({_GUID}),", line)
+        if entry and target and _same_guid(target.group(1), partition_guid):
+            numbers.append(entry.group(1).upper())
+    return numbers
+
+
+def publish_completion(marker: Path) -> None:
+    """Record durably that the first-boot pass is complete, as its launcher does after the pass."""
+    if not marker.exists():
+        temporary = marker.with_name(marker.name + ".igloo-writing")
+        with temporary.open("wb") as output:
+            output.write(b"complete\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, marker)
+    directory = os.open(marker.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+def remove_installer_seed(b: Boot, identity_path: Path, completion_marker: Path) -> None:
+    """Delete the partition the seed identity names and the firmware entries whose path points at it."""
+    disk_guid, partition_guid = seed_identity_guids(identity_path)
+    missing = [tool for tool in _SEED_TOOLS if shutil.which(tool) is None]
+    if missing:
+        raise RuntimeError("Not installed: " + ", ".join(missing))
+    seed = find_seed_partition(b, disk_guid, partition_guid)
+    if seed is None:
+        b.logger.info("No partition carries installer seed GUID %s any more", partition_guid)
+    else:
+        mounted = (b.run_cmd(["findmnt", "-rno", "TARGET", "-S", seed.partition],
+                             check=False).stdout or "").split()
+        foreign = [target for target in mounted if target not in _SEED_MOUNTPOINTS]
+        if foreign:
+            raise RuntimeError(f"The installer partition is mounted at {foreign[0]}")
+        for target in mounted:
+            b.run_cmd(["umount", target])
+        # A pass whose seed is gone cannot run again, so its completion is durable first.
+        publish_completion(completion_marker)
+        # The re-read ioctl fails on the disk the system runs from; partx tells the kernel below.
+        b.run_cmd(["sfdisk", "--no-tell-kernel", "--delete", seed.disk, seed.number], check=False)
+        left = [row.guid for row in _table_rows(b.run_cmd(["sfdisk", "--dump", seed.disk]).stdout or "")]
+        if partition_guid in left:
+            raise RuntimeError("The installer partition is still in the partition table")
+        if sorted(left, key=str) != sorted((guid for guid in seed.table if guid != partition_guid), key=str):
+            raise RuntimeError(f"The partition table of {seed.disk} changed beyond the installer partition")
+        if b.run_cmd(["partx", "--delete", "--nr", seed.number, seed.disk], check=False).returncode != 0:
+            b.logger.info("The kernel keeps %s until the next boot", seed.partition)
+        b.logger.info("Deleted installer partition %s (number %s on %s, GPT %s)",
+                      seed.partition, seed.number, seed.disk, partition_guid)
+
+    listing = b.run_cmd(["efibootmgr", "-v"], check=False).stdout or ""
+    for number in boot_entries_for_partition(listing, partition_guid):
+        if b.run_cmd(["efibootmgr", "-b", number, "-B"], check=False).returncode == 0:
+            b.logger.info("Removed UEFI entry Boot%s, which pointed at the installer partition", number)
+        else:
+            b.logger.warning("Could not remove UEFI entry Boot%s", number)
 
 
 def configure_boot_menu(manifest: dict[str, Any], b: Boot,

@@ -81,6 +81,13 @@ class DebianFirstBootOrderTests(unittest.TestCase):
         self.assertNotIn('redact-manifest', seen)
         self.assertNotIn('cleanup-seed', seen)
 
+    def test_failed_redaction_keeps_the_seed(self):
+        for step in ('redact-seed', 'redact-manifest'):
+            with self.subTest(step):
+                result, seen = self.run_agent(failing=step)
+                self.assertEqual(1, result)
+                self.assertNotIn('cleanup-seed', seen)
+
     def test_failed_selected_wifi_keeps_seed_and_manifest_for_retry(self):
         result, seen = self.run_agent(failing='wifi')
         self.assertEqual(1, result)

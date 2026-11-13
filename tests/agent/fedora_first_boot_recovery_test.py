@@ -117,6 +117,7 @@ class FedoraFirstBootRecoveryTest(TestCase):
                 mock.patch.object(AGENT, "parse_args", return_value=args),
                 mock.patch.object(AGENT, "configure_logging"),
                 mock.patch.object(AGENT, "logger"),
+                mock.patch.object(AGENT, "_SCRUB_JOURNAL", root / "no-journal.json"),
                 mock.patch.object(AGENT, "_verify_bound_seed_before_firstboot"),
                 mock.patch.object(AGENT.platform, "freedesktop_os_release",
                                   return_value=({"ID": installed_os} if installed_os else {})),
@@ -184,7 +185,12 @@ class FedoraFirstBootRecoveryTest(TestCase):
         status, calls, _ = self.run_agent()
         self.assertEqual(status, 0)
         self.assertIn("redact_manifest", calls)
-        self.assertIn("cleanup_installer_partitions", calls)
+        self.assertEqual(calls[-1], "cleanup_installer_partitions")
+
+    def test_failed_redaction_keeps_the_seed_and_the_pass_incomplete(self):
+        status, calls, _ = self.run_agent(fail_step="redact_manifest")
+        self.assertEqual(status, 1)
+        self.assertNotIn("cleanup_installer_partitions", calls)
 
     @skipIf(os.name == "nt", "NetworkManager keyfile permissions require POSIX")
     def test_wifi_sanitized_name_collision_keeps_both_private_profiles(self):
@@ -443,13 +449,16 @@ class FedoraFirstBootRecoveryTest(TestCase):
                 with self.assertRaises(FileNotFoundError):
                     AGENT.migrate_display_layout(self._selected_display())
 
-    def test_unbound_seed_cleanup_does_not_issue_partition_or_efi_writes(self):
-        with mock.patch.object(AGENT, "run_cmd") as run_cmd, \
+    def test_unverified_seed_cleanup_does_not_issue_partition_or_efi_writes(self):
+        with mock.patch.object(AGENT, "igloo_boot") as boot, \
+             mock.patch.object(AGENT, "_require_copied_user_files",
+                               side_effect=RuntimeError("fixture: a copied file differs")), \
+             mock.patch.object(AGENT, "run_cmd") as run_cmd, \
              mock.patch.object(AGENT, "logger") as logger:
             AGENT.cleanup_installer_partitions({"distroId": "fedora-kde"})
+        boot.remove_installer_seed.assert_not_called()
         run_cmd.assert_not_called()
-        self.assertIn("copied migration files and logs", logger.warning.call_args.args[0])
-        self.assertIn("Keep it private", logger.warning.call_args.args[0])
+        self.assertIn("may still hold the copied files and logs", logger.warning.call_args.args[0])
 
     def test_nvidia_secure_boot_fails_before_driver_install_or_nouveau_blacklist(self):
         with mock.patch.object(AGENT, "run_cmd") as run_cmd, \
