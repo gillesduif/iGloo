@@ -362,6 +362,22 @@ class FedoraBoundSeedTest(TestCase):
                 self.assertEqual(AGENT.main(), 1)
             kept.assert_not_called()
 
+    @skipUnless(hasattr(os, "O_DIRECTORY"), "A POSIX shell is required")
+    def test_pre_refuses_its_seed_disk_as_target_unless_the_mode_keeps_every_partition(self):
+        template = KICKSTART.read_text(encoding="utf-8")
+        check = template[template.index('if [ -z "$SEED_DISK_GUID" ]'):
+                         template.index('log "Bound OEMDRV identity and staged inputs verified"')]
+        target, other = "5932e3bb-6b03-4f34-9092-5596eb3a770b", "0f0e0d0c-0b0a-4908-8706-050403020100"
+        cases = [("dual-boot", target.upper(), 0), ("dual-boot", other, 0), ("dual-boot", "", 1),
+                 ("replace", target.upper(), 1), ("replace", other, 0), ("replace", "", 1),
+                 ("upgrade", target, 1)]
+        for mode, seed_disk, expected in cases:
+            with self.subTest(mode=mode, seed_disk=seed_disk):
+                script = ("set -euo pipefail\nlog() { :; }\n"
+                          f"INSTALL_MODE={mode!r}\nSEED_DISK_GUID={seed_disk!r}\n"
+                          f"TARGET_DISK_GUID={target!r}\n" + check)
+                self.assertEqual(subprocess.run(["bash", "-c", script], check=False).returncode, expected)
+
     @skipUnless(hasattr(os, "O_DIRECTORY"), "Linux launcher semantics are required")
     def test_launcher_keeps_retry_inputs_on_failure_and_skips_rerun_after_done(self):
         launcher_source = (SOURCE.parent / "first-boot.sh").read_text(encoding="utf-8")

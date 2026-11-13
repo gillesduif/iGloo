@@ -369,7 +369,9 @@ mkdir -p "$PRE_SEED"
 mount -t vfat -o ro,nosuid,nodev,noexec "${SEED_DEVICES[0]}" "$PRE_SEED"
 SEED_DISK_GUID=$(python3 /tmp/igloo-validate-seed.py "${SEED_DEVICES[0]}" "$PRE_SEED")
 umount "$PRE_SEED"
-if [ -z "$SEED_DISK_GUID" ] || [ "${SEED_DISK_GUID,,}" = "${TARGET_DISK_GUID,,}" ]; then
+# Dual boot keeps every partition, so its seed sits on the target disk; any other mode would wipe it.
+if [ -z "$SEED_DISK_GUID" ] ||
+   { [ "$INSTALL_MODE" != "dual-boot" ] && [ "${SEED_DISK_GUID,,}" = "${TARGET_DISK_GUID,,}" ]; }; then
     log "ERROR: selected target is the installer seed disk or seed identity is unavailable"
     exit 1
 fi
