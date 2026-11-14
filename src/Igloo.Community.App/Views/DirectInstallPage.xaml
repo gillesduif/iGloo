@@ -143,7 +143,6 @@
                 <StackPanel>
                     <TextBox x:Name="LogBox" Text="{Binding LogTail, Mode=OneWay}"
                              Style="{StaticResource TextBox.Detail}"
-                             FontFamily="Cascadia Mono, Consolas"
                              TextWrapping="NoWrap" MaxHeight="240"
                              VerticalScrollBarVisibility="Auto"
                              HorizontalScrollBarVisibility="Auto"

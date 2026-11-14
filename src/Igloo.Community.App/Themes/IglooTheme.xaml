@@ -110,10 +110,9 @@
     </Style>
 
     <Style x:Key="Text.Mono" TargetType="TextBlock">
-        <!-- Consolas first: it is in-box on all supported Windows. Cascadia Mono
-             (ships with Terminal/VS, absent on a clean install) is only a nicety;
-             leading with a guaranteed font avoids stressing font-fallback -->
-        <Setter Property="FontFamily" Value="Consolas, Cascadia Mono" />
+        <!-- Consolas only: it is in-box on every supported Windows. Cascadia Mono comes with
+             the Terminal package, and text layout throws when its file is gone. -->
+        <Setter Property="FontFamily" Value="Consolas" />
         <Setter Property="FontSize"   Value="11.5" />
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
         <Setter Property="TextWrapping" Value="Wrap" />
@@ -869,7 +868,7 @@
         <Setter Property="Background"      Value="#0C1120" />
         <Setter Property="BorderBrush"     Value="{StaticResource Brush.Surface.Border}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="FontFamily"      Value="Cascadia Mono, Consolas" />
+        <Setter Property="FontFamily"      Value="Consolas" />
         <Setter Property="FontSize"        Value="10.5" />
         <Setter Property="Padding"         Value="8" />
         <Setter Property="IsReadOnly"      Value="True" />
