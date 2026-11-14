@@ -27,12 +27,12 @@ public interface IDirectInstallService
         IProgress<DirectInstallProgress>? progress = null,
         CancellationToken ct = default);
 
-    /// <summary>Removes the installer's boot entries once the installer partition with this GUID is gone.</summary>
-    Task<BootCleanupOutcome> CleanUpBootEntriesAsync(Guid installerPartitionGuid, CancellationToken ct = default) =>
-        Task.FromResult(BootCleanupOutcome.NotRead);
+    /// <summary>Removes the BCD entry of one registration and the firmware entries of its installer partition once that partition is gone.</summary>
+    Task<BootCleanupOutcome> CleanUpBootEntriesAsync(Guid installerPartitionGuid, Guid bcdEntry,
+        CancellationToken ct = default) => Task.FromResult(BootCleanupOutcome.NotRead);
 }
 
-/// <summary>The command line of the cleanup task: this argument, then the installer partition's GUID.</summary>
+/// <summary>The command line of the cleanup task: this argument, the installer partition's GUID, the BCD entry's identifier.</summary>
 public static class BootCleanup
 {
     public const string Argument = "--boot-cleanup";
@@ -45,6 +45,8 @@ public enum BootCleanupOutcome
     NotRead,
     /// <summary>The installer partition still exists; its boot entries and the task stay.</summary>
     PartitionPresent,
+    /// <summary>The partition is gone but the BCD entry is still listed, or the listing could not be read; the task stays.</summary>
+    EntriesRemain,
     /// <summary>The partition is gone; its boot entries and the task were removed.</summary>
     Removed,
 }

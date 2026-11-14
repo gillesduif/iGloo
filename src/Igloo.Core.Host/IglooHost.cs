@@ -538,8 +538,8 @@ public interface IInstallationPreparation
     Task RegisterBootEntryAsync(IProgress<DirectInstallProgress>? progress,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Removes the installer's boot entries once the partition with this GUID is gone; the cleanup task calls it.</summary>
-    Task<BootCleanupOutcome> CleanUpBootEntriesAsync(string installerPartitionGuid,
+    /// <summary>Removes what one registration left in Windows once its installer partition is gone; the cleanup task calls it.</summary>
+    Task<BootCleanupOutcome> CleanUpBootEntriesAsync(string installerPartitionGuid, string bcdEntry,
         CancellationToken cancellationToken = default) => Task.FromResult(BootCleanupOutcome.NotRead);
 }
 
@@ -733,14 +733,15 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
         await service.RegisterBootEntryAsync(progress, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<BootCleanupOutcome> CleanUpBootEntriesAsync(string installerPartitionGuid,
+    public async Task<BootCleanupOutcome> CleanUpBootEntriesAsync(string installerPartitionGuid, string bcdEntry,
         CancellationToken cancellationToken = default)
     {
-        if (!Guid.TryParse(installerPartitionGuid, out var guid) || guid == Guid.Empty)
+        if (!Guid.TryParse(installerPartitionGuid, out var partition) || partition == Guid.Empty ||
+            !Guid.TryParse(bcdEntry, out var entry) || entry == Guid.Empty)
             return BootCleanupOutcome.NotRead;
         using var lease = await ResourceLock.AcquireManyAsync(
             ["boot-configuration"], cancellationToken).ConfigureAwait(false);
-        return await service.CleanUpBootEntriesAsync(guid, cancellationToken).ConfigureAwait(false);
+        return await service.CleanUpBootEntriesAsync(partition, entry, cancellationToken).ConfigureAwait(false);
     }
 }
 

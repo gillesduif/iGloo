@@ -20,18 +20,22 @@ public sealed class BootCleanupHostTests
         await using var host = services.BuildServiceProvider();
         var preparation = host.GetRequiredService<IInstallationPreparation>();
 
+        const string partition = "dddd4e82-820a-4dd7-b745-e91cb5e232a6";
+        const string entry = "{7a757dff-ddf9-11f1-9250-e8c97e719636}";
         foreach (var argument in new[] { "", "--boot-cleanup", "dddd4e82", Guid.Empty.ToString() })
-            Assert.Equal(BootCleanupOutcome.NotRead, await preparation.CleanUpBootEntriesAsync(argument));
+        {
+            Assert.Equal(BootCleanupOutcome.NotRead, await preparation.CleanUpBootEntriesAsync(argument, entry));
+            Assert.Equal(BootCleanupOutcome.NotRead, await preparation.CleanUpBootEntriesAsync(partition, argument));
+        }
         Assert.Empty(direct.Asked);
 
-        Assert.Equal(BootCleanupOutcome.Removed,
-            await preparation.CleanUpBootEntriesAsync("dddd4e82-820a-4dd7-b745-e91cb5e232a6"));
-        Assert.Equal([Guid.Parse("dddd4e82-820a-4dd7-b745-e91cb5e232a6")], direct.Asked);
+        Assert.Equal(BootCleanupOutcome.Removed, await preparation.CleanUpBootEntriesAsync(partition, entry));
+        Assert.Equal([(Guid.Parse(partition), Guid.Parse(entry))], direct.Asked);
     }
 
     private sealed class RecordingDirectInstall : IDirectInstallService
     {
-        public List<Guid> Asked { get; } = [];
+        public List<(Guid Partition, Guid Entry)> Asked { get; } = [];
 
         public Observation<bool> PreparationAvailability => Observations.Available(true);
 
@@ -43,10 +47,10 @@ public sealed class BootCleanupHostTests
         public Task RegisterBootEntryAsync(IProgress<DirectInstallProgress>? progress = null,
             CancellationToken ct = default) => throw new InvalidOperationException("Not part of this test.");
 
-        public Task<BootCleanupOutcome> CleanUpBootEntriesAsync(Guid installerPartitionGuid,
+        public Task<BootCleanupOutcome> CleanUpBootEntriesAsync(Guid installerPartitionGuid, Guid bcdEntry,
             CancellationToken ct = default)
         {
-            Asked.Add(installerPartitionGuid);
+            Asked.Add((installerPartitionGuid, bcdEntry));
             return Task.FromResult(BootCleanupOutcome.Removed);
         }
     }

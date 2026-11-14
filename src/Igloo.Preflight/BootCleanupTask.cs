@@ -46,7 +46,17 @@ internal static class BootCleanupTask
         return read == 0 ? null : false;
     }
 
-    internal static string BuildXml(string application, Guid partitionGuid, string userSid) =>
+    /// <summary>Whether the firmware listing still shows the BCD entry; null when the text is not such a listing.</summary>
+    internal static bool? BcdEntryRemains(string? firmwareListing, Guid bcdEntry)
+    {
+        // Every firmware listing names the firmware boot manager by this alias, in any display language.
+        if (string.IsNullOrEmpty(firmwareListing) ||
+            !firmwareListing.Contains("{fwbootmgr}", StringComparison.OrdinalIgnoreCase))
+            return null;
+        return firmwareListing.Contains(bcdEntry.ToString("B"), StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static string BuildXml(string application, Guid partitionGuid, Guid bcdEntry, string userSid) =>
         $"""
         <?xml version="1.0" encoding="UTF-16"?>
         <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -77,26 +87,28 @@ internal static class BootCleanupTask
           <Actions Context="Author">
             <Exec>
               <Command>{SecurityElement.Escape(application)}</Command>
-              <Arguments>{BootCleanup.Argument} {partitionGuid:D}</Arguments>
+              <Arguments>{BootCleanup.Argument} {partitionGuid:D} {bcdEntry:D}</Arguments>
             </Exec>
           </Actions>
         </Task>
         """;
 
-    /// <summary>Removes the entries only when the installer partition is known to be gone.</summary>
-    internal static BootCleanupOutcome Run(bool? partitionExists, Func<IReadOnlyList<string>> staleBcdEntries,
-        Action<string> deleteBcdEntry, Func<IReadOnlyList<ushort>> firmwareEntries, Action<ushort> deleteFirmwareEntry,
-        Action removeTask)
+    /// <summary>Removes what one registration created, and only when its installer partition is known to be gone.</summary>
+    internal static BootCleanupOutcome Run(bool? partitionExists, Action deleteBcdEntry,
+        Func<IReadOnlyList<ushort>> firmwareEntries, Action<ushort> deleteFirmwareEntry,
+        Func<bool?> bcdEntryRemains, Action removeTask)
     {
         if (partitionExists is null)
             return BootCleanupOutcome.NotRead;
         if (partitionExists.Value)
             return BootCleanupOutcome.PartitionPresent;
-        foreach (var id in staleBcdEntries())
-            deleteBcdEntry(id);
-        // Windows drops the firmware entry with its BCD object; the wizard's own raw entry has none.
+        // The BCD entry goes first: while it exists Windows writes the firmware entry again.
+        deleteBcdEntry();
         foreach (var index in firmwareEntries())
             deleteFirmwareEntry(index);
+        // The task stays until the entry is seen to be gone, so a failed delete is tried again.
+        if (bcdEntryRemains() != false)
+            return BootCleanupOutcome.EntriesRemain;
         removeTask();
         return BootCleanupOutcome.Removed;
     }

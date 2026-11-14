@@ -53,9 +53,9 @@ public partial class IglooApp : Application
         await _host.StartAsync();
         Log.Information("Igloo starting up");
 
-        if (e.Args is [BootCleanup.Argument, var installerPartition])
+        if (e.Args is [BootCleanup.Argument, var installerPartition, var bcdEntry])
         {
-            await CleanUpBootEntriesAsync(_host, installerPartition);
+            await CleanUpBootEntriesAsync(_host, installerPartition, bcdEntry);
             Shutdown();
             return;
         }
@@ -68,16 +68,16 @@ public partial class IglooApp : Application
     }
 
     // Started by the task the wizard scheduled at Restart; no window is shown.
-    private static async Task CleanUpBootEntriesAsync(IHost host, string installerPartition)
+    private static async Task CleanUpBootEntriesAsync(IHost host, string installerPartition, string bcdEntry)
     {
         try
         {
             var outcome = await host.Services.GetRequiredService<IInstallationPreparation>()
-                .CleanUpBootEntriesAsync(installerPartition);
+                .CleanUpBootEntriesAsync(installerPartition, bcdEntry);
             Log.Information("Boot entry cleanup ended: {Outcome}", outcome);
         }
         catch (Exception ex) when (ex is HostProtectedException or ResourceBusyException
-                                       or InvalidOperationException or IOException)
+                                       or InvalidOperationException or IOException or UnauthorizedAccessException)
         {
             Log.Warning(ex, "Boot entry cleanup did not run");
         }

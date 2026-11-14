@@ -1967,7 +1967,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // Second mechanism: a Windows-managed BCD firmware application + bootsequence.
         // bcdedit re-synchronises BCD into NVRAM the same way Windows registers its own
         // Boot Manager, which pruning firmware demonstrably keeps. Purely additive.
-        RegisterBootEntryViaBcdedit(completed.DriveLetter);
+        var bcdEntry = RegisterBootEntryViaBcdedit(completed.DriveLetter);
 
         // Belt-and-suspenders for firmware that ignores BootNext but honours BootOrder.
         PrependBootOrder(idx);
@@ -1978,7 +1978,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         PrioritiseEntriesTargetingInstallerPartition(partGuid, idx);
 
         // Windows keeps the BCD entry after the installer partition is gone; a task removes it at the next sign-in.
-        ScheduleBootCleanup(partGuid);
+        ScheduleBootCleanup(partGuid, bcdEntry);
 
         // Dual-boot clock fix: Linux keeps the RTC in UTC, Windows assumes local time.
         SetRtcUniversalTime();
@@ -2009,7 +2009,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     /// Registers the installer as a Windows-managed firmware application and makes it the
     /// next boot via <c>bcdedit</c>. Entirely best-effort: the NVRAM path has already run.
     /// </summary>
-    private void RegisterBootEntryViaBcdedit(char letter)
+    private string? RegisterBootEntryViaBcdedit(char letter)
     {
         try
         {
@@ -2023,7 +2023,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             if (guid.Length == 0)
             {
                 _logger.LogWarning("bcdedit /copy did not return a GUID - skipping the BCD boot entry");
-                return;
+                return null;
             }
 
             RunBcdedit($"/set {guid} device partition={letter}:");
@@ -2035,12 +2035,14 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
             _logger.LogInformation(
                 "BCD firmware entry {Guid} registered for {Letter}: and set as the next boot", guid, letter);
+            return guid;
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException
                                       or IOException or UnauthorizedAccessException)
         {
             _logger.LogWarning(ex, "Could not register the BCD boot entry (non-fatal) - "
                                    + "the NVRAM BootNext above still applies");
+            return null;
         }
     }
 
