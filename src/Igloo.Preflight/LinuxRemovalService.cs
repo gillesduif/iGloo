@@ -104,7 +104,10 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
         // Windows goes back to a local-time clock only when no Linux can be left to need UTC.
         if (plan.BootCleanupDisks.Count > 0)
+        {
             RestoreRtcLocalTime();
+            FastStartup.RestoreAfterLinux(_logger);
+        }
 
         if (failures > 0)
             throw new InvalidOperationException(

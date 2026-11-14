@@ -73,6 +73,10 @@ Name: "{autodesktop}\iGloo"; Filename: "{app}\iGloo.exe"; Tasks: desktopicon
 ; plain CreateProcess cannot raise a UAC prompt (error 740 on the finish page).
 Filename: "{app}\iGloo.exe"; Description: "Launch iGloo"; Flags: nowait postinstall skipifsilent shellexec
 
+[Registry]
+; Holds the Fast Startup value from before a dual-boot installation; kept while Linux may still need it.
+Root: HKLM; Subkey: "SOFTWARE\iGloo"; Flags: uninsdeletekeyifempty
+
 [UninstallRun]
 ; The wizard schedules this task at Restart; it would start a file that no longer exists.
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""iGloo boot entry cleanup"" /F"; Flags: runhidden; RunOnceId: "IglooBootEntryCleanupTask"

@@ -1983,6 +1983,9 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // Dual-boot clock fix: Linux keeps the RTC in UTC, Windows assumes local time.
         SetRtcUniversalTime();
 
+        // A Windows that hibernates at shutdown leaves a volume Linux must not open.
+        FastStartup.TurnOffForDualBoot(_logger);
+
         _logger.LogInformation("BootNext + BootOrder updated - reboot to install");
         Report(prog, DirectInstallPhase.Complete, message: "UEFI boot entry registered. Ready to reboot.");
     }
