@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-14
-reviewed_commit: 9bde2c16b2a9597894b67a4c073492537a7c8cca
+reviewed_commit: 74cc0d5a387407e470f6a69d3eaa8abf62df730b
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -119,6 +119,8 @@ After `6b3a0ef`: `dotnet build Igloo.sln -c Release --no-restore -warnaserror` 0
 **Changed after it (unit tests, L1; not run in a VM).** The app names only fonts that ship with Windows (`Every_named_font_is_part_of_Windows`); why the Cascadia Mono file could not be opened in that guest is not established. The staging page binds its title. The space check measures the image and the shrink limit side by side and keeps the image measurement for the session (`IsoMeasurementCacheTests`); the image is read while the user is on Configuration, and the log gets a line with both durations. 2,191 tests, 2,190 passed, 0 failed, 1 skipped; build `-warnaserror` clean.
 
 **Browser stop narrowed (unit tests, L1; decided 14 Nov).** A selected browser with a running process stops the staging only when a file the copy needs cannot be opened the way the copy opens it: a database with shared access, any other file as `CopyFileAsync` does (`FileStagingService.FindBrowsersHoldingFiles`, opens for reading only, one held file settles a browser). A browser that runs without holding such a file is logged and the staging continues. `A_running_browser_holds_files_only_while_the_copy_could_not_open_one` holds fixture files exclusively, with shared access and for writing; `Only_a_running_browser_that_holds_a_file_stops_staging` covers the coordinator. 2,193 tests, 2,192 passed, 0 failed, 1 skipped; build `-warnaserror` clean. Not verified: whether an Edge that only runs in the background holds its cookie database exclusively; if it does, the stop still appears for it.
+
+**Windowless browser ended (unit tests, L1; requested 14 Nov).** When a selected browser holds a file the copy needs and none of its processes in the wizard's session has a window, `RunningBrowsers.EndWindowless` ends those processes, waits for them and the check runs once more; a browser with a window, or one whose process cannot be read or ended, is left alone and the stop appears as before. The log names the held file and the browser that was ended. `Only_a_browser_without_any_window_is_ended` uses fixture processes; `A_browser_without_a_window_is_ended_before_the_copy` covers the coordinator, including a browser that is back at the second look. 2,196 tests, 2,195 passed, 0 failed, 1 skipped; build `-warnaserror` clean. No real process was ended by a test. Not verified: that ending a background Edge releases its files, and that Edge does not start again by itself. This replaces the rule that iGloo never closes a browser.
 
 ## Read in source, not changed
 
