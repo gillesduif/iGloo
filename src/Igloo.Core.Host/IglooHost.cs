@@ -537,6 +537,10 @@ public interface IInstallationPreparation
         CancellationToken cancellationToken = default);
     Task RegisterBootEntryAsync(IProgress<DirectInstallProgress>? progress,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Removes the installer's boot entries once the partition with this GUID is gone; the cleanup task calls it.</summary>
+    Task<BootCleanupOutcome> CleanUpBootEntriesAsync(string installerPartitionGuid,
+        CancellationToken cancellationToken = default) => Task.FromResult(BootCleanupOutcome.NotRead);
 }
 
 internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoader loader,
@@ -727,6 +731,16 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
             ["boot-configuration", "installation", "recovery-state"],
             cancellationToken).ConfigureAwait(false);
         await service.RegisterBootEntryAsync(progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<BootCleanupOutcome> CleanUpBootEntriesAsync(string installerPartitionGuid,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(installerPartitionGuid, out var guid) || guid == Guid.Empty)
+            return BootCleanupOutcome.NotRead;
+        using var lease = await ResourceLock.AcquireManyAsync(
+            ["boot-configuration"], cancellationToken).ConfigureAwait(false);
+        return await service.CleanUpBootEntriesAsync(guid, cancellationToken).ConfigureAwait(false);
     }
 }
 

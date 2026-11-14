@@ -14,7 +14,7 @@ public sealed class HostProtectionGuardTests
     private static readonly string[] WritePrimitives =
     [
         "WriteVariableNative(", "WriteVariableExNative(", "CreateFileNative(",
-        "\"diskpart.exe\"", "\"bcdedit.exe\"", "\"manage-bde.exe\"", "\"shutdown.exe\"",
+        "\"diskpart.exe\"", "\"bcdedit.exe\"", "\"manage-bde.exe\"", "\"shutdown.exe\"", "\"schtasks.exe\"",
         "InvokeMethod(\"Resize\"", "InvokeMethod(\"DeleteObject\"", "InvokeMethod(\"CreatePartition\"",
         "InvokeMethod(\"Format\"", "InvokeMethod(call.Method",
         "Registry.LocalMachine.CreateSubKey(", "writable: true",

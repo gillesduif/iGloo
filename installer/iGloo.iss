@@ -72,3 +72,7 @@ Name: "{autodesktop}\iGloo"; Filename: "{app}\iGloo.exe"; Tasks: desktopicon
 ; shellexec is required: iGloo.exe has requireAdministrator in its manifest and a
 ; plain CreateProcess cannot raise a UAC prompt (error 740 on the finish page).
 Filename: "{app}\iGloo.exe"; Description: "Launch iGloo"; Flags: nowait postinstall skipifsilent shellexec
+
+[UninstallRun]
+; The wizard schedules this task at Restart; it would start a file that no longer exists.
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""iGloo boot entry cleanup"" /F"; Flags: runhidden; RunOnceId: "IglooBootEntryCleanupTask"

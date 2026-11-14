@@ -26,6 +26,27 @@ public interface IDirectInstallService
     Task RegisterBootEntryAsync(
         IProgress<DirectInstallProgress>? progress = null,
         CancellationToken ct = default);
+
+    /// <summary>Removes the installer's boot entries once the installer partition with this GUID is gone.</summary>
+    Task<BootCleanupOutcome> CleanUpBootEntriesAsync(Guid installerPartitionGuid, CancellationToken ct = default) =>
+        Task.FromResult(BootCleanupOutcome.NotRead);
+}
+
+/// <summary>The command line of the cleanup task: this argument, then the installer partition's GUID.</summary>
+public static class BootCleanup
+{
+    public const string Argument = "--boot-cleanup";
+}
+
+/// <summary>What the boot-entry cleanup after an installation found and did.</summary>
+public enum BootCleanupOutcome
+{
+    /// <summary>The disks could not be read; nothing was removed and the task stays.</summary>
+    NotRead,
+    /// <summary>The installer partition still exists; its boot entries and the task stay.</summary>
+    PartitionPresent,
+    /// <summary>The partition is gone; its boot entries and the task were removed.</summary>
+    Removed,
 }
 
 /// <summary>How the provider's installer picks its target. Layouts it could misread are refused before Windows is resized.</summary>

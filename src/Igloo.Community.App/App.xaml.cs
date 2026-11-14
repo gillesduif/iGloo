@@ -7,7 +7,10 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Igloo.Community.App.ViewModels;
 using Igloo.Cli.Client;
+using Igloo.Core.Abstractions;
 using Igloo.Core.Host;
+using Igloo.Core.Runtime;
+using Igloo.Core.Safety;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -21,6 +24,7 @@ public partial class IglooApp : Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        ArgumentNullException.ThrowIfNull(e);
         base.OnStartup(e);
 
         _host = BuildHost();
@@ -49,11 +53,34 @@ public partial class IglooApp : Application
         await _host.StartAsync();
         Log.Information("Igloo starting up");
 
+        if (e.Args is [BootCleanup.Argument, var installerPartition])
+        {
+            await CleanUpBootEntriesAsync(_host, installerPartition);
+            Shutdown();
+            return;
+        }
+
         var distrosDir = FindDistrosDirectory();
 
         await _host.Services.GetRequiredService<IBackendCatalog>().LoadAsync(distrosDir);
 
         _host.Services.GetRequiredService<MainWindow>().Show();
+    }
+
+    // Started by the task the wizard scheduled at Restart; no window is shown.
+    private static async Task CleanUpBootEntriesAsync(IHost host, string installerPartition)
+    {
+        try
+        {
+            var outcome = await host.Services.GetRequiredService<IInstallationPreparation>()
+                .CleanUpBootEntriesAsync(installerPartition);
+            Log.Information("Boot entry cleanup ended: {Outcome}", outcome);
+        }
+        catch (Exception ex) when (ex is HostProtectedException or ResourceBusyException
+                                       or InvalidOperationException or IOException)
+        {
+            Log.Warning(ex, "Boot entry cleanup did not run");
+        }
     }
 
     protected override async void OnExit(ExitEventArgs e)

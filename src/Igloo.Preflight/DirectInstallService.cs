@@ -1977,6 +1977,9 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // tends to be first in BootOrder and boots instead of the installer).
         PrioritiseEntriesTargetingInstallerPartition(partGuid, idx);
 
+        // Windows keeps the BCD entry after the installer partition is gone; a task removes it at the next sign-in.
+        ScheduleBootCleanup(partGuid);
+
         // Dual-boot clock fix: Linux keeps the RTC in UTC, Windows assumes local time.
         SetRtcUniversalTime();
 
