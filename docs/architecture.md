@@ -216,7 +216,7 @@ Resulting disk layout (dual-boot, large-ISO case):
 | 2 | MSR | - | Windows | untouched |
 | 3 | Windows C: | NTFS | Windows | untouched (read-only source for file migration) |
 | 4 | Recovery | NTFS | Windows | untouched |
-| 5 | Seed - `OEMDRV`/`CIDATA` | FAT32 | iGloo | read at install + first boot; deletable afterwards |
+| 5 | Seed - `OEMDRV`/`CIDATA` | FAT32 | iGloo | read at install + first boot; the first-boot agent removes it after a complete pass, a failed pass keeps it |
 | 6 | `IGLOOISO` (only if ISO ≥ 4 GiB) | NTFS | iGloo | consumed at install; deletable afterwards |
 | 7 | Linux root | ext4 | Linux | the new OS |
 

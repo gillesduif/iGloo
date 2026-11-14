@@ -57,3 +57,17 @@ host had "No 3D support available" at the time).
   clobbers them (Windows loses its type GUIDs / PARTUUIDs → boot entries break).
 - toram needs ≥10 GiB RAM (preflight-blocked below that): below it casper
   silently skips toram and the disk can never be released.
+
+## To settle before Ubuntu returns (read in source, November 2026)
+
+- First boot does not remove the installer partition here. `UbuntuPlugin` stages neither
+  `igloo_boot.py` nor a seed identity next to `agent.py`, and the shared agent refuses an
+  installed `ubuntu` before any step. Debian, Mint and Fedora remove theirs after a
+  complete pass (`igloo_boot.remove_installer_seed`).
+- The `IGLOOISO` partition is NTFS and has no GUID in the seed identity. The FAT32 proof
+  for the seed must not be loosened for it; it needs its own bound proof (own partition
+  GUID in the identity, label and size).
+- `EnsureRootPartition` reuses any existing Linux-filesystem partition, and
+  `BuildStoragePartitionList` marks every such partition `root, wipe: superblock` and
+  every ESP `esp`. What curtin then does to a second Linux installation on that disk is
+  not verified.

@@ -48,11 +48,13 @@ ls -la ~/Documents ~/Downloads             # migrated files
 sudo grep linuxPassword /var/lib/igloo/manifest.json   # expected: null (redacted)
 ```
 
-To re-run the agent during development:
+The agent pass runs once per installation. A completed pass redacts its inputs and removes
+the installer partition, so it cannot be repeated: to run the agent again, install again.
+Do not delete `/var/lib/igloo/.done`. Without it the first-boot unit looks for the removed
+partition and fails on every boot; if it was deleted, recreate it:
 
 ```bash
-sudo rm /var/lib/igloo/.done
-sudo python3 /opt/igloo/agent.py --manifest /var/lib/igloo/manifest.json --log-dir /var/log/igloo
+sudo touch /var/lib/igloo/.done
 ```
 
 > **Naming note:** the C# namespaces use `Igloo` (PascalCase) because C#
