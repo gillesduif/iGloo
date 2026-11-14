@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -468,9 +469,13 @@ def put_self_first_in_boot_order(b: Boot) -> None:
 
 
 _BASIC_DATA_GPT_TYPE = uuid.UUID("ebd0a0a2-b9e5-4433-87c0-68b6b72699c7")
-_SEED_MOUNTPOINTS = ("/run/igloo-seed", "/run/igloo-seed-verify",
-                     "/run/igloo-seed-export", "/run/igloo-seed-redaction")
+_SEED_INVENTORY_MOUNT = Path("/run/igloo-seed-inventory")
+_SEED_MOUNTPOINTS = ("/run/igloo-seed", "/run/igloo-seed-verify", "/run/igloo-seed-export",
+                     "/run/igloo-seed-redaction", str(_SEED_INVENTORY_MOUNT))
 _SEED_TOOLS = ("sfdisk", "partx", "efibootmgr")
+_SEED_RECEIPT = "igloo-seed-reuse.json"
+# Written next to iGloo's own files by the Fedora log export and by Windows.
+_SEED_OTHER_TREES = ("igloo-logs/", "system volume information/")
 _GUID = r"[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}"
 
 
@@ -578,6 +583,43 @@ def find_seed_partition(b: Boot, disk_guid: uuid.UUID, partition_guid: uuid.UUID
     return _Seed(partition, disk, rows[0].number, [row.guid for row in table])
 
 
+def _seed_path_key(path: str) -> str:
+    return unicodedata.normalize("NFC", path.replace("\\", "/")).casefold()
+
+
+def _listed_seed_paths(document: Any) -> set[str]:
+    files = document.get("files") if isinstance(document, dict) else None
+    if not isinstance(files, list) or any(
+            not isinstance(entry, dict) or not isinstance(entry.get("path"), str) for entry in files):
+        raise RuntimeError("An installer seed file list is not understood")
+    return {_seed_path_key(entry["path"]) for entry in files}
+
+
+def foreign_seed_files(b: Boot, partition: str, identity_path: Path) -> list[str]:
+    """Files on the seed volume that neither its identity nor its reuse receipt lists."""
+    mountpoint = _SEED_INVENTORY_MOUNT
+    mountpoint.mkdir(parents=True, exist_ok=True)
+    b.run_cmd(["mount", "-t", "vfat", "-o", "ro,nosuid,nodev,noexec,utf8", partition, str(mountpoint)])
+    try:
+        known = (_listed_seed_paths(_seed_identity(identity_path))
+                 | _listed_seed_paths(json.loads((mountpoint / _SEED_RECEIPT).read_bytes()))
+                 | {_SEED_RECEIPT, "igloo-seed-identity.json"})
+
+        def stop(error: OSError) -> None:
+            raise error
+
+        found = []
+        for directory, _, names in os.walk(mountpoint, onerror=stop):
+            for name in names:
+                relative = (Path(directory) / name).relative_to(mountpoint).as_posix()
+                key = _seed_path_key(relative)
+                if key not in known and not key.startswith(_SEED_OTHER_TREES):
+                    found.append(relative)
+        return sorted(found)
+    finally:
+        b.run_cmd(["umount", str(mountpoint)])
+
+
 def boot_entries_for_partition(listing: str, partition_guid: uuid.UUID) -> list[str]:
     """Boot#### numbers whose device path names the partition, from an efibootmgr listing."""
     numbers = []
@@ -622,6 +664,11 @@ def remove_installer_seed(b: Boot, identity_path: Path, completion_marker: Path)
             raise RuntimeError(f"The installer partition is mounted at {foreign[0]}")
         for target in mounted:
             b.run_cmd(["umount", target])
+        # The volume has a drive letter in Windows; a file the user put there must not go with it.
+        strangers = foreign_seed_files(b, seed.partition, identity_path)
+        if strangers:
+            raise RuntimeError(f"The installer partition holds {len(strangers)} file(s) iGloo did not "
+                               f"write, such as {strangers[0]}")
         # A pass whose seed is gone cannot run again, so its completion is durable first.
         publish_completion(completion_marker)
         # The re-read ioctl fails on the disk the system runs from; partx tells the kernel below.

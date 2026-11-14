@@ -75,6 +75,23 @@ def table(disk="/dev/sda", seed_node="/dev/sda4", seed_type=BASIC, label="gpt", 
     return "\n".join(lines) + "\n"
 
 
+def make_volume(root, extra=()):
+    """What the seed volume looks like when mounted: iGloo's files, its receipt and what Windows adds."""
+    listed = ["igloo-seed-identity.json", "EFI/BOOT/BOOTX64.EFI", "igloo-boot/linux",
+              "migration-manifest.json", "files/Documents/Résumé.docx"]
+    present = ["igloo-seed-identity.json", "EFI/BOOT/BOOTX64.EFI", "igloo-boot/linux",
+               "migration-manifest.json", "FILES/Documents/Résumé.docx",
+               "System Volume Information/WPSettings.dat", "igloo-logs/agent.log", *extra]
+    volume = Path(root) / "volume"
+    for name in present:
+        (volume / name).parent.mkdir(parents=True, exist_ok=True)
+        (volume / name).write_bytes(b"fixture")
+    (volume / "igloo-seed-reuse.json").write_text(json.dumps(
+        {"version": 1, "target": {}, "files": [{"path": name, "sha256": "0" * 64} for name in listed]}),
+        encoding="utf-8")
+    return volume
+
+
 class Commands:
     """A scripted run_cmd: answers the reads it knows, records the writes, rejects everything else."""
 
@@ -83,6 +100,8 @@ class Commands:
         self.events = []
         self.deleted = False
         self.fail = set(fail)
+        self.inventory = [["mount", "-t", "vfat", "-o", "ro,nosuid,nodev,noexec,utf8", partition,
+                           str(boot._SEED_INVENTORY_MOUNT)], ["umount", str(boot._SEED_INVENTORY_MOUNT)]]
         self.number = partition[len(disk):].lstrip("p")
         self.delete = ["sfdisk", "--no-tell-kernel", "--delete", disk, self.number]
         self.before = answers.pop("table", table(disk, partition))
@@ -115,12 +134,13 @@ class Commands:
             self.events.append("delete")
             # The exit code of a delete on a busy disk carries no meaning; the table does.
             return SimpleNamespace(stdout="", returncode=1)
-        if text in self.answers or cmd in self.allowed:
+        if text in self.answers or cmd in self.allowed or cmd in self.inventory:
             return SimpleNamespace(stdout=self.answers.get(text, ""), returncode=0)
         raise AssertionError("The fixture has no answer for: " + text)
 
     def writes(self):
-        return [call for call in self.calls if not any(call[:len(read)] == read for read in READ_ONLY)]
+        return [call for call in self.calls if call not in self.inventory
+                and not any(call[:len(read)] == read for read in READ_ONLY)]
 
 
 def platform(commands):
@@ -131,12 +151,21 @@ class SeedCleanupTests(unittest.TestCase):
     def setUp(self):
         self.temporary = TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.identity = Path(self.temporary.name) / "seed-identity.json"
-        self.done = Path(self.temporary.name) / ".done"
+        self.state = Path(self.temporary.name) / "state"
+        self.state.mkdir()
+        self.identity = self.state / "seed-identity.json"
+        self.done = self.state / ".done"
         self.write_identity()
+        self.mount(make_volume(self.temporary.name))
         tools = patch.object(boot.shutil, "which", side_effect=lambda name: "/usr/sbin/" + name)
         tools.start()
         self.addCleanup(tools.stop)
+
+    def mount(self, volume):
+        mounted = patch.object(boot, "_SEED_INVENTORY_MOUNT", volume)
+        mounted.start()
+        self.addCleanup(mounted.stop)
+        self.volume = volume
 
     def write_identity(self, **changes):
         identity = {"version": 1, "diskGuid": DISK, "partitionGuid": SEED, "files": []}
@@ -161,6 +190,43 @@ class SeedCleanupTests(unittest.TestCase):
             ["partx", "--delete", "--nr", "4", "/dev/sda"],
             *ENTRIES,
         ])
+        order = [commands.calls.index(call) for call in (["umount", "/run/igloo-seed"], *commands.inventory,
+                                                         commands.delete)]
+        self.assertEqual(order, sorted(order))
+
+    def test_a_file_igloo_did_not_write_keeps_the_partition(self):
+        for stranger in ("Vakantie/foto.jpg", "notes.txt", "$RECYCLE.BIN/S-1-5-21/$R1A2B3.docx",
+                         "EFI/BOOT/extra.efi", ".igloo-redact-0123456789abcdef0123456789abcdef"):
+            with self.subTest(stranger), TemporaryDirectory() as other:
+                with patch.object(boot, "_SEED_INVENTORY_MOUNT", make_volume(other, [stranger])):
+                    commands = Commands()
+                    with self.assertRaisesRegex(RuntimeError, "1 file.s. iGloo did not write, such as "):
+                        self.remove(commands)
+                    self.assertEqual(commands.writes(), [])
+                    self.assertEqual(commands.calls[-1], commands.inventory[1])
+                self.assertFalse(self.done.exists())
+
+    def test_a_seed_without_a_readable_receipt_is_left_alone(self):
+        receipt = self.volume / "igloo-seed-reuse.json"
+        for content in (None, b"{}", b"[]", b'{"files": [{"sha256": "0"}]}'):
+            with self.subTest(content):
+                receipt.unlink(missing_ok=True)
+                if content is not None:
+                    receipt.write_bytes(content)
+                commands = Commands()
+                with self.assertRaises((OSError, RuntimeError)):
+                    self.remove(commands)
+                self.assertEqual(commands.writes(), [])
+                self.assertFalse(self.done.exists())
+
+    def test_a_volume_that_cannot_be_mounted_or_released_is_left_alone(self):
+        for failing in Commands().inventory:
+            with self.subTest(failing[0]):
+                commands = Commands(fail=[" ".join(failing)])
+                with self.assertRaisesRegex(RuntimeError, "fixture command failure"):
+                    self.remove(commands)
+                self.assertEqual(commands.writes(), [])
+                self.assertFalse(self.done.exists())
 
     def test_a_two_digit_partition_on_an_nvme_disk_keeps_its_number(self):
         commands = Commands(disk="/dev/nvme0n1", partition="/dev/nvme0n1p14")
@@ -201,8 +267,7 @@ class SeedCleanupTests(unittest.TestCase):
 
         self.assertEqual(commands.events, ["fsync file", "fsync directory", "delete"])
         self.assertEqual(self.done.read_bytes(), b"complete\n")
-        self.assertEqual(sorted(path.name for path in self.done.parent.iterdir()),
-                         [".done", "seed-identity.json"])
+        self.assertEqual(sorted(path.name for path in self.state.iterdir()), [".done", "seed-identity.json"])
 
     def test_a_marker_that_cannot_be_written_stops_before_the_delete(self):
         commands = Commands()
@@ -430,9 +495,10 @@ class RealPartitionTableTests(unittest.TestCase):
         self.done = self.root / ".done"
         self.calls = []
         self.delete_status = None
-        tools = patch.object(boot.shutil, "which", side_effect=lambda name: "/usr/sbin/" + name)
-        tools.start()
-        self.addCleanup(tools.stop)
+        for fixture in (patch.object(boot.shutil, "which", side_effect=lambda name: "/usr/sbin/" + name),
+                        patch.object(boot, "_SEED_INVENTORY_MOUNT", make_volume(self.root))):
+            fixture.start()
+            self.addCleanup(fixture.stop)
 
     def build(self, name, partitions):
         """An image called name with the given (type, GUID) partitions; returns the seed's device node."""
