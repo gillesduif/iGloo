@@ -253,6 +253,27 @@ Invoke-Section 'disks' {
     Save-Text 'partitions.json' ($script:partitions | ConvertTo-Json -Depth 3)
 }
 
+# ---- Windows volume health: reads only -------------------------------------------------
+Invoke-Section 'volume health' {
+    $letter = $env:SystemDrive.TrimEnd(':')
+    $volume = Get-Volume -DriveLetter $letter
+    $text = "Get-Volume`r`n" + (Format-List2 ($volume | Select-Object DriveLetter, FileSystem, HealthStatus, OperationalStatus, Size, SizeRemaining)) +
+        "`r`n`r`n" + (Invoke-Native 'fsutil.exe' @('dirty', 'query', $env:SystemDrive)) +
+        "`r`n`r`n" + (Invoke-Native 'fsutil.exe' @('repair', 'state', $env:SystemDrive))
+    $since = (Get-Date).AddDays(-7)
+    $events = @()
+    foreach ($source in @(@('System', 'Ntfs'), @('System', 'Microsoft-Windows-Ntfs'), @('Application', 'Chkdsk'), @('Application', 'Microsoft-Windows-Wininit'))) {
+        # A provider this Windows does not have, or one without events, is not an error here.
+        try { $events += @(Get-WinEvent -FilterHashtable @{ LogName = $source[0]; ProviderName = $source[1]; StartTime = $since } -MaxEvents 40 -ErrorAction Stop) } catch { }
+    }
+    $lines = foreach ($entry in ($events | Sort-Object TimeCreated)) {
+        '{0:yyyy-MM-dd HH:mm:ss}  {1} {2} level {3}  {4}' -f $entry.TimeCreated, $entry.ProviderName, $entry.Id, $entry.Level, ((([string]$entry.Message) -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 6) -join ' | ')
+    }
+    $text += "`r`n`r`nNTFS and disk-check events of the last 7 days`r`n" + ($lines -join "`r`n")
+    Save-Text 'volume-health.txt' $text
+    $script:facts.Add(('windows volume {0}: health {1}, {2}; {3} NTFS or disk-check event(s) in 7 days, see volume-health.txt' -f $letter, $volume.HealthStatus, ($volume.OperationalStatus -join '+'), $events.Count))
+}
+
 # ---- Installer partitions: names and sizes only ----------------------------------------
 Invoke-Section 'installer partitions' {
     $seeds = @($script:partitions | Where-Object { $seedLabels -contains $_.Label })
