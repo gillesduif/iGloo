@@ -92,6 +92,27 @@ public sealed class FileStagingMeasurementTests : IDisposable
     }
 
     [Fact]
+    public void Only_a_browser_without_any_window_is_ended()
+    {
+        var asked = new List<string>();
+        BrowserProcess Fixture(string tag, bool window, bool ends = true) =>
+            new(window, () => { asked.Add(tag); return ends; });
+        var processes = new Dictionary<string, BrowserProcess[]>
+        {
+            ["msedge"] = [Fixture("edge-1", window: false), Fixture("edge-2", window: false)],
+            ["chrome"] = [Fixture("chrome-1", window: false), Fixture("chrome-window", window: true)],
+            ["brave"] = [Fixture("brave-refuses", window: false, ends: false), Fixture("brave-2", window: false)],
+        };
+
+        var ended = RunningBrowsers.EndWindowless(
+            ["Microsoft Edge", "microsoft edge", "Google Chrome", "Brave", "Mozilla Firefox", "Unlisted Browser"],
+            name => processes.TryGetValue(name, out var found) ? found : []);
+
+        Assert.Equal(["Microsoft Edge"], ended);
+        Assert.Equal(["edge-1", "edge-2", "brave-refuses", "brave-2"], asked);
+    }
+
+    [Fact]
     public async Task CanceledMeasurementDoesNotCreateAStagingGeneration()
     {
         using var cancellation = new CancellationTokenSource();

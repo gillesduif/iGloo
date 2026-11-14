@@ -30,6 +30,9 @@ internal sealed record MigrationStagingHooks(
     // Which of the running browsers hold a file the request copies; without a probe, all of them.
     public Func<FileStagingRequest, IReadOnlyList<string>, IReadOnlyList<string>> FindBrowsersHoldingFiles { get; init; } =
         (_, running) => running;
+
+    // Ends the given browsers that have no window and returns their names; by default none.
+    public Func<IReadOnlyList<string>, IReadOnlyList<string>> EndWindowlessBrowsers { get; init; } = _ => [];
 }
 
 public sealed class MigrationStagingCoordinator
@@ -61,7 +64,14 @@ public sealed class MigrationStagingCoordinator
             AttachAccountPicture)
         {
             FindRunningBrowsers = RunningBrowsers.Find,
-            FindBrowsersHoldingFiles = (request, running) => FileStagingService.FindBrowsersHoldingFiles(request, running),
+            FindBrowsersHoldingFiles = (request, running) =>
+            {
+                var held = FileStagingService.FindHeldBrowserFiles(request, running);
+                foreach (var file in held)
+                    logger.LogInformation("{Browser} holds {File}", file.Browser, file.File);
+                return [.. held.Select(file => file.Browser)];
+            },
+            EndWindowlessBrowsers = RunningBrowsers.EndWindowless,
         };
     }
 
@@ -113,6 +123,14 @@ public sealed class MigrationStagingCoordinator
         var running = _hooks.FindRunningBrowsers([.. stagingRequest.BrowserProfiles.Select(browser => browser.Name)]);
         // A browser that only idles in the background holds none of the files; one that does must close first.
         var holding = running.Count == 0 ? running : _hooks.FindBrowsersHoldingFiles(stagingRequest, running);
+        if (holding.Count > 0 && _hooks.EndWindowlessBrowsers(holding) is { Count: > 0 } ended)
+        {
+            // Without a window there was no work to save; with one, the browser is left for the user to close.
+            _logger.LogInformation("Ended {Browsers}: no window was open and the files to copy were held",
+                string.Join(", ", ended));
+            running = _hooks.FindRunningBrowsers([.. stagingRequest.BrowserProfiles.Select(browser => browser.Name)]);
+            holding = running.Count == 0 ? running : _hooks.FindBrowsersHoldingFiles(stagingRequest, running);
+        }
         if (holding.Count > 0)
             throw new BrowserProfileStagingException("A selected browser is still running. Nothing has been copied.",
                 null, BrowserProfileStagingFailure.BrowserRunning) { Browsers = holding };

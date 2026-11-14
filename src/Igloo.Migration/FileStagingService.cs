@@ -4,6 +4,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Igloo.Migration;
 
+/// <summary>A running browser and the first file of its profile the copy could not open.</summary>
+public sealed record HeldBrowserFile(string Browser, string File);
+
 public sealed partial class FileStagingService : IFileStagingService
 {
     private sealed record CopyJob(string Source, string Destination, long ExpectedLength,
@@ -337,6 +340,10 @@ public sealed partial class FileStagingService : IFileStagingService
 
     /// <summary>The running browsers that hold a file this request copies. Opens files for reading only.</summary>
     public static IReadOnlyList<string> FindBrowsersHoldingFiles(FileStagingRequest request,
+        IReadOnlyList<string> runningBrowsers, CancellationToken ct = default) =>
+        [.. FindHeldBrowserFiles(request, runningBrowsers, ct).Select(held => held.Browser)];
+
+    public static IReadOnlyList<HeldBrowserFile> FindHeldBrowserFiles(FileStagingRequest request,
         IReadOnlyList<string> runningBrowsers, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -348,16 +355,16 @@ public sealed partial class FileStagingService : IFileStagingService
         var totalBytes = 0L;
         ScanBrowserProfiles(request, NewStagingRoot(request.DistroId), jobs, ref totalBytes,
             createDirectories: false, ct: ct);
-        var holding = new List<string>();
+        var holding = new List<HeldBrowserFile>();
         foreach (var job in jobs)
         {
             ct.ThrowIfCancellationRequested();
             // One held file settles a browser; its other files are not opened.
             var undecided = BrowserOf(job.Source, request.BrowserProfiles)
                 .Where(name => runningBrowsers.Contains(name, StringComparer.OrdinalIgnoreCase) &&
-                               !holding.Contains(name, StringComparer.Ordinal)).ToArray();
+                               !holding.Any(held => string.Equals(held.Browser, name, StringComparison.Ordinal))).ToArray();
             if (undecided.Length != 0 && !OpensAsTheCopyDoes(job))
-                holding.AddRange(undecided);
+                holding.AddRange(undecided.Select(name => new HeldBrowserFile(name, job.Source)));
         }
         return holding;
     }

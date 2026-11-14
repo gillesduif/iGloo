@@ -223,6 +223,53 @@ public sealed class MigrationStagingSelectionTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_browser_without_a_window_is_ended_before_the_copy(bool comesBack)
+    {
+        var registry = await LoadProvidersAsync();
+        var staging = new CountingStaging();
+        var edge = new BrowserMigration
+        {
+            Name = "Microsoft Edge", Engine = "chromium",
+            SourceRelativePath = "AppData/Local/Microsoft/Edge/User Data"
+        };
+        var lookups = 0;
+        IReadOnlyList<string>? asked = null;
+        var hooks = new MigrationStagingHooks(
+            _ => Task.FromResult<IReadOnlyList<WifiNetwork>>([]),
+            (browsers, _, _) => Task.FromResult(browsers),
+            (manifest, _) => manifest, (manifest, _) => manifest)
+        {
+            FindRunningBrowsers = _ => lookups++ == 0 || comesBack ? ["Microsoft Edge"] : [],
+            EndWindowlessBrowsers = names => { asked = names; return names; },
+        };
+        var coordinator = new MigrationStagingCoordinator(staging, registry,
+            new FixedChecker(Report()), NullLogger<MigrationStagingCoordinator>.Instance, hooks);
+        var user = new UserSetup
+        {
+            WindowsUsername = "fixture", LinuxUsername = "fixture",
+            SelectedBrowserNames = [edge.Name], SelectedBrowsers = [edge]
+        };
+
+        var failure = await Record.ExceptionAsync(() => coordinator.StageAsync(
+            new MigrationStagingInput(new FileStagingRequest("debian", []), user,
+                Report(), null, DiskInstallMode.ReplaceDisk, 0), null));
+
+        Assert.Equal(["Microsoft Edge"], asked);
+        Assert.Equal(2, lookups);
+        if (comesBack)
+        {
+            Assert.Equal(["Microsoft Edge"], Assert.IsType<BrowserProfileStagingException>(failure).Browsers);
+            Assert.Equal(0, staging.Calls);
+        }
+        else
+        {
+            Assert.Equal(1, staging.Calls);
+        }
+    }
+
     [Fact]
     public async Task ChangedBrowserDestinationAfterCopyRemovesIncompleteGeneration()
     {
