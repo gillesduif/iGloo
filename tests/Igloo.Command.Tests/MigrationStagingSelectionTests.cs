@@ -173,6 +173,57 @@ public sealed class MigrationStagingSelectionTests
     }
 
     [Fact]
+    public async Task Only_a_running_browser_that_holds_a_file_stops_staging()
+    {
+        var registry = await LoadProvidersAsync();
+        var edge = new BrowserMigration
+        {
+            Name = "Microsoft Edge", Engine = "chromium",
+            SourceRelativePath = "AppData/Local/Microsoft/Edge/User Data"
+        };
+        var firefox = new BrowserMigration
+        {
+            Name = "Mozilla Firefox", Engine = "gecko",
+            SourceRelativePath = "AppData/Roaming/Mozilla/Firefox", DestRelativePath = ".mozilla/firefox"
+        };
+        var user = new UserSetup
+        {
+            WindowsUsername = "fixture", LinuxUsername = "fixture",
+            SelectedBrowserNames = [edge.Name, firefox.Name], SelectedBrowsers = [edge, firefox]
+        };
+        foreach (var holding in new[] { new[] { "Mozilla Firefox" }, Array.Empty<string>() })
+        {
+            var staging = new CountingStaging();
+            FileStagingRequest? probed = null;
+            var hooks = new MigrationStagingHooks(
+                _ => Task.FromResult<IReadOnlyList<WifiNetwork>>([]),
+                (browsers, _, _) => Task.FromResult(browsers),
+                (manifest, _) => manifest, (manifest, _) => manifest)
+            {
+                FindRunningBrowsers = _ => ["Microsoft Edge", "Mozilla Firefox"],
+                FindBrowsersHoldingFiles = (request, _) => { probed = request; return holding; },
+            };
+            var coordinator = new MigrationStagingCoordinator(staging, registry,
+                new FixedChecker(Report()), NullLogger<MigrationStagingCoordinator>.Instance, hooks);
+
+            var failure = await Record.ExceptionAsync(() => coordinator.StageAsync(
+                new MigrationStagingInput(new FileStagingRequest("debian", []), user,
+                    Report(), null, DiskInstallMode.ReplaceDisk, 0), null));
+
+            Assert.Equal(["Microsoft Edge", "Mozilla Firefox"], probed!.BrowserProfiles.Select(browser => browser.Name));
+            if (holding.Length == 0)
+            {
+                Assert.Equal(1, staging.Calls);
+                continue;
+            }
+            var refused = Assert.IsType<BrowserProfileStagingException>(failure);
+            Assert.Equal(BrowserProfileStagingFailure.BrowserRunning, refused.Reason);
+            Assert.Equal(holding, refused.Browsers);
+            Assert.Equal(0, staging.Calls);
+        }
+    }
+
+    [Fact]
     public async Task ChangedBrowserDestinationAfterCopyRemovesIncompleteGeneration()
     {
         var registry = await LoadProvidersAsync();

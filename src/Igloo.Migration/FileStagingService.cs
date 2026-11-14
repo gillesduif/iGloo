@@ -335,6 +335,53 @@ public sealed partial class FileStagingService : IFileStagingService
             .Select(browser => browser.Name).Distinct(StringComparer.Ordinal)];
     }
 
+    /// <summary>The running browsers that hold a file this request copies. Opens files for reading only.</summary>
+    public static IReadOnlyList<string> FindBrowsersHoldingFiles(FileStagingRequest request,
+        IReadOnlyList<string> runningBrowsers, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.BrowserRelativePaths);
+        ArgumentNullException.ThrowIfNull(request.BrowserProfiles);
+        ArgumentNullException.ThrowIfNull(runningBrowsers);
+        if (runningBrowsers.Count == 0) return [];
+        var jobs = new List<CopyJob>();
+        var totalBytes = 0L;
+        ScanBrowserProfiles(request, NewStagingRoot(request.DistroId), jobs, ref totalBytes,
+            createDirectories: false, ct: ct);
+        var holding = new List<string>();
+        foreach (var job in jobs)
+        {
+            ct.ThrowIfCancellationRequested();
+            // One held file settles a browser; its other files are not opened.
+            var undecided = BrowserOf(job.Source, request.BrowserProfiles)
+                .Where(name => runningBrowsers.Contains(name, StringComparer.OrdinalIgnoreCase) &&
+                               !holding.Contains(name, StringComparer.Ordinal)).ToArray();
+            if (undecided.Length != 0 && !OpensAsTheCopyDoes(job))
+                holding.AddRange(undecided);
+        }
+        return holding;
+    }
+
+    // A database is read with shared access, as its copy falls back to; any other file as CopyFileAsync opens it.
+    private static bool OpensAsTheCopyDoes(CopyJob job)
+    {
+        try
+        {
+            using var probe = new FileStream(job.Source, FileMode.Open, FileAccess.Read,
+                job.IsSqlite ? FileShare.ReadWrite | FileShare.Delete : FileShare.Read);
+            return true;
+        }
+        catch (IOException ex) when (ex.HResult is unchecked((int)0x80070020) or unchecked((int)0x80070021))
+        {
+            return false;
+        }
+        catch (IOException ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            // Gone since the scan: the copy scans again and decides for itself.
+            return true;
+        }
+    }
+
     private async Task<long> CopyJobsAsync(
         List<CopyJob> jobs, long totalBytes, IReadOnlyList<Core.Models.BrowserMigration> browsers,
         IProgress<FileStagingProgress>? progress, CancellationToken ct)

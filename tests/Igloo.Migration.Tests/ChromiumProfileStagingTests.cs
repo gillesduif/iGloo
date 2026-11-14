@@ -380,6 +380,34 @@ public sealed class ChromiumProfileStagingTests : IDisposable
             Path.Join(result.StagingDirectory, "files", "Documents", "first_party_sets.db")));
     }
 
+    [Fact]
+    public void A_running_browser_holds_files_only_while_the_copy_could_not_open_one()
+    {
+        Write("Default/Bookmarks", "bookmarks");
+        Write("Default/History", "database bytes");
+        Write("Default/Sessions/Session_1", "tabs");
+        Write("Local State", "machine-specific-key");
+        string[] running = ["Microsoft Edge"];
+        var history = Path.Join(Source, "Default", "History");
+        var session = Path.Join(Source, "Default", "Sessions", "Session_1");
+
+        Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, running));
+        // Machine state the copy leaves out, and a database open with shared access, do not count.
+        using (new FileStream(Path.Join(Source, "Local State"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        using (new FileStream(history, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete))
+            Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, running));
+        using (new FileStream(history, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Assert.Equal(running, FileStagingService.FindBrowsersHoldingFiles(Request, running));
+            Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, ["Google Chrome"]));
+            Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, []));
+        }
+        using (new FileStream(session, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+            Assert.Equal(running, FileStagingService.FindBrowsersHoldingFiles(Request, running));
+        Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, running));
+        Assert.False(Directory.Exists(Staging));
+    }
+
     private string Destination(FileStagingResult result) => Path.Join(result.StagingDirectory,
         Path.Join(FileStagingService.BrowserProfileStagingPath(_relative).Split('/')));
 

@@ -26,6 +26,10 @@ internal sealed record MigrationStagingHooks(
 {
     // Tests that pass their own hooks stay independent of the browsers open on the machine.
     public Func<IReadOnlyList<string>, IReadOnlyList<string>> FindRunningBrowsers { get; init; } = _ => [];
+
+    // Which of the running browsers hold a file the request copies; without a probe, all of them.
+    public Func<FileStagingRequest, IReadOnlyList<string>, IReadOnlyList<string>> FindBrowsersHoldingFiles { get; init; } =
+        (_, running) => running;
 }
 
 public sealed class MigrationStagingCoordinator
@@ -54,7 +58,11 @@ public sealed class MigrationStagingCoordinator
             (browsers, password, ct) => Task.Run(() =>
                 BrowserCredentialMigration.AttachCredentials(browsers, password, logger), ct),
             AttachWallpaper,
-            AttachAccountPicture) { FindRunningBrowsers = RunningBrowsers.Find };
+            AttachAccountPicture)
+        {
+            FindRunningBrowsers = RunningBrowsers.Find,
+            FindBrowsersHoldingFiles = (request, running) => FileStagingService.FindBrowsersHoldingFiles(request, running),
+        };
     }
 
     public async Task<FileStagingResult> StageAsync(MigrationStagingInput input,
@@ -95,12 +103,22 @@ public sealed class MigrationStagingCoordinator
         var browserPaths = browserSources.Distinct(StringComparer.OrdinalIgnoreCase).ToDictionary(
             path => path, FileStagingService.BrowserProfileStagingPath,
             StringComparer.OrdinalIgnoreCase);
+        var stagingRequest = input.Files with
+        {
+            BrowserRelativePaths = browserSources,
+            BrowserProfiles = input.User.SelectedBrowsers
+                .Where(browser => browser.SourceRelativePath.Length != 0).ToArray(),
+        };
         // Read-only, and before anything is created or copied (Beta Track B-03).
-        var running = _hooks.FindRunningBrowsers([.. input.User.SelectedBrowsers
-            .Where(browser => browser.SourceRelativePath.Length != 0).Select(browser => browser.Name)]);
-        if (running.Count > 0)
+        var running = _hooks.FindRunningBrowsers([.. stagingRequest.BrowserProfiles.Select(browser => browser.Name)]);
+        // A browser that only idles in the background holds none of the files; one that does must close first.
+        var holding = running.Count == 0 ? running : _hooks.FindBrowsersHoldingFiles(stagingRequest, running);
+        if (holding.Count > 0)
             throw new BrowserProfileStagingException("A selected browser is still running. Nothing has been copied.",
-                null, BrowserProfileStagingFailure.BrowserRunning) { Browsers = running };
+                null, BrowserProfileStagingFailure.BrowserRunning) { Browsers = holding };
+        if (running.Count > 0)
+            _logger.LogInformation("{Browsers} still running, but none of the files to copy is held; staging continues",
+                string.Join(", ", running));
         // The wizard's preflight is a selection snapshot, not manifest authority.
         // Reobserve in Core immediately before copying private data, and bind a
         // selected disk by its GPT identity to the current physical layout.
@@ -108,12 +126,6 @@ public sealed class MigrationStagingCoordinator
         if (currentMachine?.Disks is null)
             throw new InvalidOperationException("Current machine observation is unavailable.");
         var currentTarget = ResolveCurrentTarget(input.TargetDisk, currentMachine.Disks);
-        var stagingRequest = input.Files with
-        {
-            BrowserRelativePaths = browserSources,
-            BrowserProfiles = input.User.SelectedBrowsers
-                .Where(browser => browser.SourceRelativePath.Length != 0).ToArray(),
-        };
         var stagingResult = await _staging.StageAsync(stagingRequest, progress, cancellationToken).ConfigureAwait(false);
         var manifestPath = Path.Join(stagingResult.StagingDirectory, "migration-manifest.json");
         try
