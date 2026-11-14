@@ -1235,15 +1235,19 @@ def _session_folders(user_home: Path, username: str) -> dict[str, Path]:
         lines = []
     wanted = {f"XDG_{key}_DIR": name for name, key in _XDG_FOLDER_KEYS.items()}
     folders: dict[str, Path] = {}
+    listed: list[Path] = []
     for line in lines:
         key, sep, value = line.strip().partition("=")
         relative = value.strip().strip('"')
-        if not sep or key not in wanted or not relative.startswith("$HOME/"):
+        if not sep or not re.fullmatch(r"XDG_[A-Z]+_DIR", key) or not relative.startswith("$HOME/"):
             continue
         parts = relative[len("$HOME/"):].split("/")
         if all(part and part not in (".", "..") for part in parts):
-            folders[wanted[key]] = user_home.joinpath(*parts)
-    made = [str(path) for path in (config, listing, config / "user-dirs.locale", *folders.values())
+            listed.append(user_home.joinpath(*parts))
+            if key in wanted:
+                folders[wanted[key]] = listed[-1]
+    # The tool ran as root; every folder it made belongs to the user, also the ones nothing is copied into.
+    made = [str(path) for path in (config, listing, config / "user-dirs.locale", *listed)
             if path.exists() or path.is_symlink()]
     if made:
         run_cmd(["chown", "-h", f"{username}:{username}", *made], check=False)

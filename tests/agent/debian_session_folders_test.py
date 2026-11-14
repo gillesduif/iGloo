@@ -52,6 +52,7 @@ def lab(root, listing=None, tool=True):
             config.mkdir(parents=True, exist_ok=True)
             (config / 'user-dirs.dirs').write_text(listing)
             (config / 'user-dirs.locale').write_text('nl_BE')
+            (config.parent / 'Sjablonen').mkdir(exist_ok=True)
         return subprocess.CompletedProcess(cmd, 0)
 
     with (patch.object(agent, 'Path', side_effect=lab_path),
@@ -76,6 +77,8 @@ class SessionFolderTests(unittest.TestCase):
             owner, _ = commands[1]
             self.assertEqual(['chown', '-h', f'{ME}:{ME}'], owner[:3])
             self.assertIn(str(home / '.config/user-dirs.dirs'), owner)
+            # A folder nothing is copied into must not stay with root.
+            self.assertIn(str(home / 'Sjablonen'), owner)
 
     def test_an_existing_list_is_read_and_the_tool_is_left_alone(self):
         with TemporaryDirectory(prefix='igloo-folders-') as temporary:
