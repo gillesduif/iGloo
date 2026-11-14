@@ -66,14 +66,18 @@ public sealed partial class DirectInstallService
             }
 
             var definition = Path.Join(Path.GetTempPath(), $"igloo-boot-cleanup-{Guid.NewGuid():N}.xml");
+            byte[] written = [.. Encoding.Unicode.GetPreamble(), .. Encoding.Unicode.GetBytes(
+                BootCleanupTask.BuildXml(application, partitionGuid, identity.User.Value))];
             try
             {
-                // Held without write or delete sharing, so the task Windows reads is the one written here.
-                using var held = new FileStream(definition, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
-                held.Write(Encoding.Unicode.GetPreamble());
-                held.Write(Encoding.Unicode.GetBytes(
-                    BootCleanupTask.BuildXml(application, partitionGuid, identity.User.Value)));
-                held.Flush(flushToDisk: true);
+                using (var created = new FileStream(definition, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    created.Write(written);
+                // Held open for reading only, and compared, so the task Windows reads is the one written here.
+                using var held = new FileStream(definition, FileMode.Open, FileAccess.Read, FileShare.Read);
+                var read = new byte[written.Length + 1];
+                if (held.ReadAtLeast(read, read.Length, throwOnEndOfStream: false) != written.Length ||
+                    !read.AsSpan(0, written.Length).SequenceEqual(written))
+                    throw new InvalidOperationException("The task definition changed after it was written.");
                 if (RunSchtasks($"/Create /TN \"{BootCleanupTask.Name}\" /XML \"{definition}\" /F"))
                     _logger.LogInformation(
                         "Scheduled the boot entry cleanup for the next sign-in of this account ({Task})",
