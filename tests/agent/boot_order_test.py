@@ -92,6 +92,50 @@ def test_already_first_is_left_alone() -> None:
           str(b.commands))
 
 
+# The r10 run in a VMware guest: the wizard's Boot0080 was gone, its number was not.
+EFIBOOTMGR_WIZARD_NUMBER_LEFT = """BootCurrent: 0006
+BootOrder: 0006,0080,0004,0000,0001,0002,0003
+Boot0000* EFI VMware Virtual NVME Namespace (NSID 1)
+Boot0001* EFI VMware Virtual SATA CDROM Drive (1.0)
+Boot0002* EFI Network
+Boot0003  EFI Internal Shell (Unsupported option)
+Boot0004* Windows Boot Manager
+Boot0006* debian
+"""
+
+
+def test_a_wizard_number_without_an_entry_leaves_the_order() -> None:
+    print("the wizard's entry is gone and its number is still in the order")
+    b = FakeBoot(EFIBOOTMGR_WIZARD_NUMBER_LEFT)
+    ib.put_self_first_in_boot_order(b)
+    check("only that number is dropped", b.order_set_to() == "0006,0004,0000,0001,0002,0003",
+          str(b.order_set_to()))
+
+    moved = FakeBoot(EFIBOOTMGR_WIZARD_NUMBER_LEFT.replace(
+        "BootOrder: 0006,0080,", "BootOrder: 0004,0080,0006,").replace(",0004,0000", ",0000"))
+    ib.put_self_first_in_boot_order(moved)
+    check("together with the move to the front",
+          moved.order_set_to() == "0006,0004,0000,0001,0002,0003", str(moved.order_set_to()))
+
+
+def test_other_numbers_and_existing_entries_stay() -> None:
+    print("what the wizard did not number, or what still exists, is not touched")
+    present = FakeBoot(EFIBOOTMGR_WIZARD_NUMBER_LEFT + "Boot0080* iGloo distribution installer\n")
+    ib.put_self_first_in_boot_order(present)
+    check("an existing Boot0080 stays in the order", present.order_set_to() is None,
+          str(present.commands))
+
+    foreign = FakeBoot(EFIBOOTMGR_WIZARD_NUMBER_LEFT.replace(",0080,", ",0007,00FF,"))
+    ib.put_self_first_in_boot_order(foreign)
+    check("a number outside 0080-00FE stays, entry or not", foreign.order_set_to() is None,
+          str(foreign.commands))
+
+    unread = FakeBoot("BootCurrent: 0006\nBootOrder: 0006,0080,0004\n")
+    ib.put_self_first_in_boot_order(unread)
+    check("a listing without the booted entry drops nothing", unread.order_set_to() is None,
+          str(unread.commands))
+
+
 def test_no_efi_variables() -> None:
     print("efibootmgr says nothing useful (BIOS boot, or no efivarfs)")
     b = FakeBoot("EFI variables are not supported on this system.")
@@ -175,6 +219,8 @@ if __name__ == "__main__":
     import tempfile
     test_windows_stole_the_front_slot()
     test_already_first_is_left_alone()
+    test_a_wizard_number_without_an_entry_leaves_the_order()
+    test_other_numbers_and_existing_entries_stay()
     test_no_efi_variables()
     for test in (test_unit_is_installed_and_enabled, test_configure_boot_menu_installs_it,
                  test_default_entry_is_this_system):

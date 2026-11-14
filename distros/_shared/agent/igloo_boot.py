@@ -432,6 +432,9 @@ def install_boot_order_unit(b: Boot) -> None:
                            "still set for this boot, but Windows can take it back")
 
 
+_WIZARD_FIRST, _WIZARD_LAST = 0x0080, 0x00FE
+
+
 def put_self_first_in_boot_order(b: Boot) -> None:
     """Move the entry we booted from to the front of the UEFI boot order.
 
@@ -454,14 +457,21 @@ def put_self_first_in_boot_order(b: Boot) -> None:
 
         me = current.group(1).upper()
         entries = [e.strip().upper() for e in order.group(1).split(",") if e.strip()]
-        if entries and entries[0] == me:
+        listed = {n.upper() for n in re.findall(r"^Boot([0-9A-Fa-f]{4})[* ] ", out, re.M)}
+        # The wizard numbers its own entry 0080-00FE; firmware can drop the entry and keep the number.
+        gone = [e for e in entries
+                if me in listed and e not in listed and _WIZARD_FIRST <= int(e, 16) <= _WIZARD_LAST]
+        new_order = [me] + [e for e in entries if e != me and e not in gone]
+        if new_order == entries:
             b.logger.info("UEFI boot order already starts with Boot%s", me)
             return
 
-        new_order = [me] + [e for e in entries if e != me]
         if b.run_cmd(["efibootmgr", "-o", ",".join(new_order)], check=False).returncode == 0:
-            b.logger.info("Moved Boot%s to the front of the UEFI boot order (was %s)",
-                       me, ",".join(entries))
+            if entries[:1] != [me]:
+                b.logger.info("Moved Boot%s to the front of the UEFI boot order (was %s)",
+                              me, ",".join(entries))
+            for number in gone:
+                b.logger.info("Dropped Boot%s from the UEFI boot order: no such entry exists", number)
         else:
             b.logger.warning("Could not set the UEFI boot order - Windows may boot directly")
     except Exception:
