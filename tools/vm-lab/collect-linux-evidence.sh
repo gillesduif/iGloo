@@ -42,7 +42,11 @@ fi
 user_home=$(getent passwd "$target_user" | cut -d: -f6)
 [ -n "$user_home" ] && [ -d "$user_home" ] || { echo "No home directory for user '$target_user'; pass --user NAME." >&2; exit 2; }
 [ -n "$out_root" ] || out_root="$user_home/igloo-evidence"
-[ -n "$testdata" ] || testdata="$user_home/Documents/igloo-testdata"
+if [ -z "$testdata" ]; then
+    # The session may keep its documents under a translated name.
+    documents=$(sed -n 's/^XDG_DOCUMENTS_DIR="\$HOME\/\(.*\)"$/\1/p' "$user_home/.config/user-dirs.dirs" 2>/dev/null | head -n 1)
+    testdata="$user_home/${documents:-Documents}/igloo-testdata"
+fi
 
 stamp_day=$(date +%Y%m%d)
 stamp_time=$(date +%H%M%S)
