@@ -130,12 +130,13 @@ fi
 
 #   4. Restanten van de installer
 head2 "4. Is de installer opgeruimd?"
-if [ -f /var/lib/igloo/.had-failures ]; then
-    bad "/var/lib/igloo/.had-failures bestaat - opruiming is BEWUST overgeslagen"
-    note "een eerdere stap faalde; zie /var/log/igloo/agent.log"
-else
-    ok "geen .had-failures - de opruiming mocht doorgaan"
-fi
+SEEDLINE="$(grep -E 'Deleted installer partition|Installer partition cleanup did not finish|Skipping cleanup-seed' /var/log/igloo/agent.log 2>/dev/null | tail -n 1 | sed -E 's/^.*\] [^:]+: //')"
+case "$SEEDLINE" in
+    Deleted*) ok "agent: $SEEDLINE" ;;
+    "")       bad "geen opruimregel in /var/log/igloo/agent.log" ;;
+    *)        bad "agent: $SEEDLINE"
+              note "de installer-partitie blijft dan staan; de reden staat in de regel hierboven" ;;
+esac
 LEFT="$(lsblk -no LABEL 2>/dev/null | grep -iE 'oemdrv|igloo' | tr '\n' ' ')"
 [ -n "$LEFT" ] && bad "installer-partitie staat er nog: $LEFT" || ok "geen installer-partitie meer"
 if [ -d /sys/firmware/efi ]; then
