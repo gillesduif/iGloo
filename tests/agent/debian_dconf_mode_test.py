@@ -51,7 +51,8 @@ def private_first_boot(root, dconf_installed=True):
     old_umask = os.umask(0o077)
     try:
         with (patch.object(agent, 'Path', side_effect=lab_path),
-              patch.object(agent, 'run_cmd', side_effect=run_cmd)):
+              patch.object(agent, 'run_cmd', side_effect=run_cmd),
+              patch.object(agent, '_session_folders', return_value={})):
             yield commands
     finally:
         os.umask(old_umask)

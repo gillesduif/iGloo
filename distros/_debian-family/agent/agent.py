@@ -1201,6 +1201,60 @@ def place_staged_chromium_profiles(user_home: Path) -> None:
         shutil.rmtree(staged, ignore_errors=True)
 
 
+_XDG_FOLDER_KEYS = {"Desktop": "DESKTOP", "Documents": "DOCUMENTS", "Downloads": "DOWNLOAD",
+                    "Music": "MUSIC", "Pictures": "PICTURES", "Videos": "VIDEOS"}
+
+
+def _system_locale() -> dict[str, str]:
+    """LANG and LANGUAGE as the installed system declares them."""
+    found: dict[str, str] = {}
+    for source in (Path("/etc/default/locale"), Path("/etc/locale.conf")):
+        try:
+            lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            key, sep, value = line.strip().partition("=")
+            if sep and key in ("LANG", "LANGUAGE") and key not in found:
+                found[key] = value.strip().strip("\"'")
+    return found
+
+
+def _session_folders(user_home: Path, username: str) -> dict[str, Path]:
+    """Where the desktop session keeps Documents, Pictures and the rest in this system's language."""
+    config = user_home / ".config"
+    listing = config / "user-dirs.dirs"
+    if not listing.is_file() and shutil.which("xdg-user-dirs-update"):
+        # The session runs the same tool at first login and then keeps what it finds.
+        run_cmd(["xdg-user-dirs-update"], check=False, timeout=60,
+                env={**_system_locale(), "LC_ALL": "", "HOME": str(user_home),
+                     "XDG_CONFIG_HOME": str(config)})
+    try:
+        lines = listing.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        lines = []
+    wanted = {f"XDG_{key}_DIR": name for name, key in _XDG_FOLDER_KEYS.items()}
+    folders: dict[str, Path] = {}
+    for line in lines:
+        key, sep, value = line.strip().partition("=")
+        relative = value.strip().strip('"')
+        if not sep or key not in wanted or not relative.startswith("$HOME/"):
+            continue
+        parts = relative[len("$HOME/"):].split("/")
+        if all(part and part not in (".", "..") for part in parts):
+            folders[wanted[key]] = user_home.joinpath(*parts)
+    made = [str(path) for path in (config, listing, config / "user-dirs.locale", *folders.values())
+            if path.exists() or path.is_symlink()]
+    if made:
+        run_cmd(["chown", "-h", f"{username}:{username}", *made], check=False)
+    if folders:
+        logger.info("Standard folders of the session: %s",
+                    ", ".join(f"{name} -> {path.name}" for name, path in sorted(folders.items())))
+    else:
+        logger.info("No standard folder list for the session; the Windows folder names are used")
+    return folders
+
+
 def migrate_user_files(manifest: dict[str, Any]) -> None:
     """Copy selected staged folders first, then any NTFS-only browser profiles."""
     user = manifest.get("user", {})
@@ -1248,6 +1302,7 @@ def migrate_user_files(manifest: dict[str, Any]) -> None:
         logger.info("Using the Windows staging snapshot at %s", ntfs_staging)
 
     try:
+        session_folders = _session_folders(user_home, linux_user) if folders else {}
         # Folders: {name, sourceRelativePath} resolved on the Windows side (Known
         # Folder API), so OneDrive-redirected folders carry their real location.
         for folder in folders:
@@ -1265,8 +1320,9 @@ def migrate_user_files(manifest: dict[str, Any]) -> None:
                 src = _checked_child(win_home, rel)
             if not src.is_dir():
                 raise RuntimeError(f"Selected folder source {name!r} was not found")
-            _copy_tree(src, user_home / name)
-            logger.info("  Copied folder %s <- %s", name, src)
+            target = session_folders.get(name, user_home / name)
+            _copy_tree(src, target)
+            logger.info("  Copied folder %s <- %s", target.name, src)
 
         # Browser profiles. Gecko carries {sourceRelativePath, destRelativePath}
         # and moves wholesale; Chromium carries only the source, because its
@@ -3581,14 +3637,14 @@ def migrate_wallpaper(manifest: dict[str, Any]) -> None:
     if home is None or not home.is_dir():
         raise RuntimeError("Selected wallpaper target home is unavailable")
 
-    pictures = home / "Pictures"
+    pictures = _session_folders(home, username).get("Pictures", home / "Pictures")
     pictures.mkdir(parents=True, exist_ok=True)
     dst = pictures / f"wallpaper{src.suffix}"
     dst.write_bytes(src.read_bytes())
     run_cmd(["chown", "-R", f"{username}:{username}", str(pictures)])
     logger.info("Wallpaper installed at %s", dst)
 
-    uri = f"file://{dst}"
+    uri = dst.as_uri()
     dconf_dir = Path("/etc/dconf/db/local.d")
     dconf_dir.mkdir(parents=True, exist_ok=True)
     (dconf_dir / "00-igloo-wallpaper").write_text(

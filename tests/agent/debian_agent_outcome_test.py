@@ -477,6 +477,7 @@ class FirstBootOutcomeTests(unittest.TestCase):
             copy = stack.enter_context(patch.object(agent, "_copy_tree"))
             for name in ("ensure_matching_firefox", "relocate_gecko_profiles", "normalise_gecko_profiles"):
                 stack.enter_context(patch.object(agent, name))
+            stack.enter_context(patch.object(agent, "_session_folders", return_value={}))
             commands = stack.enter_context(patch.object(agent, "run_cmd"))
             agent.migrate_user_files({
                 "user": {"preferredLinuxUsername": "linuxuser", "windowsUsername": "WindowsUser"},
