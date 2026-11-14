@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-14
-reviewed_commit: 9d7e73233302a21bae32e4e6ff787e14ddb3f6af
+reviewed_commit: 67b5da2d1fb21f93aad924bfbf89fe478a8dd45a
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -105,6 +105,18 @@ After `6b3a0ef`: `dotnet build Igloo.sln -c Release --no-restore -warnaserror` 0
 ## Fedora `%pre` and the seed on the target disk
 
 **[Read in source; shell fixture, L1]** `ks.cfg.template` exited 1 in `%pre --erroronfail` when the seed's disk GUID equalled `TARGET_DISK_GUID` (line added by `a108ddb`, 4 Nov). `InstallationPreparation.PrepareAsync` passes the selected disk to `Prepare`, which creates the seed on it, and `RenderInstallerConfigAsync` renders that template unchanged, so every Fedora dual-boot run from the wizard met the refusal. The Beta Track records no Fedora VM run after 4 Nov. The comparison now applies to every mode except `dual-boot`, where `clearpart --none` keeps the seed; an empty seed disk GUID stays fatal in every mode. `test_pre_refuses_its_seed_disk_as_target_unless_the_mode_keeps_every_partition` runs the block from the template in bash for seven cases. `tests/installer/FedoraDeferredReviewedFixture.ks` carries the same lines, because `DeferredReviewedFixtureIsTheCurrentSyntheticParserInput` compares that rendering byte for byte. Audit per provider: the Debian and Linux Mint preseeds record the seed's disk GUID and never compare it with the target. The r6 package (`a6cf335`) still has the refusal. Not verified: that Anaconda completes with its stage-2 source on the target disk.
+
+## r7 in a VMware guest, 14 November (partial run, from the wizard log)
+
+**[Observed, L3 for the steps reached]** Build `r7-a79dbdc`, Linux Mint, VMware guest (`VMware SVGA 3D`). The run reached the Installation page and ended there.
+
+- **Target Disk.** Each space check mounted the installer image: 60 s for the first (35 s until `ISO mounted`, 25 s more until the AutoPlay setting was restored), 24 s and 32 s for the next two. The check ran on selection and again on Next. The rest of the check, the shrink query included, fitted in the 5 s between the end of the second mount and the staging stop.
+- **Data Migration.** `BrowserProfileStagingException: A selected browser is still running. Nothing has been copied.` The page showed the fixed title `Staging failed`. A later attempt passed the check and staged 8 files.
+- **Edge passwords.** `uses App-Bound Encryption; its passwords are not migratable`.
+- **Installation.** `Unhandled dispatcher exception: System.IO.FileNotFoundException: Unable to find the specified file` in `FontFamily.GetFirstMatchingFont`, during the layout of a `TextBox`, half a second after the manifest was written; the process ended. The log box of that page named `Cascadia Mono, Consolas`. The log has no preparation line after it: nothing was resized or created.
+- **Startup.** Loading the four plugins took 18 s, of which Fedora KDE and Ubuntu about 9 s each. Not looked into.
+
+**Changed after it (unit tests, L1; not run in a VM).** The app names only fonts that ship with Windows (`Every_named_font_is_part_of_Windows`); why the Cascadia Mono file could not be opened in that guest is not established. The staging page binds its title. The space check measures the image and the shrink limit side by side and keeps the image measurement for the session (`IsoMeasurementCacheTests`); the image is read while the user is on Configuration, and the log gets a line with both durations. 2,191 tests, 2,190 passed, 0 failed, 1 skipped; build `-warnaserror` clean. Not changed: the running-browser stop reacts to any Edge process.
 
 ## Read in source, not changed
 
