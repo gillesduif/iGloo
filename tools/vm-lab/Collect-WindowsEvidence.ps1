@@ -295,6 +295,10 @@ Invoke-Section 'bcd' {
     Save-Text 'bcdedit-enum-firmware.txt' (Invoke-Native 'bcdedit.exe' @('/enum', 'firmware'))
     Save-Text 'bcdedit-enum-fwbootmgr.txt' (Invoke-Native 'bcdedit.exe' @('/enum', '{fwbootmgr}'))
     Save-Text 'bcdedit-enum-all.txt' (Invoke-Native 'bcdedit.exe' @('/enum', 'all', '/v'))
+    # The wizard schedules this task at Restart; it removes itself after the cleanup.
+    $task = Invoke-Native 'schtasks.exe' @('/Query', '/TN', 'iGloo boot entry cleanup', '/V', '/FO', 'LIST')
+    Save-Text 'boot-cleanup-task.txt' $task
+    $script:facts.Add('boot entry cleanup task: ' + $(if ($task -match '\(exit code 0\)') { 'scheduled' } else { 'not scheduled' }))
 }
 
 Invoke-Section 'uefi variables' {
