@@ -11,10 +11,12 @@ public class PreflightViewModelTests
 {
     private sealed class PreflightStub(Task<PreflightReport> result) : IPreflightWorkflow
     {
+        public Func<Task<long>> Reclaim { get; init; } = () => Task.FromResult(0L);
+
         public Task<PreflightReport> InspectAsync(CancellationToken cancellationToken = default) => result;
 
         public Task<long> ReclaimAdjacentFreeSpaceAsync(uint diskNumber, CancellationToken cancellationToken = default) =>
-            Task.FromResult(0L);
+            Reclaim();
 
         public Task RemoveLinuxAsync(IReadOnlyList<LinuxInstallation> installations,
             IReadOnlyList<SeedLeftover> leftovers, bool removingAllLinux,
@@ -94,5 +96,44 @@ public class PreflightViewModelTests
         vm.FirmwareDisplay.Should().Be(firmwareDisplay);
         vm.SecureBootDisplay.Should().Be(secureBootDisplay);
         vm.CanProceed.Should().Be(canProceed);
+    }
+
+    [Fact]
+    public async Task Space_that_Windows_did_not_take_back_is_reported_and_does_not_block_the_check()
+    {
+        const string notice = "20.0 GB directly behind C: is unallocated: Windows did not extend C: (storage code 42008). " +
+            "Check C: for errors with 'chkdsk C: /f' in an administrator terminal, restart Windows and run the system check again.";
+        var report = new PreflightReport
+        {
+            IsUefi = true,
+            SecureBootEnabled = true,
+            TpmPresent = false,
+            BitLocker = BitLockerState.NotEncrypted,
+            Disks = [new DiskInfo(@"\.\PHYSICALDRIVE0", "VMware Virtual NVMe Disk", 64L << 30, 20L << 30, "GPT",
+                [new PartitionInfo(3, "NTFS", 43L << 30, null, IsSystem: false, IsBoot: true)])],
+            GpuVendor = string.Empty,
+            TotalRamBytes = 8L << 30,
+            Findings = [],
+        };
+        var refusing = true;
+        var vm = new PreflightViewModel(new PreflightStub(Task.FromResult(report))
+        {
+            Reclaim = () => refusing
+                ? Task.FromException<long>(new FreeSpaceNotReclaimedException(notice))
+                : Task.FromResult(0L),
+        }, new MaintenanceStub(), NullLogger<PreflightViewModel>.Instance);
+
+        await vm.RunCheckCommand.ExecuteAsync(null);
+
+        vm.LinuxActionStatus.Should().Be(notice);
+        vm.HasLinuxActionStatus.Should().BeTrue();
+        vm.ErrorMessage.Should().BeNull();
+        vm.Report.Should().BeSameAs(report);
+        vm.CanProceed.Should().BeTrue();
+
+        refusing = false;
+        await vm.RunCheckCommand.ExecuteAsync(null);
+
+        vm.LinuxActionStatus.Should().BeNull();
     }
 }

@@ -255,6 +255,12 @@ public sealed partial class PreflightViewModel : ObservableObject
                 bytes / (1024.0 * 1024 * 1024), diskNumber);
             return await _preflight.InspectAsync(ct);
         }
+        catch (FreeSpaceNotReclaimedException ex)
+        {
+            _logger.LogWarning("Free space behind Windows was not reclaimed: {Reason}", ex.Message);
+            LinuxActionStatus = ex.Message;
+            return report;
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "Could not reclaim adjacent free space (non-fatal)");
@@ -278,6 +284,7 @@ public sealed partial class PreflightViewModel : ObservableObject
         IsRunning = true;
         ErrorTitle = "Run the system check again";
         ErrorMessage = null;
+        LinuxActionStatus = null;
         Report = null;
         try
         {
