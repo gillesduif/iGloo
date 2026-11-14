@@ -18,9 +18,9 @@
 ;      ISCC.exe /DIglooPublishDir="installer\publish" installer\iGloo.iss
 ;    (override IglooPublishDir when publishing outside the repo, as above)
 ;
-; Alpha note: the Setup.exe is UNSIGNED. An unsigned installer for a tool that
-; repartitions disks will trip Windows SmartScreen - expected and acceptable
-; for a source-first alpha; revisit when a code-signing certificate exists
+; Note: the Setup.exe is UNSIGNED. An unsigned installer for a tool that
+; repartitions disks will trip Windows SmartScreen - expected until a
+; code-signing certificate exists
 ; (see OSS_RELEASE_CHECKLIST.md section 7).
 ; ============================================================================
 
@@ -28,7 +28,7 @@
   #define IglooPublishDir "publish"
 #endif
 #ifndef IglooVersion
-  #define IglooVersion "0.2-alpha"
+  #define IglooVersion "0.3-beta"
 #endif
 
 [Setup]
@@ -52,7 +52,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\iGloo.exe
-VersionInfoVersion=0.2.0.0
+VersionInfoVersion=0.3.0.0
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
