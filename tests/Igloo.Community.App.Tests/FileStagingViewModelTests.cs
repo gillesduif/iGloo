@@ -220,6 +220,18 @@ public sealed class FileStagingViewModelTests
     }
 
     [Fact]
+    public void The_page_shows_the_title_the_view_model_sets()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Join(directory.FullName, "Igloo.sln")))
+            directory = directory.Parent;
+        directory.Should().NotBeNull("the page source is read from the repository");
+        var page = File.ReadAllText(Path.Join(directory!.FullName, "src", "Igloo.Community.App", "Views", "FileStagingPage.xaml"));
+
+        page.Should().Contain("Text=\"{Binding ErrorTitle}\"").And.NotContain("Text=\"Staging failed\"");
+    }
+
+    [Fact]
     public void Several_running_browsers_are_all_named()
     {
         var (title, message) = FileStagingViewModel.RunningBrowserText(["Microsoft Edge", "Google Chrome", "Mozilla Firefox"]);

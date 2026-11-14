@@ -92,7 +92,7 @@
                 Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
                 Style="{StaticResource Card.Danger}" VerticalAlignment="Top">
             <StackPanel>
-                <TextBlock Text="Staging failed"
+                <TextBlock Text="{Binding ErrorTitle}"
                            FontSize="16" FontWeight="SemiBold"
                            Foreground="{StaticResource Brush.Danger}" />
                 <TextBlock Text="{Binding ErrorMessage}"
