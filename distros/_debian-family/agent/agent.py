@@ -864,6 +864,9 @@ def _hide_packaged_firefox(
             target_dir.mkdir(parents=True, exist_ok=True)
             (target_dir / name).write_text("\n".join(out).strip() + "\n",
                                            encoding="utf-8")
+            # The menu reads the override as the user.
+            _open_to_users(target_dir)
+            _open_to_users(target_dir / name)
             logger.info("Hid %s behind a NoDisplay override in %s", name, target_dir)
         except OSError:
             logger.warning("Could not hide %s - the user will see two Firefoxes", name)
@@ -1339,6 +1342,22 @@ def set_user_password(manifest: dict[str, Any]) -> None:
         raise RuntimeError("Encrypted user password could not be applied")
 
 
+def _open_to_users(path: Path) -> None:
+    """Add the read and traverse bits that first boot's umask 077 withheld; no bit is removed."""
+    if path.is_symlink() or not path.exists():
+        return
+    mode = stat.S_IMODE(path.stat().st_mode)
+    path.chmod(mode | (0o055 if path.is_dir() else 0o044))
+
+
+def _publish_dconf() -> None:
+    """A session reads the dconf profile and databases as its user, not as root."""
+    root = Path("/etc/dconf")
+    for name in ("", "profile", "profile/user", "db", "db/local", "db/local.d",
+                 "db/local.d/00-igloo-keyboard", "db/local.d/00-igloo-wallpaper"):
+        _open_to_users(root / name if name else root)
+
+
 def _ensure_dconf_local_db(*, required: bool = False) -> None:
     """Make sure /etc/dconf/profile/user names the system database."""
     profile = Path("/etc/dconf/profile/user")
@@ -1402,7 +1421,9 @@ def set_keyboard(manifest: dict[str, Any]) -> None:
         # (see _ensure_dconf_local_db).
         _ensure_dconf_local_db()
 
-        if run_cmd(["dconf", "update"], check=False, timeout=60).returncode == 0:
+        compiled = run_cmd(["dconf", "update"], check=False, timeout=60).returncode == 0
+        _publish_dconf()
+        if compiled:
             logger.info("Seeded GNOME input source %r via a dconf default", keymap)
         else:
             logger.info("dconf not available - GNOME default skipped (non-fatal)")
@@ -3581,6 +3602,7 @@ def migrate_wallpaper(manifest: dict[str, Any]) -> None:
         encoding="utf-8")
     _ensure_dconf_local_db(required=True)
     run_cmd(["dconf", "update"], timeout=60)
+    _publish_dconf()
     logger.info("Seeded the desktop wallpaper via a dconf default (GNOME + Cinnamon)")
 
 
