@@ -528,6 +528,10 @@ public interface IInstallationPreparation
         CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("Direct installation space measurement is unavailable.");
 
+    /// <summary>Reads the verified installer image ahead of the first space check; read-only.</summary>
+    Task WarmSpaceCheckAsync(string distroId, IsoAcquisitionResult verifiedIso,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     Task PrepareAsync(string distroId, DiskInfo targetDisk, long linuxSizeBytes, IsoAcquisitionResult verifiedIso,
         string stagingDirectory, Uri? stage2Url, IProgress<DirectInstallProgress>? progress,
         CancellationToken cancellationToken = default);
@@ -547,6 +551,20 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
     // added here (Fedora "root binding", Mint "dedicated ESP binding") guarded
     // installer hooks that no longer exist on the product path.
     public Observation<bool> GetDistroPreparationAvailability(string distroId) => PreparationAvailability;
+
+    public async Task WarmSpaceCheckAsync(string distroId, IsoAcquisitionResult verifiedIso,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(verifiedIso);
+        // Only the image the space check itself would accept; that check repeats every proof.
+        if (!registry.TryGet(distroId, out var plugin) || !verifiedIso.Sha256Verified ||
+            verifiedIso.VerifiedSha256 is not { Length: 64 } digest || !File.Exists(verifiedIso.LocalPath) ||
+            (!string.IsNullOrWhiteSpace(plugin.Metadata.IsoSha256) &&
+             !string.Equals(plugin.Metadata.IsoSha256, digest, StringComparison.OrdinalIgnoreCase)))
+            return;
+        await service.WarmImageMeasurementAsync(verifiedIso.LocalPath,
+            plugin.GetInstallerBootSpec() with { IsoSha256 = digest }, cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task<DirectInstallSpaceEstimate> MeasureSpaceAsync(string distroId,
         DiskInfo targetDisk, IsoAcquisitionResult verifiedIso, FileStagingRequest selectedFiles,

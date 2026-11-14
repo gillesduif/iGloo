@@ -154,16 +154,8 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // suppressor that makes Windows pop an AutoPlay toast for "DVD Drive (E:)" on
         // the Target Disk page, which looks like something went wrong. Same quieting
         // as Prepare, restored on the way out.
-        var image = new FileInfo(isoPath);
-        var key = new IsoMeasurementCache.Key(image.FullName, image.Length, image.LastWriteTimeUtc,
-            bootSpec.IsoSha256, MeasurementInputs(bootSpec, externalMedia));
         // The mount and the shrink query are independent reads and each takes seconds.
-        var imageTask = TimedAsync(() => Task.Run(() => _isoMeasurements.GetOrMeasure(key, () =>
-        {
-            using var shellQuiet = new ShellNoiseSuppressor(_logger);
-            var (kernel, initrd, extra) = MeasureIsoContent(isoPath, bootSpec, externalMedia);
-            return new IsoMeasurementCache.Sizes(kernel, initrd, extra);
-        }), ct));
+        var imageTask = TimedAsync(() => MeasureImageAsync(isoPath, bootSpec, externalMedia, ct));
         var shrinkTask = TimedAsync(() => _resizer.GetShrinkableSpaceAsync(diskNumber, ct));
         await Task.WhenAll(imageTask, shrinkTask).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
@@ -186,6 +178,31 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             throw new InvalidOperationException("Windows could not report available shrink space for the selected boot volume.");
         return PlanSpaceEstimate(bootSpec, shrinkable, new FileInfo(isoPath).Length,
             measured.kernelBytes, measured.initrdBytes, measured.installImgBytes, stagedBytes);
+    }
+
+    public async Task WarmImageMeasurementAsync(string isoPath, InstallerBootSpec bootSpec, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(bootSpec);
+        ValidateExternalInstallerMedia(bootSpec);
+        using var externalMedia = await AcquireExternalInstallerMediaAsync(bootSpec,
+            ExternalInstallerMediaCache, null, ct).ConfigureAwait(false);
+        var ((_, reused), milliseconds) = await TimedAsync(() =>
+            MeasureImageAsync(isoPath, bootSpec, externalMedia, ct)).ConfigureAwait(false);
+        _logger.LogInformation("Installer image read ahead of the space check: {Ms} ms (reused: {Reused})", milliseconds, reused);
+    }
+
+    private Task<(IsoMeasurementCache.Sizes Sizes, bool Reused)> MeasureImageAsync(string isoPath,
+        InstallerBootSpec bootSpec, PinnedExternalInstallerMedia? externalMedia, CancellationToken ct)
+    {
+        var image = new FileInfo(isoPath);
+        var key = new IsoMeasurementCache.Key(image.FullName, image.Length, image.LastWriteTimeUtc,
+            bootSpec.IsoSha256, MeasurementInputs(bootSpec, externalMedia));
+        return Task.Run(() => _isoMeasurements.GetOrMeasure(key, () =>
+        {
+            using var shellQuiet = new ShellNoiseSuppressor(_logger);
+            var (kernel, initrd, extra) = MeasureIsoContent(isoPath, bootSpec, externalMedia);
+            return new IsoMeasurementCache.Sizes(kernel, initrd, extra);
+        }), ct);
     }
 
     private static async Task<(T Value, long Milliseconds)> TimedAsync<T>(Func<Task<T>> start)

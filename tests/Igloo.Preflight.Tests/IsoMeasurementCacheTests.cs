@@ -44,6 +44,32 @@ public sealed class IsoMeasurementCacheTests
     }
 
     [Fact]
+    public async Task A_second_caller_waits_for_the_measurement_in_progress()
+    {
+        var cache = new IsoMeasurementCache();
+        using var mounted = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var measurements = 0;
+        IsoMeasurementCache.Sizes Measure()
+        {
+            Interlocked.Increment(ref measurements);
+            mounted.Set();
+            release.Wait(TimeSpan.FromSeconds(30));
+            return Measured;
+        }
+
+        var first = Task.Run(() => cache.GetOrMeasure(Key(), Measure));
+        Assert.True(mounted.Wait(TimeSpan.FromSeconds(30)));
+        var second = Task.Run(() => cache.GetOrMeasure(Key(), Measure));
+        Assert.NotSame(second, await Task.WhenAny(second, Task.Delay(TimeSpan.FromMilliseconds(200))));
+        release.Set();
+
+        Assert.Equal((Measured, false), await first);
+        Assert.Equal((Measured, true), await second);
+        Assert.Equal(1, measurements);
+    }
+
+    [Fact]
     public void A_failed_measurement_is_not_kept()
     {
         var cache = new IsoMeasurementCache();

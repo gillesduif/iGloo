@@ -8,6 +8,10 @@ public interface IDirectInstallService
         InstallerBootSpec bootSpec, long stagedBytes, CancellationToken ct = default) =>
         throw new NotSupportedException("Direct installation space measurement is unavailable.");
 
+    /// <summary>Reads the installer image ahead of the space check, which then reuses the result.</summary>
+    Task WarmImageMeasurementAsync(string isoPath, InstallerBootSpec bootSpec, CancellationToken ct = default) =>
+        Task.CompletedTask;
+
     Task PrepareAsync(
         int diskNumber,
         long linuxSizeBytes,

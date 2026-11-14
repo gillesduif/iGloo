@@ -280,6 +280,30 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
         }
     }
 
+    // Starts the slow read of the installer image while the user is still on Configuration.
+    public void WarmSpaceCheck(string distroId, IsoAcquisitionResult verifiedIso)
+    {
+        if (_preparation is not null)
+            _ = WarmSpaceCheckAsync(_preparation, distroId, verifiedIso);
+    }
+
+    private async Task WarmSpaceCheckAsync(IInstallationPreparation preparation, string distroId,
+        IsoAcquisitionResult verifiedIso)
+    {
+        try
+        {
+            await preparation.WarmSpaceCheckAsync(distroId, verifiedIso);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or
+            InvalidOperationException or NotSupportedException or ArgumentException or
+            System.ComponentModel.Win32Exception or System.Runtime.InteropServices.COMException or
+            System.Security.SecurityException or OperationCanceledException)
+        {
+            // The space check on Target Disk measures the image itself when this did not finish.
+            _logger?.LogInformation(ex, "The installer image was not read ahead of the space check");
+        }
+    }
+
     public void CancelSpaceCheck()
     {
         _spaceGeneration++;

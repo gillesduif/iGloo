@@ -257,6 +257,43 @@ public sealed class DiskSelectionSpaceTests
         vm.CanProceed.Should().BeFalse();
     }
 
+    private sealed class Warming(Exception? failure = null) : IInstallationPreparation
+    {
+        public List<(string Distro, string Image)> Warmed { get; } = [];
+        public Observation<bool> PreparationAvailability => Observations.Available(true);
+
+        public Task WarmSpaceCheckAsync(string distroId, IsoAcquisitionResult verifiedIso,
+            CancellationToken cancellationToken = default)
+        {
+            Warmed.Add((distroId, verifiedIso.LocalPath));
+            return failure is null ? Task.CompletedTask : Task.FromException(failure);
+        }
+
+        public Task PrepareAsync(string distroId, DiskInfo targetDisk, long linuxSizeBytes,
+            IsoAcquisitionResult verifiedIso, string stagingDirectory, Uri? stage2Url,
+            IProgress<DirectInstallProgress>? progress, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Warming must only read the image.");
+
+        public Task RegisterBootEntryAsync(IProgress<DirectInstallProgress>? progress,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Warming must not change boot registration.");
+    }
+
+    [Fact]
+    public void The_image_is_read_ahead_and_a_failure_there_stays_silent()
+    {
+        foreach (var failure in new Exception?[] { null, new IOException("the image did not mount") })
+        {
+            var preparation = new Warming(failure);
+            var vm = new DiskSelectionViewModel(preparation);
+
+            vm.WarmSpaceCheck("linuxmint-cinnamon", Iso());
+
+            preparation.Warmed.Should().Equal(("linuxmint-cinnamon", @"C:\verified\mint.iso"));
+            vm.SpaceErrorMessage.Should().BeNull();
+        }
+    }
+
     [Fact]
     public async Task Revalidation_keeps_a_now_oversized_choice_blocked_for_review()
     {

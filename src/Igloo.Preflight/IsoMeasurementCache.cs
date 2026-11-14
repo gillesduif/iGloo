@@ -14,14 +14,14 @@ internal sealed class IsoMeasurementCache
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(measure);
+        // Held while measuring: a second caller waits for the first mount instead of mounting the image again.
         lock (_gate)
         {
             if (_entry is { } entry && entry.Key == key)
                 return (entry.Sizes, true);
-        }
-        var sizes = measure();
-        lock (_gate)
+            var sizes = measure();
             _entry = (key, sizes);
-        return (sizes, false);
+            return (sizes, false);
+        }
     }
 }
