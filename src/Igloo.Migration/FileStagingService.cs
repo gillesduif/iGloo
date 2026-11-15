@@ -9,10 +9,8 @@ public sealed record HeldBrowserFile(string Browser, string File);
 
 public sealed partial class FileStagingService : IFileStagingService
 {
-    /// <param name="SharedRead">Read while the browser may be writing: what is on disk at that moment is copied.</param>
-    /// <param name="SkipWhenHeld">A running browser's own session file; left out when the browser lets nobody open it.</param>
     private sealed record CopyJob(string Source, string Destination, long ExpectedLength,
-        bool IsBrowser = false, bool IsSqlite = false, bool SharedRead = false, bool SkipWhenHeld = false);
+        bool IsBrowser = false, bool IsSqlite = false);
 
     private readonly ILogger<FileStagingService> _logger;
 
@@ -365,8 +363,7 @@ public sealed partial class FileStagingService : IFileStagingService
             var undecided = BrowserOf(job.Source, request.BrowserProfiles)
                 .Where(name => runningBrowsers.Contains(name, StringComparer.OrdinalIgnoreCase) &&
                                !holding.Any(held => string.Equals(held.Browser, name, StringComparison.Ordinal))).ToArray();
-            // A session file the copy would leave out does not make its browser one that holds a file.
-            if (undecided.Length != 0 && !job.SkipWhenHeld && !OpensAsTheCopyDoes(job))
+            if (undecided.Length != 0 && !OpensAsTheCopyDoes(job))
                 holding.AddRange(undecided.Select(name => new HeldBrowserFile(name, job.Source)));
         }
         return holding;
@@ -378,7 +375,7 @@ public sealed partial class FileStagingService : IFileStagingService
         try
         {
             using var probe = new FileStream(job.Source, FileMode.Open, FileAccess.Read,
-                job.IsSqlite || job.SharedRead ? FileShare.ReadWrite | FileShare.Delete : FileShare.Read);
+                job.IsSqlite ? FileShare.ReadWrite | FileShare.Delete : FileShare.Read);
             return true;
         }
         catch (IOException ex) when (ex.HResult is unchecked((int)0x80070020) or unchecked((int)0x80070021))
@@ -426,13 +423,6 @@ public sealed partial class FileStagingService : IFileStagingService
                     throw;
                 throw new BrowserProfileStagingException(ex.Message, ex, ex.Reason) { Browsers = owner };
             }
-            catch (IOException ex) when (job.SkipWhenHeld &&
-                                         ex.HResult is unchecked((int)0x80070020) or unchecked((int)0x80070021))
-            {
-                // The browser is running and keeps its own session to itself; its open tabs stay behind.
-                File.Delete(job.Destination);
-                LogSessionFileSkipped(job.Source);
-            }
             catch (IOException ex) when (job.IsBrowser)
             {
                 var reason = ex.HResult is unchecked((int)0x80070020) or unchecked((int)0x80070021)
@@ -459,27 +449,23 @@ public sealed partial class FileStagingService : IFileStagingService
     private static async Task<long> CopyFileAsync(CopyJob job, byte[] buffer, CancellationToken ct)
     {
         using var inStream = new FileStream(
-            job.Source, FileMode.Open, FileAccess.Read,
-            job.SharedRead ? FileShare.ReadWrite | FileShare.Delete : FileShare.Read,
+            job.Source, FileMode.Open, FileAccess.Read, FileShare.Read,
             buffer.Length, useAsync: true);
         using var outStream = new FileStream(
             job.Destination, FileMode.CreateNew, FileAccess.Write, FileShare.None,
             buffer.Length, useAsync: true);
-        // A file a browser may still write to is copied as far as it reached when it was opened.
-        var length = inStream.Length;
-        if (!job.SharedRead && length != job.ExpectedLength)
+        if (inStream.Length != job.ExpectedLength)
             throw new IOException("A selected source file changed after the staging scan.");
 
         var fileBytesCopied = 0L;
         int read;
-        while (fileBytesCopied < length && (read = await inStream.ReadAsync(
-                   buffer.AsMemory(0, (int)Math.Min(buffer.Length, length - fileBytesCopied)), ct).ConfigureAwait(false)) > 0)
+        while ((read = await inStream.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
         {
             await outStream.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
             fileBytesCopied += read;
         }
 
-        if (!job.SharedRead && fileBytesCopied != job.ExpectedLength)
+        if (fileBytesCopied != job.ExpectedLength)
             throw new IOException("A selected source file changed while it was being staged.");
 
         // Flush here so the synchronous Dispose below has nothing left to write.
@@ -490,10 +476,6 @@ public sealed partial class FileStagingService : IFileStagingService
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Staging {Count} file(s) (~{Bytes} bytes) from {Folders} folder(s) to {Dir}")]
     private partial void LogStagingStart(int count, long bytes, int folders, string dir);
-
-    [LoggerMessage(Level = LogLevel.Information,
-        Message = "Left out {File}: the running browser keeps its current session to itself, so its open tabs are not migrated")]
-    private partial void LogSessionFileSkipped(string file);
 
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Staging complete: {Bytes} bytes copied in {Count} file(s)")]

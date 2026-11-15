@@ -48,7 +48,7 @@ public sealed partial class FileStagingService
             if (length is null) continue;
             yield return new(source,
                 Path.Join(destinationRoot, "Default", Path.Join(relative.Split('/'))),
-                length.Value, IsBrowser: true, IsSqlite: isDatabase, SharedRead: !isDatabase);
+                length.Value, IsBrowser: true, IsSqlite: isDatabase);
         }
 
         var sessions = Path.Join(profile, "Sessions");
@@ -57,7 +57,7 @@ public sealed partial class FileStagingService
         {
             yield return new(source,
                 Path.Join(destinationRoot, "Default", "Sessions", Path.GetRelativePath(sessions, source)),
-                new FileInfo(source).Length, IsBrowser: true, SharedRead: true, SkipWhenHeld: true);
+                new FileInfo(source).Length, IsBrowser: true);
         }
     }
 

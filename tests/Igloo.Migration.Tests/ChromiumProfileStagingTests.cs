@@ -402,42 +402,10 @@ public sealed class ChromiumProfileStagingTests : IDisposable
             Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, ["Google Chrome"]));
             Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, []));
         }
-        // A browser keeps its own session file to itself; the copy leaves that file out, so it does not count.
-        using (new FileStream(session, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-            Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, running));
-        var bookmarks = Path.Join(Source, "Default", "Bookmarks");
-        using (new FileStream(bookmarks, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
-            Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, running));
-        using (new FileStream(bookmarks, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        using (new FileStream(session, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
             Assert.Equal(running, FileStagingService.FindBrowsersHoldingFiles(Request, running));
         Assert.Empty(FileStagingService.FindBrowsersHoldingFiles(Request, running));
         Assert.False(Directory.Exists(Staging));
-    }
-
-    [Fact]
-    public async Task A_running_browser_keeps_its_session_file_and_the_rest_is_staged()
-    {
-        Write("Default/Bookmarks", "bookmarks");
-        Write("Default/Sessions/Session_0", "earlier tabs");
-        Write("Default/Sessions/Session_1", "current tabs");
-        var bookmarks = Path.Join(Source, "Default", "Bookmarks");
-        var current = Path.Join(Source, "Default", "Sessions", "Session_1");
-
-        FileStagingResult result;
-        using (new FileStream(current, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-        using (var writer = new FileStream(bookmarks, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
-        {
-            // The browser appends after the scan measured the file.
-            writer.Seek(0, SeekOrigin.End);
-            await writer.WriteAsync("+"u8.ToArray());
-            await writer.FlushAsync();
-            result = await Service.StageAsync(Request, null);
-        }
-
-        var staged = Path.Join(Destination(result), "Default");
-        Assert.Equal("bookmarks+", await File.ReadAllTextAsync(Path.Join(staged, "Bookmarks")));
-        Assert.Equal("earlier tabs", await File.ReadAllTextAsync(Path.Join(staged, "Sessions", "Session_0")));
-        Assert.False(File.Exists(Path.Join(staged, "Sessions", "Session_1")));
     }
 
     private string Destination(FileStagingResult result) => Path.Join(result.StagingDirectory,
