@@ -243,7 +243,11 @@ Changes (unit tests, L1):
 - `ce3dd29`: Target Disk words what the estimate states. When every size the slider offers ends in the unallocated space, there is no slider: the page says that Windows is not resized, how much the installer takes and that a smaller Linux cannot be chosen while that space is unallocated, and the request is set to that maximum so that the manifest records it. When only a small choice fits the unallocated space the slider stays and the same sentence appears for such a choice. The disk card names the 28 GiB for what it is: `Windows can shrink by up to 28 GiB`. The red card speaks of a resize only when there is one.
 - 2,264 tests, 2,263 passed, 0 failed, 1 skipped; build `-warnaserror` clean. No subagent was used.
 
-**Not changed.** What is partitioned: the installer still takes the whole unallocated region. Giving each installer a size, or making the Linux partitions from Windows as ADR-008 describes for Ubuntu, is a change to the installation itself and has not been decided. Sizes on this page and on System Check are binary but partly labelled `GB`.
+**Not changed.** What is partitioned: the installer still takes the whole unallocated region. Sizes on this page and on System Check are binary but partly labelled `GB`.
+
+**Where the route comes from (read in git).** In `v0.2-alpha` (23 August) the preparation always shrank Windows by the chosen size plus the installer partitions, unless an installer partition of an earlier run was reused. `da2c9c0` (4 November) added the route that uses unallocated space that already exists, in the measurement and in the preparation, with the stated purpose of using the space of a removed Linux or an earlier run without shrinking Windows again. Without unallocated space the page and the preparation still do what the alpha did: the slider is the size of Linux and it is taken from Windows.
+
+**Decided by the owner on 15 Nov.** The route stays: when unallocated space holds the request, Windows is left as it is and the installer takes that space whole, and the page says so without a slider, as in r22. Not chosen: taking the size from Windows in every case and stopping when other unallocated space exists, and binding Debian's installer to the space behind the installer partition.
 
 **Not verified.** The reworded page has not been seen on a screen.
 
