@@ -210,7 +210,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         return Task.Run(() => _isoMeasurements.GetOrMeasure(key, () =>
         {
             using var shellQuiet = new ShellNoiseSuppressor(_logger);
-            var (kernel, initrd, extra) = MeasureIsoContent(isoPath, bootSpec, externalMedia);
+            var (kernel, initrd, extra) = MeasureIsoContent(isoPath, bootSpec, externalMedia, shellQuiet);
             return new IsoMeasurementCache.Sizes(kernel, initrd, extra);
         }), ct);
     }
@@ -648,7 +648,8 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     }
 
     private (long kernelBytes, long initrdBytes, long installImgBytes) MeasureIsoContent(
-        string isoPath, InstallerBootSpec bootSpec, PinnedExternalInstallerMedia? externalMedia)
+        string isoPath, InstallerBootSpec bootSpec, PinnedExternalInstallerMedia? externalMedia,
+        ShellNoiseSuppressor? shellQuiet = null)
     {
         string? mountedLetter = null;
         try
@@ -681,7 +682,14 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         finally
         {
             if (mountedLetter is not null)
+            {
+                // A window Explorer opened for the mounted image is closed, before and after the image goes.
+                if (mountedLetter.Length > 0)
+                    shellQuiet?.CloseExplorerWindowsFor(mountedLetter[0]);
                 DismountIso(isoPath);
+                if (mountedLetter.Length > 0)
+                    shellQuiet?.CloseExplorerWindowsFor(mountedLetter[0]);
+            }
         }
     }
 
