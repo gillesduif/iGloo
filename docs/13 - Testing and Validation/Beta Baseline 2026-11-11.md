@@ -223,6 +223,30 @@ After these changes: build `-warnaserror` clean; 2,253 tests, 2,252 passed, 0 fa
 - **Not changed.** Between two installations a swap partition is still counted with the root after it, as before for a small one; with the Debian layout (root, then swap) that is the wrong side.
 - **Not verified.** That System Check then shows one row named Debian: with one installation the name comes from the `EFI\debian` folder or from the only Linux firmware entry (read in source, not run). Read in source as well, not run: in r20 itself, selecting both rows removes the same two partitions.
 
+## r21 in the VMware guest, 15 November (observations by the owner, System Check and Target Disk)
+
+**[Observed by the owner, two screenshots]** Build `r21-4808df5`.
+
+- **System Check (L3 for `55ff833`).** One row, `Debian`, 94,9 GB, with the root of 90,0 GB and the swap of 4,9 GB in the disk drawing below it.
+- **Target Disk, after Debian was removed.** The disk card said `100,0 GB free` and `up to 28 GiB available for Linux allocation`, the slider ran from 20 to 95 GiB, the text said the Windows partition is resized, and the red card said to back up Windows before resizing it. The owner also noted that the Debian of the r19 run had 90 GB although no such size had been chosen.
+
+Read in source, with the r19 wizard log:
+
+- **The two numbers come from two sources.** `up to 28 GiB` is the shrink limit of the Windows partition from the System Check report (`DiskListItem.MaxShrinkableGb`). The slider maximum comes from `MeasureSpaceAsync`, which replaces the shrink limit by the largest unallocated region when that is larger: 100 GiB, less the installer partition.
+- **With that much unallocated space Windows is not resized.** `ReserveLinuxSpace` returns without a shrink when the region holds the request plus the installer partition. The r19 log: `disk 0 already has 100.0 GiB unallocated (need 54.1 GiB) - Windows is not shrunk`. The page worded a resize in every case.
+- **The chosen size is then not what Linux gets.** The installer is handed the whole region. In r19 50 GiB was asked and Debian's three partitions took 95.88 GiB (1,024,458,752 + 96,607,404,032 + 5,314,183,168 bytes), which is the 100 GiB less the 4224 MiB installer partition. `PlanLinuxRegion` already calls this `ExpectedLinuxBytes`, and `Existing_space_that_fits_is_used_without_a_shrink` has held it since the layout rules were written.
+- **Every distribution of the beta does this.** Debian runs partman's `atomic` recipe in the one free region it is bound to, Linux Mint runs `biggest_free` with `atomic`, Fedora runs `autopart` after `clearpart --none`. None of the three is given a size. Only the parked Ubuntu provider gets a root partition iGloo made beforehand. So the size on the slider is honoured only through the size of the shrink.
+
+Changes (unit tests, L1):
+
+- `c70fe95`: the space estimate carries the largest unallocated region and states, by the rule the preparation applies, what a request leads to: Windows resized and Linux given the request, or Windows left as it is and Linux given the whole region beside the installer partition. `LinuxRegionAdmissionTests` compare that statement with `PlanLinuxRegion` and hold the r19 numbers.
+- `ce3dd29`: Target Disk words what the estimate states. When every size the slider offers ends in the unallocated space, there is no slider: the page says that Windows is not resized, how much the installer takes and that a smaller Linux cannot be chosen while that space is unallocated, and the request is set to that maximum so that the manifest records it. When only a small choice fits the unallocated space the slider stays and the same sentence appears for such a choice. The disk card names the 28 GiB for what it is: `Windows can shrink by up to 28 GiB`. The red card speaks of a resize only when there is one.
+- 2,264 tests, 2,263 passed, 0 failed, 1 skipped; build `-warnaserror` clean. No subagent was used.
+
+**Not changed.** What is partitioned: the installer still takes the whole unallocated region. Giving each installer a size, or making the Linux partitions from Windows as ADR-008 describes for Ubuntu, is a change to the installation itself and has not been decided. Sizes on this page and on System Check are binary but partly labelled `GB`.
+
+**Not verified.** The reworded page has not been seen on a screen.
+
 ## Read in source, not changed
 
 - **Browser locks (B-03).** `CopyLockedChromiumDatabase` covers `SQLITE_BUSY`/`SQLITE_LOCKED`. A database Windows refuses to open (`SQLITE_CANTOPEN` → `BrowserInUse` in `LoginDataReader.ReadConnectionWithoutSharedMemory`), a non-database profile file held open for writing (`CopyFileAsync` opens the source with `FileShare.Read`) and Firefox profile files in the same position still raise `BrowserProfileStagingException`, which removes the generation and ends staging. Whether a running Edge or Chrome produces these today is not verified.
