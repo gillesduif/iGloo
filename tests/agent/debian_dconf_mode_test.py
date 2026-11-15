@@ -34,7 +34,7 @@ def private_first_boot(root, dconf_installed=True):
 
     def lab_path(value):
         text = str(value)
-        for original in ('/etc/dconf', '/etc/default', '/opt/igloo', '/home'):
+        for original in ('/etc/dconf', '/etc/default', '/etc/locale.conf', '/etc/xdg', '/opt/igloo', '/home'):
             if text == original or text.startswith(original + '/'):
                 return root / text.lstrip('/')
         raise AssertionError('Unexpected real filesystem path: ' + text)

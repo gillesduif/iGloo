@@ -1437,8 +1437,45 @@ def _ensure_dconf_local_db(*, required: bool = False) -> None:
         logger.warning("Could not adjust %s - the GNOME default may not apply", profile)
 
 
+# Debian's input-method packages whose first-login script puts their engine first for every GNOME user.
+_INPUT_METHOD_FIRST_LOGIN = {"ibus-anthy": "ja", "ibus-mozc": "ja"}
+
+
+def _skip_foreign_input_method_setup(manifest: dict[str, Any]) -> None:
+    """Mark the first-login setup of an input method for another language as done for the migrated user."""
+    user = manifest.get("user", {})
+    username = (user.get("preferredLinuxUsername") or "").strip()
+    home = Path("/home") / username if username else None
+    if home is None or not home.is_dir():
+        return
+    locale = (user.get("locale") or _system_locale().get("LANG") or "").strip().lower()
+    for package, language in _INPUT_METHOD_FIRST_LOGIN.items():
+        entry = Path("/etc/xdg/autostart") / f"{package}-gnome-initial-setup.desktop"
+        if locale.startswith(language) or not entry.is_file():
+            continue
+        try:
+            lines = entry.read_text(encoding="utf-8", errors="replace").splitlines()
+            condition = next((line.partition("=")[2].split() for line in lines
+                              if line.startswith("AutostartCondition=")), [])
+            # The session skips the entry while the file its own condition names exists.
+            marker = condition[1] if len(condition) == 2 and condition[0] == "unless-exists" else ""
+            if not marker or "/" in marker or marker in (".", ".."):
+                logger.warning("%s has no unless-exists condition - its input method is still added", entry)
+                continue
+            config = home / ".config"
+            config.mkdir(mode=0o700, exist_ok=True)
+            (config / marker).touch()
+            run_cmd(["chown", "-h", f"{username}:{username}", str(config), str(config / marker)],
+                    check=False)
+            logger.info("First-login setup of %s marked as done for %s: the system language is %s",
+                        package, username, locale or "unknown")
+        except OSError as exc:
+            logger.warning("Could not mark the first-login setup of %s as done: %s", package, exc)
+
+
 def set_keyboard(manifest: dict[str, Any]) -> None:
     """Set the system keyboard layout from the manifest, and seed GNOME defaults."""
+    _skip_foreign_input_method_setup(manifest)
     keymap = (manifest.get("user", {}).get("keymap") or "").strip()
     if not keymap:
         logger.info("No keymap in manifest - skipping keyboard set")
