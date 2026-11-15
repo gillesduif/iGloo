@@ -66,6 +66,7 @@ public static class IglooHost
         services.AddSingleton<IIsoAcquisitionService, IsoAcquisitionService>();
         services.AddSingleton<IsoAcquisitionCoordinator>();
         services.AddSingleton<MigrationStagingCoordinator>();
+        services.AddSingleton<IVolumeSnapshots, WindowsVolumeSnapshots>();
         services.AddSingleton<IFileStagingService, FileStagingService>();
         services.AddSingleton<IUsbWriterService, UsbWriterService>();
         services.AddSingleton<DistroLoader>();

@@ -33,6 +33,9 @@ internal sealed record MigrationStagingHooks(
 
     // Ends the given browsers that have no window and returns their names; by default none.
     public Func<IReadOnlyList<string>, IReadOnlyList<string>> EndWindowlessBrowsers { get; init; } = _ => [];
+
+    // Which of the given browsers have a window open; by default none.
+    public Func<IReadOnlyList<string>, IReadOnlyList<string>> FindBrowsersWithWindows { get; init; } = _ => [];
 }
 
 public sealed class MigrationStagingCoordinator
@@ -72,7 +75,24 @@ public sealed class MigrationStagingCoordinator
                 return [.. held.Select(file => file.Browser)];
             },
             EndWindowlessBrowsers = RunningBrowsers.EndWindowless,
+            FindBrowsersWithWindows = RunningBrowsers.WithWindows,
         };
+    }
+
+    // Without a snapshot: a browser with no window is ended, one with a window is the user's to close.
+    private void RequireReleased(FileStagingRequest stagingRequest, IReadOnlyList<string> holding)
+    {
+        if (_hooks.EndWindowlessBrowsers(holding) is { Count: > 0 } ended)
+        {
+            // Without a window there was no work to save; with one, the browser is left for the user to close.
+            _logger.LogInformation("Ended {Browsers}: no window was open and the files to copy were held",
+                string.Join(", ", ended));
+            var running = _hooks.FindRunningBrowsers([.. stagingRequest.BrowserProfiles.Select(browser => browser.Name)]);
+            holding = running.Count == 0 ? running : _hooks.FindBrowsersHoldingFiles(stagingRequest, running);
+        }
+        if (holding.Count > 0)
+            throw new BrowserProfileStagingException("A selected browser is still running. Nothing has been copied.",
+                null, BrowserProfileStagingFailure.BrowserRunning) { Browsers = holding };
     }
 
     public async Task<FileStagingResult> StageAsync(MigrationStagingInput input,
@@ -123,18 +143,7 @@ public sealed class MigrationStagingCoordinator
         var running = _hooks.FindRunningBrowsers([.. stagingRequest.BrowserProfiles.Select(browser => browser.Name)]);
         // A browser that only idles in the background holds none of the files; one that does must close first.
         var holding = running.Count == 0 ? running : _hooks.FindBrowsersHoldingFiles(stagingRequest, running);
-        if (holding.Count > 0 && _hooks.EndWindowlessBrowsers(holding) is { Count: > 0 } ended)
-        {
-            // Without a window there was no work to save; with one, the browser is left for the user to close.
-            _logger.LogInformation("Ended {Browsers}: no window was open and the files to copy were held",
-                string.Join(", ", ended));
-            running = _hooks.FindRunningBrowsers([.. stagingRequest.BrowserProfiles.Select(browser => browser.Name)]);
-            holding = running.Count == 0 ? running : _hooks.FindBrowsersHoldingFiles(stagingRequest, running);
-        }
-        if (holding.Count > 0)
-            throw new BrowserProfileStagingException("A selected browser is still running. Nothing has been copied.",
-                null, BrowserProfileStagingFailure.BrowserRunning) { Browsers = holding };
-        if (running.Count > 0)
+        if (running.Count > 0 && holding.Count == 0)
             _logger.LogInformation("{Browsers} still running, but none of the files to copy is held; staging continues",
                 string.Join(", ", running));
         // The wizard's preflight is a selection snapshot, not manifest authority.
@@ -144,7 +153,31 @@ public sealed class MigrationStagingCoordinator
         if (currentMachine?.Disks is null)
             throw new InvalidOperationException("Current machine observation is unavailable.");
         var currentTarget = ResolveCurrentTarget(input.TargetDisk, currentMachine.Disks);
-        var stagingResult = await _staging.StageAsync(stagingRequest, progress, cancellationToken).ConfigureAwait(false);
+        FileStagingResult stagingResult;
+        if (holding.Count == 0)
+        {
+            stagingResult = await _staging.StageAsync(stagingRequest, progress, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            // A browser with a window may hold work that is not on disk yet; only closing it makes the copy complete.
+            if (_hooks.FindBrowsersWithWindows(holding) is { Count: > 0 } inUse)
+                throw new BrowserProfileStagingException("A selected browser is still running. Nothing has been copied.",
+                    null, BrowserProfileStagingFailure.BrowserRunning) { Browsers = inUse };
+            // Without a window it is idle: a snapshot of the volume has all of its files, and nothing is ended.
+            try
+            {
+                stagingResult = await _staging.StageAsync(stagingRequest with { BrowserFilesFromSnapshot = true },
+                    progress, cancellationToken).ConfigureAwait(false);
+            }
+            catch (VolumeSnapshotUnavailableException ex)
+            {
+                _logger.LogWarning("No snapshot for the browser files ({Reason}); the browsers that hold them must be released",
+                    ex.Message);
+                RequireReleased(stagingRequest, holding);
+                stagingResult = await _staging.StageAsync(stagingRequest, progress, cancellationToken).ConfigureAwait(false);
+            }
+        }
         var manifestPath = Path.Join(stagingResult.StagingDirectory, "migration-manifest.json");
         try
         {

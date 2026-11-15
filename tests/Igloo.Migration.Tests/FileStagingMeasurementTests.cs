@@ -117,6 +117,22 @@ public sealed class FileStagingMeasurementTests : IDisposable
     }
 
     [Fact]
+    public void A_browser_counts_as_in_use_when_any_of_its_processes_has_a_window()
+    {
+        var processes = new Dictionary<string, BrowserProcess[]>
+        {
+            ["msedge"] = [new(false, () => true), new(false, () => true)],
+            ["chrome"] = [new(false, () => true), new(true, () => true)],
+        };
+
+        var inUse = RunningBrowsers.WithWindows(
+            ["Microsoft Edge", "Google Chrome", "google chrome", "Mozilla Firefox", "Unlisted Browser"],
+            name => processes.TryGetValue(name, out var found) ? found : []);
+
+        Assert.Equal(["Google Chrome"], inUse);
+    }
+
+    [Fact]
     public void A_browser_that_is_still_closing_is_not_reported_as_ended()
     {
         BrowserProcess[] edge = [new(false, () => true)];

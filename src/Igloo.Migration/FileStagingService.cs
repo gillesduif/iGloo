@@ -9,14 +9,19 @@ public sealed record HeldBrowserFile(string Browser, string File);
 
 public sealed partial class FileStagingService : IFileStagingService
 {
+    /// <param name="FromSnapshot">The source sits in a volume snapshot: it cannot change, and no program holds it.</param>
     private sealed record CopyJob(string Source, string Destination, long ExpectedLength,
-        bool IsBrowser = false, bool IsSqlite = false);
+        bool IsBrowser = false, bool IsSqlite = false, bool FromSnapshot = false);
 
     private readonly ILogger<FileStagingService> _logger;
+    private readonly IVolumeSnapshots? _snapshots;
 
-    public FileStagingService(ILogger<FileStagingService> logger)
+    public FileStagingService(ILogger<FileStagingService> logger) : this(logger, null) { }
+
+    public FileStagingService(ILogger<FileStagingService> logger, IVolumeSnapshots? snapshots)
     {
         _logger = logger;
+        _snapshots = snapshots;
     }
 
     // Enumeration options used for both scan and (implicitly) copy phases:
@@ -44,6 +49,10 @@ public sealed partial class FileStagingService : IFileStagingService
         foreach (var folder in request.FolderPaths)
             RejectSourceContainingStaging(folder, stagingRoot);
 
+        // Before anything is created: without the snapshot that was asked for, nothing has been copied.
+        using var snapshot = request.BrowserFilesFromSnapshot ? SnapshotOfTheProfileVolume() : null;
+        var browserRoot = snapshot?.Map(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+
         // A new generation cannot blend in stale files, and staging never deletes
         // a previous user's data merely because a new wizard run has started.
         Directory.CreateDirectory(stagingRoot);
@@ -51,11 +60,12 @@ public sealed partial class FileStagingService : IFileStagingService
         {
             progress?.Report(new FileStagingProgress(FileStagingPhase.Scanning, 0, 0, "Scanning files…"));
             var (jobs, totalBytes) = ScanFolders(request.FolderPaths, folderNames, stagingRoot, ct: ct);
-            ScanBrowserProfiles(request, stagingRoot, jobs, ref totalBytes, ct: ct);
+            // Scanned and copied from the same frozen state, so every size check holds while the browser runs.
+            ScanBrowserProfiles(request, stagingRoot, jobs, ref totalBytes, profileRoot: browserRoot, ct: ct);
 
             LogStagingStart(jobs.Count, totalBytes, request.FolderPaths.Count, stagingRoot);
 
-            long bytesCopied = await CopyJobsAsync(jobs, totalBytes, request.BrowserProfiles, progress, ct).ConfigureAwait(false);
+            long bytesCopied = await CopyJobsAsync(jobs, totalBytes, request.BrowserProfiles, progress, ct, browserRoot).ConfigureAwait(false);
             // SQLite snapshots fold WAL pages into the database and may be smaller
             // than the reserved source + WAL footprint. Each copy checks its size.
 
@@ -77,6 +87,15 @@ public sealed partial class FileStagingService : IFileStagingService
             }
             throw;
         }
+    }
+
+    private IVolumeSnapshot SnapshotOfTheProfileVolume()
+    {
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var snapshot = _snapshots?.TryCreate(profile) ?? throw new VolumeSnapshotUnavailableException(
+            "Windows could not make a snapshot of the volume that holds the selected browser profiles.");
+        LogBrowserSnapshot(snapshot.Map(profile));
+        return snapshot;
     }
 
     /// <summary>Measure the same selected files as StageAsync without creating a staging generation.</summary>
@@ -214,8 +233,9 @@ public sealed partial class FileStagingService : IFileStagingService
 
     private static void ScanBrowserProfiles(FileStagingRequest request, string stagingRoot,
         List<CopyJob> jobs, ref long totalBytes,
-        bool createDirectories = true, CancellationToken ct = default)
+        bool createDirectories = true, string? profileRoot = null, CancellationToken ct = default)
     {
+        var fromSnapshot = profileRoot is not null;
         if (request.BrowserRelativePaths.Count == 0 && request.BrowserProfiles.Count == 0) return;
 
         var engines = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -230,7 +250,7 @@ public sealed partial class FileStagingService : IFileStagingService
         var browserPaths = request.BrowserRelativePaths.Concat(
             request.BrowserProfiles.Select(browser => browser.SourceRelativePath));
 
-        var profileRoot = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        profileRoot ??= Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (string.IsNullOrWhiteSpace(profileRoot) || !Directory.Exists(profileRoot))
             throw new DirectoryNotFoundException("The current Windows user profile is unavailable.");
 
@@ -264,7 +284,7 @@ public sealed partial class FileStagingService : IFileStagingService
                 if (createDirectories) Directory.CreateDirectory(Path.Join(destination, "Default"));
                 foreach (var job in EnumerateChromiumJobs(source, destination, ct))
                 {
-                    jobs.Add(job);
+                    jobs.Add(job with { FromSnapshot = fromSnapshot });
                     totalBytes = checked(totalBytes + job.ExpectedLength);
                 }
                 continue;
@@ -274,7 +294,7 @@ public sealed partial class FileStagingService : IFileStagingService
                 ct.ThrowIfCancellationRequested();
                 var relPath = Path.GetRelativePath(source, file);
                 var size = new FileInfo(file).Length;
-                jobs.Add(new(file, Path.Join(destination, relPath), size, IsBrowser: true));
+                jobs.Add(new(file, Path.Join(destination, relPath), size, IsBrowser: true, FromSnapshot: fromSnapshot));
                 totalBytes = checked(totalBytes + size);
             }
         }
@@ -329,9 +349,10 @@ public sealed partial class FileStagingService : IFileStagingService
 
     
     // The selected browser a staged source file belongs to, for the message that asks to close it.
-    private static string[] BrowserOf(string source, IReadOnlyList<Core.Models.BrowserMigration> browsers)
+    private static string[] BrowserOf(string source, IReadOnlyList<Core.Models.BrowserMigration> browsers,
+        string? profileRoot = null)
     {
-        var profileRoot = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        profileRoot ??= Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         return [.. browsers.Where(browser => browser.SourceRelativePath.Length != 0 && source.StartsWith(
                 Path.Join(profileRoot, Path.Join(browser.SourceRelativePath.Replace('\\', '/').Split('/'))) + Path.DirectorySeparatorChar,
                 StringComparison.OrdinalIgnoreCase))
@@ -391,7 +412,7 @@ public sealed partial class FileStagingService : IFileStagingService
 
     private async Task<long> CopyJobsAsync(
         List<CopyJob> jobs, long totalBytes, IReadOnlyList<Core.Models.BrowserMigration> browsers,
-        IProgress<FileStagingProgress>? progress, CancellationToken ct)
+        IProgress<FileStagingProgress>? progress, CancellationToken ct, string? browserRoot = null)
     {
         long bytesCopied = 0;
         const int BufSize = 128 * 1024;
@@ -418,7 +439,7 @@ public sealed partial class FileStagingService : IFileStagingService
             catch (BrowserProfileStagingException ex)
             {
                 // Preserve structured recovery advice from the SQLite reader and add whose file it was.
-                var owner = BrowserOf(job.Source, browsers);
+                var owner = BrowserOf(job.Source, browsers, browserRoot);
                 if (ex.Browsers.Count > 0 || owner.Length == 0)
                     throw;
                 throw new BrowserProfileStagingException(ex.Message, ex, ex.Reason) { Browsers = owner };
@@ -430,7 +451,7 @@ public sealed partial class FileStagingService : IFileStagingService
                     : BrowserProfileStagingFailure.SnapshotUnavailable;
                 throw new BrowserProfileStagingException(
                     $"Could not capture selected browser file '{job.Source}'. Close the selected browsers and retry staging.", ex, reason)
-                    { Browsers = BrowserOf(job.Source, browsers) };
+                    { Browsers = BrowserOf(job.Source, browsers, browserRoot) };
             }
             catch (SqliteException ex) when (job.IsBrowser)
             {
@@ -439,7 +460,7 @@ public sealed partial class FileStagingService : IFileStagingService
                     : BrowserProfileStagingFailure.SnapshotUnavailable;
                 throw new BrowserProfileStagingException(
                     $"Could not capture selected browser file '{job.Source}'. Close the selected browsers and retry staging.", ex, reason)
-                    { Browsers = BrowserOf(job.Source, browsers) };
+                    { Browsers = BrowserOf(job.Source, browsers, browserRoot) };
             }
         }
 
@@ -476,6 +497,10 @@ public sealed partial class FileStagingService : IFileStagingService
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Staging {Count} file(s) (~{Bytes} bytes) from {Folders} folder(s) to {Dir}")]
     private partial void LogStagingStart(int count, long bytes, int folders, string dir);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "A selected browser is running and keeps files open; its profile is read completely from a snapshot at {Root}")]
+    private partial void LogBrowserSnapshot(string root);
 
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Staging complete: {Bytes} bytes copied in {Count} file(s)")]

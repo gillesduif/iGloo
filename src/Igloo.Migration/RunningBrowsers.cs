@@ -32,6 +32,20 @@ public static class RunningBrowsers
             .Where(name => ProcessNames.TryGetValue(name, out var processes) && processes.Any(isRunning))];
     }
 
+    /// <summary>The browsers of which a process has a window, or cannot be read: those may hold work that is not on disk yet.</summary>
+    public static IReadOnlyList<string> WithWindows(IReadOnlyList<string> browsers) =>
+        WithWindows(browsers, ProcessesInThisSession);
+
+    public static IReadOnlyList<string> WithWindows(IReadOnlyList<string> browsers,
+        Func<string, IReadOnlyList<BrowserProcess>> processesOf)
+    {
+        ArgumentNullException.ThrowIfNull(browsers);
+        ArgumentNullException.ThrowIfNull(processesOf);
+        return [.. browsers.Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(name => ProcessNames.TryGetValue(name, out var processNames) &&
+                           processNames.SelectMany(processesOf).Any(process => process.HasWindow))];
+    }
+
     /// <summary>Ends the browsers that run without any window and returns their names; one with a window is left alone.</summary>
     public static IReadOnlyList<string> EndWindowless(IReadOnlyList<string> browsers) =>
         EndWindowless(browsers, ProcessesInThisSession, WaitUntilGone);

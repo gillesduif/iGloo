@@ -20,6 +20,9 @@ public sealed record FileStagingRequest(
 
     /// <summary>Selected browser metadata, used to stage the portable files for its engine.</summary>
     public IReadOnlyList<Models.BrowserMigration> BrowserProfiles { get; init; } = [];
+
+    /// <summary>Read the browser profiles from a volume snapshot, because a running browser keeps some of their files open.</summary>
+    public bool BrowserFilesFromSnapshot { get; init; }
 }
 
 

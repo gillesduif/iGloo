@@ -408,6 +408,97 @@ public sealed class ChromiumProfileStagingTests : IDisposable
         Assert.False(Directory.Exists(Staging));
     }
 
+    [Fact]
+    public async Task With_a_snapshot_every_file_of_a_running_browser_is_staged_as_it_was_frozen()
+    {
+        Write("Default/Bookmarks", "bookmarks");
+        Write("Default/Sessions/Session_1", "open tabs");
+        var history = Path.Join(Source, "Default", "History");
+        WriteDatabase(history, 4096);
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var frozen = Directory.CreateTempSubdirectory("igloo-frozen-").FullName;
+        try
+        {
+            CopyTree(Source, Path.Join(frozen, _relative));
+            var snapshots = new Frozen(profile, frozen);
+            // After the snapshot the browser writes on and lets nobody open its files.
+            await File.AppendAllTextAsync(Path.Join(Source, "Default", "Bookmarks"), " written later");
+            FileStagingResult result;
+            using (new FileStream(Path.Join(Source, "Default", "Sessions", "Session_1"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            using (new FileStream(history, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                result = await new FileStagingService(NullLogger<FileStagingService>.Instance, snapshots)
+                    .StageAsync(Request with { BrowserFilesFromSnapshot = true }, null);
+
+            var staged = Path.Join(Destination(result), "Default");
+            Assert.Equal("bookmarks", await File.ReadAllTextAsync(Path.Join(staged, "Bookmarks")));
+            Assert.Equal("open tabs", await File.ReadAllTextAsync(Path.Join(staged, "Sessions", "Session_1")));
+            await using (var copy = new SqliteConnection(new SqliteConnectionStringBuilder
+                         { DataSource = Path.Join(staged, "History"), Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString()))
+            {
+                await copy.OpenAsync();
+                await using var command = copy.CreateCommand();
+                command.CommandText = "SELECT length(value) FROM selected_data;";
+                Assert.Equal(4096L, await command.ExecuteScalarAsync());
+            }
+            Assert.Equal([profile], snapshots.Asked);
+            Assert.Equal(1, snapshots.Removed);
+        }
+        finally
+        {
+            Directory.Delete(frozen, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task A_request_for_a_snapshot_that_cannot_be_made_fails_before_anything_is_created()
+    {
+        Write("Default/Bookmarks", "bookmarks");
+        var none = new Frozen(Source, Source) { Available = false };
+        var service = new FileStagingService(NullLogger<FileStagingService>.Instance, none);
+
+        await Assert.ThrowsAsync<VolumeSnapshotUnavailableException>(() =>
+            service.StageAsync(Request with { BrowserFilesFromSnapshot = true }, null));
+        await Assert.ThrowsAsync<VolumeSnapshotUnavailableException>(() =>
+            Service.StageAsync(Request with { BrowserFilesFromSnapshot = true }, null));
+        Assert.False(Directory.Exists(Staging));
+
+        // A request that does not ask for one never touches the provider.
+        await service.StageAsync(Request, null);
+        Assert.Single(none.Asked);
+        Assert.Equal(0, none.Removed);
+    }
+
+    private static void CopyTree(string from, string to)
+    {
+        foreach (var directory in Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories).Prepend(from))
+            Directory.CreateDirectory(Path.Join(to, Path.GetRelativePath(from, directory)));
+        foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+            File.Copy(file, Path.Join(to, Path.GetRelativePath(from, file)));
+    }
+
+    // Stands in for a volume snapshot: a second tree that no longer changes.
+    private sealed class Frozen(string liveRoot, string frozenRoot) : IVolumeSnapshots
+    {
+        public bool Available { get; init; } = true;
+        public List<string> Asked { get; } = [];
+        public int Removed { get; private set; }
+
+        public IVolumeSnapshot? TryCreate(string pathOnVolume)
+        {
+            Asked.Add(pathOnVolume);
+            return Available ? new View(this, liveRoot, frozenRoot) : null;
+        }
+
+        private sealed class View(Frozen owner, string liveRoot, string frozenRoot) : IVolumeSnapshot
+        {
+            public string Map(string path) =>
+                string.Equals(path, liveRoot, StringComparison.OrdinalIgnoreCase)
+                    ? frozenRoot : Path.Join(frozenRoot, Path.GetRelativePath(liveRoot, path));
+
+            public void Dispose() => owner.Removed++;
+        }
+    }
+
     private string Destination(FileStagingResult result) => Path.Join(result.StagingDirectory,
         Path.Join(FileStagingService.BrowserProfileStagingPath(_relative).Split('/')));
 

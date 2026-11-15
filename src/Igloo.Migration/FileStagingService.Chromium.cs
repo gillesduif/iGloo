@@ -89,7 +89,11 @@ public sealed partial class FileStagingService
         ct.ThrowIfCancellationRequested();
         try
         {
-            SnapshotChromiumDatabase(job, ct);
+            // In a volume snapshot the database and its journal are frozen together; SQLite recovers the private copy.
+            if (job.FromSnapshot)
+                CopyLockedChromiumDatabase(job, ct);
+            else
+                SnapshotChromiumDatabase(job, ct);
         }
         catch (SqliteException error) when (error.SqliteErrorCode is 5 or 6) // SQLITE_BUSY / SQLITE_LOCKED
         {

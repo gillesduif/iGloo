@@ -220,7 +220,87 @@ public sealed class MigrationStagingSelectionTests
             Assert.Equal(BrowserProfileStagingFailure.BrowserRunning, refused.Reason);
             Assert.Equal(holding, refused.Browsers);
             Assert.Equal(0, staging.Calls);
+            // The stop is the last resort: the snapshot was asked for first.
+            Assert.Equal(1, staging.RefusedSnapshots);
         }
+    }
+
+    [Fact]
+    public async Task A_file_a_running_browser_holds_is_read_from_a_snapshot_and_no_browser_is_ended()
+    {
+        var registry = await LoadProvidersAsync();
+        var staging = new CountingStaging { SnapshotsAvailable = true };
+        var edge = new BrowserMigration
+        {
+            Name = "Microsoft Edge", Engine = "chromium",
+            SourceRelativePath = "AppData/Local/Microsoft/Edge/User Data"
+        };
+        var ended = false;
+        var hooks = new MigrationStagingHooks(
+            _ => Task.FromResult<IReadOnlyList<WifiNetwork>>([]),
+            (browsers, _, _) => Task.FromResult(browsers),
+            (manifest, _) => manifest, (manifest, _) => manifest)
+        {
+            FindRunningBrowsers = _ => ["Microsoft Edge"],
+            EndWindowlessBrowsers = names => { ended = true; return names; },
+        };
+        var coordinator = new MigrationStagingCoordinator(staging, registry,
+            new FixedChecker(Report()), NullLogger<MigrationStagingCoordinator>.Instance, hooks);
+        var user = new UserSetup
+        {
+            WindowsUsername = "fixture", LinuxUsername = "fixture",
+            SelectedBrowserNames = [edge.Name], SelectedBrowsers = [edge]
+        };
+
+        var failure = await Record.ExceptionAsync(() => coordinator.StageAsync(
+            new MigrationStagingInput(new FileStagingRequest("debian", []), user,
+                Report(), null, DiskInstallMode.ReplaceDisk, 0), null));
+
+        // The fixture stops where the real service would start copying.
+        Assert.IsType<InvalidOperationException>(failure);
+        Assert.Equal(1, staging.Calls);
+        Assert.True(staging.CopiedFromSnapshot);
+        Assert.False(ended);
+    }
+
+    [Fact]
+    public async Task A_browser_with_an_open_window_must_be_closed_and_gets_no_snapshot()
+    {
+        var registry = await LoadProvidersAsync();
+        var staging = new CountingStaging { SnapshotsAvailable = true };
+        var edge = new BrowserMigration
+        {
+            Name = "Microsoft Edge", Engine = "chromium",
+            SourceRelativePath = "AppData/Local/Microsoft/Edge/User Data"
+        };
+        var ended = false;
+        var hooks = new MigrationStagingHooks(
+            _ => Task.FromResult<IReadOnlyList<WifiNetwork>>([]),
+            (browsers, _, _) => Task.FromResult(browsers),
+            (manifest, _) => manifest, (manifest, _) => manifest)
+        {
+            FindRunningBrowsers = _ => ["Microsoft Edge"],
+            FindBrowsersWithWindows = names => names,
+            EndWindowlessBrowsers = names => { ended = true; return names; },
+        };
+        var coordinator = new MigrationStagingCoordinator(staging, registry,
+            new FixedChecker(Report()), NullLogger<MigrationStagingCoordinator>.Instance, hooks);
+        var user = new UserSetup
+        {
+            WindowsUsername = "fixture", LinuxUsername = "fixture",
+            SelectedBrowserNames = [edge.Name], SelectedBrowsers = [edge]
+        };
+
+        var failure = await Record.ExceptionAsync(() => coordinator.StageAsync(
+            new MigrationStagingInput(new FileStagingRequest("debian", []), user,
+                Report(), null, DiskInstallMode.ReplaceDisk, 0), null));
+
+        var refused = Assert.IsType<BrowserProfileStagingException>(failure);
+        Assert.Equal(BrowserProfileStagingFailure.BrowserRunning, refused.Reason);
+        Assert.Equal(["Microsoft Edge"], refused.Browsers);
+        Assert.Equal(0, staging.Calls);
+        Assert.Equal(0, staging.RefusedSnapshots);
+        Assert.False(ended);
     }
 
     [Theory]
@@ -439,9 +519,20 @@ public sealed class MigrationStagingSelectionTests
         public IReadOnlyList<string>? BrowserSources { get; private set; }
         public IReadOnlyList<BrowserMigration>? BrowserProfiles { get; private set; }
 
+        // Without snapshots the service refuses before it copies, as the real one does.
+        public bool SnapshotsAvailable { get; init; }
+        public int RefusedSnapshots { get; private set; }
+        public bool? CopiedFromSnapshot { get; private set; }
+
         public Task<FileStagingResult> StageAsync(FileStagingRequest request,
             IProgress<FileStagingProgress>? progress, CancellationToken ct = default)
         {
+            if (request.BrowserFilesFromSnapshot && !SnapshotsAvailable)
+            {
+                RefusedSnapshots++;
+                throw new VolumeSnapshotUnavailableException("The fixture has no snapshots.");
+            }
+            CopiedFromSnapshot = request.BrowserFilesFromSnapshot;
             Calls++;
             BrowserSources = request.BrowserRelativePaths;
             BrowserProfiles = request.BrowserProfiles;

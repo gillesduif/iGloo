@@ -16,7 +16,7 @@ public sealed class HostProtectionGuardTests
         "WriteVariableNative(", "WriteVariableExNative(", "CreateFileNative(",
         "\"diskpart.exe\"", "\"bcdedit.exe\"", "\"manage-bde.exe\"", "\"shutdown.exe\"", "\"schtasks.exe\"",
         "InvokeMethod(\"Resize\"", "InvokeMethod(\"DeleteObject\"", "InvokeMethod(\"CreatePartition\"",
-        "InvokeMethod(\"Format\"", "InvokeMethod(call.Method",
+        "InvokeMethod(\"Format\"", "InvokeMethod(call.Method", "InvokeMethod(\"Create\"",
         "Registry.LocalMachine.CreateSubKey(", "writable: true",
     ];
 
