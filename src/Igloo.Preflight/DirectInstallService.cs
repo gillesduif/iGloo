@@ -651,11 +651,11 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         string isoPath, InstallerBootSpec bootSpec, PinnedExternalInstallerMedia? externalMedia,
         ShellNoiseSuppressor? shellQuiet = null)
     {
-        string? mountedLetter = null;
+        MountedIso? mounted = null;
         try
         {
-            mountedLetter = MountIso(isoPath);
-            var isoRoot = $"{mountedLetter}:\\";
+            mounted = MountIso(isoPath);
+            var isoRoot = mounted.Value.Root;
             long kernelBytes;
             long initrdBytes;
             if (externalMedia is not null)
@@ -665,7 +665,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             }
             else
             {
-                var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot, bootSpec);
+                var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot, bootSpec, _logger);
                 kernelBytes = new FileInfo(kernelSrc).Length;
                 initrdBytes = new FileInfo(initrdSrc).Length;
             }
@@ -681,14 +681,14 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         }
         finally
         {
-            if (mountedLetter is not null)
+            if (mounted is { } image)
             {
-                // A window Explorer opened for the mounted image is closed, before and after the image goes.
-                if (mountedLetter.Length > 0)
-                    shellQuiet?.CloseExplorerWindowsFor(mountedLetter[0]);
+                // Only an image with a drive letter can have an Explorer window; it is closed before and after the image goes.
+                if (image.Letter is { } letter)
+                    shellQuiet?.CloseExplorerWindowsFor(letter);
                 DismountIso(isoPath);
-                if (mountedLetter.Length > 0)
-                    shellQuiet?.CloseExplorerWindowsFor(mountedLetter[0]);
+                if (image.Letter is { } gone)
+                    shellQuiet?.CloseExplorerWindowsFor(gone);
             }
         }
     }
@@ -1365,13 +1365,13 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         var bootDst = Path.Join(oemDrvRoot, BootDir);
         Directory.CreateDirectory(bootDst);
 
-        string? mountedLetter = null;
+        var mounted = false;
         try
         {
-            mountedLetter = MountIso(isoPath);
+            var isoRoot = MountIso(isoPath).Root;
+            mounted = true;
             ct.ThrowIfCancellationRequested();
 
-            var isoRoot = $"{mountedLetter}:\\";
 
             //   1. Extract kernel + initrd                   ─
             var kernelDst = Path.Join(bootDst, KernelFile);
@@ -1383,7 +1383,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             }
             else
             {
-                var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot, _bootSpec);
+                var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot, _bootSpec, _logger);
                 _logger.LogInformation("ISO kernel: {K}  initrd: {I}", kernelSrc, initrdSrc);
                 CopyFileRobust(kernelSrc, kernelDst);
                 ct.ThrowIfCancellationRequested();
@@ -1450,11 +1450,11 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         }
         finally
         {
-            if (mountedLetter is not null)
+            if (mounted)
                 DismountIso(isoPath);
         }
 
-        //   4. Write grub.cfg                          
+        //   4. Write grub.cfg
         // grubx64.efi has a compiled-in prefix that determines where it looks for
         // grub.cfg. Fedora ISOs ship two variants:
         //   • EFI/fedora/grubx64.efi  → prefix /EFI/fedora  → looks for /EFI/fedora/grub.cfg
@@ -1529,7 +1529,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         return result;
     }
 
-    private (string kernel, string initrd) FindKernelFiles(string isoRoot, InstallerBootSpec bootSpec)
+    internal static (string kernel, string initrd) FindKernelFiles(string isoRoot, InstallerBootSpec bootSpec, ILogger logger)
     {
         // Try the distro's declared kernel/initrd locations (from the boot spec),
         // pairing any existing kernel with any existing initrd.
@@ -1546,7 +1546,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
         // Full scan: find any file named "linux" or "vmlinuz" whose sibling is
         // "initrd" or "initrd.img".
-        _logger.LogDebug("Kernel not found in standard locations; scanning ISO recursively…");
+        logger.LogDebug("Kernel not found in standard locations; scanning ISO recursively…");
         var kernelNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             { "vmlinuz", "linux" };
         var initrdNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -1560,7 +1560,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
                 .FirstOrDefault(x => initrdNames.Contains(Path.GetFileName(x)));
             if (initrdHit is null)
                 continue;
-            _logger.LogInformation("Found kernel via scan: {K}", f);
+            logger.LogInformation("Found kernel via scan: {K}", f);
             return (f, initrdHit);
         }
 
@@ -1814,14 +1814,43 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     }
 
     // ISO mounting via PowerShell
-    private string MountIso(string isoPath)
+    private MountedIso MountIso(string isoPath)
     {
         // Dismount first in case a previous run left the ISO mounted.
         // Errors are silently ignored - the image may not be mounted at all.
         DismountIso(isoPath);
         Thread.Sleep(500);
 
-        RunPowerShell($"Mount-DiskImage -ImagePath {PowerShellLiteral(isoPath)} -Access ReadOnly");
+        // Without a drive letter Explorer and AutoPlay have no drive to open.
+        string? root = null;
+        try
+        {
+            RunPowerShell(MountedIso.MountCommand(PowerShellLiteral(isoPath), driveLetter: false));
+            root = PollForVolumeRoot(isoPath, retries: 20);
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException)
+        { _logger.LogWarning(ex, "Mounting the image without a drive letter failed"); }
+        if (root is not null)
+            return new(root, null);
+
+        _logger.LogWarning("The image gave no readable volume path without a drive letter - mounting it with one");
+        DismountIso(isoPath);
+        Thread.Sleep(1_000);
+        try
+        {
+            return MountIsoWithLetter(isoPath);
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException)
+        {
+            // A failed attempt may still have attached the image.
+            DismountIso(isoPath);
+            throw;
+        }
+    }
+
+    private MountedIso MountIsoWithLetter(string isoPath)
+    {
+        RunPowerShell(MountedIso.MountCommand(PowerShellLiteral(isoPath), driveLetter: true));
 
         // Mount-DiskImage is asynchronous on real hardware; the volume letter is
         // assigned by Windows after the virtual disk is attached.
@@ -1829,22 +1858,36 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
         // First attempt: poll up to 30 seconds.
         var letter = PollForDriveLetter(isoPath, retries: 60);
-        if (letter is not null)
-            return letter;
+        if (letter is null)
+        {
+            _logger.LogWarning("ISO did not appear after 30 s - dismounting and retrying once");
 
-        _logger.LogWarning("ISO did not appear after 30 s - dismounting and retrying once");
+            // Recovery: dismount, remount, and give it 10 more seconds.
+            DismountIso(isoPath);
+            Thread.Sleep(1_000);
+            RunPowerShell(MountedIso.MountCommand(PowerShellLiteral(isoPath), driveLetter: true));
+            Thread.Sleep(2_000);
+            letter = PollForDriveLetter(isoPath, retries: 20);
+        }
+        return letter is null
+            ? throw new InvalidOperationException("ISO did not mount within 40 seconds.")
+            : new($"{letter}:\\", letter[0]);
+    }
 
-        // Recovery: dismount, remount, and give it 10 more seconds.
-        DismountIso(isoPath);
-        Thread.Sleep(1_000);
-        RunPowerShell($"Mount-DiskImage -ImagePath {PowerShellLiteral(isoPath)} -Access ReadOnly");
-        Thread.Sleep(2_000);
-
-        letter = PollForDriveLetter(isoPath, retries: 20);
-        if (letter is not null)
-            return letter;
-
-        throw new InvalidOperationException("ISO did not mount within 40 seconds.");
+    private string? PollForVolumeRoot(string isoPath, int retries)
+    {
+        for (var i = 0; i < retries; i++)
+        {
+            var root = MountedIso.VolumeRoot(RunPowerShell(MountedIso.VolumePathQuery(PowerShellLiteral(isoPath))));
+            // The path counts once the file system answers through it.
+            if (root is not null && Directory.Exists(root))
+            {
+                _logger.LogInformation("ISO mounted without a drive letter at {Root}", root);
+                return root;
+            }
+            Thread.Sleep(500);
+        }
+        return null;
     }
 
     private string? PollForDriveLetter(string isoPath, int retries)
