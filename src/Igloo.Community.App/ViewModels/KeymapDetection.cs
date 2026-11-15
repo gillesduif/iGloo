@@ -14,12 +14,17 @@ internal static class KeymapDetection
     {
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(@"Keyboard Layout\Preload");
-            // KlidMap uses OrdinalIgnoreCase, so no manual lower-casing is needed.
-            var klid = key?.GetValue("1")?.ToString()?.TrimStart('0');
-            return !string.IsNullOrEmpty(klid) && KlidMap.TryGetValue(klid, out var mapped)
-                ? mapped
-                : null;
+            using var preload = Registry.CurrentUser.OpenSubKey(@"Keyboard Layout\Preload");
+            using var substitutes = Registry.CurrentUser.OpenSubKey(@"Keyboard Layout\Substitutes");
+            if (preload is null)
+                return null;
+            var order = preload.GetValueNames()
+                .Where(name => int.TryParse(name, NumberStyles.None, CultureInfo.InvariantCulture, out _))
+                .OrderBy(name => int.Parse(name, CultureInfo.InvariantCulture))
+                .Select(name => preload.GetValue(name)?.ToString());
+            var layouts = substitutes?.GetValueNames()
+                .ToDictionary(name => name, name => substitutes.GetValue(name)?.ToString() ?? "", StringComparer.OrdinalIgnoreCase);
+            return FromPreload(order, layouts ?? []);
         }
         catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
         {
@@ -27,10 +32,27 @@ internal static class KeymapDetection
         }
     }
 
+    // A preload entry names an input language; the layout typed on is its entry in Substitutes, or the entry itself.
+    internal static string? FromPreload(IEnumerable<string?> preload, IReadOnlyDictionary<string, string> substitutes)
+    {
+        foreach (var entry in preload)
+        {
+            if (string.IsNullOrWhiteSpace(entry))
+                continue;
+            var substitute = substitutes.FirstOrDefault(pair =>
+                string.Equals(pair.Key, entry.Trim(), StringComparison.OrdinalIgnoreCase)).Value;
+            var layout = string.IsNullOrWhiteSpace(substitute) ? entry : substitute;
+            if (KlidMap.TryGetValue(layout.Trim().TrimStart('0'), out var mapped))
+                return mapped;
+        }
+        return null;
+    }
+
     private static readonly Dictionary<string, string> KlidMap = new(StringComparer.OrdinalIgnoreCase)
     {
         // English
         { "409",   "us" },  // English (US)
+        { "20409", "us" },  // United States-International, the Windows default for Dutch (Netherlands)
         { "809",   "gb" },  // English (UK)
         { "1009",  "ca" },  // English (Canada) - Canadian Multilingual Standard
         { "1409",  "us" },  // English (New Zealand)
@@ -39,6 +61,7 @@ internal static class KeymapDetection
         // Belgian / French
         { "80c",   "be" },  // Belgian French   (AZERTY)
         { "813",   "be" },  // Belgian Dutch    (AZERTY)
+        { "1080c", "be" },  // Belgian (Comma)  (AZERTY)
         { "40c",   "fr" },  // French (France)
         { "100c",  "ch" },  // French (Switzerland)
 
