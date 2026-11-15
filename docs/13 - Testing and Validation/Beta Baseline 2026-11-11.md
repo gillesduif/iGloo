@@ -214,6 +214,15 @@ After these changes: build `-warnaserror` clean; 2,253 tests, 2,252 passed, 0 fa
 
 **Not verified.** None of the three changes has run in a VM: that the wizard reads `be` in this guest, that the two Japanese sources stay away at first login, and that GRUB shows the theme at all. The picture of the menu the generator draws is made by the script from the same numbers and bitmaps; it is not a GRUB screen. No run has Secure Boot, so the font refusal is known from the source only.
 
+## r20 in the VMware guest, 15 November (one observation by the owner, System Check)
+
+**[Observed by the owner, screenshot]** Build `r20-e8830e3`, with the Debian of the r19 run still installed. System Check showed `Multiple Linux installations found` with two rows named `Linux installation`: 90,0 GB and 4,9 GB. The owner reports that the page used to show one Debian.
+
+- **Cause (read in source, sizes from the evidence of both runs).** `WindowsPreflightChecker.SplitRunByDistro` closes an installation at every Linux partition of 4 GiB or more, unchanged since July. The r19 installation has root `nvme0n1p7` of 96,607,404,032 bytes and swap `nvme0n1p8` of 5,314,183,168 bytes (4.95 GiB), so the swap partition counted as a second root. With two installations and one distribution on the EFI partitions no name is given, by design, to avoid naming the wrong system. In the r10 installation on 20 GiB the swap was 1,117,782,016 bytes and stayed with its root. The run on 100 GiB is the first with a swap above the limit; why the installer made it larger there was not looked up.
+- **Change (`55ff833`; unit tests, L1).** A partition of the swap type never closes an installation. `LinuxInstallNamingTests` hold both layouts with their real sizes, two installations with large swap partitions, and a swap partition on its own. 2,257 tests, 2,256 passed, 0 failed, 1 skipped; build `-warnaserror` clean.
+- **Not changed.** Between two installations a swap partition is still counted with the root after it, as before for a small one; with the Debian layout (root, then swap) that is the wrong side.
+- **Not verified.** That System Check then shows one row named Debian: with one installation the name comes from the `EFI\debian` folder or from the only Linux firmware entry (read in source, not run). Read in source as well, not run: in r20 itself, selecting both rows removes the same two partitions.
+
 ## Read in source, not changed
 
 - **Browser locks (B-03).** `CopyLockedChromiumDatabase` covers `SQLITE_BUSY`/`SQLITE_LOCKED`. A database Windows refuses to open (`SQLITE_CANTOPEN` → `BrowserInUse` in `LoginDataReader.ReadConnectionWithoutSharedMemory`), a non-database profile file held open for writing (`CopyFileAsync` opens the source with `FileShare.Read`) and Firefox profile files in the same position still raise `BrowserProfileStagingException`, which removes the generation and ends staging. Whether a running Edge or Chrome produces these today is not verified.
