@@ -221,7 +221,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         foreach (var part in run)
         {
             pending.Add(part);
-            if (part.SizeBytes >= RootMinBytes)
+            // Swap is never a root, whatever its size: on a large disk the installer makes it bigger than this.
+            if (part.SizeBytes >= RootMinBytes && !IsSwap(part))
             {
                 groups.Add(pending);
                 pending = [];
@@ -261,6 +262,9 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
     private static bool IsLvm(PartitionInfo p) =>
         string.Equals(p.GptType, LinuxLvmGptType, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSwap(PartitionInfo p) =>
+        string.Equals(p.GptType, "{0657fd6d-a4ab-43c4-84e5-0933c84b4f4f}", StringComparison.OrdinalIgnoreCase);
 
     private static ushort? EntryIndexFor(string distroName, IReadOnlyList<EfiBootEntries.BootEntry> linuxEntries)
     {

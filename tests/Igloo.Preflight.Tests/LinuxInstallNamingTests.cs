@@ -80,6 +80,62 @@ public class LinuxInstallNamingTests
     private static PartitionInfo Part(int index, long sizeBytes, string gptType) =>
         new(index, "Unknown", sizeBytes, null, false, false, GptType: gptType);
 
+    private const string LinuxSwap = "{0657FD6D-A4AB-43C4-84E5-0933C84B4F4F}";
+
+    // The r19 guest: Debian on 100 GiB, where the installer made a swap partition of 4.95 GiB.
+    [Fact]
+    public void A_swap_partition_above_the_root_size_stays_with_its_root()
+    {
+        var run = new List<PartitionInfo>
+        {
+            Part(6, 96607404032, LinuxFs),
+            Part(7, 5314183168, LinuxSwap),
+        };
+
+        var groups = WindowsPreflightChecker.SplitRunByDistro(run);
+
+        groups.Should().ContainSingle().Which.Select(p => p.Index).Should().Equal(6, 7);
+    }
+
+    // The r10 guest: Debian on 20 GiB, swap of 1.04 GiB.
+    [Fact]
+    public void A_small_swap_partition_stays_with_its_root_as_before()
+    {
+        var run = new List<PartitionInfo>
+        {
+            Part(7, 19343081472, LinuxFs),
+            Part(8, 1117782016, LinuxSwap),
+        };
+
+        WindowsPreflightChecker.SplitRunByDistro(run).Should().ContainSingle().Which.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void Two_installations_with_large_swap_partitions_are_two_and_not_four()
+    {
+        var run = new List<PartitionInfo>
+        {
+            Part(5, 50 * GiB, LinuxFs),
+            Part(6, 8 * GiB, LinuxSwap),
+            Part(7, 60 * GiB, LinuxFs),
+            Part(8, 8 * GiB, LinuxSwap),
+        };
+
+        var groups = WindowsPreflightChecker.SplitRunByDistro(run);
+
+        groups.Should().HaveCount(2);
+        groups.Should().OnlyContain(group => group.Count(p => p.GptType == LinuxFs) == 1);
+        groups.SelectMany(group => group).Select(p => p.Index).Should().BeEquivalentTo([5, 6, 7, 8]);
+    }
+
+    [Fact]
+    public void A_swap_partition_on_its_own_is_still_listed()
+    {
+        var run = new List<PartitionInfo> { Part(7, 8 * GiB, LinuxSwap) };
+
+        WindowsPreflightChecker.SplitRunByDistro(run).Should().ContainSingle().Which.Should().ContainSingle();
+    }
+
     // The real VM layout: Fedora's /boot (2 GiB) + LVM root (48 GiB), then Mint's root (50 GiB).
     [Fact]
     public void A_fedora_boot_plus_lvm_then_a_mint_root_splits_into_two()
