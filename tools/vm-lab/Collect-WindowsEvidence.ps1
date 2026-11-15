@@ -186,6 +186,12 @@ Invoke-Section 'machine' {
     $lines.Add(('culture: {0}; ui culture: {1}; system locale: {2}; home location: {3}' -f (Get-Culture).Name, (Get-UICulture).Name, (Get-WinSystemLocale).Name, (Get-WinHomeLocation).HomeLocation))
     $languages = foreach ($language in (Get-WinUserLanguageList)) { '{0} [{1}]' -f $language.LanguageTag, ($language.InputMethodTips -join ',') }
     $lines.Add('languages: ' + ($languages -join '; '))
+    # The wizard reads the keyboard layout from these two keys.
+    foreach ($name in 'Preload', 'Substitutes') {
+        $key = Get-Item "HKCU:\Keyboard Layout\$name" -ErrorAction SilentlyContinue
+        $values = if ($key) { foreach ($value in ($key.GetValueNames() | Sort-Object)) { '{0}={1}' -f $value, $key.GetValue($value) } } else { 'not readable' }
+        $lines.Add(('keyboard {0}: {1}' -f $name.ToLowerInvariant(), ($values -join '; ')))
+    }
     foreach ($line in $lines) { $script:facts.Add($line) }
     Save-Text 'machine.txt' (($lines -join "`r`n") + "`r`n`r`n" + (Invoke-Native 'manage-bde.exe' @('-status')) + "`r`n" + (Invoke-Native 'powercfg.exe' @('/a')))
 }
