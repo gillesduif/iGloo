@@ -24,7 +24,7 @@ public interface ICommunityReviewedInstallationWorkflow
 }
 
 internal sealed class CliReviewedInstallationWorkflow(
-    CliCommandClient client, IReviewedInstallationPlanning planning,
+    Lazy<CliCommandClient> lazyClient, IReviewedInstallationPlanning planning,
     IReviewedInstallationSizing sizing,
     IReviewedInstallationPreparation preparation) : ICommunityReviewedInstallationWorkflow
 {
@@ -126,6 +126,7 @@ internal sealed class CliReviewedInstallationWorkflow(
     private async Task<T> ExecuteAsync<T>(string capabilityId, object input,
         int version, CancellationToken cancellationToken)
     {
+        var client = await Task.Run(() => lazyClient.Value, cancellationToken).ConfigureAwait(false);
         var result = await client.ExecuteAsync(CliCommandClient.Request(capabilityId,
             input, capabilityVersion: version), cancellationToken: cancellationToken)
             .ConfigureAwait(false);

@@ -9,8 +9,12 @@ using Igloo.Core.Models;
 namespace Igloo.Community.App;
 
 /// <summary>The Community image step uses the same packaged CLI command as other frontends.</summary>
-internal sealed class CliIsoWorkflow(CliCommandClient client) : IIsoWorkflow, IIsoOperationStatusWorkflow
+internal sealed class CliIsoWorkflow(Lazy<CliCommandClient> lazyClient) : IIsoWorkflow, IIsoOperationStatusWorkflow
 {
+    // The first use builds the client, which hashes its package; that must not hold the UI thread.
+    private Task<CliCommandClient> ClientAsync(CancellationToken cancellationToken) =>
+        Task.Run(() => lazyClient.Value, cancellationToken);
+
     public async Task<IsoAcquisitionResult> AcquireAsync(DistroManifest distro,
         IProgress<IsoAcquisitionProgress>? progress, CancellationToken cancellationToken = default)
     {
@@ -29,6 +33,7 @@ internal sealed class CliIsoWorkflow(CliCommandClient client) : IIsoWorkflow, II
         {
             OperationId = Guid.NewGuid(),
         };
+        var client = await ClientAsync(cancellationToken).ConfigureAwait(false);
         var result = await client.ExecuteAsync(request, commandProgress,
             cancellationToken).ConfigureAwait(false);
         if (result.Error?.Code == CommandErrorCode.Cancelled)
@@ -78,6 +83,7 @@ internal sealed class CliIsoWorkflow(CliCommandClient client) : IIsoWorkflow, II
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(distroId);
+        var client = await ClientAsync(cancellationToken).ConfigureAwait(false);
         var result = await client.ExecuteAsync(CliCommandClient.Request("iso.operations",
                 new DistroSelection(distroId)), cancellationToken: cancellationToken)
             .ConfigureAwait(false);

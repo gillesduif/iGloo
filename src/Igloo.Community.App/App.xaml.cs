@@ -113,10 +113,11 @@ public partial class IglooApp : Application
     private static void RegisterServices(IServiceCollection services)
     {
         services.AddCommunityBackend();
-        services.AddSingleton(_ => CliCommandClient.ForApplication(AppContext.BaseDirectory,
-            TimeSpan.FromHours(3)));
+        // Created on first use and off the UI thread: the client hashes its whole package.
+        services.AddSingleton(_ => new Lazy<CliCommandClient>(() => CliCommandClient.ForApplication(
+            AppContext.BaseDirectory, TimeSpan.FromHours(3))));
         services.Replace(ServiceDescriptor.Singleton<IIsoWorkflow>(sp => new CliIsoWorkflow(
-            sp.GetRequiredService<CliCommandClient>())));
+            sp.GetRequiredService<Lazy<CliCommandClient>>())));
         services.AddSingleton<ICommunityReviewedInstallationWorkflow,
             CliReviewedInstallationWorkflow>();
 

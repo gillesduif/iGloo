@@ -93,11 +93,15 @@ public sealed class CliCommandClient
         cancellationToken.ThrowIfCancellationRequested();
         // A client can outlive its packaged CLI closure. Recheck the exact files
         // seen at resolution before sending a request to the next process.
-        CliExecutableLocator.Validate(_executablePath);
-        if (!CryptographicOperations.FixedTimeEquals(_packageSha256,
-                HashPackage(_executablePath)))
-            throw new CliTransportException(CliTransportError.IdentityMismatch,
-                "The packaged CLI files changed after resolution.");
+        // The hash reads every packaged file, so it must not run on a caller's UI thread.
+        await Task.Run(() =>
+        {
+            CliExecutableLocator.Validate(_executablePath);
+            if (!CryptographicOperations.FixedTimeEquals(_packageSha256,
+                    HashPackage(_executablePath)))
+                throw new CliTransportException(CliTransportError.IdentityMismatch,
+                    "The packaged CLI files changed after resolution.");
+        }, cancellationToken).ConfigureAwait(false);
         var requestLine = JsonSerializer.Serialize(request, CommandProtocol.JsonOptions);
         if (Encoding.UTF8.GetByteCount(requestLine) > BoundedMachineLineReader.MaxLineBytes)
             throw new CliTransportException(CliTransportError.MalformedStream,
