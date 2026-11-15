@@ -70,6 +70,43 @@ public sealed class LinuxRegionAdmissionTests
         Assert.Equal(21 * GiB, plan.ExpectedLinuxBytes);
     }
 
+    // The wizard states the outcome from the estimate; it has to be the outcome the plan reaches on the disk.
+    [Theory]
+    [InlineData(16, true)]
+    [InlineData(20, true)]
+    [InlineData(30, false)]
+    public void The_estimate_states_the_outcome_the_plan_reaches(int requestedGiB, bool spaceLeftByARemovedLinux)
+    {
+        var leftover = Other(RecoveryOffset - 26 * GiB, GiB);
+        Layout[] layout = spaceLeftByARemovedLinux
+            ? [Esp, Msr, Windows(leftover.Offset), leftover, Recovery]
+            : [Esp, Msr, Windows(RecoveryOffset), Recovery];
+        // The measurement reports the extent the preparation compares with, which is an alignment margin under the raw gap.
+        var extent = DirectInstallService.LargestFreeExtentBytes(layout.Select(p => (p.Offset, p.Size)).ToList(), Disk);
+        var estimate = new DirectInstallSpaceEstimate(100 * GiB, 4 * GiB, 0) { UnallocatedBytes = extent };
+
+        var stated = estimate.Allocate(requestedGiB * GiB);
+        var plan = DirectInstallService.PlanLinuxRegion(0, layout, Disk, (requestedGiB + 4) * GiB, 4 * GiB, false, Debian);
+
+        Assert.Equal(plan.ShrinksWindows, stated.ResizesWindows);
+        Assert.InRange(plan.ExpectedLinuxBytes - stated.LinuxBytes, 0, 2 * MiB);
+    }
+
+    // The r19 run: 50 GiB asked, 100 GiB unallocated, 4224 MiB of installer partition; Debian's three partitions took 95.88 GiB.
+    [Fact]
+    public void A_request_below_the_unallocated_space_is_given_all_of_it()
+    {
+        var estimate = new DirectInstallSpaceEstimate(100 * GiB, 4224 * MiB, 0) { UnallocatedBytes = 100 * GiB };
+
+        var stated = estimate.Allocate(50 * GiB);
+
+        Assert.False(stated.ResizesWindows);
+        Assert.Equal(100 * GiB - 4224 * MiB, stated.LinuxBytes);
+        Assert.InRange(1024458752L + 96607404032 + 5314183168, stated.LinuxBytes - 2 * MiB, stated.LinuxBytes + 2 * MiB);
+        Assert.True(estimate.Allocate(96 * GiB).ResizesWindows);
+        Assert.True((estimate with { UnallocatedBytes = 0 }).Allocate(50 * GiB).ResizesWindows);
+    }
+
     [Theory]
     [InlineData(0, true)]
     [InlineData(1, false)]

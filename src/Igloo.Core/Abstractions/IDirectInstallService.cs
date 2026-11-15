@@ -61,11 +61,25 @@ public enum BootCleanupOutcome
 public sealed record InstallerTargetRules(long MinimumRegionBytes, bool ScansAllDisks, bool UsesExistingEsp);
 
 /// <summary>Read-only capacity estimate; it does not authorize a partition change.</summary>
-/// <param name="ShrinkableBytes">Current Windows boot-volume shrink limit.</param>
+/// <param name="ShrinkableBytes">Room for the plan: the Windows shrink limit, or the unallocated region when that is larger.</param>
 /// <param name="InstallerBytes">Installer partitions in addition to the requested Linux root.</param>
 /// <param name="StagingBytes">Additional Windows space reserved for the pending migration package.</param>
 public sealed record DirectInstallSpaceEstimate(long ShrinkableBytes, long InstallerBytes,
-    long StagingBytes);
+    long StagingBytes)
+{
+    /// <summary>The largest unallocated region on the disk; zero when there is none or it was not measured.</summary>
+    public long UnallocatedBytes { get; init; }
+
+    /// <summary>What a request leads to, by the rule the preparation applies to the live disk.</summary>
+    public DirectInstallAllocation Allocate(long requestedLinuxBytes) =>
+        requestedLinuxBytes > 0 && UnallocatedBytes - InstallerBytes >= requestedLinuxBytes
+            ? new(false, UnallocatedBytes - InstallerBytes)
+            : new(true, requestedLinuxBytes);
+}
+
+/// <param name="ResizesWindows">False when the unallocated region holds the request and Windows is left as it is.</param>
+/// <param name="LinuxBytes">What the Linux installer is given: the request, or all of the unallocated region left beside the installer partitions.</param>
+public readonly record struct DirectInstallAllocation(bool ResizesWindows, long LinuxBytes);
 
 public enum DirectInstallPhase
 {

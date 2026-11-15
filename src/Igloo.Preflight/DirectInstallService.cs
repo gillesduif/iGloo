@@ -180,7 +180,8 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         if (shrinkable <= 0)
             throw new InvalidOperationException("Windows could not report available shrink space for the selected boot volume.");
         return PlanSpaceEstimate(bootSpec, shrinkable, new FileInfo(isoPath).Length,
-            measured.kernelBytes, measured.initrdBytes, measured.installImgBytes, stagedBytes);
+            measured.kernelBytes, measured.initrdBytes, measured.installImgBytes, stagedBytes)
+            with { UnallocatedBytes = Math.Max(0, freeExtent) };
     }
 
     public async Task WarmImageMeasurementAsync(string isoPath, InstallerBootSpec bootSpec, CancellationToken ct = default)
