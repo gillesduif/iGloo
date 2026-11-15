@@ -260,7 +260,14 @@ public sealed class DiskSelectionSpaceTests
     private sealed class Warming(Exception? failure = null) : IInstallationPreparation
     {
         public List<(string Distro, string Image)> Warmed { get; } = [];
+        public System.Collections.Concurrent.ConcurrentBag<string> ShrinkLimitsRead { get; } = [];
         public Observation<bool> PreparationAvailability => Observations.Available(true);
+
+        public Task WarmShrinkEstimateAsync(DiskInfo disk, CancellationToken cancellationToken = default)
+        {
+            ShrinkLimitsRead.Add(disk.DeviceId);
+            return Task.CompletedTask;
+        }
 
         public Task WarmSpaceCheckAsync(string distroId, IsoAcquisitionResult verifiedIso,
             CancellationToken cancellationToken = default)
@@ -280,18 +287,35 @@ public sealed class DiskSelectionSpaceTests
     }
 
     [Fact]
-    public void The_image_is_read_ahead_and_a_failure_there_stays_silent()
+    public async Task The_image_is_read_ahead_and_a_failure_there_stays_silent()
     {
         foreach (var failure in new Exception?[] { null, new IOException("the image did not mount") })
         {
             var preparation = new Warming(failure);
             var vm = new DiskSelectionViewModel(preparation);
 
-            vm.WarmSpaceCheck("linuxmint-cinnamon", Iso());
+            await vm.WarmSpaceCheckAsync("linuxmint-cinnamon", Iso());
 
             preparation.Warmed.Should().Equal(("linuxmint-cinnamon", @"C:\verified\mint.iso"));
+            preparation.ShrinkLimitsRead.Should().BeEmpty();
             vm.SpaceErrorMessage.Should().BeNull();
         }
+    }
+
+    [Fact]
+    public async Task The_shrink_limit_is_read_ahead_for_the_disk_Windows_starts_from()
+    {
+        var windows = new DiskInfo(@"\\.\PHYSICALDRIVE0", "System", 64 * GiB, 0, "GPT",
+            [new PartitionInfo(3, "NTFS", 40 * GiB, null, IsSystem: false, IsBoot: true)]);
+        var data = new DiskInfo(@"\\.\PHYSICALDRIVE1", "Data", 64 * GiB, 0, "GPT",
+            [new PartitionInfo(1, "NTFS", 60 * GiB, null, IsSystem: false, IsBoot: false)]);
+        var preparation = new Warming();
+        var vm = new DiskSelectionViewModel(preparation);
+
+        await vm.WarmSpaceCheckAsync("debian", Iso(), [data, windows]);
+
+        preparation.ShrinkLimitsRead.Should().Equal(@"\\.\PHYSICALDRIVE0");
+        preparation.Warmed.Should().ContainSingle();
     }
 
     [Fact]

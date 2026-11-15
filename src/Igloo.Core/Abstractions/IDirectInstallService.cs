@@ -12,6 +12,9 @@ public interface IDirectInstallService
     Task WarmImageMeasurementAsync(string isoPath, InstallerBootSpec bootSpec, CancellationToken ct = default) =>
         Task.CompletedTask;
 
+    /// <summary>Asks Windows for the shrink limit of a disk ahead of the space check, which then reuses the answer.</summary>
+    Task WarmShrinkEstimateAsync(int diskNumber, CancellationToken ct = default) => Task.CompletedTask;
+
     Task PrepareAsync(
         int diskNumber,
         long linuxSizeBytes,

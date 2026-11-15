@@ -281,18 +281,19 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     }
 
     // Starts the slow read of the installer image while the user is still on Configuration.
-    public void WarmSpaceCheck(string distroId, IsoAcquisitionResult verifiedIso)
-    {
-        if (_preparation is not null)
-            _ = WarmSpaceCheckAsync(_preparation, distroId, verifiedIso);
-    }
+    public Task WarmSpaceCheckAsync(string distroId, IsoAcquisitionResult verifiedIso, IReadOnlyList<DiskInfo>? disks = null) =>
+        _preparation is null ? Task.CompletedTask : WarmAsync(_preparation, distroId, verifiedIso, disks ?? []);
 
-    private async Task WarmSpaceCheckAsync(IInstallationPreparation preparation, string distroId,
-        IsoAcquisitionResult verifiedIso)
+    private async Task WarmAsync(IInstallationPreparation preparation, string distroId,
+        IsoAcquisitionResult verifiedIso, IReadOnlyList<DiskInfo> disks)
     {
         try
         {
-            await preparation.WarmSpaceCheckAsync(distroId, verifiedIso);
+            // Off the UI thread, and side by side: the image and the shrink limit are separate reads.
+            await Task.Run(() => Task.WhenAll(
+                [preparation.WarmSpaceCheckAsync(distroId, verifiedIso),
+                 .. disks.Where(disk => disk.Partitions.Any(partition => partition.IsBoot))
+                     .Select(disk => preparation.WarmShrinkEstimateAsync(disk))]));
         }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or
             InvalidOperationException or NotSupportedException or ArgumentException or

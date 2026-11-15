@@ -532,6 +532,9 @@ public interface IInstallationPreparation
     Task WarmSpaceCheckAsync(string distroId, IsoAcquisitionResult verifiedIso,
         CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    /// <summary>Asks Windows how far a disk's Windows volume can shrink, ahead of the first space check; read-only.</summary>
+    Task WarmShrinkEstimateAsync(DiskInfo disk, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     Task PrepareAsync(string distroId, DiskInfo targetDisk, long linuxSizeBytes, IsoAcquisitionResult verifiedIso,
         string stagingDirectory, Uri? stage2Url, IProgress<DirectInstallProgress>? progress,
         CancellationToken cancellationToken = default);
@@ -568,6 +571,19 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
             return;
         await service.WarmImageMeasurementAsync(verifiedIso.LocalPath,
             plugin.GetInstallerBootSpec() with { IsoSha256 = digest }, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task WarmShrinkEstimateAsync(DiskInfo disk, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(disk);
+        const string prefix = "\\\\.\\PHYSICALDRIVE";
+        // Only a disk the space check itself would accept.
+        if (!string.Equals(disk.PartitionStyle, "GPT", StringComparison.OrdinalIgnoreCase) ||
+            !disk.DeviceId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+            !uint.TryParse(disk.DeviceId.AsSpan(prefix.Length), NumberStyles.None,
+                CultureInfo.InvariantCulture, out var number) || number > int.MaxValue)
+            return;
+        await service.WarmShrinkEstimateAsync((int)number, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<DirectInstallSpaceEstimate> MeasureSpaceAsync(string distroId,

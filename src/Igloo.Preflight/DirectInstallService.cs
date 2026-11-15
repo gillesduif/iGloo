@@ -104,6 +104,8 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     private Observation<CanonicalVolumeIdentityV1>? _preparedBootTarget;
     private readonly DirectInstallPreparationCompletion _preparationCompletion = new();
     private readonly IsoMeasurementCache _isoMeasurements = new();
+    // Only for the estimate the page shows; the resize asks Windows again.
+    private readonly ShrinkEstimateCache _shrinkEstimates = new(TimeSpan.FromMinutes(15));
 
     // The selected distro's boot recipe (kernel/initrd paths, cmdline, volume
     // label, config-delivery). Set at the start of Prepare; read by the boot
@@ -156,14 +158,15 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // as Prepare, restored on the way out.
         // The mount and the shrink query are independent reads and each takes seconds.
         var imageTask = TimedAsync(() => MeasureImageAsync(isoPath, bootSpec, externalMedia, ct));
-        var shrinkTask = TimedAsync(() => _resizer.GetShrinkableSpaceAsync(diskNumber, ct));
+        var shrinkTask = TimedAsync(() => _shrinkEstimates.GetAsync(diskNumber, fresh: false,
+            () => _resizer.GetShrinkableSpaceAsync(diskNumber, ct)));
         await Task.WhenAll(imageTask, shrinkTask).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
         var ((sizes, reused), imageMs) = await imageTask.ConfigureAwait(false);
-        var (shrinkable, shrinkMs) = await shrinkTask.ConfigureAwait(false);
+        var ((shrinkable, shrinkReused), shrinkMs) = await shrinkTask.ConfigureAwait(false);
         var measured = (kernelBytes: sizes.KernelBytes, initrdBytes: sizes.InitrdBytes, installImgBytes: sizes.ExtraBytes);
-        _logger.LogInformation("Space check for disk {Disk}: installer image {ImageMs} ms (reused: {Reused}), Windows shrink query {ShrinkMs} ms",
-            diskNumber, imageMs, reused, shrinkMs);
+        _logger.LogInformation("Space check for disk {Disk}: installer image {ImageMs} ms (reused: {Reused}), Windows shrink query {ShrinkMs} ms (reused: {ShrinkReused})",
+            diskNumber, imageMs, reused, shrinkMs, shrinkReused);
         // Free space that already exists on the disk (a removed Linux install, an
         // earlier run) is usable without shrinking Windows at all. Offer whichever
         // route gives Linux more room; Prepare picks the same route.
@@ -189,6 +192,13 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         var ((_, reused), milliseconds) = await TimedAsync(() =>
             MeasureImageAsync(isoPath, bootSpec, externalMedia, ct)).ConfigureAwait(false);
         _logger.LogInformation("Installer image read ahead of the space check: {Ms} ms (reused: {Reused})", milliseconds, reused);
+    }
+
+    public async Task WarmShrinkEstimateAsync(int diskNumber, CancellationToken ct = default)
+    {
+        var (_, milliseconds) = await TimedAsync(() => _shrinkEstimates.GetAsync(diskNumber, fresh: true,
+            () => _resizer.GetShrinkableSpaceAsync(diskNumber, ct))).ConfigureAwait(false);
+        _logger.LogInformation("Windows shrink limit of disk {Disk} read ahead of the space check: {Ms} ms", diskNumber, milliseconds);
     }
 
     private Task<(IsoMeasurementCache.Sizes Sizes, bool Reused)> MeasureImageAsync(string isoPath,
@@ -240,6 +250,8 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     {
         ArgumentNullException.ThrowIfNull(targetRules);
         HostProtection.RequireWritable("installer preparation");
+        // The preparation changes the disk; an estimate from before it is of no use afterwards.
+        _shrinkEstimates.Clear();
         return _preparationCompletion.PrepareAsync(ResetPreparedBootState,
             () => Prepare(diskNumber, linuxSizeBytes, isoPath, stagingDirectory, bootSpec, targetRules, stage2Url, progress, ct),
             CapturePreparedBootState, ct);

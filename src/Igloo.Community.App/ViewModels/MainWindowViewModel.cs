@@ -414,7 +414,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             case MigrationSetupViewModel setup:
                 setup.ConfigureDistro(_selectedDistro!.Id);
                 if (_isoAcquisition.Result is { } verifiedIso)
-                    _diskSelection.WarmSpaceCheck(_selectedDistro.Id, verifiedIso);
+                    _ = _diskSelection.WarmSpaceCheckAsync(_selectedDistro.Id, verifiedIso, _preflight.Report?.Disks);
                 break;
 
             // Revisiting setup or target selection can change the account, files,
