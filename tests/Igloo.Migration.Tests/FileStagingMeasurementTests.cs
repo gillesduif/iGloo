@@ -104,12 +104,26 @@ public sealed class FileStagingMeasurementTests : IDisposable
             ["brave"] = [Fixture("brave-refuses", window: false, ends: false), Fixture("brave-2", window: false)],
         };
 
+        var waitedFor = new List<string>();
         var ended = RunningBrowsers.EndWindowless(
             ["Microsoft Edge", "microsoft edge", "Google Chrome", "Brave", "Mozilla Firefox", "Unlisted Browser"],
-            name => processes.TryGetValue(name, out var found) ? found : []);
+            name => processes.TryGetValue(name, out var found) ? found : [],
+            names => { waitedFor.AddRange(names); return true; });
 
         Assert.Equal(["Microsoft Edge"], ended);
         Assert.Equal(["edge-1", "edge-2", "brave-refuses", "brave-2"], asked);
+        // Only a browser whose processes all ended is waited for.
+        Assert.Equal(["msedge"], waitedFor);
+    }
+
+    [Fact]
+    public void A_browser_that_is_still_closing_is_not_reported_as_ended()
+    {
+        BrowserProcess[] edge = [new(false, () => true)];
+
+        var ended = RunningBrowsers.EndWindowless(["Microsoft Edge"], _ => edge, _ => false);
+
+        Assert.Empty(ended);
     }
 
     [Fact]

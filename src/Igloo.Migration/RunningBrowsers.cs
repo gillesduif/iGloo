@@ -34,13 +34,14 @@ public static class RunningBrowsers
 
     /// <summary>Ends the browsers that run without any window and returns their names; one with a window is left alone.</summary>
     public static IReadOnlyList<string> EndWindowless(IReadOnlyList<string> browsers) =>
-        EndWindowless(browsers, ProcessesInThisSession);
+        EndWindowless(browsers, ProcessesInThisSession, WaitUntilGone);
 
     public static IReadOnlyList<string> EndWindowless(IReadOnlyList<string> browsers,
-        Func<string, IReadOnlyList<BrowserProcess>> processesOf)
+        Func<string, IReadOnlyList<BrowserProcess>> processesOf, Func<IReadOnlyList<string>, bool> allGone)
     {
         ArgumentNullException.ThrowIfNull(browsers);
         ArgumentNullException.ThrowIfNull(processesOf);
+        ArgumentNullException.ThrowIfNull(allGone);
         var ended = new List<string>();
         foreach (var name in browsers.Distinct(StringComparer.OrdinalIgnoreCase))
         {
@@ -49,10 +50,23 @@ public static class RunningBrowsers
             // A window may hold unsaved work; that browser is the user's to close.
             if (processes.Length == 0 || processes.Any(process => process.HasWindow)) continue;
             // Every process gets its turn even after one refuses.
-            if (processes.Select(process => process.End()).ToArray().All(gone => gone))
+            var refused = processes.Select(process => process.End()).ToArray().Any(gone => !gone);
+            // A helper the browser restarted in between is still closing its files.
+            if (!refused && allGone(processNames))
                 ended.Add(name);
         }
         return ended;
+    }
+
+    private static bool WaitUntilGone(IReadOnlyList<string> processNames)
+    {
+        var clock = Stopwatch.StartNew();
+        while (processNames.Any(name => ProcessesInThisSession(name).Count > 0))
+        {
+            if (clock.Elapsed > TimeSpan.FromSeconds(5)) return false;
+            Thread.Sleep(100);
+        }
+        return true;
     }
 
     private static bool IsRunning(string processName)
@@ -104,7 +118,8 @@ public static class RunningBrowsers
             // The browser's own process left and the id was handed to another program.
             if (process.HasExited || !string.Equals(process.ProcessName, processName, StringComparison.OrdinalIgnoreCase))
                 return true;
-            process.Kill();
+            // With its helpers: the browser starts a new one for each helper that ends alone.
+            process.Kill(entireProcessTree: true);
             return process.WaitForExit(TimeSpan.FromSeconds(5));
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
@@ -112,7 +127,7 @@ public static class RunningBrowsers
             // No such process any more: it ended with its parent.
             return true;
         }
-        catch (Exception ex) when (ex is Win32Exception or NotSupportedException)
+        catch (Exception ex) when (ex is Win32Exception or NotSupportedException or AggregateException)
         {
             return false;
         }
