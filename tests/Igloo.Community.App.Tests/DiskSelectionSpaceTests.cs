@@ -88,6 +88,65 @@ public sealed class DiskSelectionSpaceTests
         Measure = (_, _, _) => Task.FromResult(estimate),
     };
 
+    private static string Size(double gib) => gib.ToString("N1", System.Globalization.CultureInfo.CurrentCulture);
+
+    // The r21 guest: 100 GiB unallocated, Windows able to shrink by 28 GiB, 4224 MiB of installer partition.
+    [Fact]
+    public void Unallocated_space_that_holds_every_choice_is_stated_and_leaves_nothing_to_choose()
+    {
+        var vm = Create(WithEstimate(new(100 * GiB, 4224 * MiB, MiB) { UnallocatedBytes = 100 * GiB }));
+
+        vm.SelectedItem = Assert.Single(vm.DiskItems);
+
+        vm.LinuxSizeIsFixed.Should().BeTrue();
+        vm.ShowPartitionSizer.Should().BeFalse("no size on the slider changes what Linux gets");
+        vm.UsesUnallocatedSpace.Should().BeTrue();
+        vm.MaxProvisionalLinuxGb.Should().Be(95);
+        vm.LinuxSizeGb.Should().Be(95);
+        vm.CanProceed.Should().BeTrue();
+        vm.InstallTypeDetail.Should().Be(
+            "Windows stays installed and is not resized. Linux is installed in the unallocated space on this disk.");
+        vm.AllocationSummary.Should().Be(
+            $"The installer takes the whole unallocated space of {Size(100)} GiB: {Size(95.875)} GiB for Linux and " +
+            $"{Size(4.125)} GiB for the installer. A smaller Linux cannot be chosen while that space is unallocated.");
+        vm.DiskSafetyTitle.Should().Be("Back up Windows before installing Linux");
+        vm.DiskSafetyDetail.Should().NotContain("changes the Windows partition");
+    }
+
+    [Fact]
+    public void Without_unallocated_space_the_page_words_a_resize_as_before()
+    {
+        var vm = Create(WithEstimate(new(28954 * MiB, 4710 * MiB, 0)));
+
+        vm.SelectedItem = Assert.Single(vm.DiskItems);
+
+        vm.LinuxSizeIsFixed.Should().BeFalse();
+        vm.ShowPartitionSizer.Should().BeTrue();
+        vm.UsesUnallocatedSpace.Should().BeFalse();
+        vm.InstallTypeDetail.Should().Be("Windows stays installed. Its partition is resized to make room for Linux.");
+        vm.AllocationSummary.Should().BeEmpty();
+        vm.DiskSafetyTitle.Should().Be("Back up Windows before resizing it");
+    }
+
+    [Fact]
+    public void A_choice_that_fits_smaller_unallocated_space_is_stated_and_a_larger_one_is_a_resize()
+    {
+        var vm = Create(WithEstimate(new(60 * GiB, 4 * GiB, 0) { UnallocatedBytes = 30 * GiB }));
+
+        vm.SelectedItem = Assert.Single(vm.DiskItems);
+
+        vm.ShowPartitionSizer.Should().BeTrue("a size above the unallocated space shrinks Windows");
+        vm.LinuxSizeGb.Should().Be(50);
+        vm.UsesUnallocatedSpace.Should().BeFalse();
+        vm.LinuxSizeGb = 25;
+        vm.UsesUnallocatedSpace.Should().BeTrue();
+        vm.AllocationSummary.Should().Contain($"{Size(26)} GiB for Linux");
+        vm.DiskSafetyTitle.Should().Be("Back up Windows before installing Linux");
+        vm.LinuxSizeGb = 27;
+        vm.UsesUnallocatedSpace.Should().BeFalse();
+        vm.DiskSafetyTitle.Should().Be("Back up Windows before resizing it");
+    }
+
     [Fact]
     public void Reported_capacity_reserves_installer_bytes_before_enabling_next()
     {

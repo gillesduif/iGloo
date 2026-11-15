@@ -166,7 +166,7 @@
                                             </Style.Triggers>
                                         </Style>
                                     </TextBlock.Style>
-                                    <Run Text="up to " /><Run Text="{Binding MaxShrinkableGb, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" GiB available for Linux allocation" />
+                                    <Run Text="Windows can shrink by up to " /><Run Text="{Binding MaxShrinkableGb, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" GiB" />
                                 </TextBlock>
                             </StackPanel>
 
@@ -212,7 +212,7 @@
                                        FontWeight="SemiBold" FontSize="13.5"
                                        Foreground="{StaticResource Brush.Text.Primary}" />
                             <TextBlock Style="{StaticResource Text.Caption}" FontSize="12" Margin="0,3,0,0"
-                                       Text="Windows stays installed. Its partition is resized to make room for Linux."
+                                       Text="{Binding InstallTypeDetail}"
                                        TextWrapping="Wrap" />
                         </StackPanel>
 
@@ -282,6 +282,12 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Existing unallocated space: the installer takes all of it, whatever size was asked. -->
+                        <TextBlock Margin="0,14,0,0" TextWrapping="Wrap"
+                                   Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding UsesUnallocatedSpace, Converter={StaticResource BoolToVis}}"
+                                   Text="{Binding AllocationSummary}" />
+
                         <!-- Dual boot not available -->
                         <Border>
                             <TextBlock FontSize="12" Foreground="{StaticResource Brush.Warning}" TextWrapping="Wrap">
@@ -301,7 +307,7 @@
                             </Border.Style>
                         </Border>
 
-                        <!-- Resizing Windows requires a current backup. -->
+                        <!-- A change to the disk Windows is on requires a current backup. -->
                         <Border Style="{StaticResource Card.Danger}" Padding="14,11" Margin="0,14,0,0"
                                 Visibility="{Binding HasChosenInstallMode, Converter={StaticResource BoolToVis}}">
                             <StackPanel>
