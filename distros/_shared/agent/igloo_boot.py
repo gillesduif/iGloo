@@ -73,6 +73,7 @@ class Boot:
     grub_hook: Path
 
 
+# The theme folder and archives keep their first name: the installer seed lists the archives by that name.
 def debian_family(run_cmd: Callable[..., Any], logger: Any) -> Boot:
     cfg = Path("/boot/grub/grub.cfg")
     cmd = ["update-grub"] if shutil.which("update-grub") else ["grub-mkconfig", "-o", str(cfg)]
@@ -108,7 +109,7 @@ def _install_theme(b: Boot, variant: str) -> bool:
         b.logger.error("Could not extract %s (rc=%d) - the menu stays stock",
                        archive, res.returncode)
         return False
-    b.logger.info("Installed the Stylish GRUB theme (%s) in %s", variant, b.themes_dir)
+    b.logger.info("Installed the iGloo GRUB theme (%s) in %s", variant, b.themes_dir)
     return True
 
 
@@ -352,9 +353,9 @@ def _verify(b: Boot, themed: bool) -> None:
 
     # Two different failures look identical in grub.cfg, so split them here.
     if "stylish/theme.txt" in cfg:
-        b.logger.info("verified: Stylish theme is referenced in grub.cfg")
+        b.logger.info("verified: the iGloo theme is referenced in grub.cfg")
     elif themed and _uses_text_terminal(cfg):
-        b.logger.info("Stylish theme installed; GRUB uses a text/serial terminal "
+        b.logger.info("iGloo theme installed; GRUB uses a text/serial terminal "
                       "and keeps that recovery console")
     elif not themed:
         b.logger.error("no theme in grub.cfg because none was installed - the theme "

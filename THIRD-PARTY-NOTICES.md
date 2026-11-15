@@ -59,11 +59,20 @@ The application merges the WPF Fluent (`Fluent.Dark.xaml`) theme that ships with
 the .NET Desktop runtime. It is part of .NET and covered by the .NET license.
 
 ### Stylish GRUB theme
-`distros/_shared/grub-theme/stylish/` and the archives built from it
-(`grub-theme-stylish-*.tar.gz` in the agent payload) - from vinceliuice's
-**grub2-themes** project, GPL-3.0 licensed. © vinceliuice and contributors.
+`distros/_shared/grub-theme/stylish/` - from vinceliuice's **grub2-themes**
+project, GPL-3.0 licensed. © vinceliuice and contributors. Its icons and its
+Terminus font are in the archives of the boot menu theme
+(`grub-theme-stylish-*.tar.gz` in the agent payload).
 Upstream commit and assembly notes are in `distros/_shared/grub-theme/README.md`.
 <https://github.com/vinceliuice/grub2-themes>
+
+### Montserrat
+`distros/_shared/grub-theme/igloo/*/montserrat-semibold-*.pf2`, in the same
+archives - bitmap renderings of Montserrat SemiBold 7.200 for the boot menu.
+Copyright 2011 The Montserrat Project Authors. SIL Open Font License 1.1; the
+license text is `distros/_shared/grub-theme/igloo/OFL.txt` and travels in each
+archive as `montserrat-OFL.txt`.
+<https://github.com/JulietaUla/Montserrat>
 
 ## Distribution logos and trademarks
 
