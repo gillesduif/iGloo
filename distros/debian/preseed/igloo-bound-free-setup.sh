@@ -24,6 +24,31 @@ else
         grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$' || exit 1
     extent_mode=exact
 fi
+# Size bounds in the boot arguments bind the choice to the space directly behind the installer partition.
+linux_min=
+linux_max=
+seed_partuuid=
+bound_tokens=0
+seed_tokens=0
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in
+        igloo.linuxmin=*) linux_min=${arg#*=}; bound_tokens=$((bound_tokens + 1)) ;;
+        igloo.linuxmax=*) linux_max=${arg#*=}; bound_tokens=$((bound_tokens + 1)) ;;
+        igloo.seedpartuuid=*) seed_partuuid=${arg#*=}; seed_tokens=$((seed_tokens + 1)) ;;
+    esac
+done
+if [ "$bound_tokens" -ne 0 ]; then
+    [ "$bound_tokens" -eq 2 ] && [ "$seed_tokens" -eq 1 ] && [ "$extent_mode" = fallback ] || exit 1
+    case "$linux_min:$linux_max" in
+        *[!0-9:]*|:*|*:) exit 1 ;;
+    esac
+    printf '%s\n' "$seed_partuuid" |
+        grep -Eq '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$' || exit 1
+    extent_mode=seed
+    expected_free_offset=$linux_min
+    expected_free_size=$linux_max
+    printf '%s\n' "$seed_partuuid" | tr '[:upper:]' '[:lower:]' > /tmp/igloo-bound-seed
+fi
 printf '%s %s %s %s\n' "$extent_mode" "$expected_free_offset" \
     "$expected_free_size" "$minimum_install_bytes" > /tmp/igloo-bound-free-extent
 printf '%s\n' "$expected_linux_esp" | tr '[:upper:]' '[:lower:]' > /tmp/igloo-bound-linux-esp

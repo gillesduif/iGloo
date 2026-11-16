@@ -11,7 +11,12 @@ saved_size=$(cat /tmp/igloo-bound-free-size 2>/dev/null) || exit 99
 read -r extent_mode expected_start expected_size minimum_size < /tmp/igloo-bound-free-extent || exit 99
 read -r expected_guid expected_bytes < /tmp/igloo-bound-identity || exit 99
 [ "$1" = "$selected" ] && [ -b "$bound" ] || exit 99
-case "$extent_mode" in exact|fallback) ;; *) exit 99 ;; esac
+case "$extent_mode" in exact|fallback|seed) ;; *) exit 99 ;; esac
+seed=
+if [ "$extent_mode" = seed ]; then
+    seed=$(cat /tmp/igloo-bound-seed 2>/dev/null) || exit 99
+    [ -n "$seed" ] || exit 99
+fi
 
 dev=${1%//*}
 id=${1#*//}
@@ -36,9 +41,31 @@ done
 
 found=0
 eligible=0
+seed_seen=0
+after_seed=0
 cd "$dev" || exit 99
 open_dialog PARTITIONS || exit 99
 while { read_line num current_id size type fs path name; [ "$current_id" ]; }; do
+    if [ "$extent_mode" = seed ]; then
+        # In this mode expected_start and expected_size hold the bounds of the space.
+        if [ "$after_seed" -eq 1 ]; then
+            # Only the entry that directly follows the installer partition counts.
+            after_seed=0
+            [ "$fs" = free ] && [ "$type" != unusable ] || continue
+            longint_le "$expected_start" "$size" && longint_le "$size" "$expected_size" || continue
+            longint_le "$minimum_size" "$size" || continue
+            eligible=$((eligible + 1))
+            [ "$current_id" = "$id" ] && [ "$size" = "$saved_size" ] && found=$((found + 1))
+            continue
+        fi
+        [ "$fs" != free ] && [ -b "$path" ] || continue
+        partuuid=$(blkid -p -s PART_ENTRY_UUID -o value "$path" 2>/dev/null |
+            tr '[:upper:]' '[:lower:]')
+        [ "$partuuid" = "$seed" ] || continue
+        seed_seen=$((seed_seen + 1))
+        after_seed=1
+        continue
+    fi
     [ "$fs" = free ] && [ "$type" != unusable ] || continue
     if [ "$extent_mode" = exact ]; then
         case "$current_id" in *-*) ;; *) continue ;; esac
@@ -50,6 +77,7 @@ while { read_line num current_id size type fs path name; [ "$current_id" ]; }; d
     [ "$current_id" = "$id" ] && [ "$size" = "$saved_size" ] && found=$((found + 1))
 done
 close_dialog || exit 99
+[ "$extent_mode" != seed ] || [ "$seed_seen" -eq 1 ] || exit 99
 [ "$eligible" -eq 1 ] && [ "$found" -eq 1 ] || exit 99
 
 free_id=$id
