@@ -58,7 +58,11 @@ public enum BootCleanupOutcome
 /// <param name="MinimumRegionBytes">Smallest unallocated region the installer accepts.</param>
 /// <param name="ScansAllDisks">The installer takes the largest unallocated region on any disk.</param>
 /// <param name="UsesExistingEsp">The installer mounts an EFI system partition it finds on the target disk.</param>
-public sealed record InstallerTargetRules(long MinimumRegionBytes, bool ScansAllDisks, bool UsesExistingEsp);
+public sealed record InstallerTargetRules(long MinimumRegionBytes, bool ScansAllDisks, bool UsesExistingEsp)
+{
+    /// <summary>The installer partitions only the unallocated space directly behind the installer partition, so iGloo decides its size by where it puts that partition.</summary>
+    public bool BoundToInstallerPartition { get; init; }
+}
 
 /// <summary>Read-only capacity estimate; it does not authorize a partition change.</summary>
 /// <param name="ShrinkableBytes">Room for the plan: the Windows shrink limit, or the unallocated region when that is larger.</param>
@@ -70,15 +74,21 @@ public sealed record DirectInstallSpaceEstimate(long ShrinkableBytes, long Insta
     /// <summary>The largest unallocated region on the disk; zero when there is none or it was not measured.</summary>
     public long UnallocatedBytes { get; init; }
 
+    /// <summary>The installer media and seed go on one partition and no Linux partition is made beforehand.</summary>
+    public bool SingleInstallerPartition { get; init; }
+
+    /// <summary>The installer is confined to the requested size; false when it takes an unallocated region whole.</summary>
+    public bool HonoursLinuxSize { get; init; }
+
     /// <summary>What a request leads to, by the rule the preparation applies to the live disk.</summary>
     public DirectInstallAllocation Allocate(long requestedLinuxBytes) =>
         requestedLinuxBytes > 0 && UnallocatedBytes - InstallerBytes >= requestedLinuxBytes
-            ? new(false, UnallocatedBytes - InstallerBytes)
+            ? new(false, HonoursLinuxSize ? requestedLinuxBytes : UnallocatedBytes - InstallerBytes)
             : new(true, requestedLinuxBytes);
 }
 
 /// <param name="ResizesWindows">False when the unallocated region holds the request and Windows is left as it is.</param>
-/// <param name="LinuxBytes">What the Linux installer is given: the request, or all of the unallocated region left beside the installer partitions.</param>
+/// <param name="LinuxBytes">What the Linux installer is given: the request, or all of the unallocated region left beside the installer partitions when the installer cannot be confined.</param>
 public readonly record struct DirectInstallAllocation(bool ResizesWindows, long LinuxBytes);
 
 public enum DirectInstallPhase

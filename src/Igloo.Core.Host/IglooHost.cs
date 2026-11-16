@@ -643,7 +643,9 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
             bootSpec with { IsoSha256 = digest }, stagedBytes,
             cancellationToken).ConfigureAwait(false);
         RequireCurrentDisk();
-        return estimate;
+        // The preparation confines the installer under the same two conditions.
+        var confined = TargetRulesFor(plugin.Metadata).BoundToInstallerPartition && estimate.SingleInstallerPartition;
+        return confined == estimate.HonoursLinuxSize ? estimate : estimate with { HonoursLinuxSize = confined };
 
         void RequireCurrentDisk()
         {
@@ -732,8 +734,9 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
         var minimum = metadata.MinimumRequirements.MinDiskBytes;
         return metadata.InstallerType switch
         {
-            // The preseed binds the disk and creates its own ESP inside the region.
-            InstallerType.DebianInstaller => new(minimum, ScansAllDisks: false, UsesExistingEsp: false),
+            // The preseed binds the disk and the space behind the installer partition, and creates its own ESP there.
+            InstallerType.DebianInstaller => new(minimum, ScansAllDisks: false, UsesExistingEsp: false)
+                { BoundToInstallerPartition = true },
             // The kickstart binds the disk; autopart mounts an ESP it finds there.
             InstallerType.Anaconda => new(minimum, ScansAllDisks: false, UsesExistingEsp: true),
             // Stock biggest_free takes the largest region on any disk; an unknown installer is read as strictly.

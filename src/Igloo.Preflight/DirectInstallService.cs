@@ -99,6 +99,8 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     // debian-installer's localechooser never gets a chance to ask.
     private string _locale = "en_US.UTF-8";
     private string _keymap = "us";
+    // Set when the installer is confined to the space behind the installer partition: the size it must find there.
+    private (long Minimum, long Maximum)? _boundLinuxExtent;
     private int? _diskNumber;
     private uint? _partitionNumber;
     private Observation<CanonicalVolumeIdentityV1>? _preparedBootTarget;
@@ -239,7 +241,10 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             installImgBytes, stagedBytes);
         // The package is copied to LocalApplicationData before Windows is shrunk.
         // Keep its Windows copy as well as its copy on the installer partition.
-        return new(shrinkableBytes, size.TotalShrinkBytes, stagedBytes);
+        return new(shrinkableBytes, size.TotalShrinkBytes, stagedBytes)
+        {
+            SingleInstallerPartition = !size.IsoOnOwnPartition && !bootSpec.PreCreateRootPartition,
+        };
     }
 
     public Task PrepareAsync(
@@ -273,6 +278,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         _oemDrvLetter = null;
         _isoPartitionLetter = null;
         _preparedBootTarget = null;
+        _boundLinuxExtent = null;
         _bootSpec = null!;
     }
 
@@ -483,8 +489,21 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
         // The label only discovers candidates. FindExistingOemDrv admits reuse
         // only after exact seed identity, content and protected-partition checks.
+        // The installer is confined to the size asked when it binds to the space behind the one installer partition.
+        var bound = targetRules.BoundToInstallerPartition && !isoOnOwnPartition && !_bootSpec.PreCreateRootPartition;
         var canReuse = existing is not null && !isoOnOwnPartition
             && InstallerPartitionFits(new DriveInfo($"{existing.Value.letter}:").TotalSize, oemDrvBytes);
+        if (canReuse && bound)
+            switch (JudgeBoundSeed(FreeBytesBehindPartition(diskNumber, existing!.Value.partitionNumber),
+                        linuxSizeBytes, targetRules.MinimumRegionBytes))
+            {
+                case BoundSeed.Refuse:
+                    throw new InstallationRefusedException(
+                        $"The installer partition of an earlier run on disk {diskNumber} has no room for Linux behind it." + RemoveEarlierLinux);
+                case BoundSeed.Replace:
+                    canReuse = false;
+                    break;
+            }
 
         // A seed iGloo itself wrote on an earlier run (another distribution, a
         // smaller layout, an interrupted copy) is disposable: remove it and carve a
@@ -496,7 +515,10 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             existing = null;
         }
         // Judged on the layout this run will leave, before the first write.
-        if (!_bootSpec.PreCreateRootPartition)
+        BoundLinuxPlan? boundPlan = null;
+        if (bound && !canReuse)
+            boundPlan = RequireBoundLinuxRegion(diskNumber, linuxSizeBytes, oemDrvBytes, staleSeeds, targetRules);
+        else if (!bound && !_bootSpec.PreCreateRootPartition)
             _ = RequireSingleLinuxRegion(diskNumber, sizing.TotalShrinkBytes, oemDrvBytes + isoPartBytes,
                 canReuse, staleSeeds, targetRules);
         foreach (var stale in staleSeeds.Distinct())
@@ -522,6 +544,9 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
                 "Reusing existing OEMDRV partition {N} at {L}: - skipping shrink and partition creation",
                 _partitionNumber, driveLetter);
             Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Reusing existing installer partition…");
+            if (bound)
+                _boundLinuxExtent = BoundExtentBehind(diskNumber, existing.Value.partitionNumber, linuxSizeBytes)
+                    ?? throw new InvalidOperationException("The space behind the existing installer partition changed before reuse. Its contents have been preserved.");
 
             // Ensure the NTFS ISO partition exists too: reuse it, or carve it from
             // the free space the original shrink already set aside for it.
@@ -538,13 +563,20 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             // Last read-only refusal: the new partitions need letters, and diskpart's
             // assign would otherwise fail after the shrink.
             RequireAvailableDriveLetters(isoOnOwnPartition ? 2 : 1);
-            ReserveLinuxSpace(diskNumber, linuxSizeBytes, sizing, bootSpec, targetRules, prog, ct);
+            _ = ReserveLinuxSpace(diskNumber, linuxSizeBytes, sizing, bootSpec, targetRules, boundPlan, prog, ct);
             ct.ThrowIfCancellationRequested();
 
-            //   Step 3: Create FAT32 OEMDRV partition (boot + seed)      
+            //   Step 3: Create FAT32 OEMDRV partition (boot + seed)
             Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating installer partition…");
-            driveLetter = CreateOemDrvPartition(diskNumber, oemDrvBytes, ct);
+            // Bound: at the end of the region, so that the space behind it is the Linux size and no more.
+            long? installerOffset = bound
+                ? RequireInstallerPlacement(diskNumber, linuxSizeBytes, oemDrvBytes).InstallerOffset : null;
+            driveLetter = CreateOemDrvPartition(diskNumber, oemDrvBytes, installerOffset, ct);
             _oemDrvLetter = driveLetter;
+            if (bound)
+                _boundLinuxExtent = BoundExtentBehind(diskNumber, _partitionNumber!.Value, linuxSizeBytes)
+                    ?? throw new InvalidOperationException(
+                        "The space behind the new installer partition is not the size chosen for Linux. The installer partition is left in place; a new attempt replaces it.");
             ct.ThrowIfCancellationRequested();
 
             //   Step 3b: Create NTFS ISO partition for a >4 GiB ISO      
@@ -696,22 +728,26 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
     //   Step 2 helpers                             
 
-    private char CreateOemDrvPartition(int diskNumber, long sizeBytes, CancellationToken ct)
+    /// <param name="offsetBytes">Where the partition starts; null leaves the place to diskpart, which takes the largest unallocated extent.</param>
+    private char CreateOemDrvPartition(int diskNumber, long sizeBytes, long? offsetBytes, CancellationToken ct)
     {
         long sizeMiB = RoundUpMiB(sizeBytes) / MiB;
         var letter = FindAvailableDriveLetter();
+        if (offsetBytes is { } planned && (planned <= 0 || planned % MiB != 0))
+            throw new InvalidOperationException("The planned place of the installer partition is not on a 1 MiB boundary. Nothing was created.");
 
-        _logger.LogInformation("Creating {MiB} MiB FAT32 OEMDRV partition (letter {L}:) on disk {D}",
-            sizeMiB, letter, diskNumber);
+        _logger.LogInformation("Creating {MiB} MiB FAT32 OEMDRV partition (letter {L}:) on disk {D} at offset {Offset}",
+            sizeMiB, letter, diskNumber, offsetBytes?.ToString(CultureInfo.InvariantCulture) ?? "chosen by diskpart");
 
         // rescan: tells diskpart to re-read the partition table so it sees the space
         // freed by the WMI resize that just completed.
         // align=1024: 1 MiB alignment - required for GPT/UEFI disks; align=1 (1 KB)
         // triggers VDS_E_OPERATION_NOT_SUPPORTED_ON_DISK (0x80042554).
+        // offset is in KB.
         var script = $"""
             rescan
             select disk {diskNumber}
-            create partition primary size={sizeMiB} align=1024
+            {DiskpartCreateSeed(sizeMiB, offsetBytes)}
             format fs=fat32 label={_bootSpec.VolumeLabel} quick
             assign letter={letter}
             exit
@@ -735,8 +771,22 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // Record partition number for RegisterBootEntry.
         _partitionNumber = FindPartitionByLetter(diskNumber, letter);
         _logger.LogInformation("OEMDRV partition {N} ready at {L}:", _partitionNumber, letter);
+        if (offsetBytes is { } expected)
+        {
+            if (_partitionNumber == 0)
+                throw new InvalidOperationException(
+                    "The new installer partition could not be read back. It is left in place; a new attempt replaces it.");
+            var created = ReadDiskLayout(diskNumber, []).Partitions.Where(p => p.Number == _partitionNumber).ToArray();
+            if (created.Length != 1 || created[0].Partition.Offset != expected)
+                throw new InvalidOperationException(
+                    "The installer partition is not where it was planned. It is left in place; a new attempt replaces it.");
+        }
         return letter;
     }
+
+    internal static string DiskpartCreateSeed(long sizeMiB, long? offsetBytes) => offsetBytes is { } offset
+        ? FormattableString.Invariant($"create partition primary size={sizeMiB} offset={offset / 1024} align=1024")
+        : FormattableString.Invariant($"create partition primary size={sizeMiB} align=1024");
 
     internal static string RunDiskpart(string script)
     {
@@ -1467,7 +1517,8 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // ISO shipped, so write grub.cfg to all of them.
         VerifyPreparedSeedBeforeBootConfiguration();
         var grubCfgContent = BuildGrubConfig(_bootSpec, _locale, _keymap,
-            _preparedBootTarget!.Value.Disk.GptDiskGuid, _preparedBootTarget.Value.PartitionGuid);
+            _preparedBootTarget!.Value.Disk.GptDiskGuid, _preparedBootTarget.Value.PartitionGuid,
+            boundLinuxExtent: _boundLinuxExtent);
         foreach (var dir in GrubCfgDirs.Select(cfgDir => Path.Join(oemDrvRoot, cfgDir)))
         {
             var path = Path.Join(dir, "grub.cfg");
@@ -1753,9 +1804,15 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
     internal static string BuildGrubConfig(InstallerBootSpec bootSpec, string locale,
         string keymap, Guid seedDiskGuid, Guid seedPartitionGuid,
-        Guid? reviewedLinuxEspPartitionGuid = null)
+        Guid? reviewedLinuxEspPartitionGuid = null, (long Minimum, long Maximum)? boundLinuxExtent = null)
     {
         ArgumentNullException.ThrowIfNull(bootSpec);
+        if (boundLinuxExtent is { } extent && (extent.Minimum <= 0 || extent.Maximum < extent.Minimum ||
+            reviewedLinuxEspPartitionGuid is not null))
+            throw new InvalidDataException("The space behind the installer partition has no valid size bounds.");
+        if (bootSpec.KernelCmdline.Contains("igloo.linuxmin=", StringComparison.OrdinalIgnoreCase) ||
+            bootSpec.KernelCmdline.Contains("igloo.linuxmax=", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The installer boot recipe contains its own Linux size bounds.");
         if (seedDiskGuid == Guid.Empty || seedPartitionGuid == Guid.Empty)
             throw new InvalidDataException("The installer boot entry has no exact seed GPT identity.");
         if (reviewedLinuxEspPartitionGuid is { } linuxEspGuid &&
@@ -1777,6 +1834,9 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             " igloo.seeddiskguid=" + seedDiskGuid.ToString("D");
         if (reviewedLinuxEspPartitionGuid is { } reviewedGuid)
             seedArgs += " igloo.linuxesppartuuid=" + reviewedGuid.ToString("D");
+        // The installer partitions the unallocated space directly behind the seed, and only when its size is within these bounds.
+        if (boundLinuxExtent is { } bounds)
+            seedArgs += FormattableString.Invariant($" igloo.linuxmin={bounds.Minimum} igloo.linuxmax={bounds.Maximum}");
         cmdline = cmdline.EndsWith(" ---", StringComparison.Ordinal)
             ? cmdline[..^4] + " " + seedArgs + " ---"
             : cmdline + " " + seedArgs;

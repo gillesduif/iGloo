@@ -410,14 +410,16 @@ public sealed class UsbPreparationSafetyTests
         var distrosDirectory = Path.Join(FindRepoRoot(), "distros");
         provider.GetRequiredService<DistroLoader>().Load(distrosDirectory);
         await registry.LoadAsync(distrosDirectory);
-        (string Id, bool ScansAllDisks, bool UsesExistingEsp)[] expected =
-            [("debian", false, false), ("fedora-kde", false, true), ("linuxmint-cinnamon", true, true)];
+        // Only Debian's helper scripts bind the installer to the space behind the installer partition.
+        (string Id, bool ScansAllDisks, bool UsesExistingEsp, bool Bound)[] expected =
+            [("debian", false, false, true), ("fedora-kde", false, true, false), ("linuxmint-cinnamon", true, true, false)];
 
-        foreach (var (id, scansAllDisks, usesExistingEsp) in expected)
+        foreach (var (id, scansAllDisks, usesExistingEsp, bound) in expected)
         {
             Assert.True(registry.TryGet(id, out var plugin));
             Assert.Equal(new InstallerTargetRules(plugin.Metadata.MinimumRequirements.MinDiskBytes,
-                scansAllDisks, usesExistingEsp), InstallationPreparation.TargetRulesFor(plugin.Metadata));
+                scansAllDisks, usesExistingEsp) { BoundToInstallerPartition = bound },
+                InstallationPreparation.TargetRulesFor(plugin.Metadata));
         }
     }
 
@@ -495,7 +497,7 @@ public sealed class UsbPreparationSafetyTests
                 stage, null, null);
             Assert.Equal(["direct"], events);
             Assert.Equal(new InstallerTargetRules(debian.Metadata.MinimumRequirements.MinDiskBytes,
-                ScansAllDisks: false, UsesExistingEsp: false), direct.TargetRules);
+                ScansAllDisks: false, UsesExistingEsp: false) { BoundToInstallerPartition = true }, direct.TargetRules);
 
             events.Clear();
             var readsBeforeRejectedMode = preflight.ReadCount;

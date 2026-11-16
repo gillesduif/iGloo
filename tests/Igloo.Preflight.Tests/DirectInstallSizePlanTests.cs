@@ -257,6 +257,31 @@ public sealed class DirectInstallSizePlanTests
     }
 
     [Fact]
+    public void A_confined_installer_is_told_the_bounds_of_the_space_behind_the_installer_partition()
+    {
+        var diskGuid = Guid.Parse("27897785-4620-47ee-bd61-39da18873519");
+        var partitionGuid = Guid.Parse("a6a183b2-f47c-433a-b170-6be254966e4a");
+        var spec = new InstallerBootSpec { MenuTitle = "fixture", KernelCmdline = "auto=true ---" };
+
+        var config = DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us", diskGuid, partitionGuid,
+            boundLinuxExtent: (37578866688, 37649121280));
+
+        Assert.Contains($"igloo.seeddiskguid={diskGuid:D} igloo.linuxmin=37578866688 igloo.linuxmax=37649121280 ---",
+            config, StringComparison.Ordinal);
+        Assert.DoesNotContain("igloo.linuxmin=", DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us",
+            diskGuid, partitionGuid), StringComparison.Ordinal);
+        // Bounds never travel with the reviewed exact extent, are never empty or reversed, and never come from a recipe.
+        Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us",
+            diskGuid, partitionGuid, Guid.Parse("41f8948c-43a5-46fa-a05f-2fef79cb5c74"), (1, 2)));
+        Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us",
+            diskGuid, partitionGuid, boundLinuxExtent: (0, 2)));
+        Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us",
+            diskGuid, partitionGuid, boundLinuxExtent: (3, 2)));
+        Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildGrubConfig(
+            spec with { KernelCmdline = "auto=true igloo.linuxmax=1 ---" }, "en_US.UTF-8", "us", diskGuid, partitionGuid));
+    }
+
+    [Fact]
     public void ReviewedBootConfigCarriesTheDistinctCreatedLinuxEspIdentity()
     {
         var seedDisk = Guid.NewGuid();

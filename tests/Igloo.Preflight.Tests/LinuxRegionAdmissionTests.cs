@@ -337,13 +337,233 @@ public sealed class LinuxRegionAdmissionTests
         Assert.Equal(1, resizer.ShrinkCalls);
     }
 
+    //   An installer bound to the space behind the installer partition (Debian)
+
+    private static readonly InstallerTargetRules BoundDebian = Debian with { BoundToInstallerPartition = true };
+
+    [Fact]
+    public void A_shrink_gap_gets_the_installer_partition_at_its_start_and_the_linux_size_behind_it()
+    {
+        Layout[] layout = [Esp, Msr, Windows(RecoveryOffset), Recovery];
+
+        var plan = DirectInstallService.PlanBoundLinuxRegion(0, layout, Disk, 30 * GiB, 4 * GiB, BoundDebian);
+
+        Assert.True(plan.ShrinksWindows);
+        Assert.Equal(RecoveryOffset - 34 * GiB, plan.Placement.InstallerOffset);
+        Assert.Equal(30 * GiB, plan.Placement.LinuxBytes);
+    }
+
+    // The owner's guest on 15 Nov: 100 GiB unallocated behind the recovery partition, 35 GiB asked, 4224 MiB of installer partition.
+    [Fact]
+    public void Unallocated_space_larger_than_the_request_keeps_its_surplus_in_front_of_the_installer_partition()
+    {
+        const long disk = 176093659136, free = 68717379584, installer = 4224 * MiB;
+        Layout[] layout =
+        [
+            new(MiB, 200 * MiB, false, true), new(210763776, 16 * MiB, false, false),
+            new(227540992, 67552411648, true, false), new(67781001216, 936378368, false, false),
+        ];
+
+        var plan = DirectInstallService.PlanBoundLinuxRegion(0, layout, disk, 35 * GiB, installer, BoundDebian);
+
+        Assert.False(plan.ShrinksWindows);
+        Assert.Equal(35 * GiB, plan.Placement.LinuxBytes);
+        // The space behind the installer partition ends one megabyte before the end of the disk, where GPT keeps its copy.
+        Assert.Equal(disk - MiB - 35 * GiB - installer, plan.Placement.InstallerOffset);
+        Assert.Equal(0, plan.Placement.InstallerOffset % MiB);
+        Assert.InRange(plan.Placement.InstallerOffset - free, 60 * GiB, 61 * GiB);
+    }
+
+    [Fact]
+    public void Other_unallocated_space_no_longer_stops_a_bound_installer()
+    {
+        // The layout the unbound rules refuse: 25 GiB behind a leftover partition, and a shrink that makes a second region.
+        var leftover = Other(RecoveryOffset - 26 * GiB, GiB);
+        Layout[] layout = [Esp, Msr, Windows(leftover.Offset), leftover, Recovery];
+
+        var shrink = DirectInstallService.PlanBoundLinuxRegion(0, layout, Disk, 50 * GiB, 4 * GiB, BoundDebian);
+        var fits = DirectInstallService.PlanBoundLinuxRegion(0, layout, Disk, 20 * GiB, 4 * GiB, BoundDebian);
+
+        Assert.True(shrink.ShrinksWindows);
+        Assert.Equal(leftover.Offset - 54 * GiB, shrink.Placement.InstallerOffset);
+        Assert.Equal(50 * GiB, shrink.Placement.LinuxBytes);
+        Assert.False(fits.ShrinksWindows);
+        Assert.Equal(RecoveryOffset - 24 * GiB, fits.Placement.InstallerOffset);
+        Assert.Equal(20 * GiB, fits.Placement.LinuxBytes);
+    }
+
+    [Fact]
+    public void A_bound_plan_needs_the_rule_the_minimum_and_a_windows_partition_that_can_give_the_space()
+    {
+        Layout[] layout = [Esp, Msr, Windows(RecoveryOffset), Recovery];
+
+        Assert.Throws<InvalidOperationException>(() =>
+            DirectInstallService.PlanBoundLinuxRegion(0, layout, Disk, 30 * GiB, 4 * GiB, Debian));
+        var small = Assert.Throws<InstallationRefusedException>(() =>
+            DirectInstallService.PlanBoundLinuxRegion(0, layout, Disk, 19 * GiB, 4 * GiB, BoundDebian));
+        var large = Assert.Throws<InstallationRefusedException>(() =>
+            DirectInstallService.PlanBoundLinuxRegion(0, layout, Disk, 200 * GiB, 4 * GiB, BoundDebian));
+
+        Assert.Contains("20 GiB or more", small.Message, StringComparison.Ordinal);
+        Assert.Contains("Windows has not been resized", large.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_region_that_cannot_hold_installer_and_linux_gives_no_placement()
+    {
+        var region = new DirectInstallService.FreeRegion(10 * GiB, 30 * GiB);
+
+        Assert.Null(DirectInstallService.PlaceInstaller(region, Disk, 4 * GiB, 27 * GiB));
+        Assert.Equal(new DirectInstallService.InstallerPlacement(10 * GiB, 26 * GiB),
+            DirectInstallService.PlaceInstaller(region, Disk, 4 * GiB, 26 * GiB));
+    }
+
+    [Fact]
+    public void The_live_layout_decides_the_placement_and_the_space_behind_the_partition_is_checked()
+    {
+        var shrunkEnd = RecoveryOffset - 34 * GiB;
+        var storage = new StorageFake();
+        storage.Add(2, Disk, 17, Row(MiB, 100 * MiB, EspType, number: 1),
+            Row(WindowsOffset, shrunkEnd - WindowsOffset, BasicType, boot: true, letter: 'C', number: 3),
+            Row(RecoveryOffset, GiB - MiB, BasicType, number: 4));
+        var service = new DirectInstallService(new ResizerFake(), NullLogger<DirectInstallService>.Instance, storage);
+
+        var placement = service.RequireInstallerPlacement(2, 30 * GiB, 4 * GiB);
+
+        Assert.Equal(new DirectInstallService.InstallerPlacement(shrunkEnd, 30 * GiB), placement);
+        Assert.Throws<InvalidOperationException>(() => service.RequireInstallerPlacement(2, 31 * GiB, 4 * GiB));
+
+        // With the installer partition created there, exactly the Linux size is unallocated behind it.
+        var created = new StorageFake();
+        created.Add(2, Disk, 17, Row(MiB, 100 * MiB, EspType, number: 1),
+            Row(WindowsOffset, shrunkEnd - WindowsOffset, BasicType, boot: true, letter: 'C', number: 3),
+            Row(shrunkEnd, 4 * GiB, BasicType, letter: 'I', number: 5), Row(RecoveryOffset, GiB - MiB, BasicType, number: 4));
+        var after = new DirectInstallService(new ResizerFake(), NullLogger<DirectInstallService>.Instance, created);
+
+        Assert.Equal((30 * GiB - 2 * MiB, 30 * GiB + 64 * MiB), after.BoundExtentBehind(2, 5, 30 * GiB));
+        Assert.Null(after.BoundExtentBehind(2, 5, 25 * GiB));
+        Assert.Null(after.BoundExtentBehind(2, 5, 31 * GiB));
+        Assert.Null(after.BoundExtentBehind(2, 3, 30 * GiB));
+        Assert.Null(after.BoundExtentBehind(2, 9, 30 * GiB));
+    }
+
+    [Fact]
+    public void A_bound_plan_decides_the_shrink_without_the_single_region_rule()
+    {
+        var leftoverOffset = RecoveryOffset - 26 * GiB;
+        var storage = new StorageFake();
+        storage.Add(2, Disk, 17, Row(MiB, 100 * MiB, EspType, number: 1),
+            Row(WindowsOffset, leftoverOffset - WindowsOffset, BasicType, boot: true, letter: 'C', number: 3),
+            Row(leftoverOffset, GiB, LinuxType, number: 5), Row(RecoveryOffset, GiB - MiB, BasicType, number: 4));
+        var resizer = new ResizerFake();
+        var service = new DirectInstallService(resizer, NullLogger<DirectInstallService>.Instance, storage);
+
+        var plan = service.RequireBoundLinuxRegion(2, 50 * GiB, 4 * GiB, [], BoundDebian);
+        var shrunk = service.ReserveLinuxSpace(2, 50 * GiB, new(false, 4 * GiB, 0, 54 * GiB), Spec(), BoundDebian, plan, null, default);
+
+        Assert.True(shrunk);
+        Assert.Equal([54 * GiB], resizer.Shrunk);
+    }
+
+    // After a first attempt that shrank Windows by 34 GiB and stopped before the installer partition existed.
+    [Theory]
+    [InlineData(30, 0, 34)]     // the same size again: the gap is used as it is
+    [InlineData(40, 10, 44)]    // a larger size: Windows gives up only the 10 GiB that are missing
+    [InlineData(20, 0, 24)]     // a smaller size: no shrink, and 10 GiB stays unallocated behind Windows
+    public void A_new_attempt_uses_the_gap_the_first_one_left_and_never_shrinks_by_the_full_amount_again(
+        int linuxGiB, int shrinkGiB, int installerFromEndGiB)
+    {
+        Layout[] layout = [Esp, Msr, Windows(RecoveryOffset - 34 * GiB), Recovery];
+
+        var plan = DirectInstallService.PlanBoundLinuxRegion(0, layout, Disk, linuxGiB * GiB, 4 * GiB, BoundDebian);
+
+        Assert.Equal(shrinkGiB * GiB, plan.ShrinkBytes);
+        Assert.Equal(RecoveryOffset - installerFromEndGiB * GiB, plan.Placement.InstallerOffset);
+        Assert.Equal(linuxGiB * GiB, plan.Placement.LinuxBytes);
+    }
+
+    [Fact]
+    public void The_gap_behind_windows_is_preferred_to_a_larger_region_elsewhere()
+    {
+        // 34 GiB behind Windows from an earlier attempt, and 60 GiB at the end of a larger disk.
+        const long larger = 200 * GiB;
+        Layout[] layout = [Esp, Msr, Windows(RecoveryOffset - 34 * GiB), Recovery];
+
+        var plan = DirectInstallService.PlanBoundLinuxRegion(0, layout, larger, 30 * GiB, 4 * GiB, BoundDebian);
+        var onlyElsewhere = DirectInstallService.PlanBoundLinuxRegion(0, layout, larger, 50 * GiB, 4 * GiB, BoundDebian);
+
+        Assert.Equal(0, plan.ShrinkBytes);
+        Assert.Equal(RecoveryOffset - 34 * GiB, plan.Placement.InstallerOffset);
+        Assert.Equal(0, onlyElsewhere.ShrinkBytes);
+        Assert.Equal(larger - MiB - 54 * GiB, onlyElsewhere.Placement.InstallerOffset);
+    }
+
+    [Fact]
+    public void A_windows_partition_that_ends_inside_the_last_megabyte_of_the_disk_can_still_give_the_space()
+    {
+        Layout[] layout = [Esp, Msr, Windows(Disk - MiB / 2)];
+
+        var plan = DirectInstallService.PlanBoundLinuxRegion(0, layout, Disk, 30 * GiB, 4 * GiB, BoundDebian);
+
+        Assert.Equal(Disk - MiB - 34 * GiB, plan.Placement.InstallerOffset);
+        Assert.Equal(34 * GiB + MiB / 2, plan.ShrinkBytes);
+    }
+
+    [Theory]
+    [InlineData(30L * 1024, "Reuse")]            // exactly the size asked
+    [InlineData(30L * 1024 + 64, "Reuse")]       // within the slack of alignment
+    [InlineData(30L * 1024 + 65, "Replace")]     // unallocated, another size
+    [InlineData(25L * 1024, "Replace")]
+    [InlineData(19L * 1024, "Refuse")]           // less than a Linux fits
+    [InlineData(0L, "Refuse")]                   // a partition follows at once
+    public void An_installer_partition_of_an_earlier_run_is_reused_replaced_or_refused_by_the_space_behind_it(
+        long freeMiB, string expected)
+    {
+        Assert.Equal(Enum.Parse<DirectInstallService.BoundSeed>(expected),
+            DirectInstallService.JudgeBoundSeed(freeMiB * MiB, 30 * GiB, 20 * GiB));
+        Assert.Equal(DirectInstallService.BoundSeed.Refuse, DirectInstallService.JudgeBoundSeed(null, 30 * GiB, 20 * GiB));
+    }
+
+    [Fact]
+    public void A_layout_that_cannot_be_read_is_a_refusal_only_before_the_first_write()
+    {
+        var storage = new StorageFake { PartitionError = new ManagementException("fixture") };
+        storage.Add(2, Disk, 17, Row(MiB, 100 * MiB, EspType));
+        var service = new DirectInstallService(new ResizerFake(), NullLogger<DirectInstallService>.Instance, storage);
+
+        var refused = Assert.Throws<InstallationRefusedException>(() => service.RequireBoundLinuxRegion(2, 30 * GiB, 4 * GiB, [], BoundDebian));
+        var later = Assert.Throws<InvalidOperationException>(() => service.RequireInstallerPlacement(2, 30 * GiB, 4 * GiB));
+
+        Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
+        Assert.IsNotType<InstallationRefusedException>(later);
+        Assert.DoesNotContain("has not been resized", later.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_installer_partition_is_created_at_the_planned_offset_in_kilobytes()
+    {
+        Assert.Equal("create partition primary size=4224 offset=130939904 align=1024",
+            DirectInstallService.DiskpartCreateSeed(4224, 134082461696));
+        Assert.Equal("create partition primary size=4224 align=1024", DirectInstallService.DiskpartCreateSeed(4224, null));
+    }
+
+    [Fact]
+    public void A_confined_installer_is_stated_to_get_the_request_from_unallocated_space()
+    {
+        var estimate = new DirectInstallSpaceEstimate(100 * GiB, 4224 * MiB, 0) { UnallocatedBytes = 100 * GiB, HonoursLinuxSize = true };
+
+        Assert.Equal(new DirectInstallAllocation(false, 35 * GiB), estimate.Allocate(35 * GiB));
+        Assert.Equal(new DirectInstallAllocation(true, 96 * GiB), estimate.Allocate(96 * GiB));
+    }
+
     private static InstallerBootSpec Spec() => new() { MenuTitle = "fixture", KernelCmdline = "fixture" };
 
-    private static WindowsStorageRow Row(long offset, long size, string gptType, bool boot = false, char letter = '\0') =>
+    private static WindowsStorageRow Row(long offset, long size, string gptType, bool boot = false, char letter = '\0',
+        uint number = 0) =>
         new(new Dictionary<string, object?>
         {
             ["Offset"] = (ulong)offset, ["Size"] = (ulong)size, ["GptType"] = gptType,
-            ["IsBoot"] = boot, ["DriveLetter"] = letter,
+            ["IsBoot"] = boot, ["DriveLetter"] = letter, ["PartitionNumber"] = number,
         }.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase));
 
     private sealed class StorageFake : IWindowsStorageReader
