@@ -92,19 +92,22 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
 
     public bool UsesUnallocatedSpace => Allocation is { ResizesWindows: false };
 
-    // Every size the slider offers ends the same way, so there is nothing to choose.
-    public bool LinuxSizeIsFixed => CanDualBoot && _spaceEstimate is { } space &&
+    // An installer that cannot be confined takes the unallocated space whole: then there is nothing to choose.
+    public bool LinuxSizeIsFixed => CanDualBoot && _spaceEstimate is { HonoursLinuxSize: false } space &&
         !space.Allocate((long)MaxProvisionalLinuxGb * GiB).ResizesWindows;
 
     public string InstallTypeDetail => UsesUnallocatedSpace
         ? "Windows stays installed and is not resized. Linux is installed in the unallocated space on this disk."
         : "Windows stays installed. Its partition is resized to make room for Linux.";
 
-    public string AllocationSummary => Allocation is { ResizesWindows: false } allocation && _spaceEstimate is { } space
-        ? $"The installer takes the whole unallocated space of {space.UnallocatedBytes / (double)GiB:N1} GiB: " +
-          $"{allocation.LinuxBytes / (double)GiB:N1} GiB for Linux and {space.InstallerBytes / (double)GiB:N1} GiB for the installer. " +
-          "A smaller Linux cannot be chosen while that space is unallocated."
-        : string.Empty;
+    public string AllocationSummary => Allocation is not { ResizesWindows: false } allocation || _spaceEstimate is not { } space
+        ? string.Empty
+        : space.HonoursLinuxSize
+            ? $"Linux gets {allocation.LinuxBytes / (double)GiB:N1} GiB of the {space.UnallocatedBytes / (double)GiB:N1} GiB of unallocated space. " +
+              $"{Math.Max(0, space.UnallocatedBytes - space.InstallerBytes - allocation.LinuxBytes) / (double)GiB:N1} GiB stays unallocated."
+            : $"The installer takes the whole unallocated space of {space.UnallocatedBytes / (double)GiB:N1} GiB: " +
+              $"{allocation.LinuxBytes / (double)GiB:N1} GiB for Linux and {space.InstallerBytes / (double)GiB:N1} GiB for the installer. " +
+              "A smaller Linux cannot be chosen while that space is unallocated.";
 
     public string DiskSafetyTitle => UsesUnallocatedSpace
         ? "Back up Windows before installing Linux"
