@@ -6,7 +6,7 @@
     <RootNamespace>Igloo.Iso</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="BouncyCastle.Cryptography"                  Version="2.3.1" />
+    <PackageReference Include="BouncyCastle.Cryptography"                  Version="2.7.0" />
     <PackageReference Include="Microsoft.Extensions.Http"                  Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"  Version="8.0.0" />
   </ItemGroup>
