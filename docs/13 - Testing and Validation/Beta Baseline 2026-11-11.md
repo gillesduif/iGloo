@@ -249,7 +249,7 @@ Changes (unit tests, L1):
 
 **Decided by the owner on 15 Nov.** The route stays: when unallocated space holds the request, Windows is left as it is and the installer takes that space whole, and the page says so without a slider, as in r22. Not chosen: taking the size from Windows in every case and stopping when other unallocated space exists, and binding Debian's installer to the space behind the installer partition.
 
-**Not verified.** The reworded page has not been seen on a screen.
+**[Observed by the owner, screenshot, 16 Nov]** Build `r22-b8e8ca1`, same disk state. The page shows what `ce3dd29` words: `Windows can shrink by up to 27 GiB` on the card, `Windows stays installed and is not resized. …`, no slider, `The installer takes the whole unallocated space of 100,0 GiB: 95,8 GiB for Linux and 4,2 GiB for the installer. A smaller Linux cannot be chosen while that space is unallocated.` and the red card `Back up Windows before installing Linux`. The owner's reaction was that no size can be chosen and asked where the slider is: the decision of 15 Nov did not give what was wanted. A slider on unallocated space needs the installer confined to the chosen size, which nothing does today.
 
 ## Read in source, not changed
 
