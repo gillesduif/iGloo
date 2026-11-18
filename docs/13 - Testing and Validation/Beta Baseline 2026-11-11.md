@@ -7,8 +7,8 @@ doc_status: current
 validation_status: partial
 availability: branch-only
 graph_cluster: delivery
-last_reviewed: 2026-11-15
-reviewed_commit: e740b3c6d3cf856bbc0f341101cb3e9a93227d61
+last_reviewed: 2026-11-18
+reviewed_commit: e491f18924f3a05bc0df3c851ae6226646c4df1f
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -269,6 +269,37 @@ partman's `atomic` recipe fills the free space it is given, and the Debian choic
 
 **Not verified.** No test runs `Prepare` with this branch, diskpart or partman. Microsoft's reference does not say what diskpart does with an offset inside unallocated space that is not its start, which is the case here whenever a surplus is left. The scripts were run under dash, not under the installer's busybox shell. Three runs are needed: a disk with Windows only, the owner's disk with unallocated space elsewhere, and a second attempt after an interrupted first.
 
+## r23 in the VMware guest, 18 November (Debian, complete run; then a Linux Mint attempt beside it)
+
+**[Observed, L3]** Build `r23-21eacd1`: the stack traces in the wizard log name `C:\Temp\igloo-build-r23-21eacd1`. Same guest: no Secure Boot, no Wi-Fi, no test data, and no Windows evidence folder was collected. The disk held Windows only and 30 GiB was chosen, so this is the first of the three runs the previous section asks for. Evidence: `artifacts\r23-results\Debian\` (Linux side) and the wizard log `igloo-20261118.log`.
+
+- **The chosen size.** `Linux region: the installer partition goes at offset 138381623296 on disk 0, with 30.0 GiB for Linux behind it (Windows gives up 34939 MiB)`, `Creating 4219 MiB FAT32 OEMDRV partition (letter "I":) on disk 0 at offset 138381623296`, `Disk 0: 30.00 GiB is unallocated directly behind partition 5; 30.00 GiB was asked for Linux`. The installer started with `igloo.linuxmin=32210157568 igloo.linuxmax=32279363584` and ran `igloo-bound-free-setup.sh`. Debian's three partitions are 1,024,458,752 + 29,519,511,552 + 1,668,284,416 = 32,212,254,720 bytes, 30 GiB to the byte. The offset is the end of the shrunk Windows partition, so diskpart was not given an offset inside unallocated space that is not its start.
+- **Keyboard (L3 for `8790d4e`).** `Installer locale=nl_BE.UTF-8 keymap=be`; the installed system has `XKBLAYOUT="be"`.
+- **Japanese input sources (`49e36a1`).** The agent logged `First-login setup of ibus-anthy marked as done` and the same for `ibus-mozc`. That the session then lists no Japanese source was not recorded.
+- **Boot menu (L3 for `6421baf`).** `Installed the iGloo GRUB theme (4k)`; the owner's screenshot shows the white menu with the logo and complete titles in Montserrat. The Windows entry carried the vendored icon, a blue disc with the Windows logo in white.
+- **Snapshot route.** A browser kept files open: `Snapshot {…} of C:\ made`, the profile `is read completely from a snapshot`, `Snapshot {…} removed` 2.7 s later. r19 had not exercised this route.
+- **Registration, installation, first boot.** `Boot0080`, `BootNext`, Fast Startup turned off. Unattended; `agent.log` has 537 lines with 0 error and 0 warning lines. `Deleted installer partition /dev/nvme0n1p4` with its firmware entry `Boot0005`; `Dropped Boot0080 from the UEFI boot order: no such entry exists`.
+- **Back in Windows.** At 10:29:38 the scheduled task ran: `Boot entry cleanup … "Removed"` and `Removed the boot entry cleanup task`.
+- **Unchanged.** Debian made its own ESP (`nvme0n1p6`; two on the disk, issue #227).
+
+Four points from the owner:
+
+- **Explorer opens the installer partition during Installation (observed; the times are from the log).** `AutoPlay suppressed for this user` at 08:55:58.758, the partition got letter `I:` between 08:56:19 and 08:56:23, and `Closed the Explorer window left open on I:\` came at 08:56:36.721. The registry value was in place 20 s before the letter and the window still opened. Why the value did not hold Explorer back is not established.
+- **The account picture shows only after a restart of Debian (reported by the owner; whether it was missing on the sign-in screen or in the session was not recorded).** The agent wrote `/var/lib/AccountsService/icons/gillesduif`, the `Icon=` line and `~/.face` (134,610 bytes) at 10:05:13, before the display manager started. Read in accountsservice 23.13.9-7, Debian's source: a user's icon is `<home>/.face` until the key file names another; the key file is read at start and at a reload, which follows a change of `passwd`, `shadow` or `group`, or of `wtmp` after 10 s; the daemon does not watch its `users` or `icons` folder. A daemon that started before the agent wrote would therefore keep naming `~/.face` until its next reload. That this is what happened is a reading: no journal was collected.
+- **Windows icon.** The owner proposed four black squares without the blue disc, to keep away from the Windows logo.
+- **Linux Mint with this Debian installed: `Preparation failed`.** `Disk 0 has 2 EFI system partitions and this installer would choose one of them itself. Windows has not been resized. Remove the earlier Linux installation in System Check, then start again.` Nothing was written. The rule is in `PlanLinuxRegion` for an installer with `UsesExistingEsp` and dates from 11 November (`afa6384`); before that commit the preparation went on and Ubiquity chose an ESP itself. It fires here because Debian made a second ESP. So this build offers Linux Mint and starts its preparation as it does Debian's; what stopped it is the layout. In the same session `Windows did not make a snapshot of C:\ (code 10)`; the staging then ended the windowless Edge and went through. What code 10 stands for was not looked up.
+
+Changes after this run (unit and script tests, L1; none run in a VM):
+
+- `a935598`: while the preparation runs, the main window answers Explorer's `QueryCancelAutoPlay` question with no (`AutoPlayCancellation`). The wizard runs elevated, so the window lets that one message through its filter. After the preparation the log says how often Explorer asked. The registry value and the closing of a window at the end are unchanged.
+- `998171c`: after writing the three places, both agents hand the icon to the running daemon with `FindUserByName` and `SetIconFile` over `busctl`. Read in the same source: a path under the daemon's `icons` folder that others may read is taken as it is, up to 1,048,576 bytes, the key file is saved and the change announced. A missing `busctl`, an unknown user, a refusal or no answer within 20 s is logged and the step still passes; the picture is then read at the daemon's next start, as in r23.
+- `e491f18`: `scripts/generate_grub_theme.py` draws `icons/windows.png` as four squares in the ink of the menu text, at the size the menu shows an icon (48 and 72 pixels). An icon under `igloo/<variant>/icons/` takes the place of the vendored one in the archive; the vendored `windows.png` is no longer packed. `grub_theme_files_test.py` decodes the image: two colours, ink and transparent, in two rows and two columns of squares.
+- **Not changed.** The two-ESP rule. A second distribution beside one that made its own ESP stays refused until #227 is settled or the second installer is told which ESP to use; either is a change to the boot path.
+
+2,291 tests, 2,290 passed, 0 failed, 1 skipped; build `-warnaserror` clean; 38 agent test scripts pass in WSL. Two fetches were delegated for the accountsservice source: gitlab.freedesktop.org refused, sources.debian.org answered.
+
+**Not verified.** That Explorer puts its question to the wizard's window for a new volume on a fixed disk, and that the window then stays away. A count of 0 in the log with a window that still opens means the question is not the mechanism; what remains is an installer partition without a drive letter, as for the image, which changes how the copy and `bcdedit` address it. That polkit lets root call `SetIconFile` without a prompt (not read), that the daemon runs or starts on the bus at that point of the first boot, and that the picture shows at the first sign-in. That GRUB draws the new icon. Whether four squares are far enough from Microsoft's logo is a legal question this page does not answer.
+
 ## Read in source, not changed
 
 - **Browser locks (B-03).** `CopyLockedChromiumDatabase` covers `SQLITE_BUSY`/`SQLITE_LOCKED`. A database Windows refuses to open (`SQLITE_CANTOPEN` → `BrowserInUse` in `LoginDataReader.ReadConnectionWithoutSharedMemory`), a non-database profile file held open for writing (`CopyFileAsync` opens the source with `FileShare.Read`) and Firefox profile files in the same position still raise `BrowserProfileStagingException`, which removes the generation and ends staging. Whether a running Edge or Chrome produces these today is not verified.
@@ -281,4 +312,4 @@ partman's `atomic` recipe fills the free space it is given, and the Debian choic
 
 ## Not verified
 
-Every installer, first-boot and boot-registration statement above is L0 or L1, except what the r10 section reports for Debian in one VMware guest without Secure Boot. Linux Mint and Fedora KDE have no complete run, no run covers a second attempt, and no run covers Secure Boot. The r6 runs in [[00 - Home/Beta Track]] remain the acceptance test; see also [[13 - Testing and Validation/Evidence Register]].
+Every installer, first-boot and boot-registration statement above is L0 or L1, except what the r10, r19 and r23 sections report for Debian in one VMware guest without Secure Boot. Linux Mint and Fedora KDE have no complete run, no run covers a second attempt, and no run covers Secure Boot. The r6 runs in [[00 - Home/Beta Track]] remain the acceptance test; see also [[13 - Testing and Validation/Evidence Register]].
