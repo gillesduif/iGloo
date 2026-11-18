@@ -48,10 +48,18 @@ public sealed partial class MainWindow : Window
 
         // Hook the window proc for the messages WindowChrome leaves to us.
         HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
+        AutoPlayCancellation.Attach(hwnd);
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        // Explorer asks before it opens a new drive; a non-zero answer keeps its window closed.
+        if (AutoPlayCancellation.Declines(msg))
+        {
+            handled = true;
+            return 1;
+        }
+
         switch (msg)
         {
             // Keep a borderless maximized window inside the taskbar-excluded work area.

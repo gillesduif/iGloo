@@ -239,6 +239,9 @@ public sealed partial class DirectInstallViewModel : ObservableObject
                 || cur.Message != prev.Message
                 || (cur.BytesTotal > 0 && cur.BytesWritten >= cur.BytesTotal));
 
+        // The installer partition gets a drive letter; Explorer is told not to open a window on it.
+        var declinedBefore = AutoPlayCancellation.Declined;
+        using var quiet = AutoPlayCancellation.Begin();
         try
         {
             if (_distroId is null) throw new InvalidOperationException("No distro was selected.");
@@ -266,6 +269,9 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         }
         finally
         {
+            // Zero means Explorer never asked this window, and a window on the new drive was not prevented this way.
+            _logger.LogInformation("Explorer asked {Count} time(s) whether to open a new drive during the preparation and was told no",
+                AutoPlayCancellation.Declined - declinedBefore);
             IsRunning = false;
         }
     }
