@@ -737,9 +737,11 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
             // The preseed binds the disk and the space behind the installer partition, and creates its own ESP there.
             InstallerType.DebianInstaller => new(minimum, ScansAllDisks: false, UsesExistingEsp: false)
                 { BoundToInstallerPartition = true },
-            // The kickstart binds the disk; autopart mounts an ESP it finds there.
-            InstallerType.Anaconda => new(minimum, ScansAllDisks: false, UsesExistingEsp: true),
-            // Stock biggest_free takes the largest region on any disk; an unknown installer is read as strictly.
+            // The kickstart binds the disk; autopart mounts the lowest-numbered ESP there, which the kickstart checks.
+            InstallerType.Anaconda => new(minimum, ScansAllDisks: false, UsesExistingEsp: true) { MountsFirstEsp = true },
+            // Stock biggest_free takes the largest region on any disk; partman-efi mounts the first ESP in disk order.
+            InstallerType.Ubiquity => new(minimum, ScansAllDisks: true, UsesExistingEsp: true) { MountsFirstEsp = true },
+            // An unknown installer is read as strictly as the strictest known one, and its ESP choice is not known.
             _ => new(minimum, ScansAllDisks: true, UsesExistingEsp: true),
         };
     }

@@ -62,6 +62,9 @@ public sealed record InstallerTargetRules(long MinimumRegionBytes, bool ScansAll
 {
     /// <summary>The installer partitions only the unallocated space directly behind the installer partition, so iGloo decides its size by where it puts that partition.</summary>
     public bool BoundToInstallerPartition { get; init; }
+
+    /// <summary>When the target disk has more than one EFI system partition, the installer mounts the first one and formats none.</summary>
+    public bool MountsFirstEsp { get; init; }
 }
 
 /// <summary>Read-only capacity estimate; it does not authorize a partition change.</summary>

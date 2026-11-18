@@ -282,6 +282,31 @@ public sealed class DirectInstallSizePlanTests
     }
 
     [Fact]
+    public void An_installer_is_told_which_esp_gets_the_boot_files_only_when_one_is_named()
+    {
+        var diskGuid = Guid.Parse("27897785-4620-47ee-bd61-39da18873519");
+        var partitionGuid = Guid.Parse("a6a183b2-f47c-433a-b170-6be254966e4a");
+        var windowsEsp = Guid.Parse("d1b2894e-9378-4b98-a5b0-e4d3f7428c18");
+        var spec = new InstallerBootSpec { MenuTitle = "fixture", KernelCmdline = "inst.ks=hd:LABEL={LABEL}" };
+
+        var config = DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us", diskGuid, partitionGuid, bootEsp: windowsEsp);
+
+        Assert.Contains($"igloo.seeddiskguid={diskGuid:D} igloo.bootesppartuuid={windowsEsp:D}", config, StringComparison.Ordinal);
+        Assert.DoesNotContain("igloo.bootesppartuuid=", DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us",
+            diskGuid, partitionGuid), StringComparison.Ordinal);
+        // Never empty, never the installer partition, never beside a reviewed Linux ESP, never from a recipe.
+        Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us",
+            diskGuid, partitionGuid, bootEsp: Guid.Empty));
+        Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us",
+            diskGuid, partitionGuid, bootEsp: partitionGuid));
+        Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us",
+            diskGuid, partitionGuid, Guid.Parse("41f8948c-43a5-46fa-a05f-2fef79cb5c74"), bootEsp: windowsEsp));
+        Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildGrubConfig(
+            spec with { KernelCmdline = "inst.ks=hd:LABEL={LABEL} igloo.bootesppartuuid=" + windowsEsp.ToString("D") },
+            "en_US.UTF-8", "us", diskGuid, partitionGuid));
+    }
+
+    [Fact]
     public void ReviewedBootConfigCarriesTheDistinctCreatedLinuxEspIdentity()
     {
         var seedDisk = Guid.NewGuid();

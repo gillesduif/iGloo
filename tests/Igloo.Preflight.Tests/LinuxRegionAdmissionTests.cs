@@ -20,10 +20,13 @@ public sealed class LinuxRegionAdmissionTests
     private const string LinuxType = "{0fc63daf-8483-4772-8e79-3d69d8477de4}";
 
     private static readonly InstallerTargetRules Debian = new(20 * GiB, ScansAllDisks: false, UsesExistingEsp: false);
-    private static readonly InstallerTargetRules Fedora = new(20 * GiB, ScansAllDisks: false, UsesExistingEsp: true);
-    private static readonly InstallerTargetRules Mint = new(20 * GiB, ScansAllDisks: true, UsesExistingEsp: true);
+    private static readonly InstallerTargetRules Fedora = new(20 * GiB, ScansAllDisks: false, UsesExistingEsp: true) { MountsFirstEsp = true };
+    private static readonly InstallerTargetRules Mint = new(20 * GiB, ScansAllDisks: true, UsesExistingEsp: true) { MountsFirstEsp = true };
+    private static readonly InstallerTargetRules Unknown = new(20 * GiB, ScansAllDisks: true, UsesExistingEsp: true);
+    private static readonly Guid WindowsEsp = Guid.Parse("d1b2894e-9378-4b98-a5b0-e4d3f7428c18");
+    private static readonly Guid DebianEsp = Guid.Parse("1106f84f-f7b1-4b5b-abc3-9f53f4326f2d");
 
-    private static readonly Layout Esp = new(MiB, 100 * MiB, IsWindows: false, IsEsp: true);
+    private static readonly Layout Esp = new(MiB, 100 * MiB, IsWindows: false, IsEsp: true) { StartsWindows = true, Id = WindowsEsp };
     private static readonly Layout Msr = new(101 * MiB, 16 * MiB, IsWindows: false, IsEsp: false);
     private static readonly Layout Recovery = new(RecoveryOffset, GiB - MiB, IsWindows: false, IsEsp: false);
 
@@ -148,22 +151,128 @@ public sealed class LinuxRegionAdmissionTests
         Assert.Equal(30 * GiB, plan.ExpectedLinuxBytes);
     }
 
-    [Fact]
-    public void A_second_esp_stops_the_installers_that_would_pick_one()
-    {
-        // Debian's own ESP from an earlier installation (issue #227) next to its root.
-        var debianEsp = Other(RecoveryOffset - 40 * GiB, GiB, esp: true);
-        var debianRoot = Other(debianEsp.Offset + debianEsp.Size, 39 * GiB);
-        Layout[] layout = [Esp, Msr, Windows(debianEsp.Offset), debianEsp, debianRoot, Recovery];
+    // Debian's own ESP from an earlier installation (issue #227) next to its root, as in the r23 run.
+    private static Layout[] BesideDebian(Layout firstEsp, Layout debianEsp) =>
+        [firstEsp, Msr, Windows(debianEsp.Offset), debianEsp, Other(debianEsp.Offset + debianEsp.Size, 39 * GiB), Recovery];
 
-        Assert.True(DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, Debian).ShrinksWindows);
+    private static Layout DebianEspAt(long offset) => Other(offset, GiB, esp: true) with { Id = DebianEsp };
+
+    [Fact]
+    public void A_second_esp_is_admitted_when_the_first_is_the_one_windows_starts_from()
+    {
+        var layout = BesideDebian(Esp, DebianEspAt(RecoveryOffset - 40 * GiB));
+
+        var debian = DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, Debian);
+        Assert.True(debian.ShrinksWindows);
+        Assert.Null(debian.BootEsp);
         foreach (var rules in new[] { Fedora, Mint })
         {
-            var refused = Assert.Throws<InstallationRefusedException>(() =>
-                DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, rules));
-            Assert.Contains("2 EFI system partitions", refused.Message, StringComparison.Ordinal);
-            Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
+            var plan = DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, rules);
+            Assert.True(plan.ShrinksWindows);
+            Assert.Equal(WindowsEsp, plan.BootEsp);
         }
+        // With one EFI system partition nothing is named: the installer has no choice to make.
+        Layout[] single = [Esp, Msr, Windows(RecoveryOffset), Recovery];
+        Assert.Null(DirectInstallService.PlanLinuxRegion(0, single, Disk, 34 * GiB, 4 * GiB, false, Mint).BootEsp);
+    }
+
+    [Fact]
+    public void A_second_esp_stops_an_installer_whose_choice_is_not_known()
+    {
+        var layout = BesideDebian(Esp, DebianEspAt(RecoveryOffset - 40 * GiB));
+
+        var refused = Assert.Throws<InstallationRefusedException>(() =>
+            DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, Unknown));
+
+        Assert.Contains("2 EFI system partitions and this installer would choose one of them itself", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_first_esp_that_is_not_provably_the_one_of_windows_stops_the_run()
+    {
+        var debianEsp = DebianEspAt(RecoveryOffset - 40 * GiB);
+        Layout[][] layouts =
+        [
+            // Windows did not start from the first one.
+            BesideDebian(Esp with { StartsWindows = false }, debianEsp with { StartsWindows = true }),
+            // None, or both, are reported as the one Windows started from.
+            BesideDebian(Esp with { StartsWindows = false }, debianEsp),
+            BesideDebian(Esp, debianEsp with { StartsWindows = true }),
+            // Below the size both installers take, or without an identity to name.
+            BesideDebian(Esp with { Size = 48 * MiB }, debianEsp),
+            BesideDebian(Esp with { Id = Guid.Empty }, debianEsp),
+        ];
+
+        foreach (var layout in layouts)
+            foreach (var rules in new[] { Fedora, Mint })
+            {
+                var refused = Assert.Throws<InstallationRefusedException>(() =>
+                    DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, rules));
+                Assert.Contains("the first one is not the one Windows starts from", refused.Message, StringComparison.Ordinal);
+                Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
+            }
+    }
+
+    [Fact]
+    public void The_first_esp_is_the_first_by_position_whatever_the_order_of_the_rows()
+    {
+        // A second ESP in front of the one Windows starts from.
+        var early = Other(MiB, 32 * MiB, esp: true) with { Id = DebianEsp };
+        var windowsEsp = Esp with { Offset = 33 * MiB, Size = 68 * MiB };
+        Layout[] layout = [Recovery, Windows(RecoveryOffset), Msr, windowsEsp, early];
+
+        var refused = Assert.Throws<InstallationRefusedException>(() =>
+            DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, Mint));
+
+        Assert.Contains("the first one is not the one Windows starts from", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_named_esp_is_read_from_the_live_layout_and_another_disk_with_one_stops_a_scanning_installer()
+    {
+        StorageFake Storage(bool espElsewhere)
+        {
+            var storage = new StorageFake();
+            var debianEspOffset = RecoveryOffset - 40 * GiB;
+            storage.Add(0, Disk, 17,
+                Row(MiB, 100 * MiB, EspType, system: true, guid: WindowsEsp),
+                Row(WindowsOffset, debianEspOffset - WindowsOffset, BasicType, boot: true, letter: 'C'),
+                Row(debianEspOffset, GiB, EspType, guid: DebianEsp),
+                Row(debianEspOffset + GiB, 39 * GiB, LinuxType),
+                Row(RecoveryOffset, GiB - MiB, BasicType));
+            if (espElsewhere)
+                storage.Add(1, 500 * GiB, 11, Row(MiB, 100 * MiB, EspType), Row(101 * MiB, 500 * GiB - 102 * MiB, BasicType, letter: 'D'));
+            return storage;
+        }
+        DirectInstallService Service(StorageFake storage) =>
+            new(new ResizerFake(), NullLogger<DirectInstallService>.Instance, storage);
+
+        foreach (var rules in new[] { Fedora, Mint })
+            Assert.Equal(WindowsEsp, Service(Storage(false)).RequireSingleLinuxRegion(0, 34 * GiB, 4 * GiB, false, [], rules).BootEsp);
+
+        // Fedora's kickstart uses the target disk only; Mint's installer lists the ESP of every disk.
+        Assert.Equal(WindowsEsp, Service(Storage(true)).RequireSingleLinuxRegion(0, 34 * GiB, 4 * GiB, false, [], Fedora).BootEsp);
+        var refused = Assert.Throws<InstallationRefusedException>(() =>
+            Service(Storage(true)).RequireSingleLinuxRegion(0, 34 * GiB, 4 * GiB, false, [], Mint));
+        Assert.Contains("disk 1 has one as well", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("Disconnect disk 1", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void One_esp_on_the_target_disk_is_judged_as_before_with_an_esp_on_another_disk()
+    {
+        var storage = new StorageFake();
+        storage.Add(0, Disk, 17, Row(MiB, 100 * MiB, EspType),
+            Row(WindowsOffset, RecoveryOffset - WindowsOffset, BasicType, boot: true, letter: 'C'), Row(RecoveryOffset, GiB - MiB, BasicType));
+        storage.Add(1, 500 * GiB, 11, Row(MiB, 100 * MiB, EspType), Row(101 * MiB, 500 * GiB - 102 * MiB, BasicType, letter: 'D'));
+        var service = new DirectInstallService(new ResizerFake(), NullLogger<DirectInstallService>.Instance, storage);
+
+        var plan = service.RequireSingleLinuxRegion(0, 34 * GiB, 4 * GiB, false, [], Mint);
+
+        Assert.True(plan.ShrinksWindows);
+        Assert.Null(plan.BootEsp);
     }
 
     [Fact]
@@ -559,11 +668,12 @@ public sealed class LinuxRegionAdmissionTests
     private static InstallerBootSpec Spec() => new() { MenuTitle = "fixture", KernelCmdline = "fixture" };
 
     private static WindowsStorageRow Row(long offset, long size, string gptType, bool boot = false, char letter = '\0',
-        uint number = 0) =>
+        uint number = 0, bool system = false, Guid? guid = null) =>
         new(new Dictionary<string, object?>
         {
             ["Offset"] = (ulong)offset, ["Size"] = (ulong)size, ["GptType"] = gptType,
             ["IsBoot"] = boot, ["DriveLetter"] = letter, ["PartitionNumber"] = number,
+            ["IsSystem"] = system, ["Guid"] = guid?.ToString("B"),
         }.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase));
 
     private sealed class StorageFake : IWindowsStorageReader

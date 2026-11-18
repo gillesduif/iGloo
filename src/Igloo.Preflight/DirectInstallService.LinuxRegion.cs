@@ -13,13 +13,27 @@ public sealed partial class DirectInstallService
     private const string RemoveEarlierLinux =
         " Windows has not been resized. Remove the earlier Linux installation in System Check, then start again.";
 
-    internal readonly record struct LayoutPartition(long Offset, long Size, bool IsWindows, bool IsEsp);
+    // Smallest EFI system partition both partman-efi (50 MiB) and blivet (32 MiB) take for the boot files.
+    private const long MinimumBootEspBytes = 64 * MiB;
+
+    internal readonly record struct LayoutPartition(long Offset, long Size, bool IsWindows, bool IsEsp)
+    {
+        /// <summary>The EFI system partition Windows started from.</summary>
+        public bool StartsWindows { get; init; }
+
+        /// <summary>GPT partition identity; empty when it was not read.</summary>
+        public Guid Id { get; init; }
+    }
 
     internal readonly record struct FreeRegion(long Offset, long Size);
 
     /// <param name="ExpectedLinuxBytes">What the installer will find in the region once the installer partitions exist.</param>
     internal sealed record LinuxRegionPlan(bool ShrinksWindows, FreeRegion Region, long LargestFreeBytes,
-        long ExpectedLinuxBytes);
+        long ExpectedLinuxBytes)
+    {
+        /// <summary>The EFI system partition the installer mounts when the disk has more than one; null with a single one.</summary>
+        public Guid? BootEsp { get; init; }
+    }
 
     // Unallocated gaps as an installer sees them; no alignment margin is taken off.
     internal static List<FreeRegion> FreeRegions(IEnumerable<(long Offset, long Size)> partitions, long diskSizeBytes)
@@ -54,11 +68,22 @@ public sealed partial class DirectInstallService
                 $"The partition layout of disk {diskNumber} could not be evaluated. Windows has not been resized.");
         var minimumGiB = rules.MinimumRegionBytes / (1024.0 * 1024 * 1024);
 
-        var espCount = partitions.Count(p => p.IsEsp);
-        if (rules.UsesExistingEsp && espCount > 1)
-            throw new InstallationRefusedException(
-                $"Disk {diskNumber} has {espCount} EFI system partitions and this installer would choose one of them itself." +
-                RemoveEarlierLinux);
+        var esps = partitions.Where(p => p.IsEsp).OrderBy(p => p.Offset).ToArray();
+        Guid? bootEsp = null;
+        if (rules.UsesExistingEsp && esps.Length > 1)
+        {
+            if (!rules.MountsFirstEsp)
+                throw new InstallationRefusedException(
+                    $"Disk {diskNumber} has {esps.Length} EFI system partitions and this installer would choose one of them itself." +
+                    RemoveEarlierLinux);
+            // The first one gets the boot files, so it has to be the one Windows starts from; that of another Linux is not reused.
+            if (!esps[0].StartsWindows || esps.Count(p => p.StartsWindows) != 1 ||
+                esps[0].Size < MinimumBootEspBytes || esps[0].Id == Guid.Empty)
+                throw new InstallationRefusedException(
+                    $"Disk {diskNumber} has {esps.Length} EFI system partitions and the first one is not the one Windows starts from, so this installer would put its boot files on another." +
+                    RemoveEarlierLinux);
+            bootEsp = esps[0].Id;
+        }
 
         var layout = partitions.Select(p => (p.Offset, p.Size)).ToList();
         var largest = LargestFreeExtentBytes(layout, diskSizeBytes);
@@ -81,7 +106,7 @@ public sealed partial class DirectInstallService
                 $"Disk {diskNumber} would have {eligible.Length} unallocated regions of {minimumGiB:N0} GiB or more, and the installer must be given exactly one.") +
                 RemoveEarlierLinux);
         var expected = reusesInstallerPartition ? eligible[0].Size : eligible[0].Size - installerBytes;
-        return new(shrinks, eligible[0], largest, expected);
+        return new(shrinks, eligible[0], largest, expected) { BootEsp = bootEsp };
     }
 
     /// <param name="InstallerOffset">Where the installer partition goes.</param>
@@ -331,6 +356,7 @@ public sealed partial class DirectInstallService
     {
         List<LayoutPartition> partitions = [];
         List<(int DiskNumber, FreeRegion Region)> elsewhere = [];
+        List<int> espElsewhere = [];
         long diskSize = 0;
         try
         {
@@ -349,16 +375,23 @@ public sealed partial class DirectInstallService
                         partitions.Add(new(Convert.ToInt64(p["Offset"], CultureInfo.InvariantCulture),
                             Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture),
                             p["IsBoot"] is true && char.IsAsciiLetter(letter),
-                            string.Equals(p["GptType"]?.ToString(), EspGptType, StringComparison.OrdinalIgnoreCase)));
+                            string.Equals(p["GptType"]?.ToString(), EspGptType, StringComparison.OrdinalIgnoreCase))
+                        {
+                            StartsWindows = p.Properties.TryGetValue("IsSystem", out var system) && system is true,
+                            Id = p.Properties.TryGetValue("Guid", out var guid) &&
+                                Guid.TryParse(guid?.ToString(), out var id) ? id : Guid.Empty,
+                        });
                     }
                 }
                 else if (rules.ScansAllDisks && size > 0 && !(disk.Properties.TryGetValue("BusType", out var bus) &&
                     bus is not null && Convert.ToUInt32(bus, CultureInfo.InvariantCulture) == FileBackedVirtualBus))
                 {
-                    var layout = _storage.ReadPartitions(number).RowsOrThrow()
-                        .Select(p => (Convert.ToInt64(p["Offset"], CultureInfo.InvariantCulture),
-                            Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture)));
+                    var rows = _storage.ReadPartitions(number).RowsOrThrow().ToArray();
+                    var layout = rows.Select(p => (Convert.ToInt64(p["Offset"], CultureInfo.InvariantCulture),
+                        Convert.ToInt64(p["Size"], CultureInfo.InvariantCulture)));
                     elsewhere.AddRange(FreeRegions(layout, size).Select(region => (number, region)));
+                    if (rows.Any(p => string.Equals(p["GptType"]?.ToString(), EspGptType, StringComparison.OrdinalIgnoreCase)))
+                        espElsewhere.Add(number);
                 }
             }
         }
@@ -372,6 +405,17 @@ public sealed partial class DirectInstallService
         var plan = PlanLinuxRegion(diskNumber, partitions, diskSize, plannedBytes, installerBytes,
             reusesInstallerPartition, rules);
         RequireNoRivalRegion(diskNumber, plan.ExpectedLinuxBytes, elsewhere);
+        if (plan.BootEsp is { } bootEsp)
+        {
+            // An installer that walks every disk lists their EFI system partitions too, in an order Windows cannot see.
+            if (espElsewhere.Count > 0)
+                throw new InstallationRefusedException(
+                    $"Disk {diskNumber} has more than one EFI system partition and disk {espElsewhere[0]} has one as well; this installer takes the first it lists on any disk. " +
+                    $"Windows has not been resized. Disconnect disk {espElsewhere[0]}, then start again.");
+            _logger.LogInformation(
+                "Linux region: disk {Disk} has more than one EFI system partition; this installer mounts the first, {Esp}, which Windows starts from, and leaves the others as they are",
+                diskNumber, bootEsp);
+        }
         _logger.LogInformation(
             "Linux region: disk {Disk} offers one unallocated region of {GiB:N1} GiB at offset {Offset} after the plan (Windows shrink: {Shrinks})",
             diskNumber, plan.Region.Size / (1024.0 * 1024 * 1024), plan.Region.Offset, plan.ShrinksWindows);

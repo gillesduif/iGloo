@@ -411,15 +411,35 @@ public sealed class UsbPreparationSafetyTests
         provider.GetRequiredService<DistroLoader>().Load(distrosDirectory);
         await registry.LoadAsync(distrosDirectory);
         // Only Debian's helper scripts bind the installer to the space behind the installer partition.
-        (string Id, bool ScansAllDisks, bool UsesExistingEsp, bool Bound)[] expected =
-            [("debian", false, false, true), ("fedora-kde", false, true, false), ("linuxmint-cinnamon", true, true, false)];
+        // Anaconda and Ubiquity mount the first EFI system partition; Debian's recipe makes or reuses its own.
+        (string Id, bool ScansAllDisks, bool UsesExistingEsp, bool Bound, bool FirstEsp)[] expected =
+            [("debian", false, false, true, false), ("fedora-kde", false, true, false, true),
+             ("linuxmint-cinnamon", true, true, false, true)];
 
-        foreach (var (id, scansAllDisks, usesExistingEsp, bound) in expected)
+        foreach (var (id, scansAllDisks, usesExistingEsp, bound, firstEsp) in expected)
         {
             Assert.True(registry.TryGet(id, out var plugin));
             Assert.Equal(new InstallerTargetRules(plugin.Metadata.MinimumRequirements.MinDiskBytes,
-                scansAllDisks, usesExistingEsp) { BoundToInstallerPartition = bound },
+                scansAllDisks, usesExistingEsp) { BoundToInstallerPartition = bound, MountsFirstEsp = firstEsp },
                 InstallationPreparation.TargetRulesFor(plugin.Metadata));
+        }
+    }
+
+    [Fact]
+    public void Every_kickstart_checks_the_esp_that_the_anaconda_rule_admits()
+    {
+        // The rule follows the installer type, so a kickstart without the check would be admitted unchecked.
+        var kickstarts = Directory.GetFiles(Path.Join(FindRepoRoot(), "distros"), "ks.cfg.template", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
+                !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(kickstarts);
+        foreach (var path in kickstarts)
+        {
+            var text = File.ReadAllText(path);
+            Assert.Contains("igloo.bootesppartuuid=*)", text, StringComparison.Ordinal);
+            Assert.Contains("nothing was written", text, StringComparison.Ordinal);
         }
     }
 

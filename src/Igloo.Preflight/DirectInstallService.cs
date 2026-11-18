@@ -101,6 +101,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     private string _keymap = "us";
     // Set when the installer is confined to the space behind the installer partition: the size it must find there.
     private (long Minimum, long Maximum)? _boundLinuxExtent;
+    private Guid? _bootEsp;
     private int? _diskNumber;
     private uint? _partitionNumber;
     private Observation<CanonicalVolumeIdentityV1>? _preparedBootTarget;
@@ -279,6 +280,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         _isoPartitionLetter = null;
         _preparedBootTarget = null;
         _boundLinuxExtent = null;
+        _bootEsp = null;
         _bootSpec = null!;
     }
 
@@ -519,8 +521,8 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         if (bound && !canReuse)
             boundPlan = RequireBoundLinuxRegion(diskNumber, linuxSizeBytes, oemDrvBytes, staleSeeds, targetRules);
         else if (!bound && !_bootSpec.PreCreateRootPartition)
-            _ = RequireSingleLinuxRegion(diskNumber, sizing.TotalShrinkBytes, oemDrvBytes + isoPartBytes,
-                canReuse, staleSeeds, targetRules);
+            _bootEsp = RequireSingleLinuxRegion(diskNumber, sizing.TotalShrinkBytes, oemDrvBytes + isoPartBytes,
+                canReuse, staleSeeds, targetRules).BootEsp;
         foreach (var stale in staleSeeds.Distinct())
         {
             Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Removing an installer partition from an earlier run…");
@@ -1518,7 +1520,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         VerifyPreparedSeedBeforeBootConfiguration();
         var grubCfgContent = BuildGrubConfig(_bootSpec, _locale, _keymap,
             _preparedBootTarget!.Value.Disk.GptDiskGuid, _preparedBootTarget.Value.PartitionGuid,
-            boundLinuxExtent: _boundLinuxExtent);
+            boundLinuxExtent: _boundLinuxExtent, bootEsp: _bootEsp);
         foreach (var dir in GrubCfgDirs.Select(cfgDir => Path.Join(oemDrvRoot, cfgDir)))
         {
             var path = Path.Join(dir, "grub.cfg");
@@ -1804,9 +1806,15 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
 
     internal static string BuildGrubConfig(InstallerBootSpec bootSpec, string locale,
         string keymap, Guid seedDiskGuid, Guid seedPartitionGuid,
-        Guid? reviewedLinuxEspPartitionGuid = null, (long Minimum, long Maximum)? boundLinuxExtent = null)
+        Guid? reviewedLinuxEspPartitionGuid = null, (long Minimum, long Maximum)? boundLinuxExtent = null,
+        Guid? bootEsp = null)
     {
         ArgumentNullException.ThrowIfNull(bootSpec);
+        if (bootEsp is { } first && (first == Guid.Empty || first == seedPartitionGuid ||
+            reviewedLinuxEspPartitionGuid is not null))
+            throw new InvalidDataException("The EFI system partition for the boot files has no distinct GPT identity.");
+        if (bootSpec.KernelCmdline.Contains("igloo.bootesppartuuid=", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The installer boot recipe names its own EFI system partition.");
         if (boundLinuxExtent is { } extent && (extent.Minimum <= 0 || extent.Maximum < extent.Minimum ||
             reviewedLinuxEspPartitionGuid is not null))
             throw new InvalidDataException("The space behind the installer partition has no valid size bounds.");
@@ -1837,6 +1845,9 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // The installer partitions the unallocated space directly behind the seed, and only when its size is within these bounds.
         if (boundLinuxExtent is { } bounds)
             seedArgs += FormattableString.Invariant($" igloo.linuxmin={bounds.Minimum} igloo.linuxmax={bounds.Maximum}");
+        // With more than one EFI system partition on the disk, the installer is told which one has to get the boot files.
+        if (bootEsp is { } bootEspGuid)
+            seedArgs += " igloo.bootesppartuuid=" + bootEspGuid.ToString("D");
         cmdline = cmdline.EndsWith(" ---", StringComparison.Ordinal)
             ? cmdline[..^4] + " " + seedArgs + " ---"
             : cmdline + " " + seedArgs;
