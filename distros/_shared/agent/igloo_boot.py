@@ -378,11 +378,14 @@ def _verify(b: Boot, themed: bool) -> None:
     else:
         b.logger.info("verified: every entry names its root by UUID")
 
-    if "gnulinux-advanced" in cfg:
+    # os-prober lists another Linux with its own submenu ('osprober-gnulinux-advanced-…'); that one is not ours to remove.
+    if "'gnulinux-advanced-" in cfg:
         b.logger.error("VERIFICATION FAILED: the Advanced options submenu is still "
                        "in grub.cfg")
     else:
-        b.logger.info("verified: no Advanced options submenu in grub.cfg")
+        b.logger.info("verified: no Advanced options submenu of this system in grub.cfg")
+    if "'osprober-gnulinux-advanced-" in cfg:
+        b.logger.info("another Linux on this machine is listed with its own Advanced options submenu")
 
     titles = [ln.strip() for ln in cfg.splitlines()
               if ln.startswith("menuentry ") or ln.startswith("submenu ")]
