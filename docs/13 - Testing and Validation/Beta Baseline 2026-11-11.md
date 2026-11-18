@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-18
-reviewed_commit: b150cfd3825fabe9aaa1fea1f8f1c365b0bd77c5
+reviewed_commit: f1160c4e503b8e9f7ffff18b92408c289b77ba8f
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -363,7 +363,7 @@ Looked at without finding the cause (read in source):
 
 Changes after this run (script tests, L1):
 
-- `73a8f5b`: `%pre` keeps its messages in `/tmp/igloo-pre.log`, hands them to Anaconda's log when it ends, and on a non-zero status prints that status and the last 20 lines to the terminal of the installer. The ESP check logs each ESP it finds and each partition whose type it could not read. `fedora_pre_report_test.py` runs the lines under bash with and without a pseudo terminal.
+- `73a8f5b`, `f1160c4`: `%pre` keeps its messages in `/tmp/igloo-pre.log`, hands them to Anaconda's log when it ends, and on a non-zero status prints that status and the last 20 lines to the terminal of the installer and appends them to `/tmp/anaconda.log`, which the installer's log tab follows. The ESP check logs each ESP it finds and each partition whose type it could not read. `fedora_pre_report_test.py` runs the lines under bash with and without a pseudo terminal.
 - `b150cfd`: the boot menu check counts the submenu of the running system (`'gnulinux-advanced-`) and reports another Linux's as information. `boot_menu_other_linux_test.py` holds the entries of this run.
 
 2,298 tests, 2,297 passed, 0 failed, 1 skipped; build `-warnaserror` clean; 41 agent test scripts pass in WSL. One fetch was delegated, for the anaconda source.
