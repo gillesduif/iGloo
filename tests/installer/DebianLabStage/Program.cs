@@ -90,7 +90,7 @@ if (args is ["--boot-config", var preflightAssembly, var outputConfig,
         ?? throw new MissingMethodException("Current DirectInstallService boot renderer is unavailable.");
     var rendered = (string?)renderer.Invoke(null,
         [new DebianPlugin().GetInstallerBootSpec(), "en_US.UTF-8", "us",
-         Guid.Parse(seedDisk), Guid.Parse(seedPartition), Guid.Parse(linuxEsp)])
+         Guid.Parse(seedDisk), Guid.Parse(seedPartition), Guid.Parse(linuxEsp), Type.Missing, Type.Missing])
         ?? throw new InvalidDataException("Debian boot renderer produced no configuration.");
     await File.WriteAllTextAsync(Path.GetFullPath(outputConfig), rendered);
     Console.WriteLine($"Debian DirectInstall GRUB config staged: {rendered.Length} characters.");
