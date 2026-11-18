@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-18
-reviewed_commit: e491f18924f3a05bc0df3c851ae6226646c4df1f
+reviewed_commit: bf19fa99495150c26c95600973637f57f4fa7da7
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -299,6 +299,45 @@ Changes after this run (unit and script tests, L1; none run in a VM):
 2,291 tests, 2,290 passed, 0 failed, 1 skipped; build `-warnaserror` clean; 38 agent test scripts pass in WSL. Two fetches were delegated for the accountsservice source: gitlab.freedesktop.org refused, sources.debian.org answered.
 
 **Not verified.** That Explorer puts its question to the wizard's window for a new volume on a fixed disk, and that the window then stays away. A count of 0 in the log with a window that still opens means the question is not the mechanism; what remains is an installer partition without a drive letter, as for the image, which changes how the copy and `bcdedit` address it. That polkit lets root call `SetIconFile` without a prompt (not read), that the daemon runs or starts on the bus at that point of the first boot, and that the picture shows at the first sign-in. That GRUB draws the new icon. Whether four squares are far enough from Microsoft's logo is a legal question this page does not answer.
+
+## A second distribution beside one with its own ESP, 18 November (asked by the owner; unit and script tests, L1)
+
+The owner asked for Linux Mint beside the Debian of the r23 run to be admitted again. Before `afa6384` the preparation went on in that layout; since then it stopped at the second ESP.
+
+**Read in the installers' source (one reader with two follow-ups, 18 Nov; nothing was run).** Linux Mint's ubiquity at commit `08c64e7` ("24.04.3+mint19": partman-efi 84ubuntu1, partman-auto 134ubuntu13, partman-base 206ubuntu6); Debian's partman-auto 177, partman-efi 110 and partman-basicfilesystems 174; anaconda 44.35 with blivet 3.13.2. Which builds Fedora 44 ships was not established.
+
+- **Linux Mint.** `init.d/efi` marks every ESP of 50 MiB or more. `fstab.d/efi` writes `/boot/efi` for the first marked partition over all devices, and within a disk in the order of the start sector. `partman-commit` runs `init.d` again, so every ESP is marked at that point. The recipe line with `$reusemethod{ }` names the last one as reused; `reuse_partitions` takes its `format` file away and `commit.d/format_efi` skips a partition whose filesystem was detected. So the boot files go on the first ESP of the disk and no existing ESP is formatted. Nothing in these files names a partition; `partman-auto/disk`, which the preseed does not set, names only the disk.
+- **Fedora.** With `autopart` an existing ESP of the boot disk is reused when it is valid (vfat, boot flag, 32 MiB or more). The candidates are tried in the order of the partition number, not of the position. Only its mount point is set, and `clearpart --none` removes nothing. No kickstart option names the ESP while `autopart` is used.
+- **Debian.** The ESP line of `atomic` is `768 788 1024`: an existing ESP of 768,000,000 bytes or more is reused, the last one found, and otherwise a new one of about 977 MiB is made. That is why a 200 MiB Windows ESP is passed over and Debian makes its own (issue #227). A reused ESP is not formatted.
+- **Swap.** None of the three takes an existing swap partition into use on this path. Mint's `autopartition` moves every method away and drops the swap line of the recipe, so its finish script makes a swap file; Debian's `autouse_swap` begins with `exit 0`; anaconda writes only new swaps to `fstab`. The reviewer below read the opposite for Mint in Ubuntu's tree, without the steps that undo it, and an earlier reader (16 Nov) wrote that Debian reuses a swap partition of 500 MB or more. Not seen on a system.
+
+**[Observed, r19 evidence]** `Windows\disks.txt` of that run: Windows reports `IsSystem` true for its own ESP (`d1b2894e-…`, 209,715,200 bytes at 1 MiB) and false for Debian's (1,024,458,752 bytes).
+
+**Read in this repository.** Removing one of two installations deletes its Linux-typed partitions and the firmware entry System Check paired with it. ESPs and loader folders are touched only when every Linux on the disk goes (`LinuxRemovalPlanner.Plan`), and an ESP is then deleted only when another one is positively the one of Windows and no loader is left on it (`RemoveRedundantEfiPartitions`). The first-boot agents do not depend on which ESP is mounted.
+
+**Change (`c85627c`, `86a9692`).**
+
+- `PlanLinuxRegion`: for an installer that mounts the first ESP (`InstallerTargetRules.MountsFirstEsp`, set for Anaconda and Ubiquity) more than one ESP on the target disk is admitted when the first by position is the one Windows started from, no other ESP carries that flag, it is 64 MiB or more and it has a GPT identity. Otherwise the run stops before the first write: `Disk 0 has 2 EFI system partitions and the first one is not the one Windows starts from, so this installer would put its boot files on another.` An installer type without the property is refused as before.
+- `RequireSingleLinuxRegion`: Mint's installer lists the ESPs of every disk. With more than one on the target disk, an ESP on another disk (file-backed virtual disks excepted) stops the run with `Disconnect disk N, then start again.`
+- The GPT identity of that first ESP goes to the installer as `igloo.bootesppartuuid=`. Fedora's `%pre` reads it, takes the lowest-numbered ESP-typed partition of the target disk and exits 1, before the storage commands are written, unless that is the named one. Mint's preseed is unchanged and has no check of its own.
+- With one ESP on the target disk nothing changes: no argument and no check.
+
+**Audit per provider (CONTRIBUTING rule 3, read in source).**
+
+- **Debian.** Not changed; its rule has no ESP clause. A second Debian beside an earlier one reuses that one's ESP and writes `EFI\debian` there again. Not refused, as before.
+- **Linux Mint.** Admitted beside a second ESP under the rule above. Not changed and still open: with one ESP on the target disk and one on another disk, partman takes the first over all devices, which may be the other disk's.
+- **Fedora KDE.** Admitted under the rule, with the check in `%pre`. Windows shows positions, not GPT numbers. Where the two orders differ the kickstart stops after Windows was resized and the installer partition made, and a new attempt stops again until the other ESP is gone.
+- **Ubuntu** (parked). Its root partition is created from Windows and the region rule is skipped. Not changed.
+- **`distros/_debian-family`, `distros/_shared`.** No dependence on the mounted ESP.
+- The rule follows the installer type, so `Every_kickstart_checks_the_esp_that_the_anaconda_rule_admits` fails for a kickstart template without the check.
+
+**Review (one read-only reviewer, 18 Nov).** No fault found in the rule, the boot argument or the shell block. Walked through from the code for the r23 layout with Mint added: removing only Debian deletes its root and swap and leaves its ESP; removing only Mint deletes its root and leaves `EFI\ubuntu` on the Windows ESP; removing both deletes the three Linux partitions, both loader folders and Debian's ESP. Raised: the swap point above, the Fedora case in which the two orders differ, and the rule following the installer type, for which the test above was added.
+
+`bf19fa9` repairs `tests/installer/DebianLabStage`: its reflective call to the boot renderer had been one argument short since `4606c3e`.
+
+2,298 tests, 2,297 passed, 0 failed, 1 skipped; build `-warnaserror` clean; 39 agent test scripts pass in WSL, six of the tests run the kickstart block under bash against a stand-in for `blkid`. Two subagents: the source reader, asked three times, and the reviewer.
+
+**Not verified.** No installer was run on a disk with two ESPs. Which ESP Mint and Fedora mount, that neither formats one, and that the earlier Debian still starts afterwards are known from the source only. That Mint leaves Debian's swap partition alone: `/etc/fstab` and `swapon --show` in Mint settle it. Removing one of two installations in System Check. Fedora's `%pre` under anaconda. Not changed and still open: issue #227 itself, and a swap partition between two installations being counted with the root after it (`SplitRunByDistro`), which is the wrong side when Debian is installed behind another Linux.
 
 ## Read in source, not changed
 
