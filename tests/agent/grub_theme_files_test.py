@@ -6,6 +6,7 @@ import re
 import struct
 import tarfile
 import unittest
+import zlib
 
 
 THEMES = Path(__file__).resolve().parents[2] / 'distros' / '_shared' / 'grub-theme'
@@ -30,16 +31,47 @@ def sections(data):
         position += 8 + length
 
 
+def pixels(data):
+    """The rows of an 8-bit RGBA PNG without interlacing."""
+    width, height, depth, colour = struct.unpack('>IIBB', data[16:26])
+    assert (depth, colour) == (8, 6), (depth, colour)
+    position, packed = 8, b''
+    while position < len(data):
+        length, tag = struct.unpack('>I4s', data[position:position + 8])
+        if tag == b'IDAT':
+            packed += data[position + 8:position + 8 + length]
+        position += 12 + length
+    raw, stride, rows, previous = zlib.decompress(packed), 4 * width, [], bytes(4 * width)
+    for y in range(height):
+        kind, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for x in range(stride):
+            left = line[x - 4] if x >= 4 else 0
+            up, corner = previous[x], previous[x - 4] if x >= 4 else 0
+            nearest = min((left, up, corner), key=lambda value: abs(left + up - corner - value))
+            line[x] = (line[x] + (0, left, up, (left + up) // 2, nearest)[kind]) & 0xFF
+        rows.append([tuple(line[x:x + 4]) for x in range(0, stride, 4)])
+        previous = bytes(line)
+    return rows
+
+
+def runs(filled):
+    """How many unbroken stretches of filled rows or columns there are."""
+    return sum(1 for index, value in enumerate(filled) if value and (index == 0 or not filled[index - 1]))
+
+
 class GrubThemeFilesTest(unittest.TestCase):
     def test_the_archive_holds_the_checked_in_files_and_nothing_else(self):
         for variant in VARIANTS:
             with self.subTest(variant=variant):
                 packed = members(variant)
-                own = {f'./{path.name}': path for path in (THEMES / 'igloo' / variant).iterdir()}
+                folder = THEMES / 'igloo' / variant
+                own = {f'./{path.name}': path for path in folder.iterdir() if path.is_file()}
                 own['./montserrat-OFL.txt'] = THEMES / 'igloo' / 'OFL.txt'
                 vendored = THEMES / 'stylish' / variant
                 own.update({f'./{path.name}': path for path in vendored.glob('terminus-*.pf2')})
                 own.update({f'./icons/{path.name}': path for path in (vendored / 'icons').iterdir()})
+                # An own icon takes the place of the vendored one with the same name.
+                own.update({f'./icons/{path.name}': path for path in (folder / 'icons').iterdir()})
                 self.assertEqual(set(own) | {'.', './icons'}, set(packed))
                 for name, path in own.items():
                     expected = path.read_bytes()
@@ -105,10 +137,24 @@ class GrubThemeFilesTest(unittest.TestCase):
                     self.assertEqual(sorted(set(codes)), codes)
                     self.assertLessEqual(set(range(0x20, 0x7F)), set(codes))
 
+    def test_the_windows_icon_is_four_ink_squares_at_the_size_of_the_menu(self):
+        for variant in VARIANTS:
+            with self.subTest(variant=variant):
+                packed = members(variant)
+                theme = packed['./theme.txt'][1].decode('ascii')
+                size = int(re.search(r'icon_width = (\d+)', theme).group(1))
+                rows = pixels(packed['./icons/windows.png'][1])
+                self.assertEqual((size, size), (len(rows[0]), len(rows)))
+                # Every pixel is the ink of the menu text or fully transparent; no other colour is in it.
+                self.assertEqual({(0x10, 0x10, 0x12, 255), (0, 0, 0, 0)},
+                                 {pixel for row in rows for pixel in row})
+                self.assertEqual([2, 2], [runs([any(pixel[3] for pixel in row) for row in rows]),
+                                          runs([any(row[x][3] for row in rows) for x in range(size)])])
+
     def test_the_images_are_in_a_form_grub_decodes(self):
         for variant in VARIANTS:
             for name, (_, data) in members(variant).items():
-                if not name.endswith('.png') or name.startswith('./icons/'):
+                if not name.endswith('.png') or (name.startswith('./icons/') and name != './icons/windows.png'):
                     continue
                 with self.subTest(variant=variant, image=name):
                     self.assertEqual(b'\x89PNG\r\n\x1a\n', data[:8])

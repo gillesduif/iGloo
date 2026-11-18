@@ -14,9 +14,15 @@ contract and not to the look.
 
 | Files | From | License |
 |---|---|---|
-| `theme.txt`, `logo.png`, `select_*.png` | `igloo/<variant>/`, generated | GPL-3.0, this repository |
+| `theme.txt`, `logo.png`, `select_*.png`, `icons/windows.png` | `igloo/<variant>/`, generated | GPL-3.0, this repository |
 | `montserrat-semibold-*.pf2`, `montserrat-OFL.txt` | `igloo/<variant>/` and `igloo/OFL.txt` | SIL Open Font License 1.1 |
-| `icons/`, `terminus-*.pf2` | `stylish/<variant>/`, vendored | GPL-3.0 (icons), SIL Open Font License 1.1 (Terminus) |
+| the other `icons/`, `terminus-*.pf2` | `stylish/<variant>/`, vendored | GPL-3.0 (icons), SIL Open Font License 1.1 (Terminus) |
+
+The Windows entry gets four squares in the ink of the menu text, drawn by the
+generator at the size the menu shows an icon. It replaces the vendored
+`windows.png`, a blue disc with the Windows logo in white, which stays in
+`stylish/` and is no longer packed. An icon in `igloo/<variant>/icons/` takes
+the place of the vendored one with the same name.
 
 The Montserrat fonts are bitmap renderings of Montserrat SemiBold 7.200,
 "Copyright 2011 The Montserrat Project Authors
@@ -73,9 +79,10 @@ License: GPL-3.0 (see LICENSE in this directory)
 Upstream commit: 80dd04ddf3ba7b284a7b1a5df2b1e95ee2aad606
 
 `stylish/<variant>/` was assembled as upstream
-`./install.sh -g -t stylish -i color -s <variant>` does. Only its `icons/` and
-its Terminus font go into the archives now. Its `theme.txt`, `background.jpg`,
-`info.png`, `select_*.png` and Unifont files are no longer shipped.
+`./install.sh -g -t stylish -i color -s <variant>` does. Only its `icons/`
+without `windows.png` and its Terminus font go into the archives now. Its
+`theme.txt`, `background.jpg`, `info.png`, `select_*.png`, `icons/windows.png`
+and Unifont files are no longer shipped.
 
 Do not run upstream's `install.sh` on a target system from the agent: it is
 interactive and edits `/etc/default/grub` in place. The agents install the
