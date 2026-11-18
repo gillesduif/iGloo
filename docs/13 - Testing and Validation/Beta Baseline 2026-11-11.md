@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-18
-reviewed_commit: bf19fa99495150c26c95600973637f57f4fa7da7
+reviewed_commit: b150cfd3825fabe9aaa1fea1f8f1c365b0bd77c5
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -339,6 +339,37 @@ The owner asked for Linux Mint beside the Debian of the r23 run to be admitted a
 
 **Not verified.** No installer was run on a disk with two ESPs. Which ESP Mint and Fedora mount, that neither formats one, and that the earlier Debian still starts afterwards are known from the source only. That Mint leaves Debian's swap partition alone: `/etc/fstab` and `swapon --show` in Mint settle it. Removing one of two installations in System Check. Fedora's `%pre` under anaconda. Not changed and still open: issue #227 itself, and a swap partition between two installations being counted with the root after it (`SplitRunByDistro`), which is the wrong side when Debian is installed behind another Linux.
 
+## r25 in the VMware guest, 18 November (Linux Mint beside Debian, complete on the Linux side; Fedora stopped in `%pre`)
+
+**[Observed, L3]** Build `r25-953da86`: the Linux evidence lists the CD label `R25_953DA86`. Evidence: `artifacts\r25-results\mint\` (Linux side only; no Windows folder and no wizard log). The Debian of the r23 run was still installed.
+
+- **The ESP (L3 for `86a9692`, Mint).** `/boot/efi` is `/dev/nvme0n1p1` with PARTUUID `d1b2894e-9378-4b98-a5b0-e4d3f7428c18`, the one Windows starts from, as read in the installer's source. The disk has 8 partitions and 2 ESPs. Debian's ESP, root and swap are there with the sizes and filesystem UUIDs of r23.
+- **Swap.** `swapon --show` lists `/swapfile` (2G) and `fstab` has `/swapfile none swap`; Debian's swap partition is not in use. That settles the reviewer's point for Mint.
+- **Size.** Mint's root is 53,687,091,200 bytes, `nvme0n1p9`.
+- **Partition numbers.** In r23 Debian had `p6` to `p8` and Recovery `p5`; now Debian has `p5` to `p7` and Recovery `p8`: between the two runs the GPT entries were put in the order of their position. That Windows did this when it resized C: and made the installer partition is an inference.
+- **Boot menu.** Four top-level entries: `Ubuntu` (Mint), `Windows 11`, `Debian GNU/Linux 13 (trixie)` and Debian's `Advanced options` submenu, the last two from os-prober. Firmware order: `Ubuntu`, `debian`, `Windows Boot Manager`.
+- **Agent.** 832 lines, `0 failure(s)`, one error line: `VERIFICATION FAILED: the Advanced options submenu is still in grub.cfg`. The submenu is Debian's; the check looked for `gnulinux-advanced` anywhere in the file and so also matched `osprober-gnulinux-advanced-…`.
+- **Changes of r24 on Mint.** `accounts-daemon now uses /var/lib/AccountsService/icons/gillesduif for gillesduif` and `Installed the iGloo GRUB theme (4k)`. Whether the picture showed at the first sign-in, and whether Explorer opened the installer partition, was not reported.
+- **Noted, not looked into.** Mint's locale files have `LANG="nl_BE.UTF-8"` with `LC_NUMERIC` and `LC_MONETARY` set to `fr_FR.UTF-8`.
+
+**Fedora, the same evening, before the Mint run (owner's screenshot).** `anaconda 44.30-2.fc44`: `Running pre-installation scripts` at 19:22:48, then a traceback ending in `pyanaconda.errors.ScriptError` and `Pane is dead (status 1 …)` at 19:22:49. So `%pre` ended with a non-zero status before any storage command; the installer wrote nothing. Which check stopped it is not known: Anaconda prints only that the script failed, and no log was collected. It is the first Fedora run in a VM since the kickstart got its seed validator (`a108ddb`, 4 Nov).
+
+Looked at without finding the cause (read in source):
+
+- The seed stays mounted by the installer's initramfs, read-only (`mount -o ro "$dev" "$repodir"` in `anaconda-diskroot` of anaconda 44.30), so the read-only mount in `%pre` is not refused on that account.
+- The validator reads only its two boot arguments, so `igloo.bootesppartuuid=` does not trip it.
+- For the layout of that moment the new ESP check compares partition 1 with the named GUID.
+- `SeedIdentityWriter` and the kickstart's validator differ in one place: when the manifest names staged folders or profiles that the seed does not carry, the writer binds nothing and the validator demands them. Fedora's seed carries the data, so this is not shown to be the cause.
+
+Changes after this run (script tests, L1):
+
+- `73a8f5b`: `%pre` keeps its messages in `/tmp/igloo-pre.log`, hands them to Anaconda's log when it ends, and on a non-zero status prints that status and the last 20 lines to the terminal of the installer. The ESP check logs each ESP it finds and each partition whose type it could not read. `fedora_pre_report_test.py` runs the lines under bash with and without a pseudo terminal.
+- `b150cfd`: the boot menu check counts the submenu of the running system (`'gnulinux-advanced-`) and reports another Linux's as information. `boot_menu_other_linux_test.py` holds the entries of this run.
+
+2,298 tests, 2,297 passed, 0 failed, 1 skipped; build `-warnaserror` clean; 41 agent test scripts pass in WSL. One fetch was delegated, for the anaconda source.
+
+**Not verified.** Why Fedora's `%pre` stopped. That its message reaches the screen under Anaconda: the script must still have the installer's terminal as its controlling terminal, and the code that starts it was not read. Fedora beside a second ESP, in any form. For Mint: that Debian still starts, and the Windows side of the run.
+
 ## Read in source, not changed
 
 - **Browser locks (B-03).** `CopyLockedChromiumDatabase` covers `SQLITE_BUSY`/`SQLITE_LOCKED`. A database Windows refuses to open (`SQLITE_CANTOPEN` → `BrowserInUse` in `LoginDataReader.ReadConnectionWithoutSharedMemory`), a non-database profile file held open for writing (`CopyFileAsync` opens the source with `FileShare.Read`) and Firefox profile files in the same position still raise `BrowserProfileStagingException`, which removes the generation and ends staging. Whether a running Edge or Chrome produces these today is not verified.
@@ -351,4 +382,4 @@ The owner asked for Linux Mint beside the Debian of the r23 run to be admitted a
 
 ## Not verified
 
-Every installer, first-boot and boot-registration statement above is L0 or L1, except what the r10, r19 and r23 sections report for Debian in one VMware guest without Secure Boot. Linux Mint and Fedora KDE have no complete run, no run covers a second attempt, and no run covers Secure Boot. The r6 runs in [[00 - Home/Beta Track]] remain the acceptance test; see also [[13 - Testing and Validation/Evidence Register]].
+Every installer, first-boot and boot-registration statement above is L0 or L1, except what the r10, r19 and r23 sections report for Debian and the r25 section for Linux Mint, in one VMware guest without Secure Boot. Mint's run has no Windows-side evidence, Fedora KDE has no complete run, no run covers a second attempt, and no run covers Secure Boot. The r6 runs in [[00 - Home/Beta Track]] remain the acceptance test; see also [[13 - Testing and Validation/Evidence Register]].
