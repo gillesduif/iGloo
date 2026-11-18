@@ -411,6 +411,38 @@ fi
 
     log "Target disk: /dev/$TARGET_DISK  (mode: $INSTALL_MODE)"
 
+# With more than one EFI system partition on the disk, iGloo names the one that has to get the boot files.
+BOOT_ESP=""
+BOOT_ESP_TOKENS=0
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in
+        igloo.bootesppartuuid=*) BOOT_ESP="${arg#*=}"; BOOT_ESP_TOKENS=$(( BOOT_ESP_TOKENS + 1 )) ;;
+    esac
+done
+if [ "$BOOT_ESP_TOKENS" -gt 0 ]; then
+    # autopart mounts the lowest-numbered EFI system partition of the boot disk at /boot/efi.
+    FIRST_ESP=""
+    FIRST_ESP_NUMBER=""
+    for part_sys in /sys/block/"$TARGET_DISK"/*/partition; do
+        [ -e "$part_sys" ] || continue
+        part_dev="/dev/$(basename "$(dirname "$part_sys")")"
+        part_type=$(blkid -p -s PART_ENTRY_TYPE -o value "$part_dev" 2>/dev/null || true)
+        [ "${part_type,,}" = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" ] || continue
+        part_number=$(cat "$part_sys")
+        if [ -z "$FIRST_ESP_NUMBER" ] || [ "$part_number" -lt "$FIRST_ESP_NUMBER" ]; then
+            FIRST_ESP_NUMBER="$part_number"
+            FIRST_ESP=$(blkid -p -s PART_ENTRY_UUID -o value "$part_dev" 2>/dev/null || true)
+        fi
+    done
+    if [ "$BOOT_ESP_TOKENS" -ne 1 ] || [ "$INSTALL_MODE" != "dual-boot" ] ||
+       ! [[ "$BOOT_ESP" =~ ^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$ ]] ||
+       [ "${FIRST_ESP,,}" != "${BOOT_ESP,,}" ]; then
+        log "ERROR: the boot files have to go on EFI system partition $BOOT_ESP, but the first one on /dev/$TARGET_DISK is partition ${FIRST_ESP_NUMBER:-none} ($FIRST_ESP); nothing was written"
+        exit 1
+    fi
+    log "Boot files go on EFI system partition $FIRST_ESP_NUMBER ($FIRST_ESP), the one iGloo named"
+fi
+
 verify_owned_partition() {
     local expected_guid="$1" expected_offset="$2" expected_size="$3"
     local expected_type="$4" expected_fs="$5" expected_uuid="$6"
