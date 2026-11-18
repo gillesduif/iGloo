@@ -427,11 +427,14 @@ if [ "$BOOT_ESP_TOKENS" -gt 0 ]; then
         [ -e "$part_sys" ] || continue
         part_dev="/dev/$(basename "$(dirname "$part_sys")")"
         part_type=$(blkid -p -s PART_ENTRY_TYPE -o value "$part_dev" 2>/dev/null || true)
+        [ -n "$part_type" ] || log "  $part_dev: the partition type could not be read"
         [ "${part_type,,}" = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b" ] || continue
         part_number=$(cat "$part_sys")
+        part_uuid=$(blkid -p -s PART_ENTRY_UUID -o value "$part_dev" 2>/dev/null || true)
+        log "  $part_dev: EFI system partition $part_number, PARTUUID ${part_uuid:-not read}"
         if [ -z "$FIRST_ESP_NUMBER" ] || [ "$part_number" -lt "$FIRST_ESP_NUMBER" ]; then
             FIRST_ESP_NUMBER="$part_number"
-            FIRST_ESP=$(blkid -p -s PART_ENTRY_UUID -o value "$part_dev" 2>/dev/null || true)
+            FIRST_ESP="$part_uuid"
         fi
     done
     if [ "$BOOT_ESP_TOKENS" -ne 1 ] || [ "$INSTALL_MODE" != "dual-boot" ] ||
