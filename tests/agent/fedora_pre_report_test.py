@@ -21,10 +21,11 @@ def prelude(log):
     end = text.index("trap igloo_pre_report EXIT\n", start) + len("trap igloo_pre_report EXIT\n")
     block = text[start:end]
     assert block.startswith("set -euo pipefail\n") and block.count("/tmp/igloo-pre.log") == 1
-    return block.replace("/tmp/igloo-pre.log", log)
+    assert block.count("/tmp/anaconda.log") == 1
+    return block.replace("/tmp/igloo-pre.log", log).replace("/tmp/anaconda.log", log + ".anaconda")
 
 
-def run(body, terminal):
+def run(body, terminal, installer_log=None):
     """Runs the prelude with a body; returns the exit status, what reached stderr and what reached the terminal."""
     with TemporaryDirectory() as temporary:
         script = Path(temporary) / "pre.sh"
@@ -49,14 +50,19 @@ def run(body, terminal):
                 break
             shown += chunk
         os.close(master)
+        if installer_log is not None:
+            written = Path(f"{temporary}/igloo-pre.log.anaconda")
+            installer_log.append(written.read_text(encoding="utf-8") if written.exists() else None)
         return done.returncode, done.stderr, shown.decode("utf-8", "replace").replace("\r\n", "\n")
 
 
 @unittest.skipUnless(shutil.which("bash") and hasattr(os, "openpty"), "needs bash and a pseudo terminal")
 class FedoraPreReportTest(unittest.TestCase):
     def test_a_clean_run_passes_its_log_on_and_shows_nothing(self):
-        code, stderr, shown = run('echo "[igloo-pre] Target disk: /dev/nvme0n1" >&2\n', terminal=True)
+        installer_log = []
+        code, stderr, shown = run('echo "[igloo-pre] Target disk: /dev/nvme0n1" >&2\n', True, installer_log)
         self.assertEqual(0, code)
+        self.assertEqual([None], installer_log)
         self.assertEqual("[igloo-pre] Target disk: /dev/nvme0n1\n", stderr)
         self.assertEqual("", shown)
 
@@ -77,10 +83,14 @@ class FedoraPreReportTest(unittest.TestCase):
         self.assertNotIn("not-reached", stderr + shown)
 
     def test_without_a_terminal_the_stop_still_ends_with_its_status_and_log(self):
-        code, stderr, shown = run('echo "[igloo-pre] ERROR: reason" >&2\nexit 3\n', terminal=False)
+        installer_log = []
+        code, stderr, shown = run('echo "[igloo-pre] ERROR: reason" >&2\nexit 3\n', False, installer_log)
         self.assertEqual(3, code)
         self.assertEqual("[igloo-pre] ERROR: reason\n", stderr)
         self.assertEqual("", shown)
+        # The file the installer's log tab follows gets the reason whether or not a terminal is there.
+        self.assertEqual(["iGloo: the pre-install script stopped with status 3:\n[igloo-pre] ERROR: reason\n"],
+                         installer_log)
 
 
 if __name__ == "__main__":

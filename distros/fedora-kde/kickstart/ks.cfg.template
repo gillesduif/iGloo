@@ -98,7 +98,12 @@ igloo_pre_report() {
             printf ' The last lines of %s:\n\n' "$IGLOO_PRE_LOG"
             tail -n 20 "$IGLOO_PRE_LOG" | sed 's/^/   /'
             printf '\n Restart the computer to return to Windows.\n\n'
-        } > /dev/tty 2>/dev/null || true
+        } 2>/dev/null > /dev/tty || true
+        # The log tab of the installer (Alt+Tab) follows this file.
+        {
+            printf '%s\n' "iGloo: the pre-install script stopped with status $code:"
+            cat "$IGLOO_PRE_LOG"
+        } >> /tmp/anaconda.log 2>/dev/null || true
     fi
 }
 trap igloo_pre_report EXIT
