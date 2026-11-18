@@ -54,7 +54,7 @@ class DebianSelectedMediaTests(unittest.TestCase):
             (staged / "igloo-wallpaper.PNG").write_bytes(b"wallpaper marker")
             (staged / "igloo-avatar.jpg").write_bytes(b"avatar marker")
             with mock.patch.object(AGENT, "Path", side_effect=sandbox_path(root)), \
-                 mock.patch.object(AGENT, "run_cmd", return_value=mock.Mock(returncode=0)):
+                 mock.patch.object(AGENT, "run_cmd", return_value=mock.Mock(returncode=0, stdout="")):
                 AGENT.migrate_wallpaper({
                     "wallpaper": {"fileName": "igloo-wallpaper.PNG"},
                     "user": {"preferredLinuxUsername": "lab"},

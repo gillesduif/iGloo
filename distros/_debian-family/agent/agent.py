@@ -3746,6 +3746,32 @@ def migrate_account_picture(manifest: dict[str, Any]) -> None:
     face.chmod(0o644)
     run_cmd(["chown", f"{username}:{username}", str(face)])
     logger.info("Account picture also written to %s", face)
+    _tell_accounts_daemon(username, icon_path)
+
+
+def _tell_accounts_daemon(username: str, icon_path: Path) -> None:
+    """Hand the avatar to a running accounts-daemon, which reads its files only when it reloads."""
+    later = "the account picture is read when accounts-daemon next starts"
+    if shutil.which("busctl") is None:
+        logger.info("busctl is not installed - %s", later)
+        return
+    call = ["busctl", "--system", "--timeout=20", "call", "org.freedesktop.Accounts"]
+    try:
+        found = run_cmd(call + ["/org/freedesktop/Accounts", "org.freedesktop.Accounts",
+                                "FindUserByName", "s", username], check=False, timeout=60)
+        user = re.match(r'o "(/org/freedesktop/Accounts/User\d+)"', found.stdout or "")
+        if found.returncode != 0 or user is None:
+            logger.warning("accounts-daemon did not name %s - %s", username, later)
+            return
+        told = run_cmd(call + [user.group(1), "org.freedesktop.Accounts.User",
+                               "SetIconFile", "s", str(icon_path)], check=False, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        logger.warning("accounts-daemon could not be reached - %s", later)
+        return
+    if told.returncode != 0:
+        logger.warning("accounts-daemon refused %s - %s", icon_path, later)
+        return
+    logger.info("accounts-daemon now uses %s for %s", icon_path, username)
 
 
 def _set_accountsservice_icon(user_file: Path, icon_path: Path) -> None:
