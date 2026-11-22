@@ -113,6 +113,19 @@ if [ -f "$DONE_MARKER" ]; then
 fi
 if [ ! -f "$MANIFEST" ]; then log "no manifest at $MANIFEST"; exit 1; fi
 
+# The sign-in screen waits for this script, so the reason goes where the user is looking: the splash, and the console behind it.
+show_wait() {
+    local console="$1"
+    local text="iGloo Community is installing drivers and apps. This takes several minutes. The sign-in screen appears when it is done; do not switch the computer off."
+    if command -v plymouth >/dev/null 2>&1 && plymouth --ping 2>/dev/null; then
+        plymouth display-message --text="$text" 2>/dev/null || true
+    fi
+    if [ -w "$console" ]; then
+        printf '\n%s\n' "$text" > "$console" 2>/dev/null || true
+    fi
+}
+
+show_wait /dev/tty1
 log "starting first-boot agent (manifest: $MANIFEST)"
 # Preserve the agent exit status. Its bound-seed export step copies logs when
 # reached; an earlier failure leaves the logs under /var/log/igloo for retry.
