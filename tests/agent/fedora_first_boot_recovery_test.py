@@ -795,7 +795,8 @@ class FedoraFirstBootRecoveryTest(TestCase):
                     "user": {"preferredLinuxUsername": "lab"},
                 })
             hook = (root / "opt" / "igloo" / "wallpaper-apply.sh").read_text()
-            self.assertIn('WALLPAPER="$HOME/Pictures/wallpaper.png"', hook)
+            # No folder list for this session, so the Windows name stays; the folder is named relative to the home.
+            self.assertIn('WALLPAPER="$HOME"/Pictures/wallpaper.png\n', hook)
             self.assertIn('plasma-apply-wallpaperimage "$WALLPAPER"', hook)
             self.assertNotIn('wallpaper.*', hook)
 

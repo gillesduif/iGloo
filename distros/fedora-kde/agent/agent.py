@@ -3284,6 +3284,117 @@ def _selected_media_source(file_name: str, kind: str) -> Path:
     return source
 
 
+_XDG_FOLDER_KEYS = {"Desktop": "DESKTOP", "Documents": "DOCUMENTS", "Downloads": "DOWNLOAD",
+                    "Music": "MUSIC", "Pictures": "PICTURES", "Videos": "VIDEOS"}
+
+
+def _system_locale() -> dict[str, str]:
+    """LANG and LANGUAGE as the installed system declares them."""
+    found: dict[str, str] = {}
+    try:
+        lines = Path("/etc/locale.conf").read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        lines = []
+    for line in lines:
+        key, sep, value = line.strip().partition("=")
+        if sep and key in ("LANG", "LANGUAGE") and key not in found:
+            found[key] = value.strip().strip("\"'")
+    return found
+
+
+def _session_folders(user_home: Path, username: str) -> dict[str, Path]:
+    """Where the desktop session keeps Documents, Pictures and the rest in this system's language."""
+    config = user_home / ".config"
+    listing = config / "user-dirs.dirs"
+    if not listing.is_file() and shutil.which("xdg-user-dirs-update"):
+        # The session runs the same tool at first login and then keeps what it finds.
+        run_cmd(["xdg-user-dirs-update"], check=False, timeout=60,
+                env={**_system_locale(), "LC_ALL": "", "HOME": str(user_home),
+                     "XDG_CONFIG_HOME": str(config)})
+    try:
+        lines = listing.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        lines = []
+    wanted = {f"XDG_{key}_DIR": name for name, key in _XDG_FOLDER_KEYS.items()}
+    folders: dict[str, Path] = {}
+    listed: list[Path] = []
+    for line in lines:
+        key, sep, value = line.strip().partition("=")
+        relative = value.strip().strip('"')
+        if not sep or not re.fullmatch(r"XDG_[A-Z]+_DIR", key) or not relative.startswith("$HOME/"):
+            continue
+        parts = relative[len("$HOME/"):].split("/")
+        if all(part and part not in (".", "..") for part in parts):
+            listed.append(user_home.joinpath(*parts))
+            if key in wanted:
+                folders[wanted[key]] = listed[-1]
+    # The tool ran as root; every folder it made belongs to the user, also the ones nothing is moved into.
+    made = [str(path) for path in (config, listing, config / "user-dirs.locale", *listed)
+            if path.exists() or path.is_symlink()]
+    if made:
+        run_cmd(["chown", "-h", f"{username}:{username}", *made], check=False)
+    if folders:
+        logger.info("Standard folders of the session: %s",
+                    ", ".join(f"{name} -> {path.name}" for name, path in sorted(folders.items())))
+    else:
+        logger.info("No standard folder list for the session; the Windows folder names are used")
+    return folders
+
+
+def _move_children(source: Path, target: Path) -> list[str]:
+    """Move every entry of source into target; an entry target already has stays where it is and is returned."""
+    target.mkdir(parents=True, exist_ok=True)
+    kept: list[str] = []
+    for child in sorted(source.iterdir()):
+        destination = target / child.name
+        if not destination.exists() and not destination.is_symlink():
+            shutil.move(str(child), str(destination))
+        elif (child.is_dir() and not child.is_symlink()
+              and destination.is_dir() and not destination.is_symlink()):
+            kept += [f"{child.name}/{name}" for name in _move_children(child, destination)]
+            if not any(child.iterdir()):
+                child.rmdir()
+        else:
+            kept.append(child.name)
+    return kept
+
+
+def adopt_session_folder_names(manifest: dict[str, Any]) -> None:
+    """Move the folders the installer copied under their Windows names into the session's own folders."""
+    file_plan = manifest.get("files") or {}
+    names = ([folder.get("name") for folder in file_plan.get("folders") or []]
+             or list(file_plan.get("includedFolders") or []))
+    if not names:
+        logger.info("No selected folders - nothing to move to the session's folders")
+        return
+    username = (manifest.get("user", {}).get("preferredLinuxUsername") or "").strip()
+    home = Path("/home") / username if username else None
+    if home is None or not home.is_dir():
+        raise RuntimeError("User home not found for the selected folders")
+
+    session = _session_folders(home, username)
+    touched: list[str] = []
+    for name in names:
+        if not isinstance(name, str) or name in ("", ".", "..") or "/" in name or "\\" in name:
+            raise RuntimeError("Selected folder has an unsafe name")
+        source, target = home / name, session.get(name)
+        if target is None or target == source or source.is_symlink() or not source.is_dir():
+            continue
+        kept = _move_children(source, target)
+        touched.append(str(target))
+        if kept:
+            # Nothing is dropped: what the session's folder already holds under that name stays in both places.
+            logger.warning("%d entr(ies) stay in %s because %s already has them: %s",
+                           len(kept), source, target, ", ".join(ascii(item) for item in kept[:10]))
+        else:
+            source.rmdir()
+            logger.info("  Moved folder %s -> %s", name, target.name)
+    if touched:
+        run_cmd(["chown", "-R", f"{username}:{username}", *touched])
+        if shutil.which("restorecon"):
+            run_cmd(["restorecon", "-R", *touched], check=False)
+
+
 def migrate_wallpaper(manifest: dict[str, Any]) -> None:
     """Reproduce the Windows desktop wallpaper on KDE Plasma.
 
@@ -3309,7 +3420,7 @@ def migrate_wallpaper(manifest: dict[str, Any]) -> None:
         raise RuntimeError("User home not found for selected wallpaper")
 
     try:
-        pictures = home / "Pictures"
+        pictures = _session_folders(home, username).get("Pictures", home / "Pictures")
         pictures.mkdir(parents=True, exist_ok=True)
         dst = pictures / f"wallpaper{src.suffix or '.jpg'}"
         dst.write_bytes(src.read_bytes())
@@ -3327,7 +3438,7 @@ def migrate_wallpaper(manifest: dict[str, Any]) -> None:
             "# Retries on later logins until plasma-apply-wallpaperimage succeeds.\n"
             'DONE_MARKER="$HOME/.config/.igloo-wallpaper-done"\n'
             '[ -f "$DONE_MARKER" ] && exit 0\n'
-            f'WALLPAPER="$HOME/Pictures/{dst.name}"\n'
+            f'WALLPAPER="$HOME"/{shlex.quote(dst.relative_to(home).as_posix())}\n'
             '[ -f "$WALLPAPER" ] || exit 1\n'
             "if ! command -v plasma-apply-wallpaperimage >/dev/null 2>&1; then\n"
             '  mkdir -p "$HOME/.local/state"\n'
@@ -3777,6 +3888,8 @@ def main() -> int:
         ("kernel-modules",  lambda: ensure_kernel_modules(manifest)),
         ("wifi",            lambda: migrate_wifi(manifest)),
         ("display-layout",  lambda: migrate_display_layout(manifest)),
+        # Before the wallpaper, which goes into the session's Pictures folder.
+        ("session-folders", lambda: adopt_session_folder_names(manifest)),
         ("wallpaper",       lambda: migrate_wallpaper(manifest)),
         ("account-picture", lambda: migrate_account_picture(manifest)),
         ("browser-profiles", lambda: migrate_browser_profiles(manifest)),
