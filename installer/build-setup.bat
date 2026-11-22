@@ -1,23 +1,23 @@
 @echo off
 setlocal
 rem ==========================================================================
-rem iGloo setup builder - one command from source tree to iGloo-Setup-<ver>.exe
+rem iGloo Community setup builder - one command from source tree to iGloo-Community-<release>.exe
 rem
 rem   1. Copies src\ + distros\ to C:\Temp\igloo-build  (publishing straight
 rem      from this checkout fails: the SDK's publish Copy step chokes on the
 rem      apostrophe in a profile name such as "O'Connor" with MSB3094 - SDK quirk, not ours)
-rem   2. Reads the version from src\Igloo.Community.App\Igloo.Community.App.csproj (<Version>)
+rem   2. Reads the release name from src\Igloo.Community.App\Igloo.Community.App.csproj (<IglooRelease>)
 rem   3. dotnet publish  (win-x64, self-contained - this is what makes the
 rem      installer work on PCs WITHOUT .NET installed; a plain VS build does
 rem      NOT produce this payload)
 rem   4. Copies the publish output into installer\publish
 rem   5. Compiles installer\iGloo.iss with Inno Setup
 rem
-rem Result: installer\output\iGloo-Setup-<version>.exe + SHA256 on screen.
+rem Result: installer\output\iGloo-Community-<release>.exe + SHA256 on screen.
 rem
-rem Version bumps: edit <Version> in src\Igloo.Community.App\Igloo.Community.App.csproj only.
-rem (iGloo.iss picks it up via /DIglooVersion; update VersionInfoVersion in
-rem the .iss by hand when major.minor changes.)
+rem A new release: edit <IglooRelease> in src\Igloo.Community.App\Igloo.Community.App.csproj only.
+rem (iGloo.iss picks it up via /DIglooVersion; <Version> there and VersionInfoVersion in
+rem the .iss are the numbers of the program file and change by hand.)
 rem ==========================================================================
 
 set "ROOT=%~dp0.."
@@ -48,11 +48,11 @@ copy /y "%ROOT%\Directory.Build.props" "%BUILD%\" >nul
 copy /y "%ROOT%\.editorconfig" "%BUILD%\" >nul
 rem robocopy exit codes 0-7 are success; do not errorlevel-check them
 
-echo [2/5] Versie lezen uit csproj ...
+echo [2/5] Releasenaam lezen uit csproj ...
 set "PSH=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-for /f "usebackq delims=" %%v in (`%PSH% -NoProfile -Command "([xml](Get-Content '%BUILD%\src\Igloo.Community.App\Igloo.Community.App.csproj')).Project.PropertyGroup.Version | Select-Object -First 1"`) do set "VER=%%v"
-if "%VER%"=="" (echo FOUT: geen versie gevonden & exit /b 1)
-echo     Versie: %VER%
+for /f "usebackq delims=" %%v in (`%PSH% -NoProfile -Command "([xml](Get-Content '%BUILD%\src\Igloo.Community.App\Igloo.Community.App.csproj')).Project.PropertyGroup.IglooRelease | Select-Object -First 1"`) do set "VER=%%v"
+if "%VER%"=="" (echo FOUT: geen releasenaam gevonden & exit /b 1)
+echo     Release: %VER%
 
 echo [3/5] dotnet publish (win-x64, self-contained) ...
 pushd "%BUILD%"
@@ -73,7 +73,7 @@ if not exist "%ISCC%" (echo FOUT: Inno Setup niet gevonden op %ISCC% & exit /b 1
 if errorlevel 1 (echo FOUT: ISCC mislukt & exit /b 1)
 
 echo.
-echo Klaar: installer\output\iGloo-Setup-%VER%.exe
+echo Klaar: installer\output\iGloo-Community-%VER%.exe
 echo SHA256:
-certutil -hashfile "%~dp0output\iGloo-Setup-%VER%.exe" SHA256 | findstr /v ":"
+certutil -hashfile "%~dp0output\iGloo-Community-%VER%.exe" SHA256 | findstr /v ":"
 endlocal

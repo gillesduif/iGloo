@@ -1,7 +1,7 @@
 ; ============================================================================
-; iGloo installer script (Inno Setup 6)
+; iGloo Community installer script (Inno Setup 6)
 ; ----------------------------------------------------------------------------
-; Builds iGloo-Setup-<version>.exe from a `dotnet publish` output folder.
+; Builds iGloo-Community-<release>.exe from a `dotnet publish` output folder.
 ;
 ; 1. Publish (self-contained, includes the distros\ tree):
 ;      dotnet publish src\Igloo.Community.App\Igloo.Community.App.csproj -c Release -r win-x64 ^
@@ -28,23 +28,24 @@
   #define IglooPublishDir "publish"
 #endif
 #ifndef IglooVersion
-  #define IglooVersion "0.3-beta"
+  #define IglooVersion "beta1"
 #endif
 
 [Setup]
 AppId={{7B4E9C2A-6F3D-4A1B-9E5C-2D8F0A3B6C71}
-AppName=iGloo
+AppName=iGloo Community
 AppVersion={#IglooVersion}
-; Display name in "Apps & Features" is just "iGloo" - the version has its own
-; column there and does not belong in the product name.
-AppVerName=iGloo
+; The name in Installed apps carries no release: that list has a column for it.
+AppVerName=iGloo Community
 AppPublisher=Gilles D'huyvetter
 AppPublisherURL=https://github.com/gillesduif/iGloo
+; The folder and the program file keep their names: the sign-in task and installations of earlier builds point at them.
 DefaultDirName={autopf}\iGloo
-DefaultGroupName=iGloo
+; One shortcut in the Start menu, no folder around it.
+DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
 OutputDir=output
-OutputBaseFilename=iGloo-Setup-{#IglooVersion}
+OutputBaseFilename=iGloo-Community-{#IglooVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -64,14 +65,19 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 [Files]
 Source: "{#IglooPublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "__pycache__\*,*.pyc"
 
+[InstallDelete]
+; Shortcuts of builds that called the program iGloo.
+Type: filesandordirs; Name: "{autoprograms}\iGloo"
+Type: files; Name: "{autodesktop}\iGloo.lnk"
+
 [Icons]
-Name: "{group}\iGloo"; Filename: "{app}\iGloo.exe"
-Name: "{autodesktop}\iGloo"; Filename: "{app}\iGloo.exe"; Tasks: desktopicon
+Name: "{autoprograms}\iGloo Community"; Filename: "{app}\iGloo.exe"
+Name: "{autodesktop}\iGloo Community"; Filename: "{app}\iGloo.exe"; Tasks: desktopicon
 
 [Run]
 ; shellexec is required: iGloo.exe has requireAdministrator in its manifest and a
 ; plain CreateProcess cannot raise a UAC prompt (error 740 on the finish page).
-Filename: "{app}\iGloo.exe"; Description: "Launch iGloo"; Flags: nowait postinstall skipifsilent shellexec
+Filename: "{app}\iGloo.exe"; Description: "Launch iGloo Community"; Flags: nowait postinstall skipifsilent shellexec
 
 [Registry]
 ; Holds the Fast Startup value from before a dual-boot installation; kept while Linux may still need it.

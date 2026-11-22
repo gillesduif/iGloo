@@ -20,6 +20,11 @@
     <!-- The [LibraryImport] source generator emits unsafe marshalling stubs. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>0.3-beta</Version>
+    <!-- The name of this release in the Setup's file name and in Installed apps; the build scripts read it here. -->
+    <IglooRelease>beta1</IglooRelease>
+    <!-- What Windows shows for the program: the UAC prompt, Task Manager and the file's properties. -->
+    <Product>iGloo Community</Product>
+    <AssemblyTitle>iGloo Community</AssemblyTitle>
     <AssemblyName>iGloo</AssemblyName>
     <ApplicationIcon>iGloo.ico</ApplicationIcon>
   </PropertyGroup>
