@@ -510,6 +510,8 @@ Evidence: two screenshots by the owner. No wizard log of this attempt was handed
 
 **Open, for the owner.** Every Debian point release, about one in two months, now needs new pins and a new package. Following Debian without one means reading the pair's hashes from the signed archive index at run time: a change to `InstallerBootSpec`, which the frozen contract covers, and the archive keys as a second trust anchor. Not started.
 
+**The r33 package (`eb81009`).** `artifacts\r33-eb81009\` and `artifacts\r33-eb81009.iso` in the main checkout. The published Debian manifest names `13.8.0` and the published plugin holds the new kernel pin and not the old one. The guides of r30, r31 and r32 ended with the ISO hash of r29; the line now gives each its own, as the `.iso.sha256` files always did.
+
 ## Read in source, not changed
 
 - **Browser locks (B-03).** `CopyLockedChromiumDatabase` covers `SQLITE_BUSY`/`SQLITE_LOCKED`. A database Windows refuses to open (`SQLITE_CANTOPEN` → `BrowserInUse` in `LoginDataReader.ReadConnectionWithoutSharedMemory`), a non-database profile file held open for writing (`CopyFileAsync` opens the source with `FileShare.Read`) and Firefox profile files in the same position still raise `BrowserProfileStagingException`, which removes the generation and ends staging. Whether a running Edge or Chrome produces these today is not verified.
