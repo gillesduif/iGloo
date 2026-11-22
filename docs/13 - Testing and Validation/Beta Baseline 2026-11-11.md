@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-22
-reviewed_commit: 7a80f61a5ab604091b95d19088eaeda809320895
+reviewed_commit: 3fc4ba115889b97e195239ddd2fe3e463f898275
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -447,6 +447,18 @@ Changes after this run (script tests, L1):
 **The r30 package (`1f1a80a`).** `artifacts\r30-1f1a80a\` and `artifacts\r30-1f1a80a.iso`. Its `COMMIT.txt` names that commit but carries the date and subject of `a31db92`, a documentation commit that another session made in the same working tree while the build ran. Checked after the build: each of the 656 files the build copied equals the blob of the same path in `1f1a80a`. The folder is frozen and was left as it is. The same file shows the branch `docs/developer-tone`: the working tree had been switched to it before `cb042e3`, so the commits of this section were made on that branch, on top of `21f3bc9`, the tip of `refactor/community-fleet-foundation` at the time. The owner had them put on `refactor/community-fleet-foundation` the same day; there `cb042e3`, `8ef0c02`, `c6a84de`, `7a80f61`, `1f1a80a` and `03e8aa3` are `8ee5921`, `17de4e0`, `cb5a697`, `248752e`, `497b393` and `9d9d296`. The two tips differ only in the 22 documentation files of the other session's commits; every file under `src`, `distros`, `tests`, `installer` and `tools` is the same, so the gate and the r30 package hold for both. The hashes elsewhere in this section are those the package was built from.
 
 **Changes in the installer (`cb042e3`; L1).** Every refusal of the validator names its subject with the characters escaped, and an entry the partition does not show comes with what its folder holds; the first-boot check names the entry too. The validator admitted 10,000 files, 20,000 entries and 2,000,000 path characters where the writer and both first-boot checks admit 1,000,000, 2,000,000 and 256,000,000, the cap B-00c raised on the Windows side after the 10,218-file run; they are now the same and a test reads the four places. Gate: seven test projects built `-warnaserror` clean and passed, 2,124 tests, 2,123 passed, 1 skipped, and 43 agent test scripts pass in WSL. `Igloo.Command.Tests` did not build: in the working tree `Igloo.One.App` had been moved to `src/` by the owner while `Igloo.sln` and that test project name the old place, so the solution as a whole did not build there. No package was built from this commit.
+
+## The r30 Fedora run of 22 Nov
+
+**Observed (owner's screenshot; L3 for the stop).** With r30, Fedora's pre-install script ran from 16:33:58 to 16:34:12 and did not stop: the seed check passed in a VM for the first time. Anaconda then refused the kickstart, `Unknown command: Opera|browser-profiles/AppData/Roaming/Opera` on line 24, and ended. Not reported: whether the run with the two reported files still in Downloads was made, and what the wizard said there.
+
+**Cause (read in source; reproduced in a test, L1).** The template's header comment listed every placeholder with its braces, and the renderer replaces a placeholder wherever it stands. `STAGED_CHROMIUM_MAP` carries one line for each selected Chromium browser; with Edge and Opera the comment on line 23 became two lines and the second, line 24, was no comment. The tests rendered one Chromium and one Gecko browser, which does not show it. The same held for the Gecko map.
+
+**Change (`3fc4ba1`; L1).** The header names the placeholders without their braces. Two tests: the template has no placeholder on a comment line, and a rendering with two browsers of each kind, two folders and two open networks has only comments above `cmdline` and only kickstart commands up to the first section. Both fail against the old template, run against it in the build output, and pass against the new one. The templates of Debian, Mint and Ubuntu carry no placeholder on a comment line.
+
+**A fresh checkout (`2294daa`).** This gate was the first one run in a new worktree, and two things failed there that the long-lived checkout had hidden. The reviewed Fedora fixture is compared byte for byte with a rendering that ends its lines with LF, and Git had checked it out with CRLF. A solution build made the stream fixture of `Igloo.Command.Tests` in Debug, because that project is not in the solution, so a Release test run did not find it and three tests failed. `.gitattributes` now keeps the fixture LF and the test project passes its configuration on. Gate at `3fc4ba1`: build `-warnaserror` clean, 2,330 tests, 2,329 passed, 0 failed, 1 skipped; 43 agent test scripts pass in WSL.
+
+**Not verified.** No kickstart parser read the rendered file: pykickstart is not installed in WSL, so the first reader is again Anaconda in the owner's VM. Nothing behind the reading of the kickstart (storage, packages, `%post`, first boot) has run in a VM on this branch.
 
 ## Read in source, not changed
 
