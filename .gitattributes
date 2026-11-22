@@ -7,6 +7,9 @@
 *.sh text eol=lf
 *.py text eol=lf
 
+# Compared byte for byte with what the Fedora renderer writes, which ends its lines with LF.
+tests/installer/FedoraDeferredReviewedFixture.ks text eol=lf
+
 # Hash-bound evidence: preserve bytes, including absent terminal newline.
 docs/architecture/debian-root-chunk-transport-manifest.json -text
 
