@@ -141,6 +141,9 @@ def _write_dropin(b: Boot, variant: str, themed: bool, single_entry: bool,
             "# Fallback: 10_linux could not be patched, so no clean single entry.",
             "GRUB_DISABLE_SUBMENU=y",
         ]
+    elif collapse:
+        # The patched 10_linux prints its one entry in the branch Fedora's default of true skips.
+        lines.append("GRUB_DISABLE_SUBMENU=false")
     if themed:
         lines.append(f"GRUB_THEME={b.themes_dir.as_posix()}/theme.txt")
     _DROPIN.parent.mkdir(parents=True, exist_ok=True)
@@ -330,17 +333,11 @@ def _regenerate(b: Boot, *, require_windows: bool = False) -> None:
         require_windows_boot_entry(b.grub_cfg)
 
 
-def _uses_text_terminal(cfg: str) -> bool:
-    """Recognize an explicit GRUB text/serial terminal in generated output.
-
-    Fedora preserves the serial console selected for unattended VM installs.
-    GRUB cannot render a graphical theme there, and replacing that terminal
-    would remove the recovery console. Multiple output directives are left
-    ambiguous so the normal theme verification still runs.
-    """
+def _uses_serial_terminal(cfg: str) -> bool:
+    """A serial line among GRUB's outputs, which a graphical theme would take away; Fedora's stock `console` is not one."""
     outputs = [line.strip().split()[1:] for line in cfg.splitlines()
                if line.strip().startswith("terminal_output ")]
-    return len(outputs) == 1 and bool(outputs[0]) and "gfxterm" not in outputs[0]
+    return len(outputs) == 1 and "serial" in outputs[0] and "gfxterm" not in outputs[0]
 
 
 def _verify(b: Boot, themed: bool) -> None:
@@ -354,8 +351,8 @@ def _verify(b: Boot, themed: bool) -> None:
     # Two different failures look identical in grub.cfg, so split them here.
     if "stylish/theme.txt" in cfg:
         b.logger.info("verified: the iGloo theme is referenced in grub.cfg")
-    elif themed and _uses_text_terminal(cfg):
-        b.logger.info("iGloo theme installed; GRUB uses a text/serial terminal "
+    elif themed and _uses_serial_terminal(cfg):
+        b.logger.info("iGloo theme installed; GRUB writes to a serial console "
                       "and keeps that recovery console")
     elif not themed:
         b.logger.error("no theme in grub.cfg because none was installed - the theme "
@@ -737,7 +734,7 @@ def configure_boot_menu(manifest: dict[str, Any], b: Boot,
         cfg = b.grub_cfg.read_text(encoding="utf-8", errors="replace")
     except OSError:
         cfg = ""
-    if themed and "stylish/theme.txt" not in cfg and not _uses_text_terminal(cfg):
+    if themed and "stylish/theme.txt" not in cfg and not _uses_serial_terminal(cfg):
         b.logger.warning("grub.d drop-in not sourced - falling back to /etc/default/grub")
         try:
             body = _DROPIN.read_text(encoding="utf-8")
