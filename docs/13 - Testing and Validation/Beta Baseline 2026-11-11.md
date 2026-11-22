@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-22
-reviewed_commit: eda2f2c9f723c98315d4ae263e2099a3506351dc
+reviewed_commit: cb042e37f447ec67cfc9a2825265c928fbab899a
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -427,6 +427,20 @@ Changes after this run (script tests, L1):
 **The name in the public texts (`eda2f2c`, 22 Nov; text only, L0).** The README names the Setup file `iGloo-Community-<release>.exe` and keeps `iGloo-Setup-0.2-alpha.exe` for the release that is on GitHub today; its caution says `iGloo Community is pre-release software` where it said `iGloo is alpha software`. The bug form asks for the `iGloo Community release or commit` with `beta1` as its example, and `docs/code/README.md` names the file that `build-setup.bat` writes. Left as they are: the product table's `0.2-alpha released`, which is still the released version, and RELEASE-NOTES.md, which is the record of 0.2-alpha with that file's own name and SHA-256. Notes for beta1 do not exist: there is no release build to hash and the beta definition is not met while Fedora is unverified. `scripts/validate_docs_vault.py` reports 28 missing link targets, none of them in a file changed here.
 
 **Not verified.** That Fedora's installer now accepts the owner's files, and that a Fedora installation completes at all: nothing behind this point of `%pre` has run in a VM on this branch. That a loop device can be attached in the installer environment. The sign-in task on a machine: no run has reached it with the mark set. That a finished installation with the mark on its seed removes the partition (script fixture only).
+
+## The r29 Fedora run of 22 Nov
+
+**Observed (owner's screenshot; L3 for the stop).** Fedora's pre-install script ran from 14:17:36 to 14:17:38 and stopped in the seed validator at its line 226, `Unsafe or duplicated OEMDRV file identity`, before anything was written. The path check that stopped r27 was passed. The message named no file.
+
+**Read after it.** That line refuses an identity entry that is listed twice, has no SHA-256, or is neither a bound input, a selected image, a first-boot agent file nor a user file the partition shows. `SeedIdentityWriter` cannot write the first two kinds and applies the installer's own rule to agent paths (read in source), which leaves a user file that Windows listed when it wrote the identity and that Linux does not show under the same name. For the names: Microsoft's FAT driver sample (`fastfat/namesup.c`, `FatEvaluateNameCase`) gives a name with any character from U+0080 a long name unless a registry value turns that off, and Linux `fs/fat` (6.6 and 6.19, alike in this) lists a long name through `utf16s_to_utf8s` under `utf8` and a short one by its case bits under the default `shortname=mixed`. By that reading both sides take the same names from the same directory entries (L0).
+
+**The owner's files.** The r25 Mint evidence (`migration/home-two-levels.txt`) lists what this guest carries: one shortcut on the Desktop, seven files and two folders in Downloads, two files and one folder in Pictures, and the profiles of Edge and Opera. One file is `𝗞𝗠𝗦𝗘𝗟𝗗𝗜.exe`, seven letters outside the basic plane, which the installer's own mount shows as question marks; that accounts for the r27 stop. Probe (L2; WSL kernel 6.6.87, Python 3.14.4): that name as a FAT long name, mounted through a read-only loop device with the validator's options, reads back equal to the name as `System.Text.Json` writes it into the identity and Python reads it. So that name does not account for the r29 stop. What the three folders hold is not in the evidence.
+
+**Not established.** Which entry was refused, and why. A file that left the partition after the identity was written would give this stop; nothing shows that this happened.
+
+**Changes (`cb042e3`; L1).** Every refusal of the validator names its subject with the characters escaped, and an entry the partition does not show comes with what its folder holds; the first-boot check names the entry too. The validator admitted 10,000 files, 20,000 entries and 2,000,000 path characters where the writer and both first-boot checks admit 1,000,000, 2,000,000 and 256,000,000, the cap B-00c raised on the Windows side after the 10,218-file run; they are now the same and a test reads the four places. Gate: seven test projects built `-warnaserror` clean and passed, 2,124 tests, 2,123 passed, 1 skipped, and 43 agent test scripts pass in WSL. `Igloo.Command.Tests` did not build: in the working tree `Igloo.One.App` had been moved to `src/` by the owner while `Igloo.sln` and that test project name the old place, so the solution as a whole did not build there. No package was built from this commit.
+
+**Asked of the owner.** `artifacts\r29-seed-check.ps1`, run in the guest's Windows, compares the identity with what the partition holds, lists the names with every character escaped and reads the detections of Windows Security; it writes to the Desktop and changes nothing.
 
 ## Read in source, not changed
 
