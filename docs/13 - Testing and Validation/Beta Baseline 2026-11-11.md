@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-22
-reviewed_commit: 64cf89d1322034f4d13d60da17239685d22be8d3
+reviewed_commit: 6b459cd6814a07ccf4a3c96504486144a14d272b
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -393,6 +393,34 @@ Changes after this run (script tests, L1):
 **Not changed, and open.** The installer stays first in `BootOrder` after a failed attempt, so every start passes this menu until a new attempt or a removal in System Check; another Linux on the machine is then reachable only through the firmware menu. The `halt` branches. The Windows task at sign-in does nothing while the installer partition is there.
 
 **Not verified.** No GRUB was run: that the firmware of the guest accepts the write, that the second start selects Windows, and that Windows starts from the chain-load.
+
+## r27 in the VMware guest, 22 November (Fedora stopped again; its reason and the fall-back to Windows seen)
+
+**[Observed by the owner: one screenshot and one sentence, L3]** Build `r27-9826fce`, Fedora KDE with Debian and Linux Mint still installed. No evidence folder and no wizard log.
+
+- **The stop explains itself (L3 for `73a8f5b`).** Above Anaconda's traceback the installer screen shows `iGloo stopped the installation before anything was written to the disk (status 1).`, the last lines of `/tmp/igloo-pre.log` and `Restart the computer to return to Windows.` Whether the installer's log tab carries the same lines was not looked at.
+- **The reason.** `File "/tmp/igloo-validate-seed.py", line 204 … selected_user = selected_user_paths()`, `line 172 … RuntimeError: Selected OEMDRV user-data path is unsafe`. Line 172 is the walk over `files/` and `browser-profiles/` on the seed: a name found there failed `safe_user_path`.
+- **The fall-back (L3 for `64cf89d`).** The owner: after the stop the guest "boots immediately to Windows". So GRUB wrote its mark through this firmware and the chain-load starts Windows. Whether the menu was shown and for how long was not reported.
+
+**Cause (read in source; mechanism observed in a probe, L2).**
+
+- The validator's rules for a name are those of the wizard's `SafeDataSegment`, compared line by line, and the wizard had accepted the same tree before it wrote the seed. The browser staging copies a fixed list of ASCII names and `Sessions`; most of the 760 staged files come from the four selected folders.
+- Anaconda's initramfs mounts the seed as its stage-2 source with `mount -o ro "$dev" "$repodir"` and no character set (read in anaconda 44.30).
+- Probe in WSL, kernel 6.6.87, whose FAT defaults are `iocharset=ascii` without `utf8`: a FAT image with a file `café.txt` lists it as `caf?.txt` under a default mount; a second mount of the same device with `utf8` keeps the options of the first and the `?`; a mount through a second read-only loop device with `utf8` lists `café.txt`.
+- So under the installer every name on the seed with a character outside ASCII carries a `?`, which the validator refuses and which could not have matched the seed's identity either. Debian and Linux Mint keep user data off the seed and never met this.
+- **Not established:** that the name refused in the owner's run is such a name, since the message did not print it; and what the FAT defaults of Fedora's installer kernel are.
+
+**Changes (unit and script tests, L1).**
+
+- `4162396`: `%pre` and `%post` attach a read-only loop device over the seed partition and mount that with `utf8`; a stop in between releases it, because a loop device left behind is a second device with the seed's label. The three mounts of the seed in Fedora's first-boot agent ask for `utf8` as well. The validator's message now ends in the refused path, written with `ascii()`. `fedora_seed_mount_test.py` runs the lines under bash against stand-ins and holds the order of the calls.
+- `661bbb6`: a fault of `64cf89d`, found by the reviewer below and not met in a run, because no installation finished with r27. `foreign_seed_files` in the shared agent counts every file on the seed that neither its identity nor its reuse receipt lists, and the new `igloo-boot/grubenv` is in neither, so the first boot of a finished installation would have kept the installer partition and its entries ("holds 1 file(s) iGloo did not write"). The agent now knows that one name; the fixture of `seed_cleanup_test.py` carries the file. My audit of `64cf89d` had covered the seed verifiers and not this function.
+- `6b459cd`, decided by the owner on 22 Nov: the Windows task at sign-in also removes the BCD entry, the firmware entries that name the installer partition and itself when that partition is still there and the menu's mark says the installer was started (`BootCleanupOutcome.RegistrationUndone`). The partition stays for a new attempt. While the partition is there the task stays until no firmware entry names it any more.
+
+**Review of `6b459cd` (one read-only reviewer; nothing run).** No path was found in which the mark is already set when a new registration is made: every variant of `Prepare` ends in the one `ConfigureBootFiles`, whose last statement writes the block afresh, and a registration needs a finished `Prepare` in the same process. A Windows sign-in before the first boot of a finished installation is harmless: the agents treat missing firmware entries as nothing to do, and the task only reads the seed. Taken from it: the fault above; two exception types of a malformed volume path; the task no longer goes while a firmware entry survives its delete; a test of the volume lookup. Left as it is: the volume is not checked to be the seed beyond its GPT GUID and the block's signature; firmware that makes its own entry for the fall-back loader will make it again, at a place in the order the task cannot know.
+
+2,308 tests, 2,307 passed, 0 failed, 1 skipped; build `-warnaserror` clean; 42 agent test scripts pass in WSL.
+
+**Not verified.** That Fedora's installer now accepts the owner's files, and that a Fedora installation completes at all: nothing behind this point of `%pre` has run in a VM on this branch. That a loop device can be attached in the installer environment. The sign-in task on a machine: no run has reached it with the mark set. That a finished installation with the mark on its seed removes the partition (script fixture only).
 
 ## Read in source, not changed
 
