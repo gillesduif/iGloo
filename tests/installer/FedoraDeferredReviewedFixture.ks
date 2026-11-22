@@ -257,40 +257,41 @@ def selected_user_paths():
         pending = [namespace_root]
         while pending:
             for item in pending.pop().iterdir():
-                if item.is_symlink():
-                    raise RuntimeError("Selected OEMDRV user data contains a redirected entry")
                 relative = item.relative_to(seed).as_posix()
+                if item.is_symlink():
+                    raise RuntimeError("Selected OEMDRV user data contains a redirected entry: " + ascii(relative))
                 if not safe_user_path(relative):
                     raise RuntimeError("Selected OEMDRV user-data path is unsafe: " + ascii(relative))
                 alias = unicodedata.normalize("NFC", relative).casefold()
                 entries_seen += 1
-                if alias in aliases or entries_seen > 20000:
-                    raise RuntimeError("Selected OEMDRV user-data inventory is ambiguous or excessive")
+                if alias in aliases or entries_seen > 2000000:
+                    raise RuntimeError("Selected OEMDRV user-data inventory is ambiguous or excessive at entry %d: %s"
+                                       % (entries_seen, ascii(relative)))
                 aliases.add(alias)
                 if item.is_dir():
                     if not any(relative == root or relative.startswith(root + "/") or
                                root.startswith(relative + "/") for root in chosen):
-                        raise RuntimeError("OEMDRV contains an unselected user-data directory")
+                        raise RuntimeError("OEMDRV contains an unselected user-data directory: " + ascii(relative))
                     directories.add(relative)
                     pending.append(item)
                 elif item.is_file():
                     if not any(relative.startswith(root + "/") for root in chosen):
-                        raise RuntimeError("OEMDRV contains an unselected user-data file")
+                        raise RuntimeError("OEMDRV contains an unselected user-data file: " + ascii(relative))
                     path_characters += len(relative)
-                    if len(observed) >= 10000 or path_characters > 2000000:
+                    if len(observed) >= 1000000 or path_characters > 256000000:
                         raise RuntimeError("Selected OEMDRV user-data inventory is too large")
                     observed.add(relative)
                 else:
-                    raise RuntimeError("Selected OEMDRV user data contains a special entry")
+                    raise RuntimeError("Selected OEMDRV user data contains a special entry: " + ascii(relative))
     for root in roots:
         selected = seed / root
         if selected.is_symlink() or not selected.is_dir():
-            raise RuntimeError("Selected OEMDRV user-data directory is missing")
+            raise RuntimeError("Selected OEMDRV user-data directory is missing: " + ascii(root))
     for directory in directories:
         if (not any(directory == root or root.startswith(directory + "/")
                     for root in roots) and
                 not any(path.startswith(directory + "/") for path in observed)):
-            raise RuntimeError("Selected OEMDRV user data contains an unbound empty directory")
+            raise RuntimeError("Selected OEMDRV user data contains an unbound empty directory: " + ascii(directory))
     return observed
 
 selected_user = selected_user_paths()
@@ -304,18 +305,32 @@ def safe_provider_path(name):
             and parts[0].lower() not in {"files", "browser-profiles", "efi",
                                          "images", "igloo-boot"})
 
+# What the partition shows where a named file should be; names only, and only for a path that stays inside it.
+def shown_beside(name):
+    if not safe_user_path(name):
+        return ""
+    folder = seed / os.path.dirname(name)
+    if folder.is_symlink() or not folder.is_dir():
+        return "; its folder is not on the partition"
+    names = sorted(os.listdir(folder))
+    return "; its folder holds %d entries, the first are %s" % (len(names), ascii(names[:20]))
+
 for entry in entries:
     if not isinstance(entry, dict):
         raise RuntimeError("Malformed OEMDRV file identity")
     name, expected_hash = entry.get("path"), entry.get("sha256")
-    if (not isinstance(name, str) or
-            (name not in bound_inputs and name not in selected_media
-             and name not in selected_user
-             and not safe_provider_path(name)) or
-            name in seen or
-            not isinstance(expected_hash, str) or
+    if not isinstance(name, str):
+        raise RuntimeError("Malformed OEMDRV file identity")
+    if name in seen:
+        raise RuntimeError("OEMDRV file identity names a file twice: " + ascii(name))
+    if (not isinstance(expected_hash, str) or
             re.fullmatch(r"[0-9A-F]{64}", expected_hash) is None):
-        raise RuntimeError("Unsafe or duplicated OEMDRV file identity")
+        raise RuntimeError("OEMDRV file identity has no SHA-256 for: " + ascii(name))
+    if (name not in bound_inputs and name not in selected_media
+            and name not in selected_user
+            and not safe_provider_path(name)):
+        raise RuntimeError("OEMDRV file identity names a file the partition does not show: "
+                           + ascii(name) + shown_beside(name))
     seen.add(name)
     path = seed / name
     if path.is_symlink() or not path.is_file():
@@ -332,9 +347,12 @@ if not {"migration-manifest.json", "ks.cfg"}.issubset(seen):
 bound_media = {name for name in seen if name.lower().startswith(
     "igloo-wallpaper.") or name.lower() == "igloo-avatar.jpg"}
 if bound_media != selected_media:
-    raise RuntimeError("Selected OEMDRV media differs from its identity")
-if {name for name in seen if name in selected_user} != selected_user:
-    raise RuntimeError("Selected OEMDRV user data differs from its identity")
+    raise RuntimeError("Selected OEMDRV media differs from its identity: the manifest selects %s, the identity binds %s"
+                       % (ascii(sorted(selected_media)), ascii(sorted(bound_media))))
+unbound_user = sorted(selected_user - seen)
+if unbound_user:
+    raise RuntimeError("Selected OEMDRV user data differs from its identity: %d files on the partition are not named, the first are %s"
+                       % (len(unbound_user), ascii(unbound_user[:10])))
 agent_root = seed / "igloo-agent"
 if not agent_root.is_dir() or agent_root.is_symlink():
     raise RuntimeError("OEMDRV first-boot agent directory is unavailable")
@@ -346,7 +364,8 @@ for path in agent_root.iterdir():
 bound_agent = {name for name in seen if name.startswith("igloo-agent/")}
 if (actual_agent != bound_agent or
         not {"igloo-agent/" + name for name in required_agent}.issubset(bound_agent)):
-    raise RuntimeError("OEMDRV first-boot agent inventory differs from its identity")
+    raise RuntimeError("OEMDRV first-boot agent inventory differs from its identity: on one side only %s"
+                       % ascii(sorted(actual_agent ^ bound_agent)[:10]))
 print(str(disk))
 IGLOO_SEED_VALIDATOR
 

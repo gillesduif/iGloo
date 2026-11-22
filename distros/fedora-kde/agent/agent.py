@@ -2575,14 +2575,19 @@ def _read_bound_seed_files(seed_root: Path, seed_device: str,
         if not isinstance(entry, dict):
             raise RuntimeError("Installer seed file identity is malformed")
         relative, expected_sha = entry.get("path"), entry.get("sha256")
-        if (not isinstance(relative, str)
-                or (relative not in _BOUND_SEED_FILES
-                    and relative not in selected_media
-                    and relative not in selected_user
-                    and not _safe_bound_provider_path(relative)) or relative in seen
-                or not isinstance(expected_sha, str)
+        if not isinstance(relative, str):
+            raise RuntimeError("Installer seed file identity is malformed")
+        if relative in seen:
+            raise RuntimeError("Installer seed file identity names a file twice: " + ascii(relative))
+        if (not isinstance(expected_sha, str)
                 or re.fullmatch(r"[0-9A-F]{64}", expected_sha) is None):
-            raise RuntimeError("Installer seed file identity is unsafe or duplicated")
+            raise RuntimeError("Installer seed file identity has no SHA-256 for: " + ascii(relative))
+        if (relative not in _BOUND_SEED_FILES
+                and relative not in selected_media
+                and relative not in selected_user
+                and not _safe_bound_provider_path(relative)):
+            raise RuntimeError("Installer seed file identity names a file the partition does not show: "
+                               + ascii(relative))
         seen.add(relative)
         actual_sha = _hash_bound_file(seed_root / relative)
         if (actual_sha != expected_sha
