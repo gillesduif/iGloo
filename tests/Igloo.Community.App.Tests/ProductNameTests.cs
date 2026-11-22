@@ -69,6 +69,22 @@ public sealed class ProductNameTests
     }
 
     [Fact]
+    public void The_program_file_and_the_setup_file_carry_the_number_of_the_release()
+    {
+        var project = XDocument.Load(Path.Join(Repository(), "src", "Igloo.Community.App", "Igloo.Community.App.csproj"));
+        var version = project.Descendants("Version").Single().Value;
+        var release = project.Descendants("IglooRelease").Single().Value;
+
+        // 1.0.0-beta.1 for the release beta1: three numbers, then the release with a dot before its count.
+        var parts = version.Split('-', 2);
+        parts.Should().HaveCount(2);
+        parts[0].Should().MatchRegex("^[0-9]+\\.[0-9]+\\.[0-9]+$");
+        parts[1].Replace(".", string.Empty, StringComparison.Ordinal).Should().Be(release);
+        Installer().Should().Contain("VersionInfoVersion=" + parts[0] + ".0");
+        typeof(AutoPlayGate).Assembly.GetName().Version.Should().Be(new Version(parts[0] + ".0"));
+    }
+
+    [Fact]
     public void Every_window_carries_the_full_name_in_the_taskbar()
     {
         var app = Path.Join(Repository(), "src", "Igloo.Community.App");

@@ -19,7 +19,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- The [LibraryImport] source generator emits unsafe marshalling stubs. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>0.3-beta</Version>
+    <!-- The number of the program file; VersionInfoVersion in installer\iGloo.iss carries the same one. -->
+    <Version>1.0.0-beta.1</Version>
     <!-- The name of this release in the Setup's file name and in Installed apps; the build scripts read it here. -->
     <IglooRelease>beta1</IglooRelease>
     <!-- What Windows shows for the program: the UAC prompt, Task Manager and the file's properties. -->
