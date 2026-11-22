@@ -7,8 +7,8 @@ doc_status: current
 validation_status: partial
 availability: branch-only
 graph_cluster: delivery
-last_reviewed: 2026-11-18
-reviewed_commit: f1160c4e503b8e9f7ffff18b92408c289b77ba8f
+last_reviewed: 2026-11-22
+reviewed_commit: 64cf89d1322034f4d13d60da17239685d22be8d3
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -369,6 +369,30 @@ Changes after this run (script tests, L1):
 2,298 tests, 2,297 passed, 0 failed, 1 skipped; build `-warnaserror` clean; 41 agent test scripts pass in WSL. One fetch was delegated, for the anaconda source.
 
 **Not verified.** Why Fedora's `%pre` stopped. That its message reaches the screen under Anaconda: the script must still have the installer's terminal as its controlling terminal, and the code that starts it was not read. Fedora beside a second ESP, in any form. For Mint: that Debian still starts, and the Windows side of the run.
+
+## A failed installation kept starting the installer, 18 November (owner's screenshot; unit tests, L1)
+
+**[Observed by the owner, r26]** After the Fedora stop every restart of the guest showed the installer's own menu, `Install Fedora KDE (Igloo)` as its only entry, and started the installer again after 5 s. Windows could be reached only through the firmware's boot menu.
+
+**Cause (read in source).** `RegisterBootEntry` sets `BootNext` and also puts the installer's entry first in `BootOrder` (`PrependBootOrder`, "for firmware that ignores BootNext but honours BootOrder"), and raises every other entry that names the installer partition. That order is undone by the first boot of the installed system, by the Windows task at the next sign-in once the installer partition is gone, or by a removal in System Check. None of the three happens when the installation fails, so the installer stayed first. Unchanged since the alpha.
+
+**Change (`64cf89d`).** The registration is left as it is. The menu on the installer partition now holds the state:
+
+- `igloo-boot/grubenv`, an empty GRUB environment block of 1024 bytes, is written with `grub.cfg` at every preparation.
+- The installer entry sets `igloo_attempted=1` in that file with `save_env` before it loads the kernel.
+- When the menu starts and reads `igloo_attempted=1`, the default entry is the new second one, `Windows`, which chain-loads `bootmgfw.efi`, with 10 s to choose the installer again. A finished installation removes the partition and never comes back to this menu.
+- A seed without the file gets the menu with the installer as default and no write, as before.
+- `BuildGrubConfig` now returns line feeds only, whatever the line endings of the checkout.
+
+**Review (one read-only reviewer, against GRUB 2.12 upstream, Fedora's `fedora-44` tree, Debian `2.12-9+deb13u2`, Ubuntu `2.12-1ubuntu7.3` and shim 16.0; nothing run).** The fragment parses; `load_env --file F VAR`, `save_env --file F VAR` and `[ -s (…)/file ]` are valid; a variable set in an entry is seen by `save_env` there; `default=1` is the second top-level entry. `envblk.c` accepts the block and the entry takes 18 of its 999 free bytes. `save_env` writes through FAT's read hook and `grub_efidisk_write`; lockdown does not touch this path, and `LOADENV`/`SAVEENV` files are among those shim does not verify. All commands are built into the signed images of the three distributions. A failing `save_env` prints its error, waits at most 10 s and the installer still starts. Raised by the reviewer: the reviewed seed writer does not write the file (hence the guard in the entry); the three `halt` branches that refuse an unproven seed come before the menu and power the machine off at every start; a firmware that refuses the write leaves the old behaviour; with `bootmgfw.efi` on two disks `search --file` may start the other Windows; the file must stay out of the reuse receipt, which `The_attempt_file_is_an_empty_grub_environment_block` now holds.
+
+2,300 tests, 2,299 passed, 0 failed, 1 skipped; build `-warnaserror` clean; 41 agent test scripts pass in WSL.
+
+**Audit per provider.** The menu is written by the Platform and is the same for Debian, Linux Mint and Fedora KDE; no provider file changed. The seed verifiers of the three bind only the files their identity lists, so the extra file does not trip them (read in source).
+
+**Not changed, and open.** The installer stays first in `BootOrder` after a failed attempt, so every start passes this menu until a new attempt or a removal in System Check; another Linux on the machine is then reachable only through the firmware menu. The `halt` branches. The Windows task at sign-in does nothing while the installer partition is there.
+
+**Not verified.** No GRUB was run: that the firmware of the guest accepts the write, that the second start selects Windows, and that Windows starts from the chain-load.
 
 ## Read in source, not changed
 
