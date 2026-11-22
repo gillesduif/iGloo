@@ -50,11 +50,34 @@ public sealed partial class DirectInstallService
             {
                 progress?.Report(new(DirectInstallPhase.CopyingIso, 0, 0,
                     "Downloading and verifying installer boot files…"));
-                await download(url, temporary, ct).ConfigureAwait(false);
-                using (var verified = new PinnedInstallerFile(temporary, hash, ct)) { }
+                // A pair that follows the distribution is fetched anew at each of its releases; its failures tell the user what to do.
+                try
+                {
+                    await download(url, temporary, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (bootSpec.MediaIndex is not null && !ct.IsCancellationRequested &&
+                    ex is HttpRequestException or HttpIOException or OperationCanceledException)
+                {
+                    throw InstallationRefusedException.InstallerFilesUnreachable(ex);
+                }
+                try
+                {
+                    using (var verified = new PinnedInstallerFile(temporary, hash, ct)) { }
+                }
+                catch (InvalidDataException) when (bootSpec.MediaIndex is not null)
+                {
+                    throw InstallationRefusedException.InstallerFilesOutOfStep();
+                }
                 RequirePlainCacheDirectory(cacheDirectory);
                 ct.ThrowIfCancellationRequested();
-                File.Move(temporary, cached, overwrite: true);
+                try
+                {
+                    File.Move(temporary, cached, overwrite: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && File.Exists(cached))
+                {
+                    // Another check fetched the same file and holds it open; it is hashed again as it is opened here.
+                }
                 return new PinnedInstallerFile(cached, hash, ct);
             }
             finally
@@ -88,9 +111,21 @@ public sealed partial class DirectInstallService
             FileAccess.Write, FileShare.None, 1024 * 1024, FileOptions.Asynchronous);
         var buffer = new byte[1024 * 1024];
         long total = 0;
-        int count;
-        while ((count = await source.ReadAsync(buffer, deadline.Token).ConfigureAwait(false)) != 0)
+        while (true)
         {
+            int count;
+            try
+            {
+                count = await source.ReadAsync(buffer, deadline.Token).ConfigureAwait(false);
+            }
+            // A lost connection is told apart from a failed write of the cache file below.
+            catch (IOException ex) when (ex is not HttpIOException)
+            {
+                throw new HttpIOException(HttpRequestError.ResponseEnded,
+                    "The connection was lost while an installer boot file was read.", ex);
+            }
+            if (count == 0)
+                break;
             total = checked(total + count);
             if (total >= Fat32MaxFileBytes)
                 throw new InvalidDataException("Installer boot media exceeds the FAT32 file-size limit.");
@@ -148,6 +183,13 @@ public sealed partial class DirectInstallService
         }
 
         public long Length => _source.Length;
+
+        internal string? ReadKernelRelease()
+        {
+            var release = LinuxKernelImage.ReadRelease(_source);
+            _source.Position = 0;
+            return release;
+        }
 
         internal void CopyTo(string destination, IProgress<DirectInstallProgress>? progress,
             CancellationToken ct)

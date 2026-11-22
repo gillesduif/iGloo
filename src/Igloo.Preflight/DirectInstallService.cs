@@ -228,11 +228,12 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     }
 
     // Everything besides the image itself that decides what MeasureIsoContent reads.
-    private static string MeasurementInputs(InstallerBootSpec bootSpec, PinnedExternalInstallerMedia? externalMedia) =>
+    internal static string MeasurementInputs(InstallerBootSpec bootSpec, PinnedExternalInstallerMedia? externalMedia) =>
         string.Join('|', bootSpec.KernelIsoPaths) + ";" + string.Join('|', bootSpec.InitrdIsoPaths) + ";" +
         string.Join('|', bootSpec.ExtraIsoFiles.Select(file =>
             file.IsoRelativePath + ">" + file.OemDrvRelativePath + (file.Required ? "!" : ""))) + ";" +
-        (externalMedia is null ? "" : FormattableString.Invariant($"{externalMedia.Kernel.Length}/{externalMedia.Initrd.Length}"));
+        (externalMedia is null ? "" : FormattableString.Invariant(
+            $"{externalMedia.Kernel.Length}/{externalMedia.Initrd.Length}/{bootSpec.KernelSha256}/{bootSpec.InitrdSha256}"));
 
     internal static DirectInstallSpaceEstimate PlanSpaceEstimate(InstallerBootSpec bootSpec,
         long shrinkableBytes, long fullIsoBytes, long kernelBytes, long initrdBytes,
@@ -687,6 +688,34 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         _logger.LogInformation("Direct install partition prepared on {Letter}:", driveLetter);
     }
 
+    // Everything read from the mounted image before Windows is resized; each refusal of it comes from here.
+    internal static (long kernelBytes, long initrdBytes, long installImgBytes) MeasureMountedImage(
+        string isoRoot, InstallerBootSpec bootSpec, PinnedExternalInstallerMedia? externalMedia, ILogger logger)
+    {
+        long kernelBytes;
+        long initrdBytes;
+        if (externalMedia is not null)
+        {
+            kernelBytes = externalMedia.Kernel.Length;
+            initrdBytes = externalMedia.Initrd.Length;
+            RequireImageOfInstallerKernel(isoRoot, bootSpec, externalMedia.Kernel);
+        }
+        else
+        {
+            var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot, bootSpec, logger);
+            kernelBytes = new FileInfo(kernelSrc).Length;
+            initrdBytes = new FileInfo(initrdSrc).Length;
+        }
+
+        // Missing boot or required stage-2 files must stop before resize.
+        _ = FindEfiFiles(isoRoot);
+
+        // The provider's declared extra image files, such as Anaconda's stage-2 image.
+        var extraBytes = MeasureRequiredIsoContent(isoRoot, bootSpec);
+
+        return (kernelBytes, initrdBytes, extraBytes);
+    }
+
     private (long kernelBytes, long initrdBytes, long installImgBytes) MeasureIsoContent(
         string isoPath, InstallerBootSpec bootSpec, PinnedExternalInstallerMedia? externalMedia,
         ShellNoiseSuppressor? shellQuiet = null)
@@ -695,29 +724,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         try
         {
             mounted = MountIso(isoPath);
-            var isoRoot = mounted.Value.Root;
-            long kernelBytes;
-            long initrdBytes;
-            if (externalMedia is not null)
-            {
-                kernelBytes = externalMedia.Kernel.Length;
-                initrdBytes = externalMedia.Initrd.Length;
-            }
-            else
-            {
-                var (kernelSrc, initrdSrc) = FindKernelFiles(isoRoot, bootSpec, _logger);
-                kernelBytes = new FileInfo(kernelSrc).Length;
-                initrdBytes = new FileInfo(initrdSrc).Length;
-            }
-
-            // Missing boot or required stage-2 files must stop before resize.
-            _ = FindEfiFiles(isoRoot);
-
-            // Sum the distro's declared extra ISO files (e.g. Anaconda's
-            // images/install.img stage-2 squashfs). Empty for d-i / subiquity.
-            var extraBytes = MeasureRequiredIsoContent(isoRoot, bootSpec);
-
-            return (kernelBytes, initrdBytes, extraBytes);
+            return MeasureMountedImage(mounted.Value.Root, bootSpec, externalMedia, _logger);
         }
         finally
         {
