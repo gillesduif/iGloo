@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-22
-reviewed_commit: 6b459cd6814a07ccf4a3c96504486144a14d272b
+reviewed_commit: b528d4dc43ca0491e9aa196b19fdf4b500e1c022
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -419,6 +419,8 @@ Changes after this run (script tests, L1):
 **Review of `6b459cd` (one read-only reviewer; nothing run).** No path was found in which the mark is already set when a new registration is made: every variant of `Prepare` ends in the one `ConfigureBootFiles`, whose last statement writes the block afresh, and a registration needs a finished `Prepare` in the same process. A Windows sign-in before the first boot of a finished installation is harmless: the agents treat missing firmware entries as nothing to do, and the task only reads the seed. Taken from it: the fault above; two exception types of a malformed volume path; the task no longer goes while a firmware entry survives its delete; a test of the volume lookup. Left as it is: the volume is not checked to be the seed beyond its GPT GUID and the block's signature; firmware that makes its own entry for the fall-back loader will make it again, at a place in the order the task cannot know.
 
 2,308 tests, 2,307 passed, 0 failed, 1 skipped; build `-warnaserror` clean; 42 agent test scripts pass in WSL.
+
+**The program's name (`b528d4d`, asked by the owner on 22 Nov; unit tests, L1).** Setup, the Start menu, Installed apps, the desktop shortcut and the title of every window say `iGloo Community`; the program file's product name and description say it too (read back from the built `iGloo.exe`). The Setup file is `iGloo-Community-<release>.exe` and Installed apps shows that release, `beta1`, taken from `<IglooRelease>` in the project file. Kept as they were, because other code and earlier installations find them by name: the installer's `AppId`, the folder `Program Files\iGloo`, `iGloo.exe`, the registry key, the name of the sign-in task and the numeric version `0.3-beta` of the program file. An upgrade removes the Start menu folder and desktop shortcut that earlier builds named `iGloo`. Not seen on a machine: the upgrade over an installed earlier build. Not changed: README and RELEASE-NOTES, which still name the old Setup file.
 
 **Not verified.** That Fedora's installer now accepts the owner's files, and that a Fedora installation completes at all: nothing behind this point of `%pre` has run in a VM on this branch. That a loop device can be attached in the installer environment. The sign-in task on a machine: no run has reached it with the mark set. That a finished installation with the mark on its seed removes the partition (script fixture only).
 

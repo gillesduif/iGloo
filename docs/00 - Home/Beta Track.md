@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-22
-reviewed_commit: 6b459cd6814a07ccf4a3c96504486144a14d272b
+reviewed_commit: b528d4dc43ca0491e9aa196b19fdf4b500e1c022
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Preflight/DirectInstallService.Readiness.cs, src/Igloo.Migration/FileStagingService.cs, docs/decisions/014-boot-registration-is-not-gated.md, RESTORATION-RESUME-2026-10-18.md]
 aliases: [Alpha to beta, Beta readiness]
 tags: [igloo]
