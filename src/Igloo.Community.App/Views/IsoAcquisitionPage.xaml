@@ -148,10 +148,6 @@
                 </TextBlock>
             </StackPanel>
 
-      <TextBlock Text="Verifying the installation image using the official SHA-256 checksum."
-                       Style="{StaticResource Text.Caption}"
-                       HorizontalAlignment="Center" Margin="0,18,0,0" Foreground="#FF9A9CA1" />
-
         </StackPanel>
 
         <!--   ERROR                               -->

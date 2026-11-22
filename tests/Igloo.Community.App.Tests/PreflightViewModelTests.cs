@@ -99,6 +99,58 @@ public class PreflightViewModelTests
     }
 
     [Fact]
+    public async Task Findings_that_repeat_the_device_card_are_not_listed_and_a_blocker_still_stops_the_wizard()
+    {
+        var report = new PreflightReport
+        {
+            IsUefi = true,
+            SecureBootEnabled = true,
+            TpmPresent = false,
+            BitLocker = BitLockerState.NotEncrypted,
+            Disks = [],
+            GpuVendor = string.Empty,
+            TotalRamBytes = 1L << 30,
+            Findings =
+            [
+                new(FindingSeverity.Info, "SECURE_BOOT_ON", "Secure Boot is enabled.", null),
+                new(FindingSeverity.Info, "NO_TPM", "No TPM chip detected.", null),
+                new(FindingSeverity.Warning, "LOW_RAM", "Only 1024 MB of RAM detected. Most Linux distributions require at least 2 GB.",
+                    "Increase RAM to meet the selected distribution's minimum requirement, then rerun the system check."),
+            ],
+        };
+        var vm = Create(Task.FromResult(report));
+
+        await vm.RunCheckCommand.ExecuteAsync(null);
+
+        vm.Findings.Should().ContainSingle().Which.Code.Should().Be("LOW_RAM");
+        vm.TpmDisplay.Should().Be("Not detected");
+        vm.SecureBootDisplay.Should().Be("Enabled");
+        vm.CanProceed.Should().BeTrue();
+
+        var blocked = Create(Task.FromResult(report with
+        {
+            Findings = [new(FindingSeverity.Info, "NO_TPM", "No TPM chip detected.", null),
+                new(FindingSeverity.Blocker, "BITLOCKER_UNAVAILABLE", "The system volume's BitLocker state could not be verified.",
+                    "Re-run the system check with access to the BitLocker provider before proceeding.")],
+        }));
+
+        await blocked.RunCheckCommand.ExecuteAsync(null);
+
+        blocked.Findings.Should().ContainSingle().Which.Code.Should().Be("BITLOCKER_UNAVAILABLE");
+        blocked.HasBlockers.Should().BeTrue();
+        blocked.CanProceed.Should().BeFalse();
+
+        var quiet = Create(Task.FromResult(report with
+        {
+            Findings = [new(FindingSeverity.Info, "NO_TPM", "No TPM chip detected.", null)],
+        }));
+
+        await quiet.RunCheckCommand.ExecuteAsync(null);
+
+        quiet.HasFindings.Should().BeFalse("the page then shows no results section");
+    }
+
+    [Fact]
     public async Task Space_that_Windows_did_not_take_back_is_reported_and_does_not_block_the_check()
     {
         const string notice = "20.0 GB directly behind C: is unallocated: Windows did not extend C: (storage code 42008). " +

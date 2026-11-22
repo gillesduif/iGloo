@@ -38,8 +38,6 @@ public sealed class PreflightDesignData
     // page with the findings section hidden.
     public IReadOnlyList<PreflightFinding> Findings { get; } =
     [
-        new PreflightFinding(FindingSeverity.Info, "SECURE_BOOT_ON",
-            "Secure Boot is enabled.", null),
         new PreflightFinding(FindingSeverity.Warning, "LOW_RAM",
             "Only 1024 MB of RAM detected. Most Linux distributions require at least 2 GB.",
             "Increase RAM to meet the selected distribution's minimum requirement, then rerun the system check."),

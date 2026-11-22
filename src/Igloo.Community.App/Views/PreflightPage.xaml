@@ -140,12 +140,9 @@
             </TextBlock>
 
             <ProgressBar IsIndeterminate="True" Width="340" />
-      <TextBlock Text="Checking system configuration"
+            <TextBlock Text="Performing system check…"
                        Style="{StaticResource Text.Body}" FontSize="14"
                        Margin="0,16,0,0" HorizontalAlignment="Center" />
-            <TextBlock Text="Firmware · Secure boot · TPM · BitLocker · Memory · Storage"
-                       Style="{StaticResource Text.Caption}"
-                       Margin="0,6,0,0" HorizontalAlignment="Center" />
         </StackPanel>
 
         <!--   2. ERROR                           ─ -->

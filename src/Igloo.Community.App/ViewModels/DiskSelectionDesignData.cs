@@ -39,8 +39,9 @@ public sealed class DiskSelectionDesignData
 
     public int LinuxSizeGb { get; set; } = 120;
     public int MinLinuxGb { get; } = 20;
-    public int MaxShrinkableGb { get; } = 651;
-    public int WindowsKeepsGb { get; } = 1183;
+    public int MaxProvisionalLinuxGb { get; } = 651;
+    public int LinuxSliderMinimumGb => MinLinuxGb;
+    public int LinuxSliderMaximumGb => MaxProvisionalLinuxGb;
 
     public DiskSelectionDesignData() => SelectedItem = DiskItems[0];
 

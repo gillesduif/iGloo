@@ -42,7 +42,7 @@ public sealed partial class PreflightViewModel : ObservableObject
     public bool HasReport => Report is not null;
     public bool HasError => ErrorMessage is not null;
     public bool HasFindings => Findings.Count > 0;
-    public bool HasBlockers => Findings.Any(f => f.Severity == FindingSeverity.Blocker);
+    public bool HasBlockers => Report?.Findings.Any(f => f.Severity == FindingSeverity.Blocker) == true;
 
     
     public bool CanProceed => Report is { IsUefi: true, BitLocker: BitLockerState.NotEncrypted } &&
@@ -94,7 +94,9 @@ public sealed partial class PreflightViewModel : ObservableObject
     public string GpuDisplay => Report?.GpuModel ?? Report?.GpuVendor ?? string.Empty;
 
     public IReadOnlyList<DiskInfo> Disks => Report?.Disks ?? Array.Empty<DiskInfo>();
-    public IReadOnlyList<PreflightFinding> Findings => Report?.Findings ?? Array.Empty<PreflightFinding>();
+    // An informational finding repeats a row of the device card, so only warnings and blockers are listed.
+    public IReadOnlyList<PreflightFinding> Findings =>
+        Report?.Findings.Where(f => f.Severity != FindingSeverity.Info).ToList() ?? [];
 
     
     public IReadOnlyList<DiskView> DiskViews => BuildDiskViews();
@@ -169,20 +171,17 @@ public sealed partial class PreflightViewModel : ObservableObject
                 $"{ByteFormat.Format(s.Partition.SizeBytes)} on {s.DiskModel}"))
             .ToList();
 
-        // Singular when the removal touches exactly one partition, so the warning agrees
-        // with the list printed directly above it.
+        // Singular when the removal touches exactly one partition, so the sentence agrees with the list below it.
         var partitionCount = targets.Sum(t => t.Partitions.Count) + leftovers.Count;
         var dataLine = partitionCount == 1
-            ? "All data on this partition will be permanently lost."
-            : "All data on these partitions will be permanently lost.";
+            ? "Everything on this partition is permanently deleted:"
+            : "Everything on these partitions is permanently deleted:";
 
         // Danger severity: the safe button takes the default, so Enter cancels rather
         // than erasing partitions.
         if (!FluentMessageBox.Confirm(
                 targets.Count > 0 ? "Uninstall Linux?" : "Remove iGloo system components?",
-                 "This permanently deletes the following:\n\n" + string.Join("\n", lines) + "\n\n" +
-                 dataLine + "\n" +
-                 "Windows will automatically reclaim the freed space.",
+                dataLine + "\n\n" + string.Join("\n", lines),
                 FluentMessageSeverity.Danger,
                 primaryText: targets.Count > 0 ? "Uninstall" : "Remove"))
             return;

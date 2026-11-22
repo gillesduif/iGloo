@@ -176,7 +176,7 @@
                 <TextBlock Text="BROWSER PROFILES" Style="{StaticResource Text.Section}" Margin="2,22,0,8" Foreground="White" />
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-            <TextBlock Text="Select the web browsers to be transfer to Linux."
+                        <TextBlock Text="Select the browsers to transfer to Linux."
                                    Style="{StaticResource Text.Body}" Margin="0,0,0,12" />
                         <ItemsControl ItemsSource="{Binding DetectedBrowsers}">
                             <ItemsControl.ItemTemplate>

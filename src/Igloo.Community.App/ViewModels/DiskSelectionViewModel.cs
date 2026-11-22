@@ -40,11 +40,8 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     public bool ShowDiskAction => IsCheckingSpace || SpaceErrorMessage is not null || NoSupportedMode ||
         SelectedItem is not null && _dualBootUnavailableMessage is not null;
     public string DiskActionMessage => IsCheckingSpace
-        ? "Checking space for Linux, the installer and selected files…"
+        ? "Checking available space…"
         : SpaceErrorMessage ?? _dualBootUnavailableMessage ?? UnsupportedModeAction;
-    public string CapacitySummary => _spaceEstimate is { } space
-        ? $"Installer and migration space reserved: {(space.InstallerBytes + space.StagingBytes) / (double)GiB:N1} GiB."
-        : "Select a disk to check the space needed for this installation.";
 
     //   Observable state                            
 
@@ -72,12 +69,9 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanProceed))]
     [NotifyPropertyChangedFor(nameof(LinuxSizeBytes))]
-    [NotifyPropertyChangedFor(nameof(WindowsKeepsGb))]
     [NotifyPropertyChangedFor(nameof(UsesUnallocatedSpace))]
-    [NotifyPropertyChangedFor(nameof(InstallTypeDetail))]
+    [NotifyPropertyChangedFor(nameof(HasAllocationSummary))]
     [NotifyPropertyChangedFor(nameof(AllocationSummary))]
-    [NotifyPropertyChangedFor(nameof(DiskSafetyTitle))]
-    [NotifyPropertyChangedFor(nameof(DiskSafetyDetail))]
     private int _linuxSizeGb = 50;
 
     //   Derived                                ─
@@ -96,25 +90,13 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     public bool LinuxSizeIsFixed => CanDualBoot && _spaceEstimate is { HonoursLinuxSize: false } space &&
         !space.Allocate((long)MaxProvisionalLinuxGb * GiB).ResizesWindows;
 
-    public string InstallTypeDetail => UsesUnallocatedSpace
-        ? "Windows stays installed and is not resized. Linux is installed in the unallocated space on this disk."
-        : "Windows stays installed. Its partition is resized to make room for Linux.";
+    // Only an installer that is not confined gives Linux another size than the slider shows.
+    public bool HasAllocationSummary => UsesUnallocatedSpace && _spaceEstimate is { HonoursLinuxSize: false };
 
-    public string AllocationSummary => Allocation is not { ResizesWindows: false } allocation || _spaceEstimate is not { } space
-        ? string.Empty
-        : space.HonoursLinuxSize
-            ? $"Linux gets {allocation.LinuxBytes / (double)GiB:N1} GiB of the {space.UnallocatedBytes / (double)GiB:N1} GiB of unallocated space. " +
-              $"{Math.Max(0, space.UnallocatedBytes - space.InstallerBytes - allocation.LinuxBytes) / (double)GiB:N1} GiB stays unallocated."
-            : $"The installer takes the whole unallocated space of {space.UnallocatedBytes / (double)GiB:N1} GiB: " +
-              $"{allocation.LinuxBytes / (double)GiB:N1} GiB for Linux and {space.InstallerBytes / (double)GiB:N1} GiB for the installer. " +
-              "A smaller Linux cannot be chosen while that space is unallocated.";
+    public string AllocationSummary => HasAllocationSummary && Allocation is { } allocation
+        ? $"Linux gets {allocation.LinuxBytes / (double)GiB:N1} GB: this distribution's installer takes all unallocated space on the disk."
+        : string.Empty;
 
-    public string DiskSafetyTitle => UsesUnallocatedSpace
-        ? "Back up Windows before installing Linux"
-        : "Back up Windows before resizing it";
-    public string DiskSafetyDetail => UsesUnallocatedSpace
-        ? "The installation adds partitions to the disk Windows is on. Keep a current backup of the files you want to keep."
-        : "Making room for Linux changes the Windows partition. Keep a current backup of the files you want to keep.";
     public bool HasEligibleWindowsDisk => DiskItems.Any(item => item.HasWindowsPartition &&
         string.Equals(item.Disk.PartitionStyle, "GPT", StringComparison.OrdinalIgnoreCase) &&
         item.Disk.GptDiskGuid is { } id && id != Guid.Empty);
@@ -153,10 +135,6 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     public bool NeedsMoreDualBootSpace => IsDualBootCandidate && HasSpaceEstimate &&
         MaxProvisionalLinuxGb < MinLinuxGb;
 
-    
-    public int MaxShrinkableGb => (int)Math.Min(int.MaxValue,
-        (_spaceEstimate?.ShrinkableBytes ?? 0) / GiB);
-
     // Use the same installer footprint as preparation, plus the pending local
     // staging copy. Free filesystem bytes are not proof of shrinkable space.
     public int MaxProvisionalLinuxGb
@@ -181,16 +159,9 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
         !IsCheckingSpace && SpaceErrorMessage is null && CanDualBoot &&
         LinuxSizeGb >= MinLinuxGb && LinuxSizeGb <= MaxProvisionalLinuxGb;
 
-    //   Display-only helpers for the proportional allocation bar       ─
-
-    
     public long LinuxSizeBytes => (long)LinuxSizeGb << 30;
 
-    
-    public int WindowsKeepsGb => Math.Max(0,
-        (int)((SelectedItem?.Disk.TotalBytes ?? 0) >> 30) - LinuxSizeGb);
-
-    //   API                                  ─
+    //   API                                 ─
 
     public void Prepare(PreflightReport report, DistroManifest? distro = null,
         IsoAcquisitionResult? verifiedIso = null, FileStagingRequest? selectedFiles = null)
@@ -355,11 +326,10 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     {
         foreach (var property in new[] { nameof(HasSpaceEstimate), nameof(CanProceed),
             nameof(CanDualBoot), nameof(NeedsMoreDualBootSpace), nameof(NoSupportedMode),
-            nameof(ShowDiskAction), nameof(DiskActionMessage), nameof(CapacitySummary),
-            nameof(MaxShrinkableGb), nameof(MaxProvisionalLinuxGb), nameof(LinuxSliderMinimumGb),
+            nameof(ShowDiskAction), nameof(DiskActionMessage),
+            nameof(MaxProvisionalLinuxGb), nameof(LinuxSliderMinimumGb),
             nameof(LinuxSliderMaximumGb), nameof(ShowPartitionSizer), nameof(LinuxSizeIsFixed),
-            nameof(UsesUnallocatedSpace), nameof(InstallTypeDetail), nameof(AllocationSummary),
-            nameof(DiskSafetyTitle), nameof(DiskSafetyDetail) })
+            nameof(UsesUnallocatedSpace), nameof(HasAllocationSummary), nameof(AllocationSummary) })
             OnPropertyChanged(property);
     }
 
@@ -373,12 +343,10 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
         OnPropertyChanged(nameof(NoSupportedMode));
         OnPropertyChanged(nameof(UnsupportedModeAction));
         OnPropertyChanged(nameof(NeedsMoreDualBootSpace));
-        OnPropertyChanged(nameof(MaxShrinkableGb));
         OnPropertyChanged(nameof(MaxProvisionalLinuxGb));
         OnPropertyChanged(nameof(LinuxSliderMinimumGb));
         OnPropertyChanged(nameof(LinuxSliderMaximumGb));
         OnPropertyChanged(nameof(ShowPartitionSizer));
-        OnPropertyChanged(nameof(WindowsKeepsGb));
 
         // A newly selected disk needs its own allocation measurement.
         HasChosenInstallMode = CanDualBoot;
@@ -397,11 +365,6 @@ public sealed class DiskListItem
     public bool IsSystemDisk { get; }
     public bool HasWindowsPartition { get; }
 
-    public long MaxShrinkableBytes { get; }
-
-    
-    public int MaxShrinkableGb => (int)(MaxShrinkableBytes / (1024L * 1024 * 1024));
-
     public DiskListItem(DiskInfo disk)
     {
         ArgumentNullException.ThrowIfNull(disk);
@@ -410,8 +373,5 @@ public sealed class DiskListItem
         IsSystemDisk = disk.Partitions.Any(p => p.IsSystem || p.IsBoot);
         HasWindowsPartition = disk.Partitions.Any(p => p.IsBoot &&
             string.Equals(p.FileSystem, "NTFS", StringComparison.OrdinalIgnoreCase));
-        MaxShrinkableBytes = disk.Partitions.Where(p => p.IsBoot &&
-                string.Equals(p.FileSystem, "NTFS", StringComparison.OrdinalIgnoreCase))
-            .Select(p => p.ShrinkableBytes).DefaultIfEmpty(0L).Max();
     }
 }
