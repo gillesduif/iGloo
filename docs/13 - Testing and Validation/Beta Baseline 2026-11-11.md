@@ -460,6 +460,8 @@ Changes after this run (script tests, L1):
 
 **Not verified.** No kickstart parser read the rendered file: pykickstart is not installed in WSL, so the first reader is again Anaconda in the owner's VM. Nothing behind the reading of the kickstart (storage, packages, `%post`, first boot) has run in a VM on this branch.
 
+**The r31 package (`fe7d7e1`).** `artifacts\r31-fe7d7e1\` and `artifacts\r31-fe7d7e1.iso` in the main checkout, built from the worktree of `refactor/community-fleet-foundation`; its `COMMIT.txt` reads the branch, date and subject for the commit hash it took at the start. The published template has no placeholder on a comment line.
+
 ## Read in source, not changed
 
 - **Browser locks (B-03).** `CopyLockedChromiumDatabase` covers `SQLITE_BUSY`/`SQLITE_LOCKED`. A database Windows refuses to open (`SQLITE_CANTOPEN` → `BrowserInUse` in `LoginDataReader.ReadConnectionWithoutSharedMemory`), a non-database profile file held open for writing (`CopyFileAsync` opens the source with `FileShare.Read`) and Firefox profile files in the same position still raise `BrowserProfileStagingException`, which removes the generation and ends staging. Whether a running Edge or Chrome produces these today is not verified.
