@@ -123,7 +123,7 @@ installer\build-setup.bat
 # Copies src/ + distros/ to C:\Temp\igloo-build first: the SDK's publish step
 # fails from paths containing an apostrophe (MSB3094), and this checkout lives
 # under a profile name such as "O'Connor". The script then publishes win-x64 self-contained
-# and compiles installer\output\iGloo-Setup-<version>.exe with Inno Setup.
+# and compiles installer\output\iGloo-Community-<release>.exe with Inno Setup.
 ```
 
 If `dotnet restore` or `dotnet publish` fails with

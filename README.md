@@ -56,12 +56,13 @@ pinned key; a failed check aborts the install.
 
 ## Install
 
-Download `iGloo-Setup-<version>.exe` from [Releases](https://github.com/gillesduif/iGloo/releases)
-and run it on Windows 10 (1809 or later) or Windows 11. The installer is not
+Download the Setup file from [Releases](https://github.com/gillesduif/iGloo/releases),
+`iGloo-Community-<release>.exe` (`iGloo-Setup-0.2-alpha.exe` for 0.2-alpha), and
+run it on Windows 10 (1809 or later) or Windows 11. The installer is not
 code-signed, so SmartScreen warns; the SHA-256 of every build is in its release notes.
 
 > [!CAUTION]
-> iGloo is alpha software. It shrinks partitions, writes to the internal disk and registers UEFI boot entries. Back up first, and do not run it on a machine you cannot afford to reinstall. NVIDIA systems currently need Secure Boot disabled. See the [safety model](docs/reference/safety-model.md).
+> iGloo Community is pre-release software. It shrinks partitions, writes to the internal disk and registers UEFI boot entries. Back up first, and do not run it on a machine you cannot afford to reinstall. NVIDIA systems currently need Secure Boot disabled. See the [safety model](docs/reference/safety-model.md).
 
 ## Distribution status
 
