@@ -116,20 +116,26 @@ def _is_dnf5() -> bool:
     was removed in DNF 5; group installs use ``dnf install @<group>`` instead.
     """
     try:
+        # In the C locale: a translated system prints another word than "version".
         result = subprocess.run(
-            ["dnf", "--version"], capture_output=True, text=True, timeout=10
+            ["dnf", "--version"], capture_output=True, text=True, timeout=10,
+            env={**os.environ, "LC_ALL": "C.UTF-8", "LANGUAGE": "C"},
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise RuntimeError("Cannot determine the installed DNF major version") from error
     if result.returncode != 0:
         raise RuntimeError("Cannot determine the installed DNF major version")
     first_line = (result.stdout.strip().splitlines() or [""])[0]
-    # DNF 4 prints "4.x"; DNF 5 prints "dnf5 version 5.x". A bare
-    # startswith("5.") silently took the DNF 4 groupupdate path on Fedora 44.
-    match = re.match(r"\A(?:dnf5?\s+version\s+)?([45])\.", first_line)
-    if match is None:
-        raise RuntimeError("The installed DNF version has an unknown format")
-    return match.group(1) == "5"
+    major = dnf_major_version(first_line)
+    if major is None:
+        raise RuntimeError("The installed DNF version has an unknown format: " + ascii(first_line[:120]))
+    return major == 5
+
+
+def dnf_major_version(first_line: str) -> int | None:
+    """4 or 5 from the first line of `dnf --version`: "4.x" for DNF 4, "dnf5 <word> 5.x" for DNF 5 in any language."""
+    match = re.match(r"\A(?:dnf5?\s+\S+\s+)?([45])\.\d", first_line)
+    return int(match.group(1)) if match else None
 
 
 # ---------------------------------------------------------------------------
