@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Preparation;
 using Igloo.Core.Recovery;
@@ -330,6 +332,24 @@ public sealed class DebianDeploymentTests
     }
 
     [Fact]
+    public void DebianInstallerPairAndImageBelongToOnePointRelease()
+    {
+        // These three change together: an installer kernel of another release finds no modules on the image.
+        var boot = new Igloo.Distro.Debian.DebianPlugin().GetInstallerBootSpec();
+        Assert.Equal("14159c607ad9762133db41e479dafecde1d6a5fe715a8d65d292a3262e4b6bed", boot.KernelSha256);
+        Assert.Equal("d8a2949326c7f59caf84182ddab13e92fe0ad3938d37ead21beec9186d80a18e", boot.InitrdSha256);
+        var declared = JsonSerializer.Deserialize<Igloo.Core.Models.DistroManifest>(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "debian", "distro.json")));
+        Assert.Equal(@"^debian-live-13\.8\.0-amd64-gnome\.iso$", declared?.Iso.IsoFilePattern);
+
+        // A later point release is not taken with this pair; the download stops before any disk change.
+        var image = new Regex(declared!.Iso.IsoFilePattern!, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2));
+        Assert.Matches(image, "debian-live-13.8.0-amd64-gnome.iso");
+        Assert.DoesNotMatch(image, "debian-live-13.9.0-amd64-gnome.iso");
+        Assert.DoesNotMatch(image, "debian-live-13.8.0-amd64-kde.iso");
+    }
+
+    [Fact]
     public async Task DebianArtifactsAndHistoricalBootRecipeCanBeStaged()
     {
         var plugin = new Igloo.Distro.Debian.DebianPlugin();
@@ -398,10 +418,6 @@ public sealed class DebianDeploymentTests
             boot.KernelUrl?.AbsoluteUri);
         Assert.Equal("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/gtk/initrd.gz",
             boot.InitrdUrl?.AbsoluteUri);
-        Assert.Equal("2b2358b37674d2505350528875bb17afae2a36522a9e8a9417eaca65a7da0e08",
-            boot.KernelSha256);
-        Assert.Equal("5a9afef23f35af5ca68b6898f4d877a6ad434053bd2f738a4e58093736323838",
-            boot.InitrdSha256);
         Assert.Contains("iso-scan/copy_iso_to_ram=true", boot.KernelCmdline, StringComparison.Ordinal);
         Assert.Contains("DEBIAN_FRONTEND=gtk", boot.KernelCmdline, StringComparison.Ordinal);
         Assert.DoesNotContain("igloo.linuxesppartuuid=", boot.KernelCmdline, StringComparison.Ordinal);

@@ -239,8 +239,9 @@ public sealed class DebianPlugin : IDistroPlugin, IReviewedInstallerConfigProvid
         MigrationDataOnSeed = false,
         KernelUrl = new Uri("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/vmlinuz"),
         InitrdUrl = new Uri("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/gtk/initrd.gz"),
-        KernelSha256 = "2b2358b37674d2505350528875bb17afae2a36522a9e8a9417eaca65a7da0e08",
-        InitrdSha256 = "5a9afef23f35af5ca68b6898f4d877a6ad434053bd2f738a4e58093736323838",
+        // Debian 13.8, kernel 6.12.117: the image named in distro.json carries the modules for this kernel only.
+        KernelSha256 = "14159c607ad9762133db41e479dafecde1d6a5fe715a8d65d292a3262e4b6bed",
+        InitrdSha256 = "d8a2949326c7f59caf84182ddab13e92fe0ad3938d37ead21beec9186d80a18e",
         ConfigDelivery = ConfigDelivery.InjectIntoInitrd,
         InitrdConfigPath = "preseed.cfg",
         InitrdExtraPaths =

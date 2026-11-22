@@ -12,7 +12,7 @@
   "iso": {
     "downloadUrl": "https://cdimage.debian.org/debian-cd/current-live/amd64/iso-hybrid/",
     "sha256": "",
-    "isoFilePattern": "^debian-live-\\d[\\d.]*-amd64-gnome\\.iso$",
+    "isoFilePattern": "^debian-live-13\\.8\\.0-amd64-gnome\\.iso$",
     "gpgSignedDataUrl": "https://cdimage.debian.org/debian-cd/current-live/amd64/iso-hybrid/SHA256SUMS",
     "gpgSignatureUrl": "https://cdimage.debian.org/debian-cd/current-live/amd64/iso-hybrid/SHA256SUMS.sign",
     "gpgKeyUrl": "https://www.debian.org/CD/key-DA87E80D6294BE9B.txt",
