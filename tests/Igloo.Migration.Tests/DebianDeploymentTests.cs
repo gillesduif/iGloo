@@ -332,20 +332,31 @@ public sealed class DebianDeploymentTests
     }
 
     [Fact]
-    public void DebianInstallerPairAndImageBelongToOnePointRelease()
+    public void DebianInstallerPairAndImageBothFollowThePointReleases()
     {
-        // These three change together: an installer kernel of another release finds no modules on the image.
+        // No hash of the pair is pinned: a pinned installer of 13.7 found no modules on the image of 13.8.
         var boot = new Igloo.Distro.Debian.DebianPlugin().GetInstallerBootSpec();
-        Assert.Equal("14159c607ad9762133db41e479dafecde1d6a5fe715a8d65d292a3262e4b6bed", boot.KernelSha256);
-        Assert.Equal("d8a2949326c7f59caf84182ddab13e92fe0ad3938d37ead21beec9186d80a18e", boot.InitrdSha256);
+        Assert.Null(boot.KernelSha256);
+        Assert.Null(boot.InitrdSha256);
+        Assert.Equal("https://deb.debian.org/debian/dists/trixie/InRelease", boot.MediaIndex?.SignedIndexUrl.AbsoluteUri);
+        // The same key signs the lists of other series; only trixie's is taken.
+        Assert.Equal("Codename: trixie", boot.MediaIndex?.IndexIdentityLine);
+        Assert.Equal("https://ftp-master.debian.org/keys/archive-key-13.asc", boot.MediaIndex?.SigningKeyUrl.AbsoluteUri);
+        // Debian Archive Automatic Signing Key (13/trixie).
+        Assert.Equal("04B54C3CDCA79751B16BC6B5225629DF75B188BD", boot.MediaIndex?.SigningKeyFingerprint);
+        Assert.Equal("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/SHA256SUMS",
+            boot.MediaIndex?.ChecksumFileUrl.AbsoluteUri);
+        // The image's own installer kernel is what the pair is compared with before Windows is resized.
+        Assert.Equal("install/vmlinuz", boot.MediaIndex?.ImageKernelPath);
+
         var declared = JsonSerializer.Deserialize<Igloo.Core.Models.DistroManifest>(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "debian", "distro.json")));
-        Assert.Equal(@"^debian-live-13\.8\.0-amd64-gnome\.iso$", declared?.Iso.IsoFilePattern);
-
-        // A later point release is not taken with this pair; the download stops before any disk change.
         var image = new Regex(declared!.Iso.IsoFilePattern!, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2));
         Assert.Matches(image, "debian-live-13.8.0-amd64-gnome.iso");
-        Assert.DoesNotMatch(image, "debian-live-13.9.0-amd64-gnome.iso");
+        Assert.Matches(image, "debian-live-13.9.0-amd64-gnome.iso");
+        Assert.Matches(image, "debian-live-13.10.0-amd64-gnome.iso");
+        // Debian 14 has another installer and another key; its image stops at Download with the update instruction.
+        Assert.DoesNotMatch(image, "debian-live-14.0.0-amd64-gnome.iso");
         Assert.DoesNotMatch(image, "debian-live-13.8.0-amd64-kde.iso");
     }
 

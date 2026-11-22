@@ -104,6 +104,10 @@ public sealed class UsbPreparationSafetyTests
             fixture.Iso, fixture.Files);
 
         Assert.Equal(["measure"], fixture.Events);
+        // The space check measures the installer pair the signed index names, not an unresolved declaration.
+        Assert.Equal(1, fixture.MediaIndex.Calls);
+        Assert.Equal(FixedMediaIndex.Kernel, fixture.Native.MeasuredBootSpec?.KernelSha256);
+        Assert.Equal(FixedMediaIndex.Initrd, fixture.Native.MeasuredBootSpec?.InitrdSha256);
         // Debian reads selected folders from the Windows volume at first boot
         // (MigrationDataOnSeed = false), so the 123-byte document takes no seed space.
         Assert.Equal(fixture.AgentBytes + (64L << 20), fixture.Native.MeasuredStagedBytes);
@@ -137,6 +141,7 @@ public sealed class UsbPreparationSafetyTests
         public List<string> Events { get; } = [];
         public RecordingStorage Storage { get; } = new(Guid.NewGuid());
         public RecordingPreflight Preflight { get; } = new();
+        public FixedMediaIndex MediaIndex { get; } = new();
         public RecordingDirectInstall Native { get; private set; } = null!;
         public IInstallationPreparation Preparation => _host!.GetRequiredService<IInstallationPreparation>();
         public IsoAcquisitionResult Iso { get; private set; } = null!;
@@ -164,6 +169,7 @@ public sealed class UsbPreparationSafetyTests
                 services.Replace(ServiceDescriptor.Singleton<IWindowsStorageReader>(fixture.Storage));
                 services.Replace(ServiceDescriptor.Singleton<IPreflightChecker>(fixture.Preflight));
                 services.Replace(ServiceDescriptor.Singleton<IDirectInstallService>(fixture.Native));
+                services.Replace(ServiceDescriptor.Singleton<IInstallerMediaIndexReader>(fixture.MediaIndex));
                 fixture._host = services.BuildServiceProvider();
                 var directory = Path.Join(FindRepoRoot(), "distros");
                 var loader = fixture._host.GetRequiredService<DistroLoader>();
@@ -377,6 +383,7 @@ public sealed class UsbPreparationSafetyTests
         services.Replace(ServiceDescriptor.Singleton<IPreflightChecker>(preflight));
         services.Replace(ServiceDescriptor.Singleton<IDirectInstallService>(
             new RecordingDirectInstall(events)));
+        services.Replace(ServiceDescriptor.Singleton<IInstallerMediaIndexReader>(new FixedMediaIndex()));
         using var host = services.BuildServiceProvider();
         var distrosDirectory = Path.Join(FindRepoRoot(), "distros");
         var loader = host.GetRequiredService<DistroLoader>();
@@ -475,6 +482,8 @@ public sealed class UsbPreparationSafetyTests
         services.Replace(ServiceDescriptor.Singleton<IPreflightChecker>(preflight));
         var direct = new RecordingDirectInstall(events);
         services.Replace(ServiceDescriptor.Singleton<IDirectInstallService>(direct));
+        var mediaIndex = new FixedMediaIndex();
+        services.Replace(ServiceDescriptor.Singleton<IInstallerMediaIndexReader>(mediaIndex));
         using var provider = services.BuildServiceProvider();
         var registry = provider.GetRequiredService<DistroRegistry>();
         var distrosDirectory = Path.Join(FindRepoRoot(), "distros");
@@ -513,9 +522,15 @@ public sealed class UsbPreparationSafetyTests
             await Assert.ThrowsAsync<InvalidOperationException>(() => preparation.PrepareAsync(
                 "debian", target, 10L << 30, acquired, stage, null, null));
             Assert.Empty(events);
+            Assert.Equal(0, mediaIndex.Calls);
             await preparation.PrepareAsync("debian", target, 20L << 30, acquired,
                 stage, null, null);
             Assert.Equal(["direct"], events);
+            // Debian's installer pair reaches the preparation with the hashes its signed index names, read once for this call.
+            Assert.Equal(1, mediaIndex.Calls);
+            Assert.Equal(FixedMediaIndex.Kernel, direct.PreparedBootSpec?.KernelSha256);
+            Assert.Equal(FixedMediaIndex.Initrd, direct.PreparedBootSpec?.InitrdSha256);
+            Assert.Equal(new string('a', 64), direct.PreparedBootSpec?.IsoSha256);
             Assert.Equal(new InstallerTargetRules(debian.Metadata.MinimumRequirements.MinDiskBytes,
                 ScansAllDisks: false, UsesExistingEsp: false) { BoundToInstallerPartition = true }, direct.TargetRules);
 
@@ -872,6 +887,8 @@ public sealed class UsbPreparationSafetyTests
         public long MeasuredStagedBytes { get; private set; }
         public DirectInstallSpaceEstimate? SpaceEstimate { get; private set; }
         public Action? OnMeasure { get; set; }
+        public InstallerBootSpec? MeasuredBootSpec { get; private set; }
+        public InstallerBootSpec? PreparedBootSpec { get; private set; }
 
         public Task<DirectInstallSpaceEstimate> MeasureSpaceAsync(int diskNumber, string isoPath,
             InstallerBootSpec bootSpec, long stagedBytes, CancellationToken ct = default)
@@ -879,6 +896,7 @@ public sealed class UsbPreparationSafetyTests
             Assert.Equal(2, diskNumber);
             Assert.True(File.Exists(isoPath));
             Assert.NotNull(bootSpec.IsoSha256);
+            MeasuredBootSpec = bootSpec;
             ct.ThrowIfCancellationRequested();
             events.Add("measure");
             MeasuredStagedBytes = stagedBytes;
@@ -899,12 +917,30 @@ public sealed class UsbPreparationSafetyTests
             Assert.Equal(2, diskNumber);
             Assert.Equal(20L << 30, linuxSizeBytes);
             TargetRules = targetRules;
+            PreparedBootSpec = bootSpec;
             events.Add("direct");
             return Task.CompletedTask;
         }
 
         public Task RegisterBootEntryAsync(IProgress<DirectInstallProgress>? progress = null,
             CancellationToken ct = default) => Task.CompletedTask;
+    }
+
+    // Stands in for the distribution's servers: the hashes a signed index would name.
+    private sealed class FixedMediaIndex : IInstallerMediaIndexReader
+    {
+        public static readonly string Kernel = new('1', 64);
+        public static readonly string Initrd = new('2', 64);
+
+        public int Calls { get; private set; }
+
+        public Task<InstallerBootSpec> ResolveAsync(InstallerBootSpec declared, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(declared.MediaIndex is null
+                ? declared
+                : declared with { KernelSha256 = Kernel, InitrdSha256 = Initrd });
+        }
     }
 
 }

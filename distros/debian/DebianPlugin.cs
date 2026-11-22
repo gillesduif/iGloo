@@ -239,9 +239,16 @@ public sealed class DebianPlugin : IDistroPlugin, IReviewedInstallerConfigProvid
         MigrationDataOnSeed = false,
         KernelUrl = new Uri("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/vmlinuz"),
         InitrdUrl = new Uri("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/hd-media/gtk/initrd.gz"),
-        // Debian 13.8, kernel 6.12.117: the image named in distro.json carries the modules for this kernel only.
-        KernelSha256 = "14159c607ad9762133db41e479dafecde1d6a5fe715a8d65d292a3262e4b6bed",
-        InitrdSha256 = "d8a2949326c7f59caf84182ddab13e92fe0ad3938d37ead21beec9186d80a18e",
+        // Debian replaces both files at every point release; their hashes are read from the archive's signed index.
+        MediaIndex = new InstallerMediaIndex
+        {
+            SignedIndexUrl = new Uri("https://deb.debian.org/debian/dists/trixie/InRelease"),
+            IndexIdentityLine = "Codename: trixie",
+            SigningKeyUrl = new Uri("https://ftp-master.debian.org/keys/archive-key-13.asc"),
+            SigningKeyFingerprint = "04B54C3CDCA79751B16BC6B5225629DF75B188BD",
+            ChecksumFileUrl = new Uri("https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/SHA256SUMS"),
+            ImageKernelPath = "install/vmlinuz",
+        },
         ConfigDelivery = ConfigDelivery.InjectIntoInitrd,
         InitrdConfigPath = "preseed.cfg",
         InitrdExtraPaths =
