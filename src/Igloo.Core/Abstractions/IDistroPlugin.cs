@@ -101,6 +101,9 @@ public sealed record InstallerBootSpec
 
     public string? InitrdSha256 { get; init; }
 
+    // Set instead of the two hashes when KernelUrl and InitrdUrl follow the distribution's current release.
+    public InstallerMediaIndex? MediaIndex { get; init; }
+
     public bool PreCreateRootPartition { get; init; }
 
     /// <summary>
@@ -115,6 +118,29 @@ public sealed record InstallerBootSpec
     public bool MigrationDataOnSeed { get; init; } = true;
 }
 
+
+// A clear-signed index names a checksum file, which names the installer kernel and initrd by their path below its folder.
+public sealed record InstallerMediaIndex
+{
+    public required Uri SignedIndexUrl { get; init; }
+
+    // A line the signed index has to hold, such as its codename: one key signs the lists of several release series.
+    public required string IndexIdentityLine { get; init; }
+
+    public required Uri SigningKeyUrl { get; init; }
+
+    public required string SigningKeyFingerprint { get; init; }
+
+    public required Uri ChecksumFileUrl { get; init; }
+
+    // The image's own installer kernel; the downloaded pair is taken only when its kernel is of the same release.
+    public required string ImageKernelPath { get; init; }
+
+    // A relative path of plain names with forward slashes, none of them empty or made of dots.
+    public static bool IsPlainPath(string? path) =>
+        path is { Length: > 0 } && path.All(c => char.IsAsciiLetterOrDigit(c) || c is '/' or '.' or '-' or '_' or '+') &&
+        path.Split('/').All(part => part.Length > 0 && part.Any(c => c != '.'));
+}
 
 public enum ConfigDelivery
 {

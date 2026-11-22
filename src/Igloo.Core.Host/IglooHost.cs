@@ -64,6 +64,7 @@ public static class IglooHost
         services.AddSingleton<IReviewedInstallationPlanning, ReviewedInstallationPlanning>();
         services.AddSingleton<IReviewedInstallationPreparation, ReviewedInstallationPreparation>();
         services.AddSingleton<IIsoAcquisitionService, IsoAcquisitionService>();
+        services.AddSingleton<IInstallerMediaIndexReader, InstallerMediaIndexReader>();
         services.AddSingleton<IsoAcquisitionCoordinator>();
         services.AddSingleton<MigrationStagingCoordinator>();
         services.AddSingleton<IVolumeSnapshots, WindowsVolumeSnapshots>();
@@ -99,7 +100,8 @@ public static class IglooHost
             sp.GetRequiredService<DistroRegistry>(), sp.GetRequiredService<DistroLoader>(),
             sp.GetRequiredService<IDirectInstallService>(),
             sp.GetRequiredService<IWindowsStorageReader>(),
-            sp.GetRequiredService<IPreflightChecker>()));
+            sp.GetRequiredService<IPreflightChecker>(),
+            sp.GetRequiredService<IInstallerMediaIndexReader>()));
         services.AddSingleton<IReviewedInstallationInspection>(sp => new ReviewedInstallationInspection(
             sp.GetRequiredService<DistroRegistry>(), sp.GetRequiredService<DistroLoader>(),
             sp.GetRequiredService<PreparedLayoutStore>(),
@@ -549,9 +551,13 @@ public interface IInstallationPreparation
 
 internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoader loader,
     IDirectInstallService service,
-    IWindowsStorageReader storage, IPreflightChecker preflight)
+    IWindowsStorageReader storage, IPreflightChecker preflight, IInstallerMediaIndexReader mediaIndex)
     : IInstallationPreparation
 {
+    // A provider whose installer kernel follows its distribution gets the current hashes here, before every use.
+    private async Task<InstallerBootSpec> BootSpecAsync(IDistroPlugin plugin, string isoSha256, CancellationToken ct) =>
+        await mediaIndex.ResolveAsync(plugin.GetInstallerBootSpec(), ct).ConfigureAwait(false) with { IsoSha256 = isoSha256 };
+
     public Observation<bool> PreparationAvailability => service.PreparationAvailability;
 
     // Every shipped provider installs through the same legacy preparation path
@@ -571,7 +577,8 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
              !string.Equals(plugin.Metadata.IsoSha256, digest, StringComparison.OrdinalIgnoreCase)))
             return;
         await service.WarmImageMeasurementAsync(verifiedIso.LocalPath,
-            plugin.GetInstallerBootSpec() with { IsoSha256 = digest }, cancellationToken).ConfigureAwait(false);
+            await BootSpecAsync(plugin, digest, cancellationToken).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task WarmShrinkEstimateAsync(DiskInfo disk, CancellationToken cancellationToken = default)
@@ -625,7 +632,7 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
             ["installation", "disk:" + diskNumber, "iso:" + distroId, "migration-staging"],
             cancellationToken).ConfigureAwait(false);
         RequireCurrentDisk();
-        var bootSpec = plugin.GetInstallerBootSpec();
+        var bootSpec = await BootSpecAsync(plugin, digest, cancellationToken).ConfigureAwait(false);
         // Selected folders and browser profiles only take seed space for providers
         // that copy them onto the installer partition; the Debian family reads them
         // from the Windows volume at first boot (alpha flow).
@@ -640,8 +647,7 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
         var stagedBytes = checked(selectedBytes + agents.Files.Sum(file => (long)file.Contents.Length) +
             generatedReserve);
         var estimate = await service.MeasureSpaceAsync(diskNumber, verifiedIso.LocalPath,
-            bootSpec with { IsoSha256 = digest }, stagedBytes,
-            cancellationToken).ConfigureAwait(false);
+            bootSpec, stagedBytes, cancellationToken).ConfigureAwait(false);
         RequireCurrentDisk();
         // The preparation confines the installer under the same two conditions.
         var confined = TargetRulesFor(plugin.Metadata).BoundToInstallerPartition && estimate.SingleInstallerPartition;
@@ -723,8 +729,8 @@ internal sealed class InstallationPreparation(DistroRegistry registry, DistroLoa
         await InstallerPreflightGuard.RequireCurrentAsync(preflight, cancellationToken)
             .ConfigureAwait(false);
         await service.PrepareAsync(diskNumber, linuxSizeBytes, verifiedIso.LocalPath, stagingDirectory,
-            plugin.GetInstallerBootSpec() with { IsoSha256 = digest }, TargetRulesFor(plugin.Metadata),
-            stage2Url, progress, cancellationToken).ConfigureAwait(false);
+            await BootSpecAsync(plugin, digest, cancellationToken).ConfigureAwait(false),
+            TargetRulesFor(plugin.Metadata), stage2Url, progress, cancellationToken).ConfigureAwait(false);
     }
 
     // How each installer picks its target, as the shipped templates drive it.
