@@ -679,6 +679,10 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         if (_isoPartitionLetter is { } isoLetter && isoLetter != driveLetter)
             shellQuiet.CloseExplorerWindowsFor(isoLetter);
 
+        // Last, so the identity and the receipt mark the partition as iGloo's own for the next attempt.
+        Report(prog, DirectInstallPhase.CopyingFiles, message: "Checking the copied files…");
+        RequireCopiedFilesReadable($"{driveLetter}:\\", stagedFiles, writtenHashes, ct);
+
         Report(prog, DirectInstallPhase.Complete, message: "Installer partition ready.");
         _logger.LogInformation("Direct install partition prepared on {Letter}:", driveLetter);
     }
@@ -2071,6 +2075,10 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     {
         ArgumentNullException.ThrowIfNull(completed);
         ct.ThrowIfCancellationRequested();
+
+        // Before the firmware is touched: a file that left the partition since the copy would stop the installer.
+        Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Checking the installer partition…");
+        RequireSeedHoldsItsFiles($"{completed.DriveLetter}:\\", ct);
 
         Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Registering UEFI boot entry…");
 

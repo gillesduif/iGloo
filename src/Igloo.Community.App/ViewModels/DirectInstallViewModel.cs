@@ -302,7 +302,10 @@ public sealed partial class DirectInstallViewModel : ObservableObject
             _logger.LogError(ex, "Installer boot registration or restart failed");
             IsRebooting = false;
             HasError = true;
-            ErrorMessage = "iGloo could not register the installer boot or restart Windows. Review the technical details before retrying.";
+            // A refusal carries its own instruction; nothing was registered when it is raised.
+            ErrorMessage = ex is InstallationRefusedException
+                ? ex.Message
+                : "iGloo could not register the installer boot or restart Windows. Review the technical details before retrying.";
             ErrorDetail = BuildErrorDetail(ex);
         }
     }

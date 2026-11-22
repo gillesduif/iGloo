@@ -12,6 +12,7 @@ public sealed class DirectInstallViewModelTests
     private sealed class Preparation : IInstallationPreparation
     {
         public Exception? PreparationFailure { get; set; }
+        public Exception? RegistrationFailure { get; set; }
         public int PrepareCalls { get; private set; }
         public int RegisterCalls { get; private set; }
         public Observation<bool> PreparationAvailability => Observations.Available(true);
@@ -30,7 +31,7 @@ public sealed class DirectInstallViewModelTests
             CancellationToken cancellationToken = default)
         {
             RegisterCalls++;
-            return Task.CompletedTask;
+            return RegistrationFailure is null ? Task.CompletedTask : Task.FromException(RegistrationFailure);
         }
     }
 
@@ -95,6 +96,31 @@ public sealed class DirectInstallViewModelTests
         preparation.RegisterCalls.Should().Be(1);
         maintenance.InstallerRestartCalls.Should().Be(1);
         vm.HasError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_refusal_at_registration_shows_its_own_instruction_and_requests_no_restart()
+    {
+        var refusal = InstallationRefusedException.FilesLostFromInstallerPartition(["files/Downloads/Uninstall/down2.ps1"]);
+        var preparation = new Preparation { RegistrationFailure = refusal };
+        var maintenance = new Maintenance();
+        var vm = Create(preparation, maintenance);
+        var input = Inputs();
+        vm.Prepare(input.Iso, input.Staging, input.Disk, 20, "fedora-kde");
+        await vm.InstallCommand.ExecuteAsync(null);
+
+        await vm.RebootToInstallCommand.ExecuteAsync(null);
+
+        vm.HasError.Should().BeTrue();
+        vm.ErrorMessage.Should().Be(refusal.Message).And.Contain(@"'Downloads\Uninstall\down2.ps1'");
+        vm.IsRebooting.Should().BeFalse();
+        maintenance.InstallerRestartCalls.Should().Be(0);
+
+        // Any other failure keeps the general text and its details.
+        preparation.RegistrationFailure = new System.IO.IOException("firmware write failed");
+        await vm.RebootToInstallCommand.ExecuteAsync(null);
+        vm.ErrorMessage.Should().StartWith("iGloo could not register the installer boot or restart Windows.");
+        vm.ErrorDetail.Should().Contain("firmware write failed");
     }
 
     [Fact]
