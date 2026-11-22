@@ -28,31 +28,92 @@ public sealed class BootCleanupTaskTests
         resumeobject            {7a757dfa-ddf9-11f1-9250-e8c97e719636}
         """;
 
-    private static (BootCleanupOutcome Outcome, List<string> Done) Run(bool? partitionExists, bool? entryRemains = false)
+    private static (BootCleanupOutcome Outcome, List<string> Done) Run(bool? partitionExists, bool? entryRemains = false,
+        bool started = false, bool firmwareKeepsAnEntry = false)
     {
         var done = new List<string>();
+        var firmware = new List<ushort> { 0x0005, 0x0080 };
         var outcome = BootCleanupTask.Run(partitionExists,
+            () => { done.Add("read start mark"); return started; },
             () => done.Add("delete bcd entry"),
-            () => { done.Add("list firmware"); return [0x0005, 0x0080]; },
-            index => done.Add($"delete Boot{index:X4}"),
+            () => { done.Add("list firmware"); return [.. firmware]; },
+            index =>
+            {
+                done.Add($"delete Boot{index:X4}");
+                if (!firmwareKeepsAnEntry || index != 0x0080)
+                    firmware.Remove(index);
+            },
             () => { done.Add("look again"); return entryRemains; },
             () => done.Add("remove task"));
         return (outcome, done);
     }
 
     [Fact]
-    public void Nothing_is_removed_while_the_installer_partition_exists()
+    public void Nothing_is_removed_while_the_installer_partition_waits_for_its_first_start()
     {
         var (outcome, done) = Run(partitionExists: true);
 
         Assert.Equal(BootCleanupOutcome.PartitionPresent, outcome);
-        Assert.Empty(done);
+        Assert.Equal(["read start mark"], done);
+    }
+
+    [Fact]
+    public void A_started_installer_that_left_its_partition_loses_its_entries_and_the_task()
+    {
+        var (outcome, done) = Run(partitionExists: true, started: true);
+
+        // The partition itself is not this task's to remove: a new attempt uses it again.
+        Assert.Equal(BootCleanupOutcome.RegistrationUndone, outcome);
+        Assert.Equal(["read start mark", "delete bcd entry", "list firmware", "delete Boot0005", "delete Boot0080",
+            "look again", "list firmware", "remove task"], done);
+    }
+
+    [Fact]
+    public void After_a_start_the_task_stays_while_a_firmware_entry_still_names_the_partition()
+    {
+        var (outcome, done) = Run(partitionExists: true, started: true, firmwareKeepsAnEntry: true);
+
+        // That entry would start the installer again, so the next sign-in tries once more.
+        Assert.Equal(BootCleanupOutcome.EntriesRemain, outcome);
+        Assert.DoesNotContain("remove task", done);
+        // Without the partition a leftover entry points at nothing and does not hold the task.
+        Assert.Equal(BootCleanupOutcome.Removed, Run(partitionExists: false, firmwareKeepsAnEntry: true).Outcome);
+    }
+
+    [Fact]
+    public void The_installer_volume_is_the_volume_path_of_the_one_partition_with_its_guid()
+    {
+        const string volume = @"\\?\Volume{64132391-9c60-4006-865e-b953b51f1027}\";
+        WindowsStorageRow Seed(object? paths) => new(ImmutableDictionary.CreateRange(
+            [KeyValuePair.Create("Guid", (object?)Installer.ToString("B").ToUpperInvariant()), KeyValuePair.Create("AccessPaths", paths)]));
+        var other = Row("{B332BE0D-EED8-4D71-B802-3A6CB6602282}");
+
+        Assert.Equal(volume, BootCleanupTask.InstallerVolume([other, Seed(new[] { @"I:\", volume })], Installer));
+        Assert.Equal(volume, BootCleanupTask.InstallerVolume([Seed(new[] { volume })], Installer));
+        // No volume path, no paths at all, another partition, the GUID twice, or no GUID to look for.
+        Assert.Null(BootCleanupTask.InstallerVolume([Seed(new[] { @"I:\" })], Installer));
+        Assert.Null(BootCleanupTask.InstallerVolume([Seed(null)], Installer));
+        Assert.Null(BootCleanupTask.InstallerVolume([Row(Installer.ToString("B"))], Installer));
+        Assert.Null(BootCleanupTask.InstallerVolume([other], Installer));
+        Assert.Null(BootCleanupTask.InstallerVolume([Seed(new[] { volume }), Seed(new[] { volume })], Installer));
+        Assert.Null(BootCleanupTask.InstallerVolume([Seed(new[] { volume })], Guid.Empty));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(null)]
+    public void After_a_start_the_task_also_stays_until_the_bcd_entry_is_seen_to_be_gone(bool? entryRemains)
+    {
+        var (outcome, done) = Run(partitionExists: true, entryRemains, started: true);
+
+        Assert.Equal(BootCleanupOutcome.EntriesRemain, outcome);
+        Assert.DoesNotContain("remove task", done);
     }
 
     [Fact]
     public void Nothing_is_removed_when_the_disks_could_not_be_read()
     {
-        var (outcome, done) = Run(partitionExists: null);
+        var (outcome, done) = Run(partitionExists: null, started: true);
 
         Assert.Equal(BootCleanupOutcome.NotRead, outcome);
         Assert.Empty(done);
@@ -63,9 +124,74 @@ public sealed class BootCleanupTaskTests
     {
         var (outcome, done) = Run(partitionExists: false);
 
+        // Without the partition there is no mark to read.
         Assert.Equal(BootCleanupOutcome.Removed, outcome);
         Assert.Equal(["delete bcd entry", "list firmware", "delete Boot0005", "delete Boot0080", "look again",
             "remove task"], done);
+    }
+
+    [Fact]
+    public void The_start_mark_is_the_line_grub_writes_into_the_block_this_build_made()
+    {
+        var fresh = DirectInstallService.AttemptBlock();
+        byte[] Written(string entries)
+        {
+            var block = DirectInstallService.AttemptBlock();
+            System.Text.Encoding.ASCII.GetBytes(entries).CopyTo(block, 25);
+            return block;
+        }
+
+        Assert.False(BootCleanupTask.AttemptMarked(fresh));
+        Assert.True(BootCleanupTask.AttemptMarked(Written("igloo_attempted=1\n")));
+        Assert.True(BootCleanupTask.AttemptMarked(Written("other=x\nigloo_attempted=1\n")));
+        // Another value, another name, a longer name or a line that is not finished is not the mark.
+        Assert.False(BootCleanupTask.AttemptMarked(Written("igloo_attempted=0\n")));
+        Assert.False(BootCleanupTask.AttemptMarked(Written("igloo_attempted=10\n")));
+        Assert.False(BootCleanupTask.AttemptMarked(Written("not_igloo_attempted=1\n")));
+        Assert.False(BootCleanupTask.AttemptMarked(Written("igloo_attempted=1")));
+        // A file that is not an environment block says nothing.
+        Assert.False(BootCleanupTask.AttemptMarked("igloo_attempted=1\n"u8));
+        Assert.False(BootCleanupTask.AttemptMarked([]));
+    }
+
+    [Fact]
+    public void The_start_mark_is_read_from_the_boot_folder_of_the_installer_volume()
+    {
+        var volume = Directory.CreateTempSubdirectory("igloo-start-mark-").FullName;
+        try
+        {
+            Assert.False(DirectInstallService.ReadAttemptMark(volume));
+
+            var folder = Directory.CreateDirectory(Path.Join(volume, "igloo-boot")).FullName;
+            File.WriteAllBytes(Path.Join(folder, "grubenv"), DirectInstallService.AttemptBlock());
+            Assert.False(DirectInstallService.ReadAttemptMark(volume));
+
+            var marked = DirectInstallService.AttemptBlock();
+            "igloo_attempted=1\n"u8.CopyTo(marked.AsSpan(25));
+            File.WriteAllBytes(Path.Join(folder, "grubenv"), marked);
+            Assert.True(DirectInstallService.ReadAttemptMark(volume));
+
+            // A file far larger than the block is not the one this build wrote.
+            File.WriteAllBytes(Path.Join(folder, "grubenv"), [.. marked, .. new byte[70000]]);
+            Assert.False(DirectInstallService.ReadAttemptMark(volume));
+        }
+        finally
+        {
+            Directory.Delete(volume, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Without_one_readable_installer_volume_the_installer_counts_as_not_started()
+    {
+        // A partition without a volume path, a partition that is not there, and a failed read.
+        var noVolume = new Partitions(new WindowsStorageBatch([Row(Installer.ToString("B"))]));
+        var absent = new Partitions(new WindowsStorageBatch([Row("{B332BE0D-EED8-4D71-B802-3A6CB6602282}")]));
+        var none = new Partitions(new WindowsStorageBatch([], new InvalidOperationException("The query failed.")));
+
+        Assert.False(Service(noVolume).InstallerWasStarted(Installer));
+        Assert.False(Service(absent).InstallerWasStarted(Installer));
+        Assert.False(Service(none).InstallerWasStarted(Installer));
     }
 
     [Theory]

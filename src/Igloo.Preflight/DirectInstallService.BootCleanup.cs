@@ -27,6 +27,7 @@ public sealed partial class DirectInstallService
         {
             var outcome = BootCleanupTask.Run(
                 InstallerPartitionExists(partitionGuid),
+                () => InstallerWasStarted(partitionGuid),
                 () => RunBcdedit($"/delete {bcdEntry:B} /f"),
                 () => EfiBootEntries.FindEntriesTargetingPartition(partitionGuid, _logger),
                 index => EfiBootEntries.Delete(index, _logger),
@@ -57,6 +58,38 @@ public sealed partial class DirectInstallService
             _logger.LogWarning(ex, "The partitions could not be read; no boot entry is removed");
             return null;
         }
+    }
+
+    /// <summary>Whether the menu on the installer partition recorded a start of the installer; false when that cannot be read.</summary>
+    internal bool InstallerWasStarted(Guid partitionGuid)
+    {
+        try
+        {
+            var volume = BootCleanupTask.InstallerVolume([.. _storage.ReadPartitions().RowsOrThrow()], partitionGuid);
+            if (volume is null)
+                return false;
+            var started = ReadAttemptMark(volume);
+            if (started)
+                _logger.LogInformation(
+                    "The installer on partition {Partition} was started and the partition is still there: its boot entries are removed and the partition is kept for a new attempt",
+                    partitionGuid);
+            return started;
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or InvalidOperationException
+                                       or UnauthorizedAccessException or KeyNotFoundException or IOException
+                                       or FormatException or OverflowException or InvalidCastException or SecurityException
+                                       or ArgumentException or NotSupportedException)
+        {
+            _logger.LogWarning(ex, "The installer partition's start mark could not be read; its boot entries stay");
+            return false;
+        }
+    }
+
+    // The block is 1024 bytes; anything much larger is not the file this build wrote.
+    internal static bool ReadAttemptMark(string volumeRoot)
+    {
+        var file = new FileInfo(Path.Join(volumeRoot, BootDir, AttemptFile));
+        return file.Exists && file.Length <= 65536 && BootCleanupTask.AttemptMarked(File.ReadAllBytes(file.FullName));
     }
 
     // Best-effort: the handoff does not depend on it, and the next registration removes the same entry.

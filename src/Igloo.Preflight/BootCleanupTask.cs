@@ -61,7 +61,7 @@ internal static class BootCleanupTask
         <?xml version="1.0" encoding="UTF-16"?>
         <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
           <RegistrationInfo>
-            <Description>Removes the iGloo installer entry from the boot menu once the installer partition is gone, then removes itself.</Description>
+            <Description>Removes the iGloo installer entry from the boot menu once the installer partition is gone or the installer was started and left its partition behind, then removes itself.</Description>
           </RegistrationInfo>
           <Triggers>
             <LogonTrigger>
@@ -93,14 +93,36 @@ internal static class BootCleanupTask
         </Task>
         """;
 
-    /// <summary>Removes what one registration created, and only when its installer partition is known to be gone.</summary>
-    internal static BootCleanupOutcome Run(bool? partitionExists, Action deleteBcdEntry,
+    /// <summary>The volume path of the one partition with this GPT GUID; null when there is not exactly one or it has none.</summary>
+    internal static string? InstallerVolume(IEnumerable<WindowsStorageRow> partitions, Guid partitionGuid)
+    {
+        ArgumentNullException.ThrowIfNull(partitions);
+        var rows = partitions.Where(row => row.Properties.TryGetValue("Guid", out var value) &&
+            Guid.TryParse(value?.ToString(), out var guid) && guid == partitionGuid && guid != Guid.Empty).ToArray();
+        if (rows.Length != 1 || !rows[0].Properties.TryGetValue("AccessPaths", out var paths))
+            return null;
+        return (paths as string[])?.FirstOrDefault(path =>
+            path is not null && path.StartsWith(@"\\?\Volume", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Whether the installer's menu marked in its environment block that it started the installer.</summary>
+    internal static bool AttemptMarked(ReadOnlySpan<byte> block)
+    {
+        ReadOnlySpan<byte> signature = "# GRUB Environment Block\n"u8;
+        ReadOnlySpan<byte> mark = "\nigloo_attempted=1\n"u8;
+        // The signature ends in the line feed the first entry follows.
+        return block.StartsWith(signature) && block[(signature.Length - 1)..].IndexOf(mark) >= 0;
+    }
+
+    /// <summary>Removes what one registration created: when its installer partition is known to be gone, or when its installer was started and the partition is still there.</summary>
+    internal static BootCleanupOutcome Run(bool? partitionExists, Func<bool> installerStarted, Action deleteBcdEntry,
         Func<IReadOnlyList<ushort>> firmwareEntries, Action<ushort> deleteFirmwareEntry,
         Func<bool?> bcdEntryRemains, Action removeTask)
     {
         if (partitionExists is null)
             return BootCleanupOutcome.NotRead;
-        if (partitionExists.Value)
+        // Present and never started: the registration still waits for the restart.
+        if (partitionExists.Value && !installerStarted())
             return BootCleanupOutcome.PartitionPresent;
         // The BCD entry goes first: while it exists Windows writes the firmware entry again.
         deleteBcdEntry();
@@ -109,7 +131,11 @@ internal static class BootCleanupTask
         // The task stays until the entry is seen to be gone, so a failed delete is tried again.
         if (bcdEntryRemains() != false)
             return BootCleanupOutcome.EntriesRemain;
+        // While the partition is there, a firmware entry that survived its delete would start the installer again.
+        if (partitionExists.Value && firmwareEntries().Count > 0)
+            return BootCleanupOutcome.EntriesRemain;
         removeTask();
-        return BootCleanupOutcome.Removed;
+        // A finished installation removes the partition; one that is still there after a start keeps it for a new attempt.
+        return partitionExists.Value ? BootCleanupOutcome.RegistrationUndone : BootCleanupOutcome.Removed;
     }
 }

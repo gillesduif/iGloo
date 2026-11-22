@@ -30,7 +30,7 @@ public interface IDirectInstallService
         IProgress<DirectInstallProgress>? progress = null,
         CancellationToken ct = default);
 
-    /// <summary>Removes the BCD entry of one registration and the firmware entries of its installer partition once that partition is gone.</summary>
+    /// <summary>Removes the BCD entry of one registration and the firmware entries of its installer partition, once that partition is gone or its installer was started and left it behind.</summary>
     Task<BootCleanupOutcome> CleanUpBootEntriesAsync(Guid installerPartitionGuid, Guid bcdEntry,
         CancellationToken ct = default) => Task.FromResult(BootCleanupOutcome.NotRead);
 }
@@ -46,12 +46,14 @@ public enum BootCleanupOutcome
 {
     /// <summary>The disks could not be read; nothing was removed and the task stays.</summary>
     NotRead,
-    /// <summary>The installer partition still exists; its boot entries and the task stay.</summary>
+    /// <summary>The installer partition still exists and its installer was not started; its boot entries and the task stay.</summary>
     PartitionPresent,
     /// <summary>The partition is gone but the BCD entry is still listed, or the listing could not be read; the task stays.</summary>
     EntriesRemain,
     /// <summary>The partition is gone; its boot entries and the task were removed.</summary>
     Removed,
+    /// <summary>The installer was started and its partition is still there; its boot entries and the task were removed, the partition stays for a new attempt.</summary>
+    RegistrationUndone,
 }
 
 /// <summary>How the provider's installer picks its target. Layouts it could misread are refused before Windows is resized.</summary>
