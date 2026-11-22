@@ -1,3 +1,4 @@
+using System.Text;
 using Igloo.Core.Abstractions;
 using Igloo.Preflight;
 using Xunit;
@@ -279,6 +280,64 @@ public sealed class DirectInstallSizePlanTests
             diskGuid, partitionGuid, boundLinuxExtent: (3, 2)));
         Assert.Throws<InvalidDataException>(() => DirectInstallService.BuildGrubConfig(
             spec with { KernelCmdline = "auto=true igloo.linuxmax=1 ---" }, "en_US.UTF-8", "us", diskGuid, partitionGuid));
+    }
+
+    [Fact]
+    public void The_installer_menu_starts_the_installer_once_and_then_selects_windows()
+    {
+        var spec = new InstallerBootSpec { MenuTitle = "Install Fixture (Igloo)", KernelCmdline = "auto=true ---" };
+
+        var config = DirectInstallService.BuildGrubConfig(spec, "en_US.UTF-8", "us",
+            Guid.Parse("27897785-4620-47ee-bd61-39da18873519"), Guid.Parse("a6a183b2-f47c-433a-b170-6be254966e4a"));
+
+        // GRUB reads the file byte for byte; a checkout with CRLF must not put carriage returns in it.
+        Assert.DoesNotContain('\r', config);
+        var lines = config.Split('\n').Select(line => line.Trim()).ToArray();
+        int At(string start, int from = 0) =>
+            Array.FindIndex(lines, from, line => line.StartsWith(start, StringComparison.Ordinal));
+
+        // The mark is read only when the file is there, and before the default entry is chosen.
+        var guard = At("if [ -s ($root)/igloo-boot/grubenv ]; then");
+        var read = At("load_env --file ($root)/igloo-boot/grubenv igloo_attempted");
+        var attempted = At("if [ \"$igloo_attempted\" = \"1\" ]; then");
+        Assert.True(guard >= 0 && read == guard + 1 && lines[read + 1] == "fi" && attempted > read);
+        Assert.Equal(new[] { "set default=1", "set timeout=10", "else", "set default=0", "set timeout=5", "fi" },
+            lines[(attempted + 1)..(attempted + 7)]);
+
+        // Two entries: the installer first, which marks its start before the kernel is loaded, then Windows.
+        var entries = lines.Select((line, index) => (line, index))
+            .Where(item => item.line.StartsWith("menuentry ", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(["menuentry \"Install Fixture (Igloo)\" {", "menuentry \"Windows\" {"], entries.Select(item => item.line));
+        Assert.True(entries[0].index > attempted);
+        // Without the file (a seed written another way) the entry starts the installer as it always did.
+        Assert.Equal(new[]
+        {
+            "if [ -s ($root)/igloo-boot/grubenv ]; then",
+            "set igloo_attempted=1",
+            "save_env --file ($root)/igloo-boot/grubenv igloo_attempted",
+            "fi",
+        }, lines[(entries[0].index + 1)..(entries[0].index + 5)]);
+        Assert.StartsWith("linux  ($root)/igloo-boot/linux auto=true", lines[entries[0].index + 5], StringComparison.Ordinal);
+        Assert.Equal(new[]
+        {
+            "search --no-floppy --file --set=igloo_windows /EFI/Microsoft/Boot/bootmgfw.efi",
+            "chainloader ($igloo_windows)/EFI/Microsoft/Boot/bootmgfw.efi",
+            "}",
+        }, lines[(entries[1].index + 1)..(entries[1].index + 4)]);
+    }
+
+    [Fact]
+    public void The_attempt_file_is_an_empty_grub_environment_block()
+    {
+        var block = DirectInstallService.AttemptBlock();
+
+        Assert.Equal(1024, block.Length);
+        Assert.Equal("# GRUB Environment Block\n", Encoding.ASCII.GetString(block, 0, 25));
+        Assert.All(block.Skip(25), value => Assert.Equal((byte)'#', value));
+        // GRUB changes this file at the first start; a receipt that hashed it would refuse every new attempt.
+        var spec = new InstallerBootSpec { MenuTitle = "fixture", KernelCmdline = "fixture" };
+        Assert.DoesNotContain(DirectInstallService.SeedOutputPaths(spec, [], false),
+            path => path.EndsWith("grubenv", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

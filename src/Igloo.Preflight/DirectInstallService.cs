@@ -83,6 +83,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
     private const string FallbackBootFile = "BOOTX64.EFI"; // default x64 loader name firmware boots there
     private const string KernelFile = "linux";   // kernel on OEMDRV (under BootDir)
     private const string InitrdFile = "initrd";  // initrd on OEMDRV (under BootDir)
+    private const string AttemptFile = "grubenv"; // GRUB environment block (under BootDir): set once the installer was started
 
     // EFI/<vendor> covers the Fedora/Debian/Ubuntu grubx64 prefixes; boot/grub covers
     // Ubuntu/Mint casper grub, whose compiled prefix is /boot/grub.
@@ -1528,6 +1529,17 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             File.WriteAllText(path, grubCfgContent, Encoding.ASCII);
             _logger.LogInformation("grub.cfg written to {Path}", path);
         }
+        // Written fresh for every attempt: the menu marks in it that the installer was started.
+        File.WriteAllBytes(Path.Join(bootDst, AttemptFile), AttemptBlock());
+        _logger.LogInformation("Installer menu starts the installer once; a second start of the menu selects Windows");
+    }
+
+    /// <summary>An empty GRUB environment block, the only form GRUB's save_env writes into.</summary>
+    internal static byte[] AttemptBlock()
+    {
+        var block = Enumerable.Repeat((byte)'#', 1024).ToArray();
+        Encoding.ASCII.GetBytes("# GRUB Environment Block\n").CopyTo(block, 0);
+        return block;
     }
 
     internal static (string Name, byte[] Contents) ReadRequiredInitrdConfig(
@@ -1875,14 +1887,34 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             fi
             set root="$igloo_origin"
 
-            set default=0
-            set timeout=5
+            # The installer starts once. A finished installation removes this partition, so a
+            # second start of this menu means the first one did not finish: Windows is selected.
+            set igloo_attempted=
+            if [ -s ($root)/{{BootDir}}/{{AttemptFile}} ]; then
+                load_env --file ($root)/{{BootDir}}/{{AttemptFile}} igloo_attempted
+            fi
+            if [ "$igloo_attempted" = "1" ]; then
+                set default=1
+                set timeout=10
+            else
+                set default=0
+                set timeout=5
+            fi
 
             menuentry "{{bootSpec.MenuTitle}}" {
+                if [ -s ($root)/{{BootDir}}/{{AttemptFile}} ]; then
+                    set igloo_attempted=1
+                    save_env --file ($root)/{{BootDir}}/{{AttemptFile}} igloo_attempted
+                fi
                 linux  ($root)/{{BootDir}}/{{KernelFile}} {{cmdline}}
                 initrd ($root)/{{BootDir}}/{{InitrdFile}}
             }
-            """;
+
+            menuentry "Windows" {
+                search --no-floppy --file --set=igloo_windows /EFI/Microsoft/Boot/bootmgfw.efi
+                chainloader ($igloo_windows)/EFI/Microsoft/Boot/bootmgfw.efi
+            }
+            """.ReplaceLineEndings("\n");
     }
 
     // ISO mounting via PowerShell
