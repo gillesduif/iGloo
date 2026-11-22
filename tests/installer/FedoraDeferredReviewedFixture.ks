@@ -1,34 +1,35 @@
 # ============================================================================
 # Igloo kickstart template for Fedora KDE
 # ----------------------------------------------------------------------------
-# Rendered at runtime by the Igloo Windows-side app. Placeholders:
-#   en_US.UTF-8             e.g. en_US.UTF-8
-#   us             e.g. be, us, de
-#   us            same as KEYMAP (XKB layout name)
-#   UTC           IANA tz, e.g. Europe/Brussels
-#   fixture-pc           <linux-username>-pc
-#   fixture     the user's chosen Linux login name
-#   Fixture          display name (falls back to username)
-#   104857600000  exact byte size of the user-selected target disk
-#   00000000-0000-0000-0000-000000000001   Windows-observed GPT disk GUID of that selected disk
-#     model string of the target disk (informational)
-#   fixture   Windows login name retained for migration metadata
-#   dual-boot       "replace"   → wipe entire disk (clearpart --all)
+# Rendered at runtime by the Igloo Windows-side app. Placeholders, named here without
+# their braces because the renderer fills one in wherever it stands, also in a comment:
+#   LOCALE                 e.g. en_US.UTF-8
+#   KEYMAP                 e.g. be, us, de
+#   XLAYOUT                same as KEYMAP (XKB layout name)
+#   TIMEZONE               IANA tz, e.g. Europe/Brussels
+#   HOSTNAME               <linux-username>-pc
+#   LINUX_USERNAME         the user's chosen Linux login name
+#   FULL_NAME              display name (falls back to username)
+#   TARGET_DISK_BYTES      exact byte size of the user-selected target disk
+#   TARGET_DISK_GUID       Windows-observed GPT disk GUID of that selected disk
+#   TARGET_DISK_MODEL      model string of the target disk (informational)
+#   WINDOWS_USERNAME       Windows login name retained for migration metadata
+#   INSTALL_MODE           "replace"   → wipe entire disk (clearpart --all)
 #                          "dual-boot" → keep existing partitions, use free space
 #                                        (clearpart --none; Windows was already
 #                                         shrunk by the Igloo app before boot)
-#      space-separated list of folder names (informational)
+#   INCLUDED_FOLDERS       space-separated list of folder names (informational)
 #                          (e.g. "Documents Downloads Pictures")
-#    selected Gecko OEMDRV paths and Linux destinations
-#    selected Chromium OEMDRV paths
-#   --lock    rendered by the plugin as either
+#   STAGED_BROWSER_MAP selected Gecko OEMDRV paths and Linux destinations
+#   STAGED_CHROMIUM_MAP selected Chromium OEMDRV paths
+#   PASSWORD_OPTION        rendered by the plugin as either
 #                          "--password=<crypt-hash> --iscrypted"
 #                          "--lock"                              (fallback if no password)
-#             SSID of the network Windows was connected to, escaped
+#   WIFI_SSID              SSID of the network Windows was connected to, escaped
 #                          for a bash double-quoted string ("" if none / wired-only)
-#              cleartext pre-shared key for  ("" if open
+#   WIFI_PSK               cleartext pre-shared key for WIFI_SSID ("" if open
 #                          network or no key recovered)
-#   url --metalink="https://mirrors.fedoraproject.org/metalink?repo=fedora-44&arch=x86_64" the Anaconda install-source directive (a full `url …`
+#   INSTALL_SOURCE_URL the Anaconda install-source directive (a full `url …`
 #                          line) telling the netinstall where to fetch packages.
 #                          Rendered from distro.json's iso.stage2Url - typically a
 #                          Fedora metalink ("Closest mirror"). Without it Anaconda
@@ -54,7 +55,7 @@ firstboot --disable
 
 lang en_US.UTF-8
 # Only the XKB layout is given; Anaconda derives a matching virtual-console
-# keymap from it. Do NOT add --vckeymap=us: vconsole names differ from
+# keymap from it. Do NOT add --vckeymap=KEYMAP: vconsole names differ from
 # XKB names (e.g. Belgian is xkb "be" but vconsole "be-latin1"), so feeding the
 # XKB name to --vckeymap makes Anaconda reject the layout for any non-US keyboard.
 keyboard --xlayouts='us'

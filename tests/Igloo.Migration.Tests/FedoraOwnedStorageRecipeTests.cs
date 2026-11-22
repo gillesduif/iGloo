@@ -178,6 +178,75 @@ public sealed class FedoraOwnedStorageRecipeTests
     }
 
     [Fact]
+    public async Task FedoraConfigWithTwoBrowsersOfEachKindKeepsItsCommentsAndCommandsApart()
+    {
+        // Edge and Opera together stopped Anaconda on line 24: a placeholder in the header comment took a two-line value.
+        var manifest = Manifest() with
+        {
+            Browsers =
+            [
+                new BrowserMigration { Name = "Microsoft Edge", Engine = "chromium",
+                    SourceRelativePath = "AppData/Local/Microsoft/Edge/User Data",
+                    ProfileStagingPath = "browser-profiles/AppData/Local/Microsoft/Edge/User Data" },
+                new BrowserMigration { Name = "Opera", Engine = "chromium",
+                    SourceRelativePath = "AppData/Roaming/Opera Software/Opera Stable",
+                    ProfileStagingPath = "browser-profiles/AppData/Roaming/Opera Software/Opera Stable" },
+                new BrowserMigration { Name = "Mozilla Firefox", Engine = "gecko",
+                    SourceRelativePath = "AppData/Roaming/Mozilla/Firefox", DestRelativePath = ".mozilla/firefox",
+                    ProfileStagingPath = "browser-profiles/AppData/Roaming/Mozilla/Firefox" },
+                new BrowserMigration { Name = "Zen Browser", Engine = "gecko",
+                    SourceRelativePath = "AppData/Roaming/zen", DestRelativePath = ".zen",
+                    ProfileStagingPath = "browser-profiles/AppData/Roaming/zen" },
+            ],
+            Files = new FileMigrationPlan
+            {
+                StagingPath = "fixture",
+                IncludedFolders = ["Documents", "Downloads"],
+                Folders = [new MigrationFolder { Name = "Documents", SourceRelativePath = "Documents" },
+                    new MigrationFolder { Name = "Downloads", SourceRelativePath = "Downloads" }],
+            },
+            WifiNetworks = [new WifiNetwork { Ssid = "open-one", Security = "open" },
+                new WifiNetwork { Ssid = "open-two", Security = "open" }],
+        };
+
+        var config = await new FedoraKdePlugin().RenderInstallerConfigAsync(manifest);
+        var kickstart = Encoding.UTF8.GetString(config.Contents.Span).ReplaceLineEndings("\n");
+        var lines = kickstart.Split('\n');
+
+        // Both maps reach their loops, one entry on a line.
+        Assert.Contains("<<'STAGED_CHROMIUMMAP'\nMicrosoft Edge|browser-profiles/AppData/Local/Microsoft/Edge/User Data\n" +
+            "Opera|browser-profiles/AppData/Roaming/Opera Software/Opera Stable\nSTAGED_CHROMIUMMAP", kickstart, StringComparison.Ordinal);
+        Assert.Contains("<<'STAGED_BROWSERMAP'\nbrowser-profiles/AppData/Roaming/Mozilla/Firefox|.mozilla/firefox\n" +
+            "browser-profiles/AppData/Roaming/zen|.zen\nSTAGED_BROWSERMAP", kickstart, StringComparison.Ordinal);
+
+        // Above the first command the installer reads only comments.
+        Assert.All(lines.TakeWhile(line => line != "cmdline"),
+            line => Assert.True(line.Length == 0 || line.StartsWith('#'), line));
+        // Up to the first section every line is blank, a comment, or one of the commands the template itself gives.
+        var known = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "cmdline", "firstboot", "lang", "keyboard", "timezone", "network", "rootpw", "user", "url", "repo",
+            "selinux", "firewall", "services", "bootloader", "reboot", "skipx", "text", "eula", "zerombr",
+            "clearpart", "autopart", "part", "ignoredisk", "xconfig", "module", "group",
+        };
+        var commands = lines.TakeWhile(line => !line.StartsWith('%'))
+            .Where(line => line.Trim().Length > 0 && !line.TrimStart().StartsWith('#'))
+            .Select(line => line.Split(' ', 2)[0]).Distinct(StringComparer.Ordinal).ToArray();
+        Assert.Contains("cmdline", commands);
+        Assert.All(commands, command => Assert.Contains(command, known));
+        Assert.DoesNotContain("{{", kickstart, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FedoraTemplateNamesNoPlaceholderOnACommentLine()
+    {
+        // The renderer fills a placeholder in wherever it stands; a value of two lines would end a comment.
+        var template = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "fedora-kde", "kickstart", "ks.cfg.template"));
+        Assert.DoesNotContain(template, line => line.TrimStart().StartsWith('#') && line.Contains("{{", StringComparison.Ordinal));
+        Assert.Contains(template, line => line == "{{STAGED_CHROMIUM_MAP}}");
+    }
+
+    [Fact]
     public async Task FedoraConfigBindsStagedBrowserProfilesToSelectedSources()
     {
         var selected = new BrowserMigration
