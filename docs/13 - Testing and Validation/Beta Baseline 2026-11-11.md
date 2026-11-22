@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-22
-reviewed_commit: 2f3cd60ee95aad0ecee83124429d46f26a3ace90
+reviewed_commit: 75f17cf69be3c6dea5c89c881bfb1bac71e6ee11
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -511,6 +511,31 @@ Evidence: two screenshots by the owner. No wizard log of this attempt was handed
 **Open, for the owner.** Every Debian point release, about one in two months, now needs new pins and a new package. Following Debian without one means reading the pair's hashes from the signed archive index at run time: a change to `InstallerBootSpec`, which the frozen contract covers, and the archive keys as a second trust anchor. Not started.
 
 **The r33 package (`eb81009`).** `artifacts\r33-eb81009\` and `artifacts\r33-eb81009.iso` in the main checkout. The published Debian manifest names `13.8.0` and the published plugin holds the new kernel pin and not the old one. The guides of r30, r31 and r32 ended with the ISO hash of r29; the line now gives each its own, as the `.iso.sha256` files always did.
+
+## Debian follows its point releases, 22 Nov (decided by the owner; unit tests and three probes, L1 and L2)
+
+**Decided.** Shown the r33 pin, the owner chose to have Debian follow its point releases without a new package. That covers the addition to `InstallerBootSpec` and the archive key as a second trust anchor. Asked whether the same holds for the other two: Linux Mint and Fedora each start the kernel of one image pinned by hash and are not changed. Observed on 22 Nov: Mint 22.3's image (last modified 8 Jan 2026) and Fedora 44's (22 Apr 2026) are served unchanged at the pinned addresses, and Fedora 45 stands beside 44. A newer release of either is another image, which no run has installed.
+
+**Change (`d63a2b4`, `9062982`, `75f17cf`).**
+- `InstallerBootSpec.MediaIndex` names a clear-signed index, a line that index has to hold, the key's address and full fingerprint, a checksum file, and the path of the image's own installer kernel. A provider without it behaves as before; one with it declares no hashes.
+- `InstallerMediaIndexReader` (`Igloo.Iso`) fetches the index, verifies it against the pinned fingerprint with the verifier Fedora's checksum file already uses, requires the identity line, reads from the verified text the SHA-256 and size of the checksum file, fetches and checks that file, and reads the two hashes by the path of each file below it. Only a line of a 64-digit hash, a size and the exact path counts, so the MD5 section's line for the same path is not taken.
+- `InstallationPreparation` asks the reader before the read-ahead, the space check and the preparation. A declaration that was not resolved has no hashes and fails the validation that was already there.
+- `RequireImageOfInstallerKernel` reads the release from the setup header of the downloaded installer kernel and of the image's own installer kernel, and refuses when they differ or one cannot be read. It runs in `MeasureMountedImage`, which the preparation calls before the shrink and the Target Disk page calls for its estimate; the estimate's cache key now holds the two hashes.
+- Debian declares `dists/trixie/InRelease`, the line `Codename: trixie`, `https://ftp-master.debian.org/keys/archive-key-13.asc`, fingerprint `04B54C3CDCA79751B16BC6B5225629DF75B188BD` and `install/vmlinuz`. Its image pattern takes any release of the 13 series and no other, so Debian 14 stops at Download with the update instruction.
+- Six refusals with their instruction: the list cannot be fetched, carries no valid signature for this release, does not name the files, the server's files are not the listed ones, a kernel's release cannot be read, installer and image are of different releases.
+- Two checks that fetch the same new pair at once (the read-ahead and the space check) both get the verified file; before, the second failed on the first one's open cache file. Seen in a test that fails without the change.
+- Not changed, and a consequence: the reviewed entry points, which the command-line installation flow uses, and the lab tool `tests/installer/DebianLabStage` read the provider's own declaration. It has no hashes now, so they refuse Debian's pair where at `2f3cd60` they took the pinned one.
+
+**Observed (L2).**
+- The address serves the Debian Archive Automatic Signing Key (13/trixie), RSA 4096, primary fingerprint as pinned, signing subkey `B8E5F131…47EF2265`, expiring 2035-03-28; Ubuntu's `debian-archive-keyring` package holds the same key. `gpgv` accepts the index with that key alone.
+- The product's verifier accepts the index Debian published for 13.8, kept with the checksum file and the key under `tests/Igloo.Iso.Tests/Fixtures/debian-13.8`, and the reader returns `14159c60…` and `d8a29493…`. Run against Debian's servers with the plugin's own declaration it returned the same two in under a second, twice.
+- The published 13.8.0 image, read with range requests: ISO 9660 with a Joliet tree and no UDF; `/install/vmlinuz` and `/live/vmlinuz` are files of 12,171,200 bytes whose setup header names `6.12.117+deb13-amd64`. The product's reader gives the same release for the downloaded installer kernel `14159c60…`, a file of the same size.
+
+**Review.** Four read-only reviewers read the change, each from one side: the trust chain, the order before the shrink, the kernel comparison, the tests and the repository's rules. None found a way to have a hash accepted that the pinned key did not sign, or a disk change before the checks. Taken over from them: the identity line (the same key signs the lists of other series, each with the same path to an installer); the 13-series image pattern; the image's own installer kernel instead of the live system's as the thing compared; an instruction that works (going back a step does not fetch the image again in this wizard, starting it again does); the update instruction where waiting changes nothing; three host tests that had begun to ask Debian's servers and now use a stand-in and assert the hashes; the two checks at once. Not taken over: the verifier ignores revocation and expiry of a key, as it did for the images; it is shared by every distribution and was left as it is.
+
+**Gate at `75f17cf`.** Build `-warnaserror` clean; 2,382 tests, 2,381 passed, 0 failed, 1 skipped; 47 agent test scripts pass in WSL.
+
+**Not verified.** All of it in a VM. That Windows hands the product `install\vmlinuz` of the mounted image as the range requests read it. A real point release: the hours between Debian's archive and its image, and the release after. No test reads a genuine kernel image; the setup-header reader was run by hand on the 13.8 installer kernel.
 
 ## Read in source, not changed
 

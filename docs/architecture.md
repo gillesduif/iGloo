@@ -294,6 +294,12 @@ flowchart LR
   warning. No SHA-256 available → no download.
 - **Fingerprints, not key IDs:** 64-bit key IDs are forgeable on keyservers; iGloo
   pins the full fingerprint and prefers keys bundled with the app.
+- **An installer that is not on the image:** Debian's installer kernel and initrd are a
+  separate download that Debian replaces at every point release. Their hashes are read
+  from the archive's clear-signed index (`InstallerBootSpec.MediaIndex`, same pinned-fingerprint
+  rule, and only from the list that names the declared codename), and the pair is taken only
+  when the image's own installer kernel is of the same release. Both checks run before
+  Windows is resized.
 - **Secrets hygiene:** the manifest's password is used once (chpasswd) and then
   redacted on disk; Wi-Fi keyfiles land `0600 root:root`.
 
