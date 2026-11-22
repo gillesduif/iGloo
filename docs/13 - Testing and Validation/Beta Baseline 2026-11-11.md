@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-22
-reviewed_commit: 4cbcaaca5ffc6b4d3bafa283b64a796c14f4a242
+reviewed_commit: 2f3cd60ee95aad0ecee83124429d46f26a3ace90
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -486,6 +486,29 @@ Evidence: `artifacts\r31-evidence\r31-fedora-20261122` (Linux side, collected at
 **Not verified.** Any of these four in a VM. That GRUB on Fedora draws the theme once it is asked to: nothing on this branch has shown Fedora with a graphical menu. That the splash or the console shows the line in this guest. Whether Windows, Linux Mint and Debian still start from the new menu. A second attempt, Secure Boot, and the Windows side of this run.
 
 **The r32 package (`f6c421c`).** `artifacts\r32-f6c421c\` and `artifacts\r32-f6c421c.iso` in the main checkout. The published agent, boot module and launcher carry the four changes. An installation made with r31 keeps its own agent and does not take them.
+
+## The r32 Debian attempt of 22 Nov: an installer of another Debian release, and Windows not starting from the installer menu
+
+Evidence: two screenshots by the owner. No wizard log of this attempt was handed over.
+
+**Observed by the owner (L3, screenshots).** Debian's installer stopped with its message that no kernel modules were found. Back in the installer's menu, the `Windows` entry showed Windows Boot Manager's recovery screen: file `\EFI\Microsoft\Boot\BCD`, status `0xc000000f`. Windows started when chosen in the firmware's boot menu.
+
+**Observed in Debian's archives on 22 Nov.**
+- `current-live` serves `debian-live-13.8.0-amd64-gnome.iso` (signed list of 21 Nov, 11:48 GMT). Its file list holds kernel module packages for `6.12.117+deb13-amd64` and for no other kernel.
+- The pair the plugin pinned (`2b2358b3…`, `5a9afef2…`) is the installer of Debian 13.7, build `20250803+deb13u7`, kernel `6.12.107+deb13-amd64`: the snapshot archive lists exactly these hashes on 15 Sep and on 1 Nov.
+- `current/images` now holds build `20250803+deb13u8`, kernel 6.12.117: `hd-media/vmlinuz` `14159c60…`, `hd-media/gtk/initrd.gz` `d8a29493…`. Checked from the signature down: `dists/trixie/InRelease` (Version 13.8, 21 Nov 09:15:44 UTC) has valid signatures of the three archive keys `B8B80B5B…350947F8`, `04B54C3C…75B188BD` and `41587F7D…B2C39DE4`, taken from Ubuntu's `debian-archive-keyring` package; it lists the installer's `SHA256SUMS` as `cf5f674a…`, the downloaded file hashes to that and lists the two hashes, and both downloaded files hash to them.
+
+**Read in source.** The image follows `current-live` by a file-name pattern, while the pair is pinned by hash and kept under that hash in `%LOCALAPPDATA%\Igloo\installer-media-cache`. A guest that has the pair in its cache, as this one has since the earlier Debian runs, starts the 13.7 installer on the 13.8 image. A PC without it is refused before any storage change, because the download no longer matches the pin (`Prepare` acquires the pair first). By this reading no package of this branch could install Debian from 21 Nov on. That the wizard downloaded 13.8.0 for this attempt is inferred from the message and the dates, not read in a log. Linux Mint and Fedora start the kernel of one image pinned by hash; only Debian combines two downloads, and the `Windows` entry is the platform's and the same for all three.
+
+**Read in source, GRUB.** Upstream GRUB 2.12 gives a chainloaded program the device of `$root` (`grub_device_open (0)` in `chainloader.c`); Fedora's GRUB takes the device of the file. The entry named the file with its device and left `$root` on the installer partition, where Windows Boot Manager then looked for its BCD. This is why the entry worked in the r27 Fedora run. Debian's own GRUB source was not read; its behaviour is the screenshot.
+
+**Changes (L1; `d2c4d50`, `2f3cd60`).** Gate at `2f3cd60`: build `-warnaserror` clean, 2,332 tests, 2,331 passed, 0 failed, 1 skipped; 47 agent test scripts pass in WSL.
+- The pins are those of 13.8, and `isoFilePattern` names `13.8.0`. At the next point release the Download page stops with "Update iGloo or choose another distribution" before the image is fetched, for a PC with and without the cache. `DebianInstallerPairAndImageBelongToOnePointRelease` holds the three values together.
+- The `Windows` entry makes the partition that holds `bootmgfw.efi` the root, names the file without a device, and puts the root back afterwards so that the installer entry still finds its kernel when Windows did not start.
+
+**Not verified.** Either change in a VM. That build `deb13u8` runs the partitioning hooks iGloo puts in the initrd as `deb13u7` did. The `Windows` entry under Linux Mint's GRUB, which no run has used.
+
+**Open, for the owner.** Every Debian point release, about one in two months, now needs new pins and a new package. Following Debian without one means reading the pair's hashes from the signed archive index at run time: a change to `InstallerBootSpec`, which the frozen contract covers, and the archive keys as a second trust anchor. Not started.
 
 ## Read in source, not changed
 
