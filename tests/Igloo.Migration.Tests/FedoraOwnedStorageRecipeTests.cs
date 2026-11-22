@@ -210,6 +210,7 @@ public sealed class FedoraOwnedStorageRecipeTests
         };
 
         var config = await new FedoraKdePlugin().RenderInstallerConfigAsync(manifest);
+        KeepForTheKickstartParser("fedora-two-browsers-of-each-kind.ks", config.Contents);
         var kickstart = Encoding.UTF8.GetString(config.Contents.Span).ReplaceLineEndings("\n");
         var lines = kickstart.Split('\n');
 
@@ -235,6 +236,43 @@ public sealed class FedoraOwnedStorageRecipeTests
         Assert.Contains("cmdline", commands);
         Assert.All(commands, command => Assert.Contains(command, known));
         Assert.DoesNotContain("{{", kickstart, StringComparison.Ordinal);
+    }
+
+    // tests/agent/fedora_kickstart_parse_test.py reads these with pykickstart, the parser the installer uses.
+    private static void KeepForTheKickstartParser(string name, ReadOnlyMemory<byte> kickstart)
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "rendered-kickstarts"));
+        File.WriteAllBytes(Path.Combine(folder.FullName, name), kickstart.ToArray());
+    }
+
+    [Fact]
+    public async Task FedoraRenderingsWithQuotesAndAPasswordAreKeptForTheKickstartParser()
+    {
+        // A name with an apostrophe and an accent, a password hash and a saved network: what a real owner brings.
+        var manifest = Manifest() with
+        {
+            User = new()
+            {
+                WindowsUsername = "gilles", PreferredLinuxUsername = "gilles", FullName = "Gilles D'huyvetter-Renée",
+                WindowsComputerName = "DESKTOP-IGLOO", Locale = "nl_BE.UTF-8", Timezone = "Europe/Brussels", Keymap = "be",
+                LinuxPasswordCrypted = "$6$rounds=4096$saltsalt$" + new string('a', 86),
+            },
+            WifiNetworks = [new WifiNetwork { Ssid = "Thuis \"5G\" $net", Security = "wpa-psk",
+                Psk = "p@ss \"word\" $HOME `x` \\ 'q'", IsPrimary = true }],
+        };
+
+        var dualBoot = await new FedoraKdePlugin().RenderInstallerConfigAsync(manifest);
+        KeepForTheKickstartParser("fedora-dual-boot-with-password.ks", dualBoot.Contents);
+        var replace = await new FedoraKdePlugin().RenderInstallerConfigAsync(manifest with
+        {
+            Hardware = new() { InstallMode = "replace", TargetDiskBytes = 40L * 1024 * 1024 * 1024, TargetDiskGuid = TargetGuid },
+        });
+        KeepForTheKickstartParser("fedora-replace-with-password.ks", replace.Contents);
+
+        var text = Encoding.UTF8.GetString(dualBoot.Contents.Span);
+        Assert.Contains("--gecos=\"Gilles D'huyvetter-Renée\"", text, StringComparison.Ordinal);
+        Assert.Contains("--iscrypted", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{", text, StringComparison.Ordinal);
     }
 
     [Fact]
