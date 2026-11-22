@@ -182,7 +182,7 @@ def selected_user_paths():
 
     def add_root(path):
         if not safe_user_path(path):
-            raise RuntimeError("Selected OEMDRV user-data path is unsafe")
+            raise RuntimeError("Selected OEMDRV user-data path is unsafe: " + ascii(path))
         if len(roots) >= 1024:
             raise RuntimeError("Selected OEMDRV user-data root inventory is too large")
         alias = unicodedata.normalize("NFC", path).casefold()
@@ -261,7 +261,7 @@ def selected_user_paths():
                     raise RuntimeError("Selected OEMDRV user data contains a redirected entry")
                 relative = item.relative_to(seed).as_posix()
                 if not safe_user_path(relative):
-                    raise RuntimeError("Selected OEMDRV user-data path is unsafe")
+                    raise RuntimeError("Selected OEMDRV user-data path is unsafe: " + ascii(relative))
                 alias = unicodedata.normalize("NFC", relative).casefold()
                 entries_seen += 1
                 if alias in aliases or entries_seen > 20000:
@@ -357,9 +357,13 @@ if [ "${#SEED_DEVICES[@]}" -ne 1 ]; then
 fi
 PRE_SEED=/tmp/igloo_pre_oemdrv
 mkdir -p "$PRE_SEED"
-mount -t vfat -o ro,nosuid,nodev,noexec "${SEED_DEVICES[0]}" "$PRE_SEED"
+# The installer already has this partition mounted without UTF-8 names, and a second mount of the same device takes those options over; a read-only loop device over it gets its own.
+IGLOO_SEED_LOOP=$(losetup --find --show --read-only "${SEED_DEVICES[0]}")
+mount -t vfat -o ro,nosuid,nodev,noexec,utf8 "$IGLOO_SEED_LOOP" "$PRE_SEED"
 SEED_DISK_GUID=$(python3 /tmp/igloo-validate-seed.py "${SEED_DEVICES[0]}" "$PRE_SEED")
 umount "$PRE_SEED"
+losetup --detach "$IGLOO_SEED_LOOP"
+IGLOO_SEED_LOOP=""
 # Dual boot keeps every partition, so its seed sits on the target disk; any other mode would wipe it.
 if [ -z "$SEED_DISK_GUID" ] ||
    { [ "$INSTALL_MODE" != "dual-boot" ] && [ "${SEED_DISK_GUID,,}" = "${TARGET_DISK_GUID,,}" ]; }; then
@@ -588,7 +592,9 @@ fi
 OEMDRV_DEV="${SEED_DEVICES[0]}"
 OEMDRV="/tmp/igloo_oemdrv"
 mkdir -p "$OEMDRV"
-mount -t vfat -o ro,nosuid,nodev,noexec "$OEMDRV_DEV" "$OEMDRV"
+# As in %pre: a read-only loop device, so that file names are read as UTF-8 whatever the installer's own mount uses.
+OEMDRV_LOOP=$(losetup --find --show --read-only "$OEMDRV_DEV")
+mount -t vfat -o ro,nosuid,nodev,noexec,utf8 "$OEMDRV_LOOP" "$OEMDRV"
 python3 /tmp/igloo-validate-seed.py "$OEMDRV_DEV" "$OEMDRV" >/dev/null
 if [ ! -f "$OEMDRV/igloo-agent/first-boot.sh" ] || [ ! -f "$OEMDRV/igloo-agent/agent.py" ]; then
     echo "[igloo-post] ERROR: Required first-boot agent files are missing on OEMDRV" >&2
@@ -940,6 +946,7 @@ chroot "$SYSIMAGE" grub2-mkconfig -o /boot/grub2/grub.cfg 2>/dev/null \
 if [ -n "$OEMDRV" ] && mountpoint -q "$OEMDRV" 2>/dev/null; then
     umount "$OEMDRV" 2>/dev/null || true
 fi
+losetup --detach "$OEMDRV_LOOP" 2>/dev/null || true
 
 log "Post-install complete"
 %end

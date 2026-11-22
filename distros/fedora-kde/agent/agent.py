@@ -2622,7 +2622,7 @@ def _verify_bound_seed_before_firstboot(installed_manifest: Path) -> None:
     if run_cmd(["mountpoint", "-q", str(mountpoint)], check=False).returncode == 0:
         raise RuntimeError("Seed verification mountpoint is already in use")
     seed_device = next(iter(seed_devices))
-    run_cmd(["mount", "-t", "vfat", "-o", "ro,nosuid,nodev,noexec",
+    run_cmd(["mount", "-t", "vfat", "-o", "ro,nosuid,nodev,noexec,utf8",
              seed_device, str(mountpoint)])
     try:
         bound = _read_bound_seed_files(
@@ -2944,7 +2944,7 @@ def redact_manifest(manifest: dict[str, Any]) -> None:
     if run_cmd(["mountpoint", "-q", str(mountpoint)], check=False).returncode == 0:
         raise RuntimeError("Seed redaction mountpoint is already in use")
     seed_device = next(iter(seed_devices))
-    run_cmd(["mount", "-t", "vfat", "-o", "rw,nosuid,nodev,noexec",
+    run_cmd(["mount", "-t", "vfat", "-o", "rw,nosuid,nodev,noexec,utf8",
              seed_device, str(mountpoint)])
     try:
         _scrub_bound_seed_inputs(manifest_path, identity_path, mountpoint,
@@ -3603,7 +3603,7 @@ def export_logs_to_seed(manifest: dict[str, Any]) -> None:
         mountpoint.mkdir(parents=True, exist_ok=True)
         if run_cmd(["mountpoint", "-q", str(mountpoint)], check=False).returncode == 0:
             raise RuntimeError("Seed log mountpoint is already in use")
-        if run_cmd(["mount", "-t", "vfat", str(seed_dev), str(mountpoint)],
+        if run_cmd(["mount", "-t", "vfat", "-o", "utf8", str(seed_dev), str(mountpoint)],
                    check=False).returncode != 0:
             logger.info("Could not mount the seed partition for log export (non-fatal)")
             return
