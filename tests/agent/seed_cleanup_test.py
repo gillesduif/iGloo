@@ -81,7 +81,8 @@ def make_volume(root, extra=()):
               "migration-manifest.json", "files/Documents/Résumé.docx"]
     present = ["igloo-seed-identity.json", "EFI/BOOT/BOOTX64.EFI", "igloo-boot/linux",
                "migration-manifest.json", "FILES/Documents/Résumé.docx",
-               "System Volume Information/WPSettings.dat", "igloo-logs/agent.log", *extra]
+               "System Volume Information/WPSettings.dat", "igloo-logs/agent.log",
+               "igloo-boot/grubenv", *extra]
     volume = Path(root) / "volume"
     for name in present:
         (volume / name).parent.mkdir(parents=True, exist_ok=True)

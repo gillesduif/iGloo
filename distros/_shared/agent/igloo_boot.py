@@ -488,6 +488,8 @@ _SEED_MOUNTPOINTS = ("/run/igloo-seed", "/run/igloo-seed-verify", "/run/igloo-se
                      "/run/igloo-seed-redaction", str(_SEED_INVENTORY_MOUNT))
 _SEED_TOOLS = ("sfdisk", "partx", "efibootmgr")
 _SEED_RECEIPT = "igloo-seed-reuse.json"
+# The installer menu marks its first start here; GRUB changes the file, so no receipt or identity lists it.
+_SEED_START_MARK = "igloo-boot/grubenv"
 # Written next to iGloo's own files by the Fedora log export and by Windows.
 _SEED_OTHER_TREES = ("igloo-logs/", "system volume information/")
 _GUID = r"[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}"
@@ -617,7 +619,7 @@ def foreign_seed_files(b: Boot, partition: str, identity_path: Path) -> list[str
     try:
         known = (_listed_seed_paths(_seed_identity(identity_path))
                  | _listed_seed_paths(json.loads((mountpoint / _SEED_RECEIPT).read_bytes()))
-                 | {_SEED_RECEIPT, "igloo-seed-identity.json"})
+                 | {_SEED_RECEIPT, "igloo-seed-identity.json", _SEED_START_MARK})
 
         def stop(error: OSError) -> None:
             raise error
