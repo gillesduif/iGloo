@@ -318,12 +318,17 @@ public sealed class DirectInstallSizePlanTests
             "fi",
         }, lines[(entries[0].index + 1)..(entries[0].index + 5)]);
         Assert.StartsWith("linux  ($root)/igloo-boot/linux auto=true", lines[entries[0].index + 5], StringComparison.Ordinal);
+        // Upstream GRUB hands the started program the device of $root, and Windows looks for its BCD there.
+        // The root goes back afterwards, so the installer entry still finds its kernel when Windows did not start.
         Assert.Equal(new[]
         {
-            "search --no-floppy --file --set=igloo_windows /EFI/Microsoft/Boot/bootmgfw.efi",
-            "chainloader ($igloo_windows)/EFI/Microsoft/Boot/bootmgfw.efi",
+            "search --no-floppy --file --set=root /EFI/Microsoft/Boot/bootmgfw.efi",
+            "chainloader /EFI/Microsoft/Boot/bootmgfw.efi",
+            "set root=\"$igloo_origin\"",
             "}",
-        }, lines[(entries[1].index + 1)..(entries[1].index + 4)]);
+        }, lines[(entries[1].index + 1)..(entries[1].index + 5)]);
+        // A device in front of the path would leave $root on the installer partition, where there is no BCD.
+        Assert.DoesNotContain(lines, line => line.StartsWith("chainloader (", StringComparison.Ordinal));
     }
 
     [Fact]

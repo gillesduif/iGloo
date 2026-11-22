@@ -1915,8 +1915,9 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             }
 
             menuentry "Windows" {
-                search --no-floppy --file --set=igloo_windows /EFI/Microsoft/Boot/bootmgfw.efi
-                chainloader ($igloo_windows)/EFI/Microsoft/Boot/bootmgfw.efi
+                search --no-floppy --file --set=root /EFI/Microsoft/Boot/bootmgfw.efi
+                chainloader /EFI/Microsoft/Boot/bootmgfw.efi
+                set root="$igloo_origin"
             }
             """.ReplaceLineEndings("\n");
     }
