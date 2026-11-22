@@ -432,7 +432,7 @@ public sealed class CommandBoundaryTests
         Assert.Equal(["Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Core.Host"],
             Refs(Project("Igloo.Community.App")).Order(StringComparer.Ordinal));
         Assert.Equal(["Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Mascot.Wpf"],
-            Refs(Path.Join(root.FullName, "Igloo.One.App", "Igloo.One.App.csproj"))
+            Refs(Path.Join(root.FullName, "src", "Igloo.One.App", "Igloo.One.App.csproj"))
                 .Order(StringComparer.Ordinal));
         Assert.Equal(new[] { "Igloo.Command.Contracts" }, Refs(Project("Igloo.Cli.Client")));
         foreach (var source in Directory.EnumerateFiles(Path.Join(root.FullName, "src", "Igloo.Cli.Client"),
@@ -465,7 +465,7 @@ public sealed class CommandBoundaryTests
                 Assert.DoesNotContain("using Igloo.Core.Runtime.Execution;", text, StringComparison.Ordinal);
             }
         }
-        foreach (var source in Directory.EnumerateFiles(Path.Join(root.FullName, "Igloo.One.App"),
+        foreach (var source in Directory.EnumerateFiles(Path.Join(root.FullName, "src", "Igloo.One.App"),
                      "*.cs", SearchOption.AllDirectories).Where(p =>
                      !p.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar,
                          StringComparison.OrdinalIgnoreCase)))

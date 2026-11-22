@@ -109,7 +109,7 @@ public sealed class CliProcessBoundaryTests
         Assert.Equal(new[] { "Igloo.Command.Contracts" }, References(
             "src/Igloo.Cli.Client/Igloo.Cli.Client.csproj"));
         Assert.Equal(new[] { "Igloo.Cli.Client", "Igloo.Command.Contracts", "Igloo.Mascot.Wpf" }, References(
-            "Igloo.One.App/Igloo.One.App.csproj"));
+            "src/Igloo.One.App/Igloo.One.App.csproj"));
         Assert.Equal(new[] { "Igloo.Command.Contracts", "Igloo.Core.Host" }, References(
             "src/Igloo.Cli/Igloo.Cli/Igloo.Cli.csproj"));
     }

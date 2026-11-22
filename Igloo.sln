@@ -49,7 +49,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "One", "One", "{549010CB-AC1
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.Cli", "src\Igloo.Cli\Igloo.Cli\Igloo.Cli.csproj", "{24C3A0FA-8CBF-46CC-B266-77609EF76D80}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.One.App", "Igloo.One.App\Igloo.One.App.csproj", "{010AB1B3-25C2-4EE7-8C28-062E069F9F20}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.One.App", "src\Igloo.One.App\Igloo.One.App.csproj", "{010AB1B3-25C2-4EE7-8C28-062E069F9F20}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Igloo.Command.Contracts", "src\Igloo.Command.Contracts\Igloo.Command.Contracts.csproj", "{69EB4111-2431-4213-BC63-EB02FBEE320F}"
 EndProject
