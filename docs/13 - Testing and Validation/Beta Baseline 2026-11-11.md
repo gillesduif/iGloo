@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-22
-reviewed_commit: 3fc4ba115889b97e195239ddd2fe3e463f898275
+reviewed_commit: 4cbcaaca5ffc6b4d3bafa283b64a796c14f4a242
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -458,9 +458,32 @@ Changes after this run (script tests, L1):
 
 **A fresh checkout (`2294daa`).** This gate was the first one run in a new worktree, and two things failed there that the long-lived checkout had hidden. The reviewed Fedora fixture is compared byte for byte with a rendering that ends its lines with LF, and Git had checked it out with CRLF. A solution build made the stream fixture of `Igloo.Command.Tests` in Debug, because that project is not in the solution, so a Release test run did not find it and three tests failed. `.gitattributes` now keeps the fixture LF and the test project passes its configuration on. Gate at `3fc4ba1`: build `-warnaserror` clean, 2,330 tests, 2,329 passed, 0 failed, 1 skipped; 43 agent test scripts pass in WSL.
 
-**Not verified.** No kickstart parser read the rendered file: pykickstart is not installed in WSL, so the first reader is again Anaconda in the owner's VM. Nothing behind the reading of the kickstart (storage, packages, `%post`, first boot) has run in a VM on this branch.
+**The kickstart read by its parser (`e802915`; L2).** pykickstart 3.78, fetched from PyPI with its listed SHA-256 and unpacked into `~/.cache/igloo-pykickstart` in WSL at the owner's word, reads three renderings the .NET tests keep beside their binaries (two browsers of each kind; dual boot with a password hash, a name with an apostrophe and a saved network; replace), the reviewed fixture and the storage commands of both modes, without an error or a warning. It refuses the line of the r30 stop with the same message. Without pykickstart the test skips itself and says so. The parser is not necessarily the version of the Fedora 44 installer.
 
 **The r31 package (`fe7d7e1`).** `artifacts\r31-fe7d7e1\` and `artifacts\r31-fe7d7e1.iso` in the main checkout, built from the worktree of `refactor/community-fleet-foundation`; its `COMMIT.txt` reads the branch, date and subject for the commit hash it took at the start. The published template has no placeholder on a comment line.
+
+## The r31 Fedora run of 22 Nov: the first complete installation
+
+Evidence: `artifacts\r31-evidence\r31-fedora-20261122` (Linux side, collected at the second start) and the owner's report with a screenshot of the home folder. No Windows-side evidence and no wizard log of this run were handed over.
+
+**Observed (L3).** Fedora Linux 44, kernel 6.19.10, in the VMware guest without Secure Boot, beside Windows 11, Linux Mint and Debian. Root is `/dev/nvme0n1p11` (ext4) with its own `/boot` on `p10`; `/boot/efi` is `nvme0n1p1`, PARTUUID `d1b2894e-9378-4b98-a5b0-e4d3f7428c18`, the partition Windows starts from and the one the wizard named. The storage commands Anaconda took were `ignoredisk --only-use=nvme0n1`, `clearpart --none`, `autopart --type=plain --nohome`. `%post` copied Documents, Downloads, Pictures and Desktop and staged the profiles of Edge and Opera. `grub.cfg` has entries for Fedora, Fedora's rescue image, Windows 11, Linux Mint and Debian; none of the other two was started. After the second start: 39 history rows and 58 cookies for Edge, 9 bookmarks and 4 history rows for Opera; the locale is `nl_BE.UTF-8`; `Boot0008 Fedora` is first in the boot order.
+
+**What went wrong, each seen in the evidence.**
+- **The first start showed a black screen.** The agent started at 18:42:49 and began `flatpak install` of Opera and Edge at 18:43:09; the log has no end for it. The owner restarted the guest; the second start began at 18:45:31 and finished at 18:45:55. The first-boot unit is ordered before the display manager, so the sign-in screen waits for the agent; why the splash showed nothing in this guest is not established.
+- **The boot menu was Fedora's text menu.** The theme was unpacked, and `/etc/default/grub` kept `GRUB_TERMINAL_OUTPUT="console"` with no `GRUB_THEME`. Fedora's `grub2-mkconfig` reads no `/etc/default/grub.d`, where the agent writes its settings; the fall-back that appends them to `/etc/default/grub` was skipped because the agent took any single non-graphical `terminal_output` for a chosen text or serial console (`7801e24`, 4 Nov), and `console` is Fedora's stock value.
+- **The codecs step failed** in both starts with `The installed DNF version has an unknown format`. The check wants the word `version` on the first line of `dnf --version`; every other line DNF printed in this run is Dutch. The line itself is not in the evidence.
+- **Nothing was cleaned up.** With a failed step the agent skips the redaction of the manifest and the removal of the installer partition, by design; partition `897d3f24-8c03-4fed-b221-5d323336efd3` and `Boot0005 iGloo distribution installer` are still there, and the agent runs again at every start.
+- **The folders have two names.** The copies are in `Documents`, `Pictures` and `Desktop`; the session made `Documenten`, `Afbeeldingen` and `Bureaublad` beside them. Downloads has one name in both.
+- **Two Fedora entries** in the menu, the second for the rescue image: `GRUB_DISABLE_SUBMENU=true`, Fedora's stock value, skips the branch of `10_linux` that the one-entry patch cuts short.
+
+**Changes (L1; `8bb45c8`, `1926142`, `097083f`, `4cbcaac`).**
+- The agent keeps a text menu only when a serial line is among GRUB's outputs; on stock Fedora it now appends its settings to `/etc/default/grub`, where the later assignment wins, and it sets `GRUB_DISABLE_SUBMENU=false` when `10_linux` was patched, so that one Fedora entry is printed. Tested against the `/etc/default/grub` of this run.
+- `dnf --version` is asked in the C locale and the word between the name and the number may be any word; an unknown answer is quoted in the error.
+- Before it starts the agent, the launcher puts one line on the splash, if there is one, and on the first console: what is being installed, that the sign-in screen follows, and not to switch off.
+- A new first-boot step moves each selected folder into the folder `xdg-user-dirs` names for it in the system's language, creating that list before the first sign-in as the Debian-family agent does; an entry the target already has stays in both places and is logged. The wallpaper goes into the session's Pictures folder and its sign-in hook names that folder.
+- Gate at `4cbcaac`: build `-warnaserror` clean, 2,331 tests, 2,330 passed, 0 failed, 1 skipped; 47 agent test scripts pass in WSL, the kickstart parser test among them and not skipped.
+
+**Not verified.** Any of these four in a VM. That GRUB on Fedora draws the theme once it is asked to: nothing on this branch has shown Fedora with a graphical menu. That the splash or the console shows the line in this guest. Whether Windows, Linux Mint and Debian still start from the new menu. A second attempt, Secure Boot, and the Windows side of this run.
 
 ## Read in source, not changed
 
@@ -474,4 +497,4 @@ Changes after this run (script tests, L1):
 
 ## Not verified
 
-Every installer, first-boot and boot-registration statement above is L0 or L1, except what the r10, r19 and r23 sections report for Debian and the r25 section for Linux Mint, in one VMware guest without Secure Boot. Mint's run has no Windows-side evidence, Fedora KDE has no complete run, no run covers a second attempt, and no run covers Secure Boot. The r6 runs in [[00 - Home/Beta Track]] remain the acceptance test; see also [[13 - Testing and Validation/Evidence Register]].
+Every installer, first-boot and boot-registration statement above is L0 or L1, except what the r10, r19 and r23 sections report for Debian, the r25 section for Linux Mint and the r31 section for Fedora KDE, in one VMware guest without Secure Boot. The runs of Mint and Fedora have no Windows-side evidence, Fedora's one run installed and finished its first boot with a failed step, no run covers a second attempt, and no run covers Secure Boot. The r6 runs in [[00 - Home/Beta Track]] remain the acceptance test; see also [[13 - Testing and Validation/Evidence Register]].
