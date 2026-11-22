@@ -537,6 +537,8 @@ Evidence: two screenshots by the owner. No wizard log of this attempt was handed
 
 **Not verified.** All of it in a VM. That Windows hands the product `install\vmlinuz` of the mounted image as the range requests read it. A real point release: the hours between Debian's archive and its image, and the release after. No test reads a genuine kernel image; the setup-header reader was run by hand on the 13.8 installer kernel.
 
+**The r34 package (`93d3711`).** `artifacts\r34-93d3711\` and `artifacts\r34-93d3711.iso` in the main checkout. The published Debian plugin holds the index address, the fingerprint, the identity line and `install/vmlinuz`, and no hash of the pair; the published manifest holds the 13-series pattern.
+
 ## Read in source, not changed
 
 - **Browser locks (B-03).** `CopyLockedChromiumDatabase` covers `SQLITE_BUSY`/`SQLITE_LOCKED`. A database Windows refuses to open (`SQLITE_CANTOPEN` → `BrowserInUse` in `LoginDataReader.ReadConnectionWithoutSharedMemory`), a non-database profile file held open for writing (`CopyFileAsync` opens the source with `FileShare.Read`) and Firefox profile files in the same position still raise `BrowserProfileStagingException`, which removes the generation and ends staging. Whether a running Edge or Chrome produces these today is not verified.
