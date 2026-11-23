@@ -8,7 +8,7 @@ validation_status: partial
 availability: branch-only
 graph_cluster: delivery
 last_reviewed: 2026-11-23
-reviewed_commit: 6cb588355885f7f95e45a06bff0758b245630b37
+reviewed_commit: 0661895dc7a5dae55f82f6d64837e1e9b8f4e986
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -565,6 +565,32 @@ Evidence: two screenshots by the owner. No wizard log of this attempt was handed
 **Not verified.** The pages in the wizard itself, in a VM: the render has no window frame, no navigation and no real disk. The dialog was not rendered.
 
 **The r35 package (`32b4fd5`).** `artifacts\r35-32b4fd5\` and `artifacts\r35-32b4fd5.iso` in the main checkout. The published `iGloo.dll` holds `Performing system check`, the line of checked items, `LINUX SIZE` and the new dialog sentence, and none of `Checking system configuration`, `Back up Windows before`, `INSTALLATION TYPE`, `Windows can shrink by up to` or `automatically reclaim`.
+
+## The wizard's messages rewritten for r36, 23 Nov (asked and approved by the owner; unit tests and pages rendered on the host, L1)
+
+**Asked.** Shown a download the owner had cancelled, reported as `Download failed` with `The transfer was cancelled before verification. Retry to resume and verify the installation image.`, the owner asked for a list of every error, warning and result the wizard can show, with a proposal for each. The list went through five versions on the owner's corrections: an action belongs on a button and a text never says how to walk through the wizard; a button carries the established term (`Retry`, `Refresh`, `Logs`); no sentences as in a user manual; no semicolon and no colon that joins clauses. Two messages are in the owner's own words: `{names} is still running` with `Close the browser completely (including background processes) and try again.`, and `Multiple EFI system partitions detected on Disk {N}` with `The Windows EFI partition must be the first one on the drive. Remove conflicting OS partitions and try again.` The owner approved the fifth version on 23 Nov. It is `artifacts\r36-wizard-texts.md` in the worktree, not tracked.
+
+**Read in source before the change.** Download, System Check and Installation each showed one fixed heading; the headings per case in the view models were bound nowhere. No error card had a control since the pages went back to the alpha XAML on 25 Oct (B-00e), so every text told the user to go back a step and continue again. A cancel by the user was shown as a failure. With an earlier download whose end is unknown, Download refused to start and going back and forward changed nothing: the command that looks the status up had no control. Eight groups of texts could not appear at all.
+
+**Change (`0661895`).**
+- Form: a heading that states the condition, then at most two sentences that state the cause and what resolves it.
+- `InstallationRefusedException` has a `Heading`; the twenty-one refusals are worded in that form. `Windows has not been resized.` is gone from the thirteen places it stood, as the list said.
+- `Retry` on Download, Data Migration and Installation runs the step again on its own page (`MainWindowViewModel.RetryCommand`, which calls the entry code of the step). `Refresh` runs System Check again, and the space check on Target Disk; on Download it looks up the end of an earlier download and then downloads. `Logs` opens the log folder. Data Migration has `Task Manager` while a browser holds its files and `Open` for a copy an earlier run left. `Close` appears when iGloo's own installation is damaged. This takes back the part of B-00e that left the error cards without a control.
+- `Cancel` on Download and Data Migration returns to the page before, without a message.
+- Status lines are shortened; several steps now share one (`Checking disk…`, `Preparing disk…`, `Creating partitions…`, `Copying installer…`, `Restarting…`). The line of the installer download is shown now: the page ignored the Platform's text for that phase.
+- Findings of System Check are a heading and a text. Legacy BIOS no longer advises `Enable UEFI mode in firmware settings.`: a Windows installed in legacy mode does not start after that.
+- Removed as unreachable: the firmware-restart dialog and its command, the second title of the removal dialog, the texts of controls that are gone, the two per-distribution texts on Target Disk that no code raises, the browser caption no page binds.
+- Kept against the list: the handling of a rejected Fedora Wi-Fi value. Its text named a switch that does not exist and is replaced by the general one; its own `catch` stays, because it keeps the exception out of the log and the details.
+- Differences from the approved list: a refusal worded in the Platform has no distribution name, so it says `this distribution` and `The distribution server`; the BitLocker findings and the disk-space messages name the drive Windows runs from, not a fixed `C:`; file names in the three file refusals stay in single quotes.
+- Not changed: the warnings of a distribution (shown nowhere), Welcome, the USB page, and what the Linux installer and the first boot show.
+
+**Tests.** Seventy-eight tests asserted the old texts and assert the new ones. One assertion on the removed browser caption is dropped. `Fedora_saved_wifi_rejection…` still asserts that the value is in neither the message nor the details. New: a cancelled download returns to the distribution page without an error and downloads on the next attempt; `Retry` runs a failed download again on its own page and moves on.
+
+**Observed (L1, rendered on the host).** Fourteen images from the program outside the repository that loads the pages over stand-ins: the error cards of Download, Data Migration, Installation and System Check with their buttons, a blocker on System Check with `Refresh` and `Disable BitLocker`, and Target Disk with a refusal, too little space, a fixed size and the slider. No Platform service runs in it, and the buttons that bind to the window's commands do nothing there.
+
+**Gate at `0661895`.** Build `-warnaserror` clean; 2,385 tests, 2,384 passed, 0 failed, 1 skipped; 47 agent test scripts pass in WSL.
+
+**Not verified.** All of it in the wizard itself, in a VM: each message in its real case, the buttons in the real window, `Cancel` returning to the page before, and `Retry` after a preparation that had already made partitions (the path that going back and forward took before; no VM run covers it).
 
 ## Read in source, not changed
 
