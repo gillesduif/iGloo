@@ -574,7 +574,7 @@ Evidence: two screenshots by the owner. No wizard log of this attempt was handed
 
 **Change (`0661895`).**
 - Form: a heading that states the condition, then at most two sentences that state the cause and what resolves it.
-- `InstallationRefusedException` has a `Heading`; the twenty-one refusals are worded in that form. `Windows has not been resized.` is gone from the thirteen places it stood, as the list said.
+- `InstallationRefusedException` has a `Heading`; the twenty-one refusals are worded in that form. `Windows has not been resized.` is gone from the thirteen refusals that carried it, as the list said; two guard exceptions in `DirectInstallService.LinuxRegion.cs`, which the wizard shows only under `Details`, keep it.
 - `Retry` on Download, Data Migration and Installation runs the step again on its own page (`MainWindowViewModel.RetryCommand`, which calls the entry code of the step). `Refresh` runs System Check again, and the space check on Target Disk; on Download it looks up the end of an earlier download and then downloads. `Logs` opens the log folder. Data Migration has `Task Manager` while a browser holds its files and `Open` for a copy an earlier run left. `Close` appears when iGloo's own installation is damaged. This takes back the part of B-00e that left the error cards without a control.
 - `Cancel` on Download and Data Migration returns to the page before, without a message.
 - Status lines are shortened; several steps now share one (`Checking disk…`, `Preparing disk…`, `Creating partitions…`, `Copying installer…`, `Restarting…`). The line of the installer download is shown now: the page ignored the Platform's text for that phase.
@@ -591,6 +591,8 @@ Evidence: two screenshots by the owner. No wizard log of this attempt was handed
 **Gate at `0661895`.** Build `-warnaserror` clean; 2,385 tests, 2,384 passed, 0 failed, 1 skipped; 47 agent test scripts pass in WSL.
 
 **Not verified.** All of it in the wizard itself, in a VM: each message in its real case, the buttons in the real window, `Cancel` returning to the page before, and `Retry` after a preparation that had already made partitions (the path that going back and forward took before; no VM run covers it).
+
+**The r36 package (`b3dd11d`).** `artifacts\r36-b3dd11d\` and `artifacts\r36-b3dd11d.iso` in the main checkout. The published `iGloo.dll` holds `is still running`, `Previous download did not complete`, `Check the details and try again`, `Retry` and `Refresh`, and none of `go back one step`, `Staging failed` or `Disable BitLocker now`; the published `Igloo.Preflight.dll` holds `Multiple EFI system partitions detected on Disk` and `Remove conflicting OS partitions and try again`.
 
 ## Read in source, not changed
 
