@@ -51,7 +51,7 @@
                                Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Text"       Value="Must start with a–z, then a–z / 0–9 / _ / -" />
+                                <Setter Property="Text"       Value="The username must start with a letter and contain only lowercase letters, digits, hyphens and underscores." />
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsUsernameValid}" Value="False">
@@ -73,7 +73,7 @@
                                Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Text"       Value="At least 8 characters" />
+                                <Setter Property="Text"       Value="The password must be at least 8 characters." />
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding ShowPasswordLengthError}" Value="True">
@@ -112,7 +112,7 @@
                                Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Text"       Value="Passwords do not match" />
+                                <Setter Property="Text"       Value="Passwords do not match." />
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding ShowPasswordMismatch}" Value="True">
@@ -148,7 +148,7 @@
                 <TextBlock Text="SUGGESTED LINUX APPS" Style="{StaticResource Text.Section}" Margin="2,22,0,8" Foreground="White" />
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
-            <TextBlock Text="Select the Windows apps to install on Linux."
+            <TextBlock Text="Select the Linux alternatives to install."
                                    Style="{StaticResource Text.Body}" Margin="0,0,0,12" />
                         <ItemsControl ItemsSource="{Binding DetectedSuggestions}">
                             <ItemsControl.ItemTemplate>

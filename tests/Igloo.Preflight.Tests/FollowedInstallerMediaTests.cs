@@ -124,7 +124,7 @@ public sealed class FollowedInstallerMediaTests : IDisposable
         Assert.Contains("kernel 6.12.107+deb13-amd64", refusal.Message, StringComparison.Ordinal);
         Assert.Contains("kernel 6.12.117+deb13-amd64", refusal.Message, StringComparison.Ordinal);
         // Going back a step does not fetch the image again in this wizard; starting it again does.
-        Assert.Contains("Close iGloo Community and start it again", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("Restart iGloo Community", refusal.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("Go back", refusal.Message, StringComparison.Ordinal);
     }
 
@@ -144,9 +144,10 @@ public sealed class FollowedInstallerMediaTests : IDisposable
 
         var absent = Assert.Throws<InstallationRefusedException>(() =>
             DirectInstallService.RequireImageOfInstallerKernel(Image(null), Followed(), kernel));
-        Assert.Contains("the downloaded image is for a kernel iGloo could not read", absent.Message, StringComparison.Ordinal);
+        Assert.Equal("Installer version could not be verified", absent.Heading);
+        Assert.Contains("Image kernel: unreadable", absent.InnerException!.Message, StringComparison.Ordinal);
         // Waiting does not change this; the instruction is the one for a layout iGloo does not know.
-        Assert.Contains("Install an updated iGloo Community", absent.Message, StringComparison.Ordinal);
+        Assert.Contains("Update iGloo Community", absent.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("few hours", absent.Message, StringComparison.Ordinal);
 
         File.WriteAllBytes(Path.Join(_directory, "image", "install", "vmlinuz"), new byte[4096]);
@@ -170,7 +171,7 @@ public sealed class FollowedInstallerMediaTests : IDisposable
         var refusal = Assert.Throws<InstallationRefusedException>(() => DirectInstallService.RequireImageOfInstallerKernel(
             Image("6.12.117+deb13-amd64 (x) #1\0"), Followed(), kernel));
 
-        Assert.Contains("The installer's boot files are for a kernel iGloo could not read", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("Installer kernel: unreadable", refusal.InnerException!.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -251,7 +252,7 @@ public sealed class FollowedInstallerMediaTests : IDisposable
             DirectInstallService.AcquireExternalInstallerMediaAsync(Followed(), cache, null, CancellationToken.None,
                 (_, _, _) => throw new HttpRequestException("No such host is known.")));
 
-        Assert.Contains("Check your internet connection", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("Check the network connection", refusal.Message, StringComparison.Ordinal);
         Assert.Empty(Directory.GetFiles(cache));
     }
 
@@ -264,7 +265,7 @@ public sealed class FollowedInstallerMediaTests : IDisposable
             DirectInstallService.AcquireExternalInstallerMediaAsync(Followed(), cache, null, CancellationToken.None,
                 (_, path, ct) => File.WriteAllBytesAsync(path, KernelImage("6.12.117 \0"), ct)));
 
-        Assert.Contains("not the ones its signed list names", refusal.Message, StringComparison.Ordinal);
+        Assert.Equal("Installer files do not match the signed list", refusal.Heading);
         Assert.Empty(Directory.GetFiles(cache));
     }
 
@@ -276,7 +277,7 @@ public sealed class FollowedInstallerMediaTests : IDisposable
         var lost = await Assert.ThrowsAsync<InstallationRefusedException>(() =>
             DirectInstallService.AcquireExternalInstallerMediaAsync(Followed(), cache, null, CancellationToken.None,
                 (_, _, _) => throw new HttpIOException(HttpRequestError.ResponseEnded, "The response ended early.")));
-        Assert.Contains("Check your internet connection", lost.Message, StringComparison.Ordinal);
+        Assert.Contains("Check the network connection", lost.Message, StringComparison.Ordinal);
 
         // The cache file is written by the same step; a full disk is not a lost connection.
         await Assert.ThrowsAsync<IOException>(() =>

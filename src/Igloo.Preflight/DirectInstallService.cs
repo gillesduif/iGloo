@@ -448,7 +448,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // Every check that can still refuse runs here, read-only, before the ISO
         // mount and the NTFS shrink (B-02): seed inventory bounds, NVRAM access, a
         // free Boot#### slot, bcdedit, and the storage inventory that pins the seed.
-        Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Checking seed limits and boot registration…");
+        Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Checking disk…");
         var stagedAgentPaths = StagedAgentPaths(stagedFiles);
         RequirePlannedSeedWithinBounds(stagingDirectory, stagedFiles, stagedAgentPaths);
         // The seed identity applies these rules again after the copy; a refusal belongs here.
@@ -463,7 +463,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         // install.img is Anaconda's stage2 squashfs (~870 MiB on Fedora 44).
         // We copy it to OEMDRV so that inst.stage2=hd:LABEL=OEMDRV: avoids
         // downloading 862 MB from a mirror during installation.
-        Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Measuring ISO content…");
+        Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Checking disk…");
         var (kernelBytes, initrdBytes, installImgBytes) = MeasureIsoContent(isoPath, bootSpec, externalMedia);
         _logger.LogInformation(
             "ISO content: kernel={K} MiB  initrd={I} MiB  install.img={S} MiB",
@@ -503,7 +503,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             {
                 case BoundSeed.Refuse:
                     throw new InstallationRefusedException(
-                        $"The installer partition of an earlier run on disk {diskNumber} has no room for Linux behind it." + RemoveEarlierLinux);
+                        $"No unallocated space behind the installer partition on Disk {diskNumber}", RemoveEarlierLinux);
                 case BoundSeed.Replace:
                     canReuse = false;
                     break;
@@ -527,7 +527,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
                 canReuse, staleSeeds, targetRules).BootEsp;
         foreach (var stale in staleSeeds.Distinct())
         {
-            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Removing an installer partition from an earlier run…");
+            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Preparing disk…");
             DeleteInstallerVolume(stale);
             ct.ThrowIfCancellationRequested();
         }
@@ -547,7 +547,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             _logger.LogInformation(
                 "Reusing existing OEMDRV partition {N} at {L}: - skipping shrink and partition creation",
                 _partitionNumber, driveLetter);
-            Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Reusing existing installer partition…");
+            Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Preparing disk…");
             if (bound)
                 _boundLinuxExtent = BoundExtentBehind(diskNumber, existing.Value.partitionNumber, linuxSizeBytes)
                     ?? throw new InvalidOperationException("The space behind the existing installer partition changed before reuse. Its contents have been preserved.");
@@ -563,7 +563,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         }
         else
         {
-            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Querying Windows partition…");
+            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Checking disk…");
             // Last read-only refusal: the new partitions need letters, and diskpart's
             // assign would otherwise fail after the shrink.
             RequireAvailableDriveLetters(isoOnOwnPartition ? 2 : 1);
@@ -571,7 +571,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             ct.ThrowIfCancellationRequested();
 
             //   Step 3: Create FAT32 OEMDRV partition (boot + seed)
-            Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating installer partition…");
+            Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating partitions…");
             // Bound: at the end of the region, so that the space behind it is the Linux size and no more.
             long? installerOffset = bound
                 ? RequireInstallerPlacement(diskNumber, linuxSizeBytes, oemDrvBytes).InstallerOffset : null;
@@ -586,7 +586,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             //   Step 3b: Create NTFS ISO partition for a >4 GiB ISO      
             if (isoOnOwnPartition)
             {
-                Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating ISO partition…");
+                Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating partitions…");
                 _isoPartitionLetter = CreateIsoPartition(diskNumber, isoPartBytes, ct);
                 ct.ThrowIfCancellationRequested();
             }
@@ -594,7 +594,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             //   Step 3c: Pre-create the Linux root partition (subiquity path)  
             if (_bootSpec.PreCreateRootPartition)
             {
-                Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating Linux partition…");
+                Report(prog, DirectInstallPhase.CreatingPartition, message: "Creating partitions…");
                 EnsureRootPartition(diskNumber, ct);
                 ct.ThrowIfCancellationRequested();
             }
@@ -613,7 +613,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         //           igloo-boot/shimx64.efi, igloo-boot/grubx64.efi
         //           images/install.img   (Anaconda stage2, ~870 MiB)
         // Writes:   EFI/fedora/grub.cfg  (points Anaconda at inst.ks=hd:LABEL=OEMDRV:/ks.cfg)
-        Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Extracting boot files from ISO…");
+        Report(prog, DirectInstallPhase.ConfiguringGrub, message: "Copying installer…");
         ConfigureBootFiles(isoPath, driveLetter, initrdFiles, initrdBytes, installImgBytes, externalMedia, prog, ct);
         ct.ThrowIfCancellationRequested();
 
@@ -630,7 +630,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         {
             char isoVolLetter = isoOnOwnPartition ? _isoPartitionLetter!.Value : driveLetter;
             var isoDst = Path.Join($"{isoVolLetter}:\\", isoName);
-            Report(prog, DirectInstallPhase.CopyingIso, message: "Copying installer ISO…");
+            Report(prog, DirectInstallPhase.CopyingIso, message: "Copying installer…");
             var isoLength = new FileInfo(isoPath).Length;
             HostProtection.RequireWritable("installer ISO copy");
             var isoCopied = CopyWithProgress(isoPath, isoDst, isoLength, prog, ct);
@@ -648,7 +648,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         }
 
         //   Step 5: Copy staging artefacts (ks.cfg, manifest, agent)     ─
-        Report(prog, DirectInstallPhase.CopyingFiles, message: "Copying migration files…");
+        Report(prog, DirectInstallPhase.CopyingFiles, message: "Copying files…");
         foreach (var (path, hash) in CopyStagingArtefacts(stagingDirectory, stagedFiles, $"{driveLetter}:\\",
                      _bootSpec.MigrationDataOnSeed, prog, ct))
             writtenHashes[path] = hash;
@@ -681,7 +681,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
             shellQuiet.CloseExplorerWindowsFor(isoLetter);
 
         // Last, so the identity and the receipt mark the partition as iGloo's own for the next attempt.
-        Report(prog, DirectInstallPhase.CopyingFiles, message: "Checking the copied files…");
+        Report(prog, DirectInstallPhase.CopyingFiles, message: "Verifying…");
         RequireCopiedFilesReadable($"{driveLetter}:\\", stagedFiles, writtenHashes, ct);
 
         Report(prog, DirectInstallPhase.Complete, message: "Installer partition ready.");
@@ -2085,10 +2085,10 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         ct.ThrowIfCancellationRequested();
 
         // Before the firmware is touched: a file that left the partition since the copy would stop the installer.
-        Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Checking the installer partition…");
+        Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Restarting…");
         RequireSeedHoldsItsFiles($"{completed.DriveLetter}:\\", ct);
 
-        Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Registering UEFI boot entry…");
+        Report(prog, DirectInstallPhase.RegisteringBootEntry, message: "Restarting…");
 
         FirmwareNative.EnablePrivilege(_logger, reportAssignmentFailures: true);
         ct.ThrowIfCancellationRequested();
@@ -2170,7 +2170,7 @@ public sealed partial class DirectInstallService : IDirectInstallService, IRevie
         FastStartup.TurnOffForDualBoot(_logger);
 
         _logger.LogInformation("BootNext + BootOrder updated - reboot to install");
-        Report(prog, DirectInstallPhase.Complete, message: "UEFI boot entry registered. Ready to reboot.");
+        Report(prog, DirectInstallPhase.Complete, message: "Restarting…");
     }
 
     private void SetRtcUniversalTime()

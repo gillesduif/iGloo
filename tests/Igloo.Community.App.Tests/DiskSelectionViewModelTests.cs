@@ -189,8 +189,8 @@ public class DiskSelectionViewModelTests
 
         vm.CanDualBoot.Should().BeFalse();
         vm.CanProceed.Should().BeFalse();
-        vm.UnsupportedModeAction.Should().Be(
-            "Choose another disk whose identity Windows can verify, then run the system check again.");
+        vm.UnsupportedModeTitle.Should().Be("Disk could not be identified");
+        vm.UnsupportedModeAction.Should().Be("Select another disk.");
     }
 
     [Fact]
@@ -199,11 +199,13 @@ public class DiskSelectionViewModelTests
         var vm = new DiskSelectionViewModel(new Preparation());
         Prepare(vm, Report(Disk("mbr", 500, isSystem: true) with { PartitionStyle = "MBR" }), Mint());
         SelectOnly(vm);
-        vm.UnsupportedModeAction.Should().Be("Choose a GPT disk, then continue.");
+        vm.UnsupportedModeTitle.Should().Be("MBR disks are not supported");
+        vm.UnsupportedModeAction.Should().Be("Select a GPT disk.");
 
         Prepare(vm, Report(Disk("data", 500, isSystem: false)), Mint());
         SelectOnly(vm);
-        vm.UnsupportedModeAction.Should().Be("Select the Windows system disk for dual boot.");
+        vm.UnsupportedModeTitle.Should().Be("No Windows installation detected on this disk");
+        vm.UnsupportedModeAction.Should().Be("Select the disk that contains Windows.");
     }
 
     [Fact]
@@ -329,14 +331,15 @@ public class DiskSelectionViewModelTests
         vm.InstallMode.Should().Be(DiskInstallMode.DualBoot);
         vm.CanProceed.Should().BeFalse();
         vm.ShowDiskAction.Should().BeTrue();
-        vm.DiskActionMessage.Should().Contain("always keeps Windows");
+        vm.DiskActionTitle.Should().EndWith("does not support dual boot");
+        vm.DiskActionMessage.Should().Be("Select another distribution.");
     }
 
     [Theory]
-    [InlineData("fedora-kde", "FedoraInstallerRootBindingUnavailable", "Fedora")]
-    [InlineData("linuxmint-cinnamon", "MintDedicatedEspBindingUnavailable", "Linux Mint")]
+    [InlineData("fedora-kde", "FedoraInstallerRootBindingUnavailable")]
+    [InlineData("linuxmint-cinnamon", "MintDedicatedEspBindingUnavailable")]
     public void Unsupported_dual_boot_stops_before_measurement_without_selecting_replacement(
-        string distroId, string code, string displayName)
+        string distroId, string code)
     {
         var preparation = new Preparation
         {
@@ -361,8 +364,8 @@ public class DiskSelectionViewModelTests
         vm.NeedsMoreDualBootSpace.Should().BeFalse();
         vm.CanProceed.Should().BeFalse();
         vm.ShowDiskAction.Should().BeTrue();
-        vm.DiskActionMessage.Should().Contain(displayName + " dual boot is not available")
-            .And.Contain("choose Debian");
+        vm.DiskActionTitle.Should().Be("Dual boot is not available in this version");
+        vm.DiskActionMessage.Should().Be("Update iGloo Community and try again.");
 
         Prepare(vm, report, Mint() with { Id = "debian" });
         SelectOnly(vm);
@@ -391,7 +394,8 @@ public class DiskSelectionViewModelTests
         vm.CanProceed.Should().BeFalse();
         vm.NeedsMoreDualBootSpace.Should().BeFalse();
         vm.ShowDiskAction.Should().BeTrue();
-        vm.DiskActionMessage.Should().Contain("Update or repair iGloo");
+        vm.DiskActionTitle.Should().Be("Dual boot is not available in this version");
+        vm.DiskActionMessage.Should().Be("Update iGloo Community and try again.");
     }
 
     [Fact]
@@ -456,7 +460,8 @@ public class DiskSelectionViewModelTests
         Prepare(vm, fixture == "empty" ? Report() : Report(disk));
 
         vm.HasEligibleWindowsDisk.Should().BeFalse();
-        vm.WindowsDiskAction.Should().Contain("keeps Windows").And.Contain("system check again");
+        vm.WindowsDiskTitle.Should().Be("No Windows disk detected");
+        vm.WindowsDiskAction.Should().Contain("Windows installation that must be kept");
         vm.InstallMode.Should().Be(DiskInstallMode.DualBoot);
         vm.CanProceed.Should().BeFalse();
         preparation.MeasurementCalls.Should().Be(0);

@@ -60,7 +60,12 @@ public sealed partial class FileStagingViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanOpenTaskManager))]
     [NotifyCanExecuteChangedFor(nameof(OpenTaskManagerCommand))]
     private bool _browserIsInUse;
-    [ObservableProperty] private string _errorTitle = "Staging failed";
+    [ObservableProperty] private string _errorTitle = DefaultTitle;
+
+    // Set when the user canceled: the wizard then returns to the previous page without a message.
+    [ObservableProperty] private bool _wasCanceled;
+
+    [ObservableProperty] private bool _showLogs;
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasErrorDetail))]
@@ -93,7 +98,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
     {
         FileStagingPhase.Scanning => "Scanning files…",
         FileStagingPhase.Copying => "Copying files…",
-        FileStagingPhase.Generating => "Generating installer configuration…",
+        FileStagingPhase.Generating => "Finishing…",
         FileStagingPhase.Complete => "Complete",
         _ => string.Empty,
     };
@@ -152,15 +157,11 @@ public sealed partial class FileStagingViewModel : ObservableObject
         IsComplete = false;
         BrowserIsInUse = false;
         HasError = needsReview;
-        ErrorTitle = HasOrphanDirectory ? "Review incomplete migration files" :
-            needsReview ? "Staging failed" : "Staging failed";
-        ErrorMessage = HasOrphanDirectory
-            ? "Review the incomplete migration folder below. After it is removed or moved, " +
-              "go back one step and continue again."
-            : RecoveryStateUnknown
-                ? "Check that iGloo can read its local staging folder, " +
-                  "then go back one step and continue again."
-                : null;
+        WasCanceled = false;
+        ShowLogs = false;
+        ErrorTitle = HasOrphanDirectory ? IncompleteTitle : RecoveryStateUnknown ? InaccessibleTitle : DefaultTitle;
+        ErrorMessage = HasOrphanDirectory ? IncompleteMessage(OrphanDirectory!)
+            : RecoveryStateUnknown ? InaccessibleMessage : null;
         ErrorDetail = null;
         Result = null;
         BytesCopied = 0;
@@ -181,7 +182,9 @@ public sealed partial class FileStagingViewModel : ObservableObject
         IsComplete = false;
         BrowserIsInUse = false;
         HasError = false;
-        ErrorTitle = "Check selected files and storage";
+        WasCanceled = false;
+        ShowLogs = false;
+        ErrorTitle = DefaultTitle;
         ErrorMessage = null;
         ErrorDetail = null;
         Result = null;
@@ -254,10 +257,7 @@ public sealed partial class FileStagingViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             _logger.LogInformation("File staging cancelled");
-            HasError = true;
-            ErrorTitle = "Staging failed";
-            ErrorMessage = "Go back one step and continue again to build a new migration package. " +
-                           "The canceled package was not completed.";
+            WasCanceled = true;
         }
         catch (IncompleteFileStagingCleanupException ex)
         {
@@ -271,10 +271,9 @@ public sealed partial class FileStagingViewModel : ObservableObject
             HasError = true;
             if (ex.Reason == BrowserProfileStagingFailure.RecoveryRequired)
             {
-                ErrorTitle = "Open and close the selected browser";
-                ErrorMessage = "A selected browser has an unfinished database update. Open the browsers selected " +
-                               "for migration so they can finish recovery, then close them, including any background " +
-                               "browser processes, and go back one step and continue again. iGloo has not changed your browser files.";
+                ErrorTitle = (ex.Browsers.Count > 0 ? JoinNames(ex.Browsers) : "A selected browser") +
+                             " did not shut down correctly";
+                ErrorMessage = "Start the browser, close it completely and try again.";
                 ErrorDetail = null;
             }
             else if (ex.Reason == BrowserProfileStagingFailure.BrowserRunning && ex.Browsers.Count > 0)
@@ -288,40 +287,35 @@ public sealed partial class FileStagingViewModel : ObservableObject
                 BrowserIsInUse = true;
                 // The browser whose file was locked when the copy names one; otherwise every selected browser.
                 var browserNames = ex.Browsers.Count > 0 ? ex.Browsers : _setup.GetSelectedBrowserNames();
-                var selection = browserNames.Count > 0 ? string.Join(", ", browserNames) : "A selected browser";
-                ErrorTitle = "Browser files are still in use";
-                ErrorMessage = $"{selection} may still be running in the background after its windows close. " +
-                               "Save your browser work and close its windows. If it remains running, open Task Manager (Ctrl+Shift+Esc) " +
-                               "and end the remaining processes for the selected browsers, then go back one step and continue again. " +
-                               "Your browser data is still selected for migration.";
+                (ErrorTitle, ErrorMessage) = browserNames.Count > 0
+                    ? RunningBrowserText(browserNames)
+                    : ("A selected browser is still running", CloseBrowserMessage(plural: false));
                 ErrorDetail = null;
             }
             else
             {
-                ErrorTitle = "Close the selected browsers";
-                ErrorMessage = "Close the browsers selected for migration, including any background browser processes, " +
-                               "then go back one step and continue again. Your browser files have not been changed.";
+                ErrorTitle = "Browser data could not be copied";
+                ErrorMessage = "Close all selected browsers and try again.";
                 ErrorDetail = ex.ToString();
             }
         }
         catch (InvalidDataException ex) when (_distroId?.StartsWith("fedora-", StringComparison.OrdinalIgnoreCase) == true
             && ex.Message.Contains("Turn off saved Wi-Fi migration", StringComparison.OrdinalIgnoreCase))
         {
+            // This rejection can carry the saved network's value: neither the log nor the details get the exception.
             _logger.LogWarning("Fedora saved Wi-Fi migration was rejected before staging completed");
             HasError = true;
-            ErrorTitle = "Turn off saved Wi-Fi migration";
-            ErrorMessage = "Select Back until Configuration, turn off saved Wi-Fi migration, " +
-                           "then continue to rebuild the migration package. " +
-                           "Use wired Ethernet or an open Wi-Fi network for this Fedora netinstall.";
+            ErrorTitle = DefaultTitle;
+            ErrorMessage = CheckFoldersAndSpace;
             ErrorDetail = null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "File staging failed");
             HasError = true;
-            ErrorTitle = "Staging failed";
-            ErrorMessage = "Check the selected files and available space, then go back one step and continue again. " +
-                           "Do not continue until a new migration package completes.";
+            ErrorTitle = DefaultTitle;
+            ErrorMessage = CheckFoldersAndSpace;
+            ShowLogs = true;
             ErrorDetail = ex.ToString();
         }
         finally
@@ -333,28 +327,44 @@ public sealed partial class FileStagingViewModel : ObservableObject
     // Shown before anything is copied, for the browsers that still have a process.
     internal static (string Title, string Message) RunningBrowserText(IReadOnlyList<string> browsers)
     {
-        var names = browsers.Count switch
+        ArgumentNullException.ThrowIfNull(browsers);
+        var plural = browsers.Count != 1;
+        return ($"{JoinNames(browsers)} {(plural ? "are" : "is")} still running", CloseBrowserMessage(plural));
+    }
+
+    private static string CloseBrowserMessage(bool plural) => plural
+        ? "Close the browsers completely (including background processes) and try again."
+        : "Close the browser completely (including background processes) and try again.";
+
+    private static string JoinNames(IReadOnlyList<string> names) => names.Count switch
+    {
+        1 => names[0],
+        2 => $"{names[0]} and {names[1]}",
+        _ => string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1],
+    };
+
+    private const string DefaultTitle = "File copy failed";
+    private const string CheckFoldersAndSpace = "Check access to the selected folders and the available disk space and try again.";
+    private const string IncompleteTitle = "Previous file copy did not complete";
+    private const string InaccessibleTitle = "Working folder is not accessible";
+
+    private static string IncompleteMessage(string directory) => $"Remove {directory} and try again.";
+
+    private string InaccessibleMessage => $"Check the permissions on {_stagingRoot} and try again.";
+
+    [RelayCommand]
+    private void OpenIncompleteFolder()
+    {
+        if (OrphanDirectory is not { } directory)
+            return;
+        try
         {
-            1 => browsers[0],
-            2 => $"{browsers[0]} and {browsers[1]}",
-            _ => string.Join(", ", browsers.Take(browsers.Count - 1)) + " and " + browsers[^1],
-        };
-        if (browsers.Count != 1)
-            return ($"Close {names} first",
-                $"{names} are still running, possibly in the background after their windows were closed. " +
-                "Save your work and close them. If they keep running, end them in Task Manager (Ctrl+Shift+Esc). " +
-                "Then go back one step and continue. Nothing has been copied yet.");
-        var shortName = browsers[0] switch
+            using var process = Process.Start(new ProcessStartInfo(directory) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException)
         {
-            "Microsoft Edge" => "Edge",
-            "Google Chrome" => "Chrome",
-            "Mozilla Firefox" => "Firefox",
-            var other => other,
-        };
-        return ($"Close {names} first",
-            $"{names} is still running, possibly in the background after its windows were closed. " +
-            $"Save your work and close {shortName}. If it keeps running, end {names} in Task Manager (Ctrl+Shift+Esc). " +
-            "Then go back one step and continue. Nothing has been copied yet.");
+            _logger.LogWarning(ex, "Could not open the incomplete migration folder");
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanOpenTaskManager))]
@@ -365,8 +375,6 @@ public sealed partial class FileStagingViewModel : ObservableObject
         catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException)
         {
             _logger.LogWarning(ex, "Could not open Task Manager for browser migration");
-            ErrorMessage = "Press Ctrl+Shift+Esc to open Task Manager. Save your browser work, close its windows, " +
-                           "then end remaining background processes for the selected browsers and go back one step and continue again.";
         }
     }
 
@@ -391,10 +399,11 @@ public sealed partial class FileStagingViewModel : ObservableObject
                 ShowIncompleteGeneration(incomplete);
                 return;
             }
+            // The wizard builds the package again right after this.
             OrphanDirectory = null;
             RecoveryStateUnknown = false;
-            ErrorTitle = "Staging failed";
-            ErrorMessage = "Go back one step and continue again to build a new migration package.";
+            HasError = false;
+            ErrorMessage = null;
             ErrorDetail = null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
@@ -428,18 +437,16 @@ public sealed partial class FileStagingViewModel : ObservableObject
         OrphanDirectory = directory;
         RecoveryStateUnknown = false;
         HasError = true;
-        ErrorTitle = "Review incomplete migration files";
-        ErrorMessage = "Open the folder below and review any copied data. " +
-                       "After the folder is removed or moved, go back one step and continue again.";
+        ErrorTitle = IncompleteTitle;
+        ErrorMessage = IncompleteMessage(directory);
     }
 
     private void ShowUnknownRecoveryState()
     {
         RecoveryStateUnknown = true;
         HasError = true;
-        ErrorTitle = "Staging failed";
-        ErrorMessage = "Check that iGloo can read its local staging folder, " +
-                       "then go back one step and continue again.";
+        ErrorTitle = InaccessibleTitle;
+        ErrorMessage = InaccessibleMessage;
     }
 
     private static string? FindIncompleteGeneration(string root)

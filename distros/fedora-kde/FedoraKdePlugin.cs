@@ -95,10 +95,8 @@ public sealed class FedoraKdePlugin : IDistroPlugin, IReviewedInstallerStoragePr
             findings.Add(new PreflightFinding(
                 Severity: FindingSeverity.Blocker,
                 Code: "BITLOCKER_LOCKED",
-                Message: "BitLocker is enabled and the volume is currently locked. " +
-                             "Igloo cannot prepare an encrypted installation target.",
-                Remediation: "Unlock the drive and fully decrypt it in Windows before " +
-                             "re-running Igloo."));
+                Message: "Drive C: is locked by BitLocker.",
+                Remediation: "Unlock the drive, disable BitLocker and try again."));
         }
 
         // RAM check.

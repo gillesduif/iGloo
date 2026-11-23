@@ -20,18 +20,36 @@ public sealed partial class PreflightViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
+    [NotifyPropertyChangedFor(nameof(IsIdleWithoutResult))]
     private string? _errorMessage;
 
     [ObservableProperty]
-    private string _errorTitle = "Run the system check again";
+    private string _errorTitle = DefaultTitle;
 
     [ObservableProperty]
+    private bool _showLogs;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanRefresh))]
+    [NotifyPropertyChangedFor(nameof(IsIdleWithoutResult))]
     private bool _isRunning;
+
+    private const string DefaultTitle = "System check failed";
+    private const string PartitionsMayRemain = "Some partitions may remain on the disk. Refresh to verify the disk layout.";
+    private const string DisableInSettings = "Disable BitLocker in Windows Settings and try again.";
+
+    // Refresh runs the check again whenever nothing else is running.
+    public bool CanRefresh => !IsRunning && !IsRemovingLinux;
+
+    // Nothing on the page after a canceled check: the page then offers Refresh alone.
+    public bool IsIdleWithoutResult => CanRefresh && Report is null && ErrorMessage is null;
 
     // Removal repartitions the disk, so the report on screen is stale while it runs and
     // the wizard must not advance on it.
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanProceed))]
+    [NotifyPropertyChangedFor(nameof(CanRefresh))]
+    [NotifyPropertyChangedFor(nameof(IsIdleWithoutResult))]
     private bool _isRemovingLinux;
 
     [ObservableProperty]
@@ -174,16 +192,16 @@ public sealed partial class PreflightViewModel : ObservableObject
         // Singular when the removal touches exactly one partition, so the sentence agrees with the list below it.
         var partitionCount = targets.Sum(t => t.Partitions.Count) + leftovers.Count;
         var dataLine = partitionCount == 1
-            ? "Everything on this partition is permanently deleted:"
-            : "Everything on these partitions is permanently deleted:";
+            ? "All data on the following partition will be permanently deleted."
+            : "All data on the following partitions will be permanently deleted.";
 
         // Danger severity: the safe button takes the default, so Enter cancels rather
         // than erasing partitions.
         if (!FluentMessageBox.Confirm(
-                targets.Count > 0 ? "Uninstall Linux?" : "Remove iGloo system components?",
+                "Uninstall Linux?",
                 dataLine + "\n\n" + string.Join("\n", lines),
                 FluentMessageSeverity.Danger,
-                primaryText: targets.Count > 0 ? "Uninstall" : "Remove"))
+                primaryText: "Uninstall"))
             return;
 
         try
@@ -193,7 +211,7 @@ public sealed partial class PreflightViewModel : ObservableObject
             // Removal can partially change partitions or boot entries before an
             // error. The old inspection must not allow the wizard to advance.
             Report = null;
-            LinuxActionStatus = "Removing…";
+            LinuxActionStatus = "Removing Linux…";
             var progress = new Progress<string>(s => LinuxActionStatus = s);
             await _preflight.RemoveLinuxAsync(targets, leftovers, removingAllLinux, progress);
 
@@ -206,15 +224,16 @@ public sealed partial class PreflightViewModel : ObservableObject
         {
             _logger.LogWarning("Linux removal stopped before its result was verified");
             LinuxActionStatus = null;
-            ErrorMessage = "Run the system check again before choosing a disk. Linux removal stopped before its result was verified.";
+            ErrorTitle = "Linux removal was interrupted";
+            ErrorMessage = PartitionsMayRemain;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Linux removal failed");
             LinuxActionStatus = null;
-            ErrorTitle = "Check the disk before continuing";
-            ErrorMessage = "Linux removal could not finish. Run the system check again and " +
-                "review the affected disk. If its state is unclear, ask for help with the iGloo log.";
+            ErrorTitle = "Linux removal failed";
+            ErrorMessage = PartitionsMayRemain;
+            ShowLogs = true;
         }
         finally
         {
@@ -281,7 +300,8 @@ public sealed partial class PreflightViewModel : ObservableObject
         if (IsRemovingLinux)
             return;
         IsRunning = true;
-        ErrorTitle = "Run the system check again";
+        ErrorTitle = DefaultTitle;
+        ShowLogs = false;
         ErrorMessage = null;
         LinuxActionStatus = null;
         Report = null;
@@ -297,8 +317,8 @@ public sealed partial class PreflightViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
+            // A canceled check leaves no message; Refresh runs it again.
             _logger.LogInformation("Pre-flight check cancelled");
-            ErrorMessage = "The system check was cancelled.";
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -307,20 +327,20 @@ public sealed partial class PreflightViewModel : ObservableObject
                 ex.Message.StartsWith("Open Windows System Information and check Secure Boot State,",
                     StringComparison.Ordinal))
             {
-                ErrorTitle = "Check Secure Boot State in Windows";
-                ErrorMessage = ex.Message;
+                ErrorTitle = "Secure Boot state could not be detected";
+                ErrorMessage = "Windows did not return the Secure Boot state. Try again.";
             }
             else if (ex is InvalidOperationException &&
                      ex.Message.StartsWith("Check BIOS Mode in Windows System Information,",
                          StringComparison.Ordinal))
             {
-                ErrorTitle = "Check BIOS Mode in Windows";
-                ErrorMessage = ex.Message;
+                ErrorTitle = "BIOS mode could not be detected";
+                ErrorMessage = "Windows did not return the BIOS mode. Try again.";
             }
             else
             {
-                ErrorMessage = "If the system check still fails, open the latest iGloo log in " +
-                    "your Windows app-data folder (Igloo\\logs) and ask for help.";
+                ErrorMessage = "An unexpected error occurred. Check the logs and try again.";
+                ShowLogs = true;
             }
         }
         finally
@@ -336,10 +356,10 @@ public sealed partial class PreflightViewModel : ObservableObject
         if (systemDrive is not { Length: 2 } || !char.IsAsciiLetter(systemDrive[0]) ||
             systemDrive[1] != ':')
         {
-            BitLockerActionStatus = "The Windows system drive is unavailable. Run the system check again.";
+            BitLockerActionStatus = "Windows drive not found. Try again.";
             return;
         }
-        BitLockerActionStatus = $"Starting BitLocker decryption on {systemDrive}…";
+        BitLockerActionStatus = $"Disabling BitLocker on {systemDrive}…";
 
         try
         {
@@ -347,7 +367,7 @@ public sealed partial class PreflightViewModel : ObservableObject
 
             if (exitCode == 0)
             {
-                BitLockerActionStatus = "Decryption started - re-running system check…";
+                BitLockerActionStatus = $"Decrypting {systemDrive}…";
                 await Task.Delay(1200);
                 if (!IsRunning)
                     await RunCheckCommand.ExecuteAsync(null);
@@ -356,45 +376,13 @@ public sealed partial class PreflightViewModel : ObservableObject
             else
             {
                 BitLockerActionStatus =
-                    $"Open an elevated Command Prompt and run 'manage-bde -off {systemDrive}'. " +
-                    $"iGloo could not start decryption (exit code {exitCode}).";
+                    $"BitLocker could not be disabled. Windows returned error code {exitCode}. " + DisableInSettings;
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "DisableBitLocker failed");
-            BitLockerActionStatus = "Open Windows Settings > Privacy & security > Device encryption " +
-                "and turn off BitLocker. Run the system check again after decryption finishes.";
-        }
-    }
-
-    [RelayCommand]
-    private void RestartToFirmware()
-    {
-        if (!FluentMessageBox.Confirm(
-                "Restart to firmware settings?",
-                "Your PC will restart into UEFI firmware settings in 10 seconds.\n\n" +
-                "• Find the 'Secure Boot' option\n" +
-                "• Set it to Disabled\n" +
-                "• Save changes and exit\n\n" +
-                "Save all open work before continuing.",
-                FluentMessageSeverity.Warning,
-                primaryText: "Restart now"))
-            return;
-
-        try
-        {
-            _maintenance.RestartToFirmware();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogError(ex, "RestartToFirmware failed");
-            FluentMessageBox.Show(
-                "Restart into firmware settings manually",
-                "Run 'shutdown /r /fw /t 0' in an elevated Command Prompt, or restart " +
-                "and press the firmware key for your board " +
-                "(usually Del or F2).",
-                FluentMessageSeverity.Danger);
+            BitLockerActionStatus = "BitLocker could not be disabled. " + DisableInSettings;
         }
     }
 
@@ -509,6 +497,7 @@ public sealed partial class PreflightViewModel : ObservableObject
 
         // Fire all display properties that depend on Report in one pass.
         OnPropertyChanged(nameof(HasReport));
+        OnPropertyChanged(nameof(IsIdleWithoutResult));
         OnPropertyChanged(nameof(HasFindings));
         OnPropertyChanged(nameof(HasBlockers));
         OnPropertyChanged(nameof(CanProceed));

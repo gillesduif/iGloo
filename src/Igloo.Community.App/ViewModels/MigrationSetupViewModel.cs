@@ -359,8 +359,6 @@ public sealed partial class BrowserEntry : ObservableObject
     public string? FlatpakId { get; }
     public bool CanMigrate { get; }
     public bool NeedsManualTransfer => !CanMigrate;
-    public string AvailabilityMessage => CanMigrate ? string.Empty
-        : $"Continue without {Name}; use browser sync or export and import its data after Linux starts.";
 
     [ObservableProperty] private bool _isSelected;
 

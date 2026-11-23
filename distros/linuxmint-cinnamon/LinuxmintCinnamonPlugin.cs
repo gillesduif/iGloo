@@ -55,8 +55,8 @@ public sealed class LinuxmintCinnamonPlugin : IDistroPlugin, IReviewedInstallerC
                 "ubuntu-drivers on first boot. An internet connection is required at first boot.", null));
         if (report.BitLocker == BitLockerState.EncryptedAndLocked)
             findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_LOCKED",
-                "BitLocker is enabled and the volume is locked. Igloo cannot resize a locked volume.",
-                "Unlock and fully decrypt the drive in Windows before re-running Igloo."));
+                "Drive C: is locked by BitLocker.",
+                "Unlock the drive, disable BitLocker and try again."));
         if (report.TotalRamBytes < Metadata.MinimumRequirements.MinRamBytes)
             findings.Add(new PreflightFinding(FindingSeverity.Warning, "RAM_BELOW_RECOMMENDED",
                 $"This machine has {report.TotalRamBytes / (1024.0 * 1024 * 1024):F1} GiB of RAM. " +

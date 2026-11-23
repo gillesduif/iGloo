@@ -55,7 +55,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             }
             _logger.LogWarning("Partition {Disk}:{Part} ({Label}) is not provably an iGloo installer partition - left in place",
                 leftover.DiskNumber, leftover.Partition.Index, leftover.Partition.Label);
-            progress?.Report($"Left {leftover.Partition.Label} in place: it is not an iGloo installer partition.");
+            progress?.Report($"{leftover.Partition.Label} was not removed. It is not an iGloo installer partition.");
         }
 
         var plan = LinuxRemovalPlanner.Plan(installations, ownedSeeds, removingAllLinux, layout,
@@ -65,10 +65,10 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             _logger.LogWarning("{Count} reported Linux partition(s) are no longer where System Check found them - not deleted",
                 plan.UnmatchedPartitions);
 
-        foreach (var (disk, row, description) in plan.Partitions)
+        foreach (var (disk, row, _) in plan.Partitions)
         {
             ct.ThrowIfCancellationRequested();
-            progress?.Report($"Removing {description}…");
+            progress?.Report("Removing Linux…");
             if (!DeleteObserved(row, disk))
                 failures++;
         }
@@ -78,18 +78,18 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
 
         if (plan.BootCleanupDisks.Count > 0)
         {
-            progress?.Report("Cleaning Linux boot files from the EFI partition…");
+            progress?.Report("Removing Linux…");
             CleanEfiSystemPartitions(plan.BootCleanupDisks);
 
             // A distribution that built its own ESP leaves it behind once its root is gone.
-            progress?.Report("Removing the leftover EFI partition…");
+            progress?.Report("Removing Linux…");
             foreach (var disk in plan.BootCleanupDisks)
                 RemoveRedundantEfiPartitions(disk);
         }
         else if (plan.SkippedBootCleanup is { } reason)
         {
             _logger.LogWarning("Linux boot files and firmware entries are left in place: {Reason}", reason);
-            progress?.Report($"Left the Linux boot files in place: {reason}.");
+            progress?.Report("Linux boot files remain on the EFI partition.");
         }
 
         // Last, once every partition is gone: a volume only grows into adjacent free space.
@@ -113,8 +113,6 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
             throw new InvalidOperationException(
                 $"{failures} partition(s) could not be deleted. Re-run the system check " +
                 "to see the current state; a reboot may release in-use volumes.");
-
-        progress?.Report("Removal complete.");
     }
 
     //   Reclaim freed space                          
@@ -137,9 +135,8 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
     private readonly record struct Reclaim(long ReclaimedBytes, long LeftBytes, char Letter, uint Code)
     {
         public string? Notice => LeftBytes < MinimumGainBytes ? null : FormattableString.Invariant(
-            $"{LeftBytes / (1024.0 * 1024 * 1024):N1} GB directly behind {Letter}: is unallocated: Windows did not extend {Letter}: (storage code {Code}). ") +
-            FormattableString.Invariant($"Check {Letter}: for errors with 'chkdsk {Letter}: /f' in an administrator terminal, ") +
-            "restart Windows and run the system check again.";
+            $"Drive {Letter}: could not be extended. Windows returned error code {Code}. ") +
+            FormattableString.Invariant($"Run chkdsk {Letter}: /f, restart Windows and try again.");
     }
 
     private Reclaim TryReclaimFreedSpace(uint diskNumber, IProgress<string>? progress)
@@ -199,7 +196,7 @@ public sealed class LinuxRemovalService : ILinuxRemovalService
                     tableGain / (1024.0 * 1024 * 1024), bestLetter, sizeCode);
 
             var gainGb = gainBytes / (1024.0 * 1024 * 1024);
-            progress?.Report($"Adding {gainGb:N1} GB back to {bestLetter}:…");
+            progress?.Report("Removing Linux…");
 
             HostProtection.RequireWritable("Windows volume extension");
             var inParams = target.GetMethodParameters("Resize");

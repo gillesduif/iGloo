@@ -112,6 +112,7 @@ public sealed class DirectInstallViewModelTests
         await vm.RebootToInstallCommand.ExecuteAsync(null);
 
         vm.HasError.Should().BeTrue();
+        vm.ErrorTitle.Should().Be(refusal.Heading);
         vm.ErrorMessage.Should().Be(refusal.Message).And.Contain(@"'Downloads\Uninstall\down2.ps1'");
         vm.IsRebooting.Should().BeFalse();
         maintenance.InstallerRestartCalls.Should().Be(0);
@@ -119,7 +120,8 @@ public sealed class DirectInstallViewModelTests
         // Any other failure keeps the general text and its details.
         preparation.RegistrationFailure = new System.IO.IOException("firmware write failed");
         await vm.RebootToInstallCommand.ExecuteAsync(null);
-        vm.ErrorMessage.Should().StartWith("iGloo could not register the installer boot or restart Windows.");
+        vm.ErrorTitle.Should().Be("Installer boot entry could not be registered");
+        vm.ErrorMessage.Should().Be("Check the details and try again.");
         vm.ErrorDetail.Should().Contain("firmware write failed");
     }
 

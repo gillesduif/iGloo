@@ -127,9 +127,8 @@ public sealed class FileStagingViewModelTests
 
         vm.IsRunning.Should().BeFalse();
         vm.IsComplete.Should().BeFalse();
-        vm.HasError.Should().BeTrue();
-        vm.ErrorTitle.Should().Be("Staging failed");
-        vm.ErrorMessage.Should().ContainEquivalentOf("go back one step and continue again");
+        vm.HasError.Should().BeFalse("a canceled copy is not an error");
+        vm.WasCanceled.Should().BeTrue("the wizard then returns to the previous page");
 
         await vm.StageCommand.ExecuteAsync(null);
         staging.Calls.Should().Be(2);
@@ -146,8 +145,9 @@ public sealed class FileStagingViewModelTests
         await vm.StageCommand.ExecuteAsync(null);
 
         vm.HasError.Should().BeTrue();
-        vm.ErrorTitle.Should().Be("Staging failed");
-        vm.ErrorMessage.Should().StartWith("Check the selected files")
+        vm.ErrorTitle.Should().Be("File copy failed");
+        vm.ShowLogs.Should().BeTrue();
+        vm.ErrorMessage.Should().StartWith("Check access to the selected folders")
             .And.NotContain("selected file changed");
         vm.HasErrorDetail.Should().BeTrue();
         vm.ErrorDetail.Should().Contain("selected file changed");
@@ -165,8 +165,8 @@ public sealed class FileStagingViewModelTests
         vm.Result.Should().BeNull();
         vm.HasError.Should().BeTrue();
         vm.CanStage.Should().BeTrue();
-        vm.ErrorTitle.Should().Be("Close the selected browsers");
-        vm.ErrorMessage.Should().Contain("background browser processes").And.Contain("go back one step and continue again");
+        vm.ErrorTitle.Should().Be("Browser data could not be copied");
+        vm.ErrorMessage.Should().Be("Close all selected browsers and try again.");
         vm.ErrorDetail.Should().Contain("locked bookmarks");
     }
 
@@ -184,10 +184,8 @@ public sealed class FileStagingViewModelTests
         vm.Result.Should().BeNull();
         vm.HasError.Should().BeTrue();
         vm.CanStage.Should().BeTrue();
-        vm.ErrorTitle.Should().Be("Open and close the selected browser");
-        vm.ErrorMessage.Should().Contain("Open the browsers selected")
-            .And.Contain("then close them").And.Contain("go back one step and continue again")
-            .And.NotContain(privatePath);
+        vm.ErrorTitle.Should().EndWith("did not shut down correctly").And.NotContain(privatePath);
+        vm.ErrorMessage.Should().Be("Start the browser, close it completely and try again.");
         vm.ErrorDetail.Should().BeNull();
         vm.HasErrorDetail.Should().BeFalse();
 
@@ -211,10 +209,8 @@ public sealed class FileStagingViewModelTests
         await vm.StageCommand.ExecuteAsync(null);
 
         vm.HasError.Should().BeTrue();
-        vm.ErrorTitle.Should().Be("Close Microsoft Edge first");
-        vm.ErrorMessage.Should().Be("Microsoft Edge is still running, possibly in the background after its windows were closed. " +
-            "Save your work and close Edge. If it keeps running, end Microsoft Edge in Task Manager (Ctrl+Shift+Esc). " +
-            "Then go back one step and continue. Nothing has been copied yet.");
+        vm.ErrorTitle.Should().Be("Microsoft Edge is still running");
+        vm.ErrorMessage.Should().Be("Close the browser completely (including background processes) and try again.");
         vm.ErrorDetail.Should().BeNull();
         vm.IsComplete.Should().BeFalse();
     }
@@ -224,10 +220,9 @@ public sealed class FileStagingViewModelTests
     {
         var (title, message) = FileStagingViewModel.RunningBrowserText(["Microsoft Edge", "Google Chrome", "Mozilla Firefox"]);
 
-        title.Should().Be("Close Microsoft Edge, Google Chrome and Mozilla Firefox first");
-        message.Should().StartWith("Microsoft Edge, Google Chrome and Mozilla Firefox are still running")
-            .And.Contain("close them").And.EndWith("Nothing has been copied yet.");
-        FileStagingViewModel.RunningBrowserText(["Brave"]).Message.Should().Contain("close Brave.");
+        title.Should().Be("Microsoft Edge, Google Chrome and Mozilla Firefox are still running");
+        message.Should().Be("Close the browsers completely (including background processes) and try again.");
+        FileStagingViewModel.RunningBrowserText(["Brave"]).Title.Should().Be("Brave is still running");
     }
 
     [Fact]
@@ -241,8 +236,8 @@ public sealed class FileStagingViewModelTests
 
         await vm.StageCommand.ExecuteAsync(null);
 
-        vm.ErrorTitle.Should().Be("Browser files are still in use");
-        vm.ErrorMessage.Should().StartWith("Google Chrome may still be running").And.NotContain("Microsoft Edge");
+        vm.ErrorTitle.Should().Be("Google Chrome is still running");
+        vm.ErrorMessage.Should().StartWith("Close the browser completely");
     }
 
     [Theory]
@@ -267,16 +262,14 @@ public sealed class FileStagingViewModelTests
 
         await vm.StageCommand.ExecuteAsync(null);
 
-        vm.ErrorTitle.Should().Be("Browser files are still in use");
-        vm.ErrorMessage.Should().Contain("Microsoft Edge").And.Contain("background")
-            .And.Contain("Save your browser work").And.Contain("open Task Manager (Ctrl+Shift+Esc)")
-            .And.NotContain("private");
+        vm.ErrorTitle.Should().Be("Microsoft Edge is still running");
+        vm.ErrorMessage.Should().Contain("background").And.NotContain("private");
         vm.ErrorDetail.Should().BeNull();
         vm.CanOpenTaskManager.Should().BeTrue();
         vm.CanStage.Should().BeTrue();
         vm.OpenTaskManagerCommand.Execute(null);
         launches.Should().Be(1);
-        if (launchFails) vm.ErrorMessage.Should().Contain("Ctrl+Shift+Esc");
+        vm.ErrorMessage.Should().StartWith("Close the browser completely", "a Task Manager that does not open changes nothing on the page");
         vm.IsComplete.Should().BeFalse();
         setup.GetSelectedBrowserNames().Should().ContainSingle().Which.Should().Be("Microsoft Edge");
 
@@ -324,9 +317,8 @@ public sealed class FileStagingViewModelTests
 
         vm.HasError.Should().BeTrue();
         vm.IsComplete.Should().BeFalse();
-        vm.ErrorTitle.Should().Be("Turn off saved Wi-Fi migration");
-        vm.ErrorMessage.Should().StartWith("Select Back until Configuration")
-            .And.Contain("wired Ethernet").And.NotContain("fixture-sensitive-value");
+        vm.ErrorTitle.Should().Be("File copy failed");
+        vm.ErrorMessage.Should().NotContain("fixture-sensitive-value");
         vm.ErrorDetail.Should().BeNull();
     }
 
@@ -341,9 +333,8 @@ public sealed class FileStagingViewModelTests
 
         await vm.StageCommand.ExecuteAsync(null);
 
-        vm.ErrorTitle.Should().Be("Review incomplete migration files");
-        vm.ErrorMessage.Should().StartWith("Open the folder below")
-            .And.NotContain("cleanup denied");
+        vm.ErrorTitle.Should().Be("Previous file copy did not complete");
+        vm.ErrorMessage.Should().Be($"Remove {orphan} and try again.");
         vm.HasOrphanDirectory.Should().BeTrue();
         vm.OrphanDirectory.Should().Be(orphan);
         vm.StageCommand.CanExecute(null).Should().BeFalse();

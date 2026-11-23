@@ -10,8 +10,8 @@ namespace Igloo.Preflight;
 public sealed partial class DirectInstallService
 {
     private const uint FileBackedVirtualBus = 15;
-    private const string RemoveEarlierLinux =
-        " Windows has not been resized. Remove the earlier Linux installation in System Check, then start again.";
+    private const string RemoveEarlierLinux = "Remove the existing Linux installation and try again.";
+    private const string RemoveConflictingPartitions = "Remove conflicting OS partitions and try again.";
 
     // Smallest EFI system partition both partman-efi (50 MiB) and blivet (32 MiB) take for the boot files.
     private const long MinimumBootEspBytes = 64 * MiB;
@@ -74,14 +74,14 @@ public sealed partial class DirectInstallService
         {
             if (!rules.MountsFirstEsp)
                 throw new InstallationRefusedException(
-                    $"Disk {diskNumber} has {esps.Length} EFI system partitions and this installer would choose one of them itself." +
-                    RemoveEarlierLinux);
+                    $"Multiple EFI system partitions detected on Disk {diskNumber}",
+                    "The installer cannot select the correct partition. " + RemoveConflictingPartitions);
             // The first one gets the boot files, so it has to be the one Windows starts from; that of another Linux is not reused.
             if (!esps[0].StartsWindows || esps.Count(p => p.StartsWindows) != 1 ||
                 esps[0].Size < MinimumBootEspBytes || esps[0].Id == Guid.Empty)
                 throw new InstallationRefusedException(
-                    $"Disk {diskNumber} has {esps.Length} EFI system partitions and the first one is not the one Windows starts from, so this installer would put its boot files on another." +
-                    RemoveEarlierLinux);
+                    $"Multiple EFI system partitions detected on Disk {diskNumber}",
+                    "The Windows EFI partition must be the first one on the drive. " + RemoveConflictingPartitions);
             bootEsp = esps[0].Id;
         }
 
@@ -92,19 +92,19 @@ public sealed partial class DirectInstallService
         {
             var windows = partitions.Where(p => p.IsWindows).ToArray();
             if (windows.Length != 1 || windows[0].Size <= plannedBytes)
-                throw new InstallationRefusedException(FormattableString.Invariant(
-                    $"Disk {diskNumber} has no unallocated region of {plannedBytes / (1024.0 * 1024 * 1024):N1} GiB and no single Windows partition that can be shrunk to make one. Windows has not been resized."));
+                throw InsufficientSpace(diskNumber, plannedBytes);
             layout = partitions.Select(p => p.IsWindows ? (p.Offset, p.Size - plannedBytes) : (p.Offset, p.Size)).ToList();
         }
 
         var eligible = FreeRegions(layout, diskSizeBytes).Where(region => region.Size >= rules.MinimumRegionBytes).ToArray();
         if (eligible.Length == 0)
-            throw new InstallationRefusedException(FormattableString.Invariant(
-                $"Disk {diskNumber} has no unallocated region of {minimumGiB:N0} GiB or more left for Linux.") + RemoveEarlierLinux);
+            throw new InstallationRefusedException(
+                $"Insufficient unallocated space on Disk {diskNumber}",
+                FormattableString.Invariant($"Linux requires at least {minimumGiB:N0} GB. ") + RemoveEarlierLinux);
         if (eligible.Length > 1)
-            throw new InstallationRefusedException(FormattableString.Invariant(
-                $"Disk {diskNumber} would have {eligible.Length} unallocated regions of {minimumGiB:N0} GiB or more, and the installer must be given exactly one.") +
-                RemoveEarlierLinux);
+            throw new InstallationRefusedException(
+                $"Multiple unallocated areas detected on Disk {diskNumber}",
+                "The installer requires a single unallocated area. " + RemoveEarlierLinux);
         var expected = reusesInstallerPartition ? eligible[0].Size : eligible[0].Size - installerBytes;
         return new(shrinks, eligible[0], largest, expected) { BootEsp = bootEsp };
     }
@@ -162,26 +162,29 @@ public sealed partial class DirectInstallService
             throw new InvalidOperationException(
                 $"The partition layout of disk {diskNumber} could not be evaluated. Windows has not been resized.");
         if (linuxBytes < rules.MinimumRegionBytes)
-            throw new InstallationRefusedException(FormattableString.Invariant(
-                $"Linux needs {rules.MinimumRegionBytes / (1024.0 * 1024 * 1024):N0} GiB or more. Windows has not been resized."));
+            throw new InstallationRefusedException("Selected size is too small", FormattableString.Invariant(
+                $"Linux requires at least {rules.MinimumRegionBytes / (1024.0 * 1024 * 1024):N0} GB."));
         // Space an earlier attempt already took from Windows is used as it is; Windows is not shrunk for it again.
         if (PlaceInExistingSpace(partitions, diskSizeBytes, installerBytes, linuxBytes) is { } existing)
             return new(0, existing);
         var planned = checked(linuxBytes + installerBytes);
         var windows = partitions.Where(p => p.IsWindows).ToArray();
         if (windows.Length != 1)
-            throw new InstallationRefusedException(FormattableString.Invariant(
-                $"Disk {diskNumber} has no unallocated region of {planned / (1024.0 * 1024 * 1024):N1} GiB and no single Windows partition that can be shrunk to make one. Windows has not been resized."));
+            throw InsufficientSpace(diskNumber, planned);
         // A gap that already lies behind Windows counts: Windows gives up only what is missing.
         var windowsEnd = windows[0].Offset + windows[0].Size;
         var gapEnd = windowsEnd + FreeBytesBehind(partitions, diskSizeBytes, windowsEnd);
         var target = UsableEnd(gapEnd, diskSizeBytes) - RoundUpMiB(linuxBytes) - RoundUpMiB(installerBytes);
         var shrink = windowsEnd - target;
         if (shrink <= 0 || target <= windows[0].Offset)
-            throw new InstallationRefusedException(FormattableString.Invariant(
-                $"Disk {diskNumber} has no unallocated region of {planned / (1024.0 * 1024 * 1024):N1} GiB and no single Windows partition that can be shrunk to make one. Windows has not been resized."));
+            throw InsufficientSpace(diskNumber, planned);
         return new(shrink, new(target, RoundUpMiB(linuxBytes)));
     }
+
+    // No unallocated space of the planned size, and no single Windows partition that can be shrunk to make it.
+    private static InstallationRefusedException InsufficientSpace(int diskNumber, long plannedBytes) =>
+        new($"Insufficient space on Disk {diskNumber}", FormattableString.Invariant(
+            $"{plannedBytes / (1024.0 * 1024 * 1024):N1} GB cannot be allocated to Linux. Select a smaller size and try again."));
 
     /// <summary>The unallocated space that starts where a partition ends; zero when another partition follows at once.</summary>
     internal static long FreeBytesBehind(IReadOnlyList<LayoutPartition> partitions, long diskSizeBytes, long partitionEnd)
@@ -198,10 +201,9 @@ public sealed partial class DirectInstallService
         ArgumentNullException.ThrowIfNull(otherDiskRegions);
         foreach (var (other, region) in otherDiskRegions)
             if (other != diskNumber && region.Size >= expectedLinuxBytes)
-                throw new InstallationRefusedException(FormattableString.Invariant(
-                    $"Disk {other} has an unallocated region of {region.Size / (1024.0 * 1024 * 1024):N1} GiB, and this installer takes the largest one on any disk. ") +
-                    FormattableString.Invariant($"The region planned on disk {diskNumber} is {expectedLinuxBytes / (1024.0 * 1024 * 1024):N1} GiB. ") +
-                    $"Windows has not been resized. Disconnect disk {other} or allocate that space, then start again.");
+                throw new InstallationRefusedException(
+                    $"Larger unallocated space detected on Disk {other}",
+                    $"The installer would use Disk {other} instead of Disk {diskNumber}. Disconnect Disk {other} and try again.");
     }
 
     // Checks the live layout, then shrinks Windows only when the unallocated space is too small.
@@ -229,7 +231,7 @@ public sealed partial class DirectInstallService
             {
                 _logger.LogInformation("Direct install: disk {Disk} already has unallocated space for {NeedGiB:N1} GiB - Windows is not shrunk",
                     diskNumber, totalShrink / (1024.0 * 1024 * 1024));
-                Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Using existing free space; Windows is not resized…");
+                Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Preparing disk…");
                 return false;
             }
             _logger.LogInformation("Direct install: shrinking Windows on disk {Disk} by {MiB} MiB for {NeedGiB:N1} GiB of Linux and installer",
@@ -243,7 +245,7 @@ public sealed partial class DirectInstallService
         {
             _logger.LogInformation("Direct install: disk {Disk} already has {GiB:N1} GiB unallocated (need {NeedGiB:N1} GiB) - Windows is not shrunk",
                 diskNumber, freeExtent / (1024.0 * 1024 * 1024), totalShrink / (1024.0 * 1024 * 1024));
-            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Using existing free space; Windows is not resized…");
+            Report(prog, DirectInstallPhase.ShrinkingPartition, message: "Preparing disk…");
             return false;
         }
         _logger.LogInformation("Direct install: shrinking disk {Disk} by {GiB} GiB",
@@ -299,7 +301,7 @@ public sealed partial class DirectInstallService
         catch (InvalidOperationException ex)
         {
             throw new InstallationRefusedException(
-                $"The partition layout of disk {diskNumber} could not be read. Windows has not been resized.", ex);
+                $"Partition layout of Disk {diskNumber} could not be read", "Try again.", ex);
         }
         var plan = PlanBoundLinuxRegion(diskNumber, layout, diskSize, linuxBytes, installerBytes, rules);
         _logger.LogInformation(
@@ -399,7 +401,7 @@ public sealed partial class DirectInstallService
                                    or InvalidCastException or InvalidOperationException or KeyNotFoundException)
         {
             throw new InstallationRefusedException(
-                $"The partition layout of disk {diskNumber} could not be read. Windows has not been resized.", ex);
+                $"Partition layout of Disk {diskNumber} could not be read", "Try again.", ex);
         }
 
         var plan = PlanLinuxRegion(diskNumber, partitions, diskSize, plannedBytes, installerBytes,
@@ -410,8 +412,8 @@ public sealed partial class DirectInstallService
             // An installer that walks every disk lists their EFI system partitions too, in an order Windows cannot see.
             if (espElsewhere.Count > 0)
                 throw new InstallationRefusedException(
-                    $"Disk {diskNumber} has more than one EFI system partition and disk {espElsewhere[0]} has one as well; this installer takes the first it lists on any disk. " +
-                    $"Windows has not been resized. Disconnect disk {espElsewhere[0]}, then start again.");
+                    "EFI system partitions detected on multiple disks",
+                    $"The installer cannot select the correct partition. Disconnect Disk {espElsewhere[0]} and try again.");
             _logger.LogInformation(
                 "Linux region: disk {Disk} has more than one EFI system partition; this installer mounts the first, {Esp}, which Windows starts from, and leaves the others as they are",
                 diskNumber, bootEsp);

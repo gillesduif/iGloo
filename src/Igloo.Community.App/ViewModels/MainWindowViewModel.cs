@@ -52,14 +52,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private static string BuildVerificationMessage(IsoAcquisitionViewModel acq)
     {
         var name = acq.Result is null ? "Image" : Path.GetFileName(acq.Result.LocalPath);
-        return acq.Result switch
-        {
-            { Sha256Verified: true, GpgVerified: true } =>
-                $"{name} verified - SHA-256 matched and the GPG signature is valid.",
-            { Sha256Verified: true, GpgVerified: false } =>
-                $"{name} verified - SHA-256 matched (no GPG signature was published).",
-            _ => $"{name} downloaded.",
-        };
+        return acq.Result is { Sha256Verified: true }
+            ? $"{name} has been verified."
+            : $"{name} has been downloaded.";
     }
 
     /// <summary>Raises a Windows toast; never lets a cosmetic failure disturb the wizard.</summary>
@@ -130,7 +125,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public string PrimaryActionLabel => CurrentPage switch
     {
         DirectInstallViewModel di => di.IsRebooting ? "Restarting…" : di.IsComplete ? "Restart" :
-            di.IsRunning ? "Preparing…" : di.HasError ? "Preparation failed" : "Preparing installation…",
+            di.IsRunning ? "Preparing…" : "Next  →",
         _ when IsLastStep => "Finish",
         _ => "Next  →",
     };
@@ -364,6 +359,40 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         CurrentPage = _steps[_stepIndex];
 
+        await EnterCurrentStepAsync();
+    }
+
+    // Runs the step on screen again; the Retry and Refresh buttons of the pages call it.
+    [RelayCommand]
+    private async Task RetryAsync()
+    {
+        if (CurrentPage is IsoAcquisitionViewModel { RetryBlocked: true } blocked)
+        {
+            await blocked.CheckStatusCommand.ExecuteAsync(null);
+            if (blocked.RetryBlocked)
+                return;
+        }
+        if (CurrentPage is FileStagingViewModel { CanCheckStagingFolder: true } staging)
+        {
+            staging.CheckStagingFolderCommand.Execute(null);
+            if (staging.CanCheckStagingFolder)
+                return;
+        }
+        await EnterCurrentStepAsync();
+    }
+
+    [RelayCommand]
+    private void OpenLogs() => _directInstall.OpenLogFolderCommand.Execute(null);
+
+    // A canceled step leaves no message: the wizard returns to the page before it.
+    private void StepBack()
+    {
+        _stepIndex--;
+        CurrentPage = _steps[_stepIndex];
+    }
+
+    private async Task EnterCurrentStepAsync()
+    {
         switch (CurrentPage)
         {
             case PreflightViewModel pf when pf.Report is null && !pf.IsRunning:
@@ -383,6 +412,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 {
                     acq.Prepare(_selectedDistro!);
                     await acq.AcquireCommand.ExecuteAsync(null);
+                    if (acq.WasCanceled)
+                    {
+                        StepBack();
+                        break;
+                    }
                 }
 
                 // A passing verification is information, not a decision: the receipt
@@ -392,7 +426,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 if (acq.IsComplete && !acq.HasError)
                 {
                     if (needsAcquisition)
-                        Notify("Download verified", BuildVerificationMessage(acq));
+                        Notify("Download complete", BuildVerificationMessage(acq));
                     await NextAsync();
                 }
                 break;
@@ -426,6 +460,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
                     _diskSelection.InstallMode,
                     _diskSelection.LinuxSizeGb);
                 await fs.StageCommand.ExecuteAsync(null);
+                if (fs.WasCanceled)
+                {
+                    StepBack();
+                    break;
+                }
 
                 // Nothing on the staging page asks the user anything: it reports
                 // progress, and when the package is built the only available action is
@@ -440,7 +479,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 di.Prepare(_isoAcquisition.Result!, _fileStaging.Result!,
                     _diskSelection.SelectedDisk!,
                     _diskSelection.LinuxSizeGb,
-                    _selectedDistro!.Id, _selectedDistro.Iso.Stage2Url);
+                    _selectedDistro!.Id, _selectedDistro.Iso.Stage2Url, _selectedDistro.DisplayName);
                 await di.InstallCommand.ExecuteAsync(null);
                 break;
 

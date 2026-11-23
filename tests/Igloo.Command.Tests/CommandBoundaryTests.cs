@@ -576,7 +576,7 @@ public sealed class CommandBoundaryTests
                 .Evaluate(distro.Id, await checker.RunAsync());
             Assert.Contains(directFindings, f => f.Code == "SecureBootUnsupported" &&
                 f.Severity == FindingSeverity.Blocker &&
-                f.Message.StartsWith("Turn off Secure Boot", StringComparison.Ordinal));
+                f.Message.StartsWith("Secure Boot must be disabled", StringComparison.Ordinal));
             var dispatcher = new CommandDispatcher(checker, loader, registry);
             var selection = JsonSerializer.SerializeToElement(new DistroSelection(distro.Id),
                 CommandProtocol.JsonOptions);

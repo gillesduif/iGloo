@@ -99,7 +99,7 @@ public sealed class MainWindowRestartNavigationTests
         fixture.Preparation.Prepare = () => Task.FromException(new System.IO.IOException("copy failed"));
         await fixture.Install.InstallCommand.ExecuteAsync(null);
 
-        Assert.StartsWith("Inspect the target disk in Disk Management", fixture.Install.ErrorMessage, StringComparison.Ordinal);
+        Assert.Equal("Check the details and try again.", fixture.Install.ErrorMessage);
     }
 
     private sealed class Fixture

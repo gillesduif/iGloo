@@ -158,7 +158,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
         {
             return new DistroListItem(m,
                 IsCompatible: false,
-                IncompatibilityReason: "Choose another distribution. Installer support is unavailable.",
+                IncompatibilityReason: "This distribution is not supported by this version of iGloo Community.",
                 IsComingSoon: comingSoon);
         }
 
@@ -176,11 +176,8 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                     .FirstOrDefault(f => f.Severity == FindingSeverity.Blocker);
                 if (blocker is not null)
                 {
-                    var reason = string.IsNullOrWhiteSpace(blocker.Remediation)
-                        ? blocker.Message
-                        : $"{blocker.Remediation} {blocker.Message}";
                     return new DistroListItem(m, IsCompatible: false,
-                        IncompatibilityReason: reason, IsComingSoon: comingSoon);
+                        IncompatibilityReason: blocker.Message, IsComingSoon: comingSoon);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -188,7 +185,7 @@ public sealed partial class DistroSelectionViewModel : ObservableObject
                 // A failed compatibility check cannot establish installation support.
                 _logger.LogWarning(ex, "CheckCompatibility failed for {DistroId}", m.Id);
                 return new DistroListItem(m, IsCompatible: false,
-                    IncompatibilityReason: "Run the system check again. Compatibility could not be verified.",
+                    IncompatibilityReason: "Compatibility could not be verified.",
                     IsComingSoon: comingSoon);
             }
         }

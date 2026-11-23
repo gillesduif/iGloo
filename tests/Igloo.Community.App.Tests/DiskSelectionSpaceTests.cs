@@ -106,7 +106,7 @@ public sealed class DiskSelectionSpaceTests
         vm.CanProceed.Should().BeTrue();
         vm.HasAllocationSummary.Should().BeTrue();
         vm.AllocationSummary.Should().Be(
-            $"Linux gets {Size(95.875)} GB: this distribution's installer takes all unallocated space on the disk.");
+            $"Linux will use {Size(95.875)} GB. Linux Mint uses all unallocated space on the disk.");
     }
 
     // The same guest with an installer that is confined to the size asked: the slider is back and its value is what Linux gets.
@@ -156,7 +156,7 @@ public sealed class DiskSelectionSpaceTests
         vm.UsesUnallocatedSpace.Should().BeFalse();
         vm.LinuxSizeGb = 25;
         vm.UsesUnallocatedSpace.Should().BeTrue();
-        vm.AllocationSummary.Should().StartWith($"Linux gets {Size(26)} GB:");
+        vm.AllocationSummary.Should().StartWith($"Linux will use {Size(26)} GB.");
         vm.LinuxSizeGb = 27;
         vm.UsesUnallocatedSpace.Should().BeFalse();
         vm.AllocationSummary.Should().BeEmpty();
@@ -227,8 +227,10 @@ public sealed class DiskSelectionSpaceTests
 
         vm.CanProceed.Should().BeFalse();
         vm.SpaceErrorMessage.Should().Be(refusal.Message)
-            .And.StartWith(@"'C:\Users\fixture\Videos\holiday.mkv' is 5.0 GiB.");
+            .And.StartWith(@"'C:\Users\fixture\Videos\holiday.mkv' is 5.0 GB.");
+        vm.DiskActionTitle.Should().Be("File exceeds the 4 GB limit");
         vm.DiskActionMessage.Should().Be(refusal.Message);
+        vm.CanRefreshSpace.Should().BeTrue();
     }
 
     [Fact]

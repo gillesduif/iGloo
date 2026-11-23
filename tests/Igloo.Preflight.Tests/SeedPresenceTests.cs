@@ -95,11 +95,9 @@ public sealed class SeedPresenceTests : IDisposable
 
         var refusal = Assert.Throws<InstallationRefusedException>(() => DirectInstallService.RequireSeedHoldsItsFiles(_root));
 
-        Assert.StartsWith("Windows no longer gives back 2 of the files iGloo copied to the installer partition: " +
-            @"'Downloads\Uninstall\Launch-Activator.exe', 'Downloads\Uninstall\down2.ps1'. ", refusal.Message, StringComparison.Ordinal);
-        Assert.Contains("Windows Security lists it under Virus & threat protection › Protection history.", refusal.Message, StringComparison.Ordinal);
-        Assert.EndsWith("Go back to Configuration and leave out the folder or browser that holds them, or move the files elsewhere, then continue.",
-            refusal.Message, StringComparison.Ordinal);
+        Assert.Equal("Copied files are missing", refusal.Heading);
+        Assert.Equal(@"'Downloads\Uninstall\Launch-Activator.exe', 'Downloads\Uninstall\down2.ps1' may have been removed by antivirus software. " +
+            "Exclude the files and try again.", refusal.Message);
     }
 
     [Fact]
@@ -117,16 +115,16 @@ public sealed class SeedPresenceTests : IDisposable
     {
         var many = Enumerable.Range(1, 7).Select(number => $"files/Documents/{number}.txt").ToArray();
         var message = InstallationRefusedException.FilesLostFromInstallerPartition(many).Message;
-        Assert.Contains(@"'Documents\5.txt' and 2 more. ", message, StringComparison.Ordinal);
+        Assert.Contains(@"'Documents\5.txt' and 2 more may have been removed", message, StringComparison.Ordinal);
         Assert.DoesNotContain("6.txt", message, StringComparison.Ordinal);
 
         var profile = InstallationRefusedException.FilesLostFromInstallerPartition(
             ["browser-profiles/AppData/Local/Microsoft/Edge/User Data/Default/History"]).Message;
         Assert.Contains(@"'browser-profiles\AppData\Local\Microsoft\Edge\User Data\Default\History'", profile, StringComparison.Ordinal);
-        Assert.EndsWith("then continue.", profile, StringComparison.Ordinal);
+        Assert.EndsWith("Exclude the files and try again.", profile, StringComparison.Ordinal);
 
         var own = InstallationRefusedException.FilesLostFromInstallerPartition(["igloo-agent/agent.py", "files/Documents/1.txt"]).Message;
-        Assert.EndsWith("The installer cannot start without them. Read the reason there before you prepare again.", own, StringComparison.Ordinal);
+        Assert.EndsWith("Check the Protection history and try again.", own, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -73,8 +73,8 @@ public sealed class FileStagingMeasurementTests : IDisposable
             FileStagingService.MeasureSelectedBytesAsync(new FileStagingRequest(_distroId, [_sourceRoot])
             { FolderNames = ["Documents"] }));
 
-        Assert.StartsWith($"'{large}' is 4.0 GiB.", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("Go back to Configuration", refused.Message, StringComparison.Ordinal);
+        Assert.StartsWith($"'{large}' is 4.0 GB.", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("Exclude the file and try again", refused.Message, StringComparison.Ordinal);
         Assert.False(Directory.Exists(StagingRoot));
     }
 

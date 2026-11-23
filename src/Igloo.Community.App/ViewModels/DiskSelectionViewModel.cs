@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Igloo.Core.Abstractions;
 using Igloo.Core.Models;
 using Igloo.Core.Host;
@@ -36,12 +37,36 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     [ObservableProperty]
     private string? _spaceErrorMessage;
 
+    // The heading that goes with SpaceErrorMessage.
+    private string? _spaceErrorTitle;
+    private string? _distroName;
+
+    private const string SpaceCheckFailed = "Space check failed";
+    private const string DualBootUnavailableTitle = "Dual boot is not available in this version";
+
+    // The drive Windows runs from, as the messages name it.
+    private static string SystemDrive => System.IO.Path.GetPathRoot(Environment.SystemDirectory)?.TrimEnd('\\') is { Length: > 0 } root ? root : "C:";
+
     public bool HasSpaceEstimate => _spaceEstimate is not null;
     public bool ShowDiskAction => IsCheckingSpace || SpaceErrorMessage is not null || NoSupportedMode ||
-        SelectedItem is not null && _dualBootUnavailableMessage is not null;
-    public string DiskActionMessage => IsCheckingSpace
-        ? "Checking available space…"
-        : SpaceErrorMessage ?? _dualBootUnavailableMessage ?? UnsupportedModeAction;
+        NeedsMoreDualBootSpace || SelectedItem is not null && _dualBootUnavailableMessage is not null;
+
+    private (string Title, string Message) DiskAction => IsCheckingSpace ? (string.Empty, "Checking available space…")
+        : SpaceErrorMessage is not null ? (_spaceErrorTitle ?? SpaceCheckFailed, SpaceErrorMessage)
+        : _dualBootUnavailableMessage is not null ? (DualBootUnavailableTitle, _dualBootUnavailableMessage)
+        : NeedsMoreDualBootSpace ? ("Insufficient disk space",
+            $"Linux requires at least {MinLinuxGb} GB. Free up space on drive {SystemDrive} and try again.")
+        : (UnsupportedModeTitle, UnsupportedModeAction);
+
+    public string DiskActionTitle => DiskAction.Title;
+    public string DiskActionMessage => DiskAction.Message;
+    public bool HasDiskActionTitle => DiskActionTitle.Length > 0;
+
+    // Refresh measures again where a new measurement can change the outcome.
+    public bool CanRefreshSpace => !IsCheckingSpace && (SpaceErrorMessage is not null || NeedsMoreDualBootSpace);
+
+    [RelayCommand]
+    private Task RefreshSpaceCheckAsync() => RefreshSpaceAsync();
 
     //   Observable state                            
 
@@ -94,15 +119,14 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     public bool HasAllocationSummary => UsesUnallocatedSpace && _spaceEstimate is { HonoursLinuxSize: false };
 
     public string AllocationSummary => HasAllocationSummary && Allocation is { } allocation
-        ? $"Linux gets {allocation.LinuxBytes / (double)GiB:N1} GB: this distribution's installer takes all unallocated space on the disk."
+        ? $"Linux will use {allocation.LinuxBytes / (double)GiB:N1} GB. {_distroName ?? "This distribution"} uses all unallocated space on the disk."
         : string.Empty;
 
     public bool HasEligibleWindowsDisk => DiskItems.Any(item => item.HasWindowsPartition &&
         string.Equals(item.Disk.PartitionStyle, "GPT", StringComparison.OrdinalIgnoreCase) &&
         item.Disk.GptDiskGuid is { } id && id != Guid.Empty);
-    public string WindowsDiskAction { get; } =
-        "iGloo Community keeps Windows installed. No eligible Windows disk was found. " +
-        "Run iGloo from the Windows installation you want to keep, then run the system check again.";
+    public string WindowsDiskTitle { get; } = "No Windows disk detected";
+    public string WindowsDiskAction { get; } = "Run iGloo Community from the Windows installation that must be kept.";
 
     
     private bool IsDualBootCandidate => SelectedItem?.HasWindowsPartition == true
@@ -119,18 +143,21 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     public bool NoSupportedMode => SelectedItem is not null && !CanDualBoot &&
         !NeedsMoreDualBootSpace && !IsCheckingSpace && SpaceErrorMessage is null;
 
-    public string UnsupportedModeAction => SelectedItem?.Disk switch
+    private (string Title, string Message) UnsupportedMode => SelectedItem?.Disk switch
     {
-        null => string.Empty,
+        null => (string.Empty, string.Empty),
         var disk when !string.Equals(disk.PartitionStyle, "GPT", StringComparison.OrdinalIgnoreCase) =>
-            "Choose a GPT disk, then continue.",
+            ("MBR disks are not supported", "Select a GPT disk."),
         { GptDiskGuid: null } =>
-            "Choose another disk whose identity Windows can verify, then run the system check again.",
-        _ when _dualBootUnavailableMessage is not null => _dualBootUnavailableMessage,
+            ("Disk could not be identified", "Select another disk."),
+        _ when _dualBootUnavailableMessage is not null => (DualBootUnavailableTitle, _dualBootUnavailableMessage),
         _ when _supportedInstallModes.Contains("dual-boot") && SelectedItem?.HasWindowsPartition == false =>
-            "Select the Windows system disk for dual boot.",
-        _ => "iGloo Community always keeps Windows. Choose a distribution that supports installing alongside Windows.",
+            ("No Windows installation detected on this disk", "Select the disk that contains Windows."),
+        _ => ($"{_distroName ?? "This distribution"} does not support dual boot", "Select another distribution."),
     };
+
+    public string UnsupportedModeTitle => UnsupportedMode.Title;
+    public string UnsupportedModeAction => UnsupportedMode.Message;
 
     public bool NeedsMoreDualBootSpace => IsDualBootCandidate && HasSpaceEstimate &&
         MaxProvisionalLinuxGb < MinLinuxGb;
@@ -173,6 +200,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
         _verifiedIso = verifiedIso;
         _selectedFiles = selectedFiles;
         _distroId = distro?.Id ?? selectedFiles?.DistroId;
+        _distroName = distro?.DisplayName;
         SpaceErrorMessage = null;
 
         _supportedInstallModes = (distro?.SupportedInstallModes ?? ["dual-boot"])
@@ -185,14 +213,7 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
                 : null;
             if (availability is null || availability.Availability != ObservationAvailability.Available ||
                 !availability.Value)
-                _dualBootUnavailableMessage = availability?.Code switch
-                {
-                    "FedoraInstallerRootBindingUnavailable" =>
-                        "Fedora dual boot is not available in this build. Go back to Linux Distribution and choose Debian to install alongside Windows.",
-                    "MintDedicatedEspBindingUnavailable" =>
-                        "Linux Mint dual boot is not available in this build. Go back to Linux Distribution and choose Debian to install alongside Windows.",
-                    _ => "Installing alongside Windows is unavailable in this build. Update or repair iGloo before continuing.",
-                };
+                _dualBootUnavailableMessage = "Update iGloo Community and try again.";
         }
         var providerMinBytes = distro?.MinimumRequirements?.MinDiskBytes;
         _minLinuxGb = providerMinBytes is > 0 and <= (long)int.MaxValue * GiB
@@ -256,13 +277,15 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
         {
             if (generation != _spaceGeneration) return;
             _spaceEstimate = null;
-            SpaceErrorMessage = "Select the disk again to finish checking available space.";
+            _spaceErrorTitle = "Space check was canceled";
+            SpaceErrorMessage = "Try again.";
         }
         catch (InstallationRefusedException ex)
         {
             // A refusal carries its own instruction, such as the file that is too large for the installer partition.
             if (generation != _spaceGeneration) return;
             _spaceEstimate = null;
+            _spaceErrorTitle = ex.Heading;
             SpaceErrorMessage = ex.Message;
         }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or
@@ -273,7 +296,8 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
             if (generation != _spaceGeneration) return;
             _spaceEstimate = null;
             _logger?.LogError(ex, "Could not measure installation space for the selected disk");
-            SpaceErrorMessage = "Go back to Configuration, check that the selected files and downloaded image are accessible, then select the disk again.";
+            _spaceErrorTitle = SpaceCheckFailed;
+            SpaceErrorMessage = "Try again.";
         }
         finally
         {
@@ -326,7 +350,8 @@ public sealed partial class DiskSelectionViewModel : ObservableObject
     {
         foreach (var property in new[] { nameof(HasSpaceEstimate), nameof(CanProceed),
             nameof(CanDualBoot), nameof(NeedsMoreDualBootSpace), nameof(NoSupportedMode),
-            nameof(ShowDiskAction), nameof(DiskActionMessage),
+            nameof(ShowDiskAction), nameof(DiskActionTitle), nameof(DiskActionMessage), nameof(HasDiskActionTitle),
+            nameof(CanRefreshSpace),
             nameof(MaxProvisionalLinuxGb), nameof(LinuxSliderMinimumGb),
             nameof(LinuxSliderMaximumGb), nameof(ShowPartitionSizer), nameof(LinuxSizeIsFixed),
             nameof(UsesUnallocatedSpace), nameof(HasAllocationSummary), nameof(AllocationSummary) })

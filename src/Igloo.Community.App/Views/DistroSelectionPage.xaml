@@ -196,7 +196,7 @@
                 </Border>
 
                 <!-- Coming-soon explanation (replaces the confirm hint) -->
-                <TextBlock Text="This distribution is in development - it can be browsed but not installed yet. Want it sooner? Contribute on GitHub."
+                <TextBlock Text="Not available yet."
                            FontSize="11" Foreground="#C9A86A"
                            Margin="0,10,0,0" HorizontalAlignment="Center" TextAlignment="Center"
                            MaxWidth="480" TextWrapping="Wrap">

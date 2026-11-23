@@ -82,7 +82,7 @@ public sealed class InstallerMediaIndexReaderTests
 
         var refusal = await Assert.ThrowsAsync<InstallationRefusedException>(() => Reader(server).ResolveAsync(Declared()));
 
-        refusal.Message.Should().Contain("no valid signature");
+        refusal.Heading.Should().Be("Installer files could not be verified");
         server.Requested.Should().NotContain(Checksums);
     }
 
@@ -94,7 +94,7 @@ public sealed class InstallerMediaIndexReaderTests
         var refusal = await Assert.ThrowsAsync<InstallationRefusedException>(() =>
             Reader(server).ResolveAsync(Declared(fingerprint: "41587F7DB8C774BCCF131416762F67A0B2C39DE4")));
 
-        refusal.Message.Should().Contain("no valid signature");
+        refusal.Heading.Should().Be("Installer files could not be verified");
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public sealed class InstallerMediaIndexReaderTests
         var refusal = await Assert.ThrowsAsync<InstallationRefusedException>(() => Reader(server).ResolveAsync(
             WithIndex(Declared(), index => index with { IndexIdentityLine = "Codename: forky" })));
 
-        refusal.Message.Should().Contain("no valid signature of the distribution's key for this release");
+        refusal.Heading.Should().Be("Installer files could not be verified");
         server.Requested.Should().NotContain(Checksums);
     }
 
@@ -167,7 +167,7 @@ public sealed class InstallerMediaIndexReaderTests
 
         var refusal = await Assert.ThrowsAsync<InstallationRefusedException>(() => Reader(server).ResolveAsync(Declared()));
 
-        refusal.Message.Should().Contain("not the ones its signed list names");
+        refusal.Heading.Should().Be("Installer files do not match the signed list");
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public sealed class InstallerMediaIndexReaderTests
         var refusal = await Assert.ThrowsAsync<InstallationRefusedException>(() =>
             Reader(server).ResolveAsync(Declared(signed.Fingerprint)));
 
-        refusal.Message.Should().Contain("does not name the installer's boot files");
+        refusal.Heading.Should().Be("Installer files not found");
         server.Requested.Should().NotContain(Checksums);
     }
 
@@ -207,7 +207,7 @@ public sealed class InstallerMediaIndexReaderTests
         var refusal = await Assert.ThrowsAsync<InstallationRefusedException>(() =>
             Reader(server).ResolveAsync(Declared(signed.Fingerprint)));
 
-        refusal.Message.Should().Contain("does not name the installer's boot files");
+        refusal.Heading.Should().Be("Installer files not found");
     }
 
     [Fact]
@@ -265,7 +265,7 @@ public sealed class InstallerMediaIndexReaderTests
 
         var refusal = await Assert.ThrowsAsync<InstallationRefusedException>(() => Reader(server).ResolveAsync(Declared()));
 
-        refusal.Message.Should().Contain("Check your internet connection");
+        refusal.Message.Should().Contain("Check the network connection");
         refusal.InnerException.Should().BeOfType<HttpRequestException>();
     }
 
@@ -278,7 +278,7 @@ public sealed class InstallerMediaIndexReaderTests
 
         var refusal = await Assert.ThrowsAsync<InstallationRefusedException>(() => Reader(server).ResolveAsync(Declared()));
 
-        refusal.Message.Should().Contain("Install an updated iGloo Community");
+        refusal.Message.Should().Contain("Update iGloo Community");
     }
 
     [Fact]

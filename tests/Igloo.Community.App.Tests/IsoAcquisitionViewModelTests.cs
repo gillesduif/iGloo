@@ -132,7 +132,7 @@ public sealed class IsoAcquisitionViewModelTests
     };
 
     [Fact]
-    public async Task Cancelled_download_shows_a_retry_that_can_complete()
+    public async Task Cancelled_download_leaves_no_error_and_can_run_again()
     {
         var acquisition = new CancelThenAcquire();
         var vm = new IsoAcquisitionViewModel(acquisition,
@@ -150,9 +150,8 @@ public sealed class IsoAcquisitionViewModelTests
         await vm.AcquireCommand.ExecuteAsync(null);
         vm.IsRunning.Should().BeFalse();
         vm.IsComplete.Should().BeFalse();
-        vm.HasError.Should().BeTrue();
-        vm.ErrorTitle.Should().Be("Download failed");
-        vm.ErrorMessage.Should().Contain("cancelled");
+        vm.HasError.Should().BeFalse("a canceled download is not an error");
+        vm.WasCanceled.Should().BeTrue("the wizard then returns to the previous page");
 
         await vm.AcquireCommand.ExecuteAsync(null);
         acquisition.Calls.Should().Be(2);
@@ -180,7 +179,8 @@ public sealed class IsoAcquisitionViewModelTests
         await vm.AcquireCommand.ExecuteAsync(null);
 
         vm.HasError.Should().BeTrue();
-        vm.ErrorMessage.Should().StartWith("Check your connection and available storage")
+        vm.ErrorTitle.Should().Be("Download failed");
+        vm.ErrorMessage.Should().StartWith("Check the network connection and the available disk space")
             .And.NotContain("mirror checksum mismatch");
 
         await vm.AcquireCommand.ExecuteAsync(null);
@@ -191,10 +191,10 @@ public sealed class IsoAcquisitionViewModelTests
     }
 
     [Theory]
-    [InlineData(CommandErrorCode.VerificationFailed, "Retry image verification", "verify the image again")]
-    [InlineData(CommandErrorCode.ResourceBusy, "Wait for the other transfer", "other iGloo image transfer")]
-    [InlineData(CommandErrorCode.NotSupported, "Choose another distribution", "Use Back")]
-    [InlineData(CommandErrorCode.UnsupportedVersion, "Repair local iGloo package", "Repair or reinstall")]
+    [InlineData(CommandErrorCode.VerificationFailed, "Checksum verification failed", "does not match the published checksum")]
+    [InlineData(CommandErrorCode.ResourceBusy, "Another download is in progress", "Wait until it is complete")]
+    [InlineData(CommandErrorCode.NotSupported, "Debian is not supported", "Select another distribution")]
+    [InlineData(CommandErrorCode.UnsupportedVersion, "iGloo Community installation is damaged", "Reinstall iGloo Community")]
     public async Task Typed_cli_failure_shows_the_relevant_action_without_protected_detail(
         CommandErrorCode code, string title, string action)
     {
@@ -211,10 +211,10 @@ public sealed class IsoAcquisitionViewModelTests
     }
 
     [Theory]
-    [InlineData(CommandErrorCode.InternalFailure, "IsoNetworkUnavailable", "Check your connection", "internet connection")]
-    [InlineData(CommandErrorCode.InternalFailure, "IsoCacheUnavailable", "Check the download folder", "download folder")]
-    [InlineData(CommandErrorCode.VerificationFailed, "IsoVerificationFailed", "Retry image verification", "verify the image again")]
-    [InlineData(CommandErrorCode.VerificationFailed, "IsoSourceMetadataUnavailable", "Update iGloo or choose another distribution", "updated iGloo package")]
+    [InlineData(CommandErrorCode.InternalFailure, "IsoNetworkUnavailable", "No internet connection", "network connection")]
+    [InlineData(CommandErrorCode.InternalFailure, "IsoCacheUnavailable", "Insufficient disk space", "Free up space on drive")]
+    [InlineData(CommandErrorCode.VerificationFailed, "IsoVerificationFailed", "Checksum verification failed", "published checksum")]
+    [InlineData(CommandErrorCode.VerificationFailed, "IsoSourceMetadataUnavailable", "Current Fedora KDE release not found", "Update iGloo Community")]
     public async Task Sanitized_iso_failure_detail_identifies_a_relevant_recovery_action(
         CommandErrorCode code, string detailCode, string title, string action)
     {
@@ -240,7 +240,7 @@ public sealed class IsoAcquisitionViewModelTests
 
         await vm.AcquireCommand.ExecuteAsync(null);
 
-        vm.ErrorTitle.Should().Be("Retry image verification");
+        vm.ErrorTitle.Should().Be("Checksum verification failed");
         vm.ErrorMessage.Should().NotContain("internet connection");
     }
 
@@ -363,7 +363,8 @@ public sealed class IsoAcquisitionViewModelTests
         vm.CanRetry.Should().BeFalse();
         vm.CanCheckStatus.Should().BeTrue();
         vm.IsRunning.Should().BeFalse("a status-review gate is not an active transfer");
-        vm.ErrorTitle.Should().Be("Download failed");
+        vm.ErrorTitle.Should().Be("Previous download did not complete");
+        vm.RetryLabel.Should().Be("Refresh");
         vm.Prepare(Fedora());
         vm.CanRetry.Should().BeTrue("another distribution uses a different ISO resource");
         vm.Prepare(Debian());
@@ -398,7 +399,7 @@ public sealed class IsoAcquisitionViewModelTests
 
         vm.CanRetry.Should().BeFalse();
         vm.CanCheckStatus.Should().BeFalse();
-        vm.ErrorTitle.Should().Be("Review the download log");
+        vm.ErrorTitle.Should().Be("Previous download did not complete");
         await vm.AcquireCommand.ExecuteAsync(null);
         acquisition.Calls.Should().Be(1);
     }
@@ -432,7 +433,9 @@ public sealed class IsoAcquisitionViewModelTests
 
         vm.CanRetry.Should().BeTrue();
         vm.CanCheckStatus.Should().BeFalse();
-        vm.ErrorTitle.Should().Be("Repair local iGloo package");
+        vm.ErrorTitle.Should().Be("iGloo Community installation is damaged");
+        vm.RequiresReinstall.Should().BeTrue();
+        vm.ShowRetry.Should().BeFalse("running the download again cannot repair the installation");
     }
 
     [Fact]
@@ -472,8 +475,10 @@ public sealed class IsoAcquisitionViewModelTests
         journal.AcquireCalls.Should().Be(0);
         vm.CanRetry.Should().BeFalse();
         vm.CanCheckStatus.Should().BeTrue();
-        vm.ErrorTitle.Should().Be("Download failed");
-        vm.ErrorMessage.Should().StartWith("Check that the local iGloo CLI can read download history");
+        vm.ErrorTitle.Should().Be("Download could not be started");
+        vm.ErrorMessage.Should().Be("Check the logs and try again.");
+        vm.ShowLogs.Should().BeTrue();
+        vm.RetryLabel.Should().Be("Retry");
 
         journal.LookupError = null;
         await vm.CheckStatusCommand.ExecuteAsync(null);
@@ -540,8 +545,9 @@ public sealed class IsoAcquisitionViewModelTests
 
         vm.CanRetry.Should().BeTrue();
         vm.CanCheckStatus.Should().BeFalse();
-        vm.ErrorTitle.Should().Be("Check local iGloo CLI");
-        vm.ErrorMessage.Should().StartWith("Check that the local iGloo CLI can start");
+        vm.ErrorTitle.Should().Be("Download could not be started");
+        vm.ErrorMessage.Should().Be("Check the logs and try again.");
+        vm.ShowLogs.Should().BeTrue();
     }
 
     private sealed class CommandFailure(CommandErrorCode code, string? detailCode = null) : IIsoWorkflow

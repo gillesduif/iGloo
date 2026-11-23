@@ -79,12 +79,12 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
 
                         <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="Setup complete"
+                            <TextBlock Text="{Binding ReadyTitle}"
                                        FontSize="15" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.Text.Primary}" />
-              <TextBlock
-                                       Style="{StaticResource Text.Body}" FontSize="12" Margin="0,2,0,0" ><Run Language="nl-be" Text="Click"/><Run Text=" "/><Run Language="nl-be" Text="r"/><Run Text="estart to proceed to the Linux installer."/></TextBlock>
-            </StackPanel>
+                            <TextBlock Text="Save all open work and restart."
+                                       Style="{StaticResource Text.Body}" FontSize="12" Margin="0,2,0,0" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -93,16 +93,8 @@
                         <Image Source="/Assets/PNG/Tux.png"
                                Width="306" Height="241"
                                RenderOptions.BitmapScalingMode="HighQuality" />
-                        <TextBlock Text="Ready to launch Linux."
-                                   Style="{StaticResource Text.Body}"
-                                   FontSize="16" Margin="16,20,0,0" Width="159" />
                     </StackPanel>
                 </Border>
-
-                <TextBlock Style="{StaticResource Text.Caption}" Margin="2,10,0,0" MaxWidth="520"
-                           HorizontalAlignment="Left">
-                   Save all open documents before proceeding. 
-                </TextBlock>
             </StackPanel>
 
             <!--   ERROR                              -->
@@ -120,15 +112,18 @@
 
                 <Border Style="{StaticResource Card.Danger}" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="Preparation failed"
-                                   FontWeight="SemiBold" FontSize="15"
+                        <TextBlock Text="{Binding ErrorTitle}"
+                                   FontWeight="SemiBold" FontSize="15" TextWrapping="Wrap"
                                    Foreground="{StaticResource Brush.Danger}" />
                         <TextBlock Text="{Binding ErrorMessage}"
                                    Style="{StaticResource Text.Body}" Margin="0,6,0,0" />
+                        <Button Content="Retry" MinWidth="88" HorizontalAlignment="Left" Margin="0,14,0,0"
+                                Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                Visibility="{Binding CanRetry, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
                 </Border>
 
-                <Expander Header="Technical details" IsExpanded="False"
+                <Expander Header="Details" IsExpanded="False"
                           Visibility="{Binding HasErrorDetail, Converter={StaticResource BoolToVis}}">
                     <TextBox Text="{Binding ErrorDetail, Mode=OneWay}"
                              Style="{StaticResource TextBox.Detail}"

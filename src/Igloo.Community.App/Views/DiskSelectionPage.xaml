@@ -168,7 +168,8 @@
                         </Style.Triggers>
                     </Style>
                 </TextBlock.Style>
-                <Run Text="{Binding WindowsDiskAction, Mode=OneWay}" />
+                <Run Text="{Binding WindowsDiskTitle, Mode=OneWay}" FontWeight="SemiBold"
+                     Foreground="{StaticResource Brush.Text.Primary}" /><LineBreak /><Run Text="{Binding WindowsDiskAction, Mode=OneWay}" />
             </TextBlock>
 
             <!--   Linux size                         -->
@@ -189,10 +190,19 @@
                     <!-- Every row carries the same bottom margin; the panel takes the last one back. -->
                     <StackPanel Margin="0,0,0,-12">
 
-                        <TextBlock Visibility="{Binding ShowDiskAction, Converter={StaticResource BoolToVis}}"
-                                   Style="{StaticResource Text.Caption}"
-                                   TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="{Binding DiskActionMessage}" />
+                        <StackPanel Margin="0,0,0,12"
+                                    Visibility="{Binding ShowDiskAction, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding DiskActionTitle}" TextWrapping="Wrap"
+                                       FontWeight="SemiBold" FontSize="13.5" Margin="0,0,0,3"
+                                       Foreground="{StaticResource Brush.Text.Primary}"
+                                       Visibility="{Binding HasDiskActionTitle, Converter={StaticResource BoolToVis}}" />
+                            <TextBlock Style="{StaticResource Text.Caption}" FontSize="12"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding DiskActionMessage}" />
+                            <Button Content="Refresh" MinWidth="88" HorizontalAlignment="Left" Margin="0,12,0,0"
+                                    Command="{Binding RefreshSpaceCheckCommand}"
+                                    Visibility="{Binding CanRefreshSpace, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
 
                         <Grid Margin="0,0,0,12"
                               Visibility="{Binding ShowPartitionSizer, Converter={StaticResource BoolToVis}}">
@@ -238,25 +248,6 @@
                                    Style="{StaticResource Text.Body}"
                                    Visibility="{Binding HasAllocationSummary, Converter={StaticResource BoolToVis}}"
                                    Text="{Binding AllocationSummary}" />
-
-                        <!-- Dual boot not available -->
-                        <Border>
-                            <TextBlock FontSize="12" Foreground="{StaticResource Brush.Warning}" TextWrapping="Wrap">
-                                <Run Text="Linux needs at least " /><Run Text="{Binding MinLinuxGb, Mode=OneWay}" /><Run Text=" GB on this disk. Free up space in Windows, or go back to Configuration and select fewer files." />
-                            </TextBlock>
-                            <Border.Style>
-                                <Style TargetType="Border" BasedOn="{StaticResource Card.Warning}">
-                                    <Setter Property="Padding" Value="12,9" />
-                                    <Setter Property="Margin"  Value="0,0,0,12" />
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding NeedsMoreDualBootSpace}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                        </Border>
 
                     </StackPanel>
                 </Border>

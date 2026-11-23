@@ -66,7 +66,7 @@
                 <DataTrigger Binding="{Binding Severity}"
                              Value="{x:Static abstractions:FindingSeverity.Blocker}">
                     <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
-                    <Setter Property="Text"       Value="BLOCKER" />
+                    <Setter Property="Text"       Value="REQUIRED" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -152,13 +152,25 @@
         <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
                 Style="{StaticResource Card.Danger}" VerticalAlignment="Top">
             <StackPanel>
-                <TextBlock Text="System check failed"
-                           FontSize="16" FontWeight="SemiBold"
+                <TextBlock Text="{Binding ErrorTitle}"
+                           FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"
                            Foreground="{StaticResource Brush.Danger}" />
                 <TextBlock Text="{Binding ErrorMessage}"
                            Style="{StaticResource Text.Body}" Margin="0,8,0,0" />
+                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <Button Content="Refresh" MinWidth="88" Margin="0,0,8,0"
+                            Command="{Binding RunCheckCommand}" />
+                    <Button Content="Logs" MinWidth="88"
+                            Command="{Binding DataContext.OpenLogsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Visibility="{Binding ShowLogs, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
             </StackPanel>
         </Border>
+
+        <!-- A canceled check leaves an empty page with the way to run it again. -->
+        <Button Content="Refresh" MinWidth="88" VerticalAlignment="Top" HorizontalAlignment="Left"
+                Command="{Binding RunCheckCommand}"
+                Visibility="{Binding IsIdleWithoutResult, Converter={StaticResource BoolToVis}}" />
 
         <!--   3. RESULTS: the instrument panel               ─ -->
         <ScrollViewer Visibility="{Binding HasReport, Converter={StaticResource BoolToVis}}"
@@ -230,8 +242,12 @@
 
                 <!-- Findings. Header and list appear together: with nothing to report, the whole
                      section stays out of the way rather than announcing its emptiness. -->
-                <TextBlock Text="RESULTS" Style="{StaticResource Text.Section}" Margin="2,22,0,4"
-                           Visibility="{Binding HasFindings, Converter={StaticResource BoolToVis}}" />
+                <DockPanel Margin="2,22,0,4"
+                           Visibility="{Binding HasFindings, Converter={StaticResource BoolToVis}}">
+                    <Button DockPanel.Dock="Right" Content="Refresh" MinWidth="88"
+                            Command="{Binding RunCheckCommand}" />
+                    <TextBlock Text="RESULTS" Style="{StaticResource Text.Section}" VerticalAlignment="Bottom" />
+                </DockPanel>
 
                 <ItemsControl ItemsSource="{Binding Findings}"
                               Visibility="{Binding HasFindings, Converter={StaticResource BoolToVis}}">
@@ -242,7 +258,7 @@
                                     <TextBlock Style="{StaticResource FindingSeverityLabelStyle}" />
                                     <TextBlock Text="{Binding Message}"
                                                Foreground="{StaticResource Brush.Text.Primary}"
-                                               TextWrapping="Wrap" FontSize="13" />
+                                               TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold" />
                                     <TextBlock Text="{Binding Remediation}"
                                                Margin="0,4,0,0">
                                         <TextBlock.Style>
@@ -260,7 +276,7 @@
                                     <!-- One-click fix: Disable BitLocker -->
                                     <Button Margin="0,10,0,2"
                                             HorizontalAlignment="Left"
-                                            Content="Disable BitLocker now"
+                                            Content="Disable BitLocker"
                                             Command="{Binding DataContext.DisableBitLockerCommand,
                                                       RelativeSource={RelativeSource AncestorType=UserControl}}">
                                         <Button.Style>
@@ -338,10 +354,10 @@
                                    VerticalAlignment="Center"
                                    RenderOptions.BitmapScalingMode="HighQuality" />
                             <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                                <TextBlock Text="Multiple Linux installations found"
+                                <TextBlock Text="Multiple Linux installations detected"
                                            FontWeight="SemiBold" FontSize="13"
                                            Foreground="{StaticResource Brush.Text.Primary}" />
-                <TextBlock Text="Select the systems to remove."
+                                <TextBlock Text="Select the installations to remove."
                                            FontSize="12" Margin="0,1,0,0"
                                            Foreground="{StaticResource Brush.Text.Tertiary}" />
                             </StackPanel>
@@ -388,12 +404,15 @@
                 <!-- Removal status banner -->
                 <Border Style="{StaticResource Card.Accent}" Padding="14,10" Margin="0,8,0,0"
                         Visibility="{Binding HasLinuxActionStatus, Converter={StaticResource BoolToVis}}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⟳  " Foreground="{StaticResource Brush.Accent.Bright}" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding LinuxActionStatus}"
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Refresh" MinWidth="88" Margin="12,0,0,0"
+                                VerticalAlignment="Center"
+                                Command="{Binding RunCheckCommand}"
+                                Visibility="{Binding CanRefresh, Converter={StaticResource BoolToVis}}" />
+                        <TextBlock Text="{Binding LinuxActionStatus}" VerticalAlignment="Center"
                                    Foreground="{StaticResource Brush.Accent.Bright}"
                                    TextWrapping="Wrap" FontSize="13" />
-                    </StackPanel>
+                    </DockPanel>
                 </Border>
 
                 <!-- Storage inventory -->

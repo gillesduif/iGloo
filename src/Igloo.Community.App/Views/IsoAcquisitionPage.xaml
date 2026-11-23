@@ -155,11 +155,22 @@
                 Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
                 Style="{StaticResource Card.Danger}" VerticalAlignment="Top">
             <StackPanel>
-                <TextBlock Text="Download failed"
-                           FontSize="16" FontWeight="SemiBold"
+                <TextBlock Text="{Binding ErrorTitle}"
+                           FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"
                            Foreground="{StaticResource Brush.Danger}" />
                 <TextBlock Text="{Binding ErrorMessage}"
                            Style="{StaticResource Text.Body}" Margin="0,8,0,0" />
+                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <Button Content="{Binding RetryLabel}" MinWidth="88" Margin="0,0,8,0"
+                            Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Visibility="{Binding ShowRetry, Converter={StaticResource BoolToVis}}" />
+                    <Button Content="Logs" MinWidth="88" Margin="0,0,8,0"
+                            Command="{Binding DataContext.OpenLogsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Visibility="{Binding ShowLogs, Converter={StaticResource BoolToVis}}" />
+                    <Button Content="Close" MinWidth="88"
+                            Command="{Binding DataContext.QuitCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Visibility="{Binding RequiresReinstall, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
             </StackPanel>
         </Border>
 
@@ -208,7 +219,7 @@
                         <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Brush.Success}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <TextBlock Text="Installer ready"
+                    <TextBlock Text="Download complete"
                                FontSize="19" FontWeight="SemiBold"
                                Foreground="{StaticResource Brush.Text.Primary}"
                                VerticalAlignment="Center" Margin="14,0,0,0" />
@@ -220,14 +231,14 @@
                         <ColumnDefinition Width="150" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="SHA-256" Style="{StaticResource Text.Caption}" FontSize="12" />
+                    <TextBlock Text="Checksum" Style="{StaticResource Text.Caption}" FontSize="12" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <TextBlock Text="✓ Verified" Foreground="{StaticResource Brush.Success}" FontWeight="SemiBold" FontSize="13"
+                        <TextBlock Text="Verified" Foreground="{StaticResource Brush.Success}" FontWeight="SemiBold" FontSize="13"
                                    Visibility="{Binding Result.Sha256Verified, Converter={StaticResource BoolToVis}}" />
                         <TextBlock Foreground="{StaticResource Brush.Warning}" FontWeight="SemiBold" FontSize="13">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="⚠ Not verified" />
+                                    <Setter Property="Text" Value="Not verified" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Result.Sha256Verified}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -240,19 +251,19 @@
                 </Grid>
 
                 <!-- GPG -->
-                <Grid Margin="0,0,0,9">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="150" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="GPG signature" Style="{StaticResource Text.Caption}" FontSize="12" />
+                    <TextBlock Text="Signature" Style="{StaticResource Text.Caption}" FontSize="12" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <TextBlock Text="✓ Verified" Foreground="{StaticResource Brush.Success}" FontWeight="SemiBold" FontSize="13"
+                        <TextBlock Text="Verified" Foreground="{StaticResource Brush.Success}" FontWeight="SemiBold" FontSize="13"
                                    Visibility="{Binding Result.GpgVerified, Converter={StaticResource BoolToVis}}" />
                         <TextBlock Foreground="{StaticResource Brush.Text.Tertiary}" FontSize="13">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="- Skipped" />
+                                    <Setter Property="Text" Value="Not published" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Result.GpgVerified}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -263,24 +274,13 @@
                         </TextBlock>
                     </StackPanel>
                 </Grid>
-
-                <!-- Path -->
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="150" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="Saved to" Style="{StaticResource Text.Caption}" FontSize="12" />
-                    <TextBlock Grid.Column="1" Text="{Binding Result.LocalPath}"
-                               Style="{StaticResource Text.Mono}" />
-                </Grid>
             </StackPanel>
             </Border>
         </StackPanel>
 
         <!--   Cancel (running only)                       -->
         <Button Grid.Row="1"
-                Content="Cancel download"
+                Content="Cancel"
                 Command="{Binding AcquireCancelCommand}"
                 Style="{StaticResource Button.Ghost}"
                 Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"

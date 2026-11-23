@@ -49,7 +49,7 @@ public sealed partial class DirectInstallService
             try
             {
                 progress?.Report(new(DirectInstallPhase.CopyingIso, 0, 0,
-                    "Downloading and verifying installer boot files…"));
+                    "Downloading installer files…"));
                 // A pair that follows the distribution is fetched anew at each of its releases; its failures tell the user what to do.
                 try
                 {
@@ -131,7 +131,7 @@ public sealed partial class DirectInstallService
                 throw new InvalidDataException("Installer boot media exceeds the FAT32 file-size limit.");
             await output.WriteAsync(buffer.AsMemory(0, count), deadline.Token).ConfigureAwait(false);
             progress?.Report(new(DirectInstallPhase.CopyingIso, total,
-                response.Content.Headers.ContentLength ?? 0, "Downloading installer boot files…"));
+                response.Content.Headers.ContentLength ?? 0, "Downloading installer files…"));
         }
         await output.FlushAsync(deadline.Token).ConfigureAwait(false);
     }

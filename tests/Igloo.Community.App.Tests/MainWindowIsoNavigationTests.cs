@@ -346,6 +346,81 @@ public sealed class MainWindowIsoNavigationTests
         Assert.False(install.IsComplete);
     }
 
+    [Fact]
+    public async Task A_canceled_download_returns_to_the_distribution_page_without_an_error()
+    {
+        var (wizard, picker, iso, _, acquisition) = WizardAtDistribution(new OperationCanceledException());
+
+        await wizard.NextCommand.ExecuteAsync(null);
+
+        Assert.Same(picker, wizard.CurrentPage);
+        Assert.False(iso.HasError);
+        Assert.True(wizard.CanGoNext);
+
+        await wizard.NextCommand.ExecuteAsync(null);
+
+        Assert.Equal(2, acquisition.Calls);
+        Assert.True(iso.IsComplete);
+    }
+
+    [Fact]
+    public async Task Retry_runs_a_failed_download_again_on_its_own_page_and_moves_on()
+    {
+        var (wizard, _, iso, setup, acquisition) = WizardAtDistribution(new IOException("fixture"));
+
+        await wizard.NextCommand.ExecuteAsync(null);
+
+        Assert.Same(iso, wizard.CurrentPage);
+        Assert.True(iso.HasError);
+        Assert.Equal("Download failed", iso.ErrorTitle);
+        Assert.True(iso.ShowRetry);
+        Assert.Equal("Retry", iso.RetryLabel);
+        Assert.False(wizard.CanGoNext);
+
+        await wizard.RetryCommand.ExecuteAsync(null);
+
+        Assert.Equal(2, acquisition.Calls);
+        Assert.False(iso.HasError);
+        Assert.Same(setup, wizard.CurrentPage);
+    }
+
+    private static (MainWindowViewModel Wizard, DistroSelectionViewModel Picker, IsoAcquisitionViewModel Iso,
+        MigrationSetupViewModel Setup, FailingOnceAcquisition Acquisition) WizardAtDistribution(Exception firstOutcome)
+    {
+        var distro = Manifest("debian");
+        var catalog = new Catalog([distro]);
+        var preflight = new PreflightViewModel(null!, null!, NullLogger<PreflightViewModel>.Instance)
+        {
+            Report = Report([]),
+        };
+        var picker = new DistroSelectionViewModel(catalog, new Compatibility(),
+            NullLogger<DistroSelectionViewModel>.Instance);
+        var acquisition = new FailingOnceAcquisition(firstOutcome);
+        var iso = new IsoAcquisitionViewModel(acquisition, NullLogger<IsoAcquisitionViewModel>.Instance);
+        var setup = new MigrationSetupViewModel(new Profile(), []);
+        var wizard = new MainWindowViewModel(new WelcomeViewModel(catalog), preflight,
+            picker, iso, setup, new DiskSelectionViewModel(),
+            new FileStagingViewModel(null!, NullLogger<FileStagingViewModel>.Instance),
+            new DirectInstallViewModel(null!, null!, NullLogger<DirectInstallViewModel>.Instance),
+            new UsbWriterViewModel(null!, NullLogger<UsbWriterViewModel>.Instance));
+        wizard.NextCommand.Execute(null); // system check already observed
+        wizard.NextCommand.Execute(null); // choose distribution
+        picker.SelectedItem = Assert.Single(picker.DistroItems);
+        return (wizard, picker, iso, setup, acquisition);
+    }
+
+    private sealed class FailingOnceAcquisition(Exception firstOutcome) : IIsoWorkflow
+    {
+        public int Calls { get; private set; }
+
+        public Task<IsoAcquisitionResult> AcquireAsync(DistroManifest distro,
+            IProgress<IsoAcquisitionProgress>? progress, CancellationToken cancellationToken = default) =>
+            ++Calls == 1
+                ? Task.FromException<IsoAcquisitionResult>(firstOutcome)
+                : Task.FromResult(new IsoAcquisitionResult($@"C:\verified\{distro.Id}.iso",
+                    true, false, 1024, new string('a', 64)));
+    }
+
     private sealed class StubMaintenance : IWindowsMaintenance
     {
         public Task<int> StartBitLockerDecryptionAsync(string systemDrive,

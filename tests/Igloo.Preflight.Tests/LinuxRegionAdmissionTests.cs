@@ -55,9 +55,9 @@ public sealed class LinuxRegionAdmissionTests
         var refused = Assert.Throws<InstallationRefusedException>(() =>
             DirectInstallService.PlanLinuxRegion(0, layout, Disk, 54 * GiB, 4 * GiB, false, Debian));
 
-        Assert.Contains("2 unallocated regions of 20 GiB or more", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("System Check", refused.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Multiple unallocated areas detected on Disk", refused.Heading, StringComparison.Ordinal);
+        Assert.EndsWith("try again.", refused.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Remove the existing Linux installation", refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -135,8 +135,8 @@ public sealed class LinuxRegionAdmissionTests
         var refused = Assert.Throws<InstallationRefusedException>(() =>
             DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, true, Debian));
 
-        Assert.Contains("no unallocated region of 20 GiB or more", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("System Check", refused.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Insufficient unallocated space on Disk", refused.Heading, StringComparison.Ordinal);
+        Assert.Contains("Remove the existing Linux installation", refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -184,8 +184,8 @@ public sealed class LinuxRegionAdmissionTests
         var refused = Assert.Throws<InstallationRefusedException>(() =>
             DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, Unknown));
 
-        Assert.Contains("2 EFI system partitions and this installer would choose one of them itself", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("The installer cannot select the correct partition", refused.Message, StringComparison.Ordinal);
+        Assert.EndsWith("try again.", refused.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -209,8 +209,8 @@ public sealed class LinuxRegionAdmissionTests
             {
                 var refused = Assert.Throws<InstallationRefusedException>(() =>
                     DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, rules));
-                Assert.Contains("the first one is not the one Windows starts from", refused.Message, StringComparison.Ordinal);
-                Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
+                Assert.Contains("The Windows EFI partition must be the first one on the drive", refused.Message, StringComparison.Ordinal);
+                Assert.EndsWith("try again.", refused.Message, StringComparison.OrdinalIgnoreCase);
             }
     }
 
@@ -225,7 +225,7 @@ public sealed class LinuxRegionAdmissionTests
         var refused = Assert.Throws<InstallationRefusedException>(() =>
             DirectInstallService.PlanLinuxRegion(0, layout, Disk, 34 * GiB, 4 * GiB, false, Mint));
 
-        Assert.Contains("the first one is not the one Windows starts from", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("The Windows EFI partition must be the first one on the drive", refused.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -255,9 +255,9 @@ public sealed class LinuxRegionAdmissionTests
         Assert.Equal(WindowsEsp, Service(Storage(true)).RequireSingleLinuxRegion(0, 34 * GiB, 4 * GiB, false, [], Fedora).BootEsp);
         var refused = Assert.Throws<InstallationRefusedException>(() =>
             Service(Storage(true)).RequireSingleLinuxRegion(0, 34 * GiB, 4 * GiB, false, [], Mint));
-        Assert.Contains("disk 1 has one as well", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("Disconnect disk 1", refused.Message, StringComparison.Ordinal);
-        Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
+        Assert.Equal("EFI system partitions detected on multiple disks", refused.Heading);
+        Assert.Contains("Disconnect Disk 1", refused.Message, StringComparison.Ordinal);
+        Assert.EndsWith("try again.", refused.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -285,7 +285,7 @@ public sealed class LinuxRegionAdmissionTests
         {
             var refused = Assert.Throws<InstallationRefusedException>(() =>
                 DirectInstallService.PlanLinuxRegion(3, layout, Disk, 34 * GiB, 4 * GiB, false, Debian));
-            Assert.Contains("Disk 3 has no unallocated region of 34.0 GiB", refused.Message, StringComparison.Ordinal);
+            Assert.Contains("34.0 GB cannot be allocated to Linux", refused.Message, StringComparison.Ordinal);
         }
     }
 
@@ -325,8 +325,8 @@ public sealed class LinuxRegionAdmissionTests
 
         if (!refused) { Check(); return; }
         var error = Assert.Throws<InstallationRefusedException>(Check);
-        Assert.Contains("Disk 1 has an unallocated region of 30.0 GiB", error.Message, StringComparison.Ordinal);
-        Assert.Contains("Disconnect disk 1", error.Message, StringComparison.Ordinal);
+        Assert.Equal("Larger unallocated space detected on Disk 1", error.Heading);
+        Assert.Contains("Disconnect Disk 1", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -342,7 +342,7 @@ public sealed class LinuxRegionAdmissionTests
         var refused = Assert.Throws<InstallationRefusedException>(() => service.ReserveLinuxSpace(2, 50 * GiB,
             new(false, 4 * GiB, 0, 54 * GiB), Spec(), Debian, null, default));
 
-        Assert.Contains("2 unallocated regions", refused.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Multiple unallocated areas detected on Disk", refused.Heading, StringComparison.Ordinal);
         Assert.Equal(0, resizer.ShrinkCalls);
     }
 
@@ -386,7 +386,7 @@ public sealed class LinuxRegionAdmissionTests
 
         var mint = new ResizerFake();
         var refused = Assert.Throws<InstallationRefusedException>(() => Reserve(Storage(11), mint, Mint));
-        Assert.Contains("Disk 5 has an unallocated region of 400.0 GiB", refused.Message, StringComparison.Ordinal);
+        Assert.Equal("Larger unallocated space detected on Disk 5", refused.Heading);
         Assert.Equal(0, mint.ShrinkCalls);
 
         var mountedImage = new ResizerFake();
@@ -409,7 +409,7 @@ public sealed class LinuxRegionAdmissionTests
         var refused = Assert.Throws<InstallationRefusedException>(() => service.ReserveLinuxSpace(2, 30 * GiB,
             new(false, 4 * GiB, 0, 34 * GiB), Spec(), Debian, null, default));
 
-        Assert.Contains("could not be read", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("could not be read", refused.Heading, StringComparison.Ordinal);
         Assert.Equal(0, resizer.ShrinkCalls);
     }
 
@@ -513,8 +513,8 @@ public sealed class LinuxRegionAdmissionTests
         var large = Assert.Throws<InstallationRefusedException>(() =>
             DirectInstallService.PlanBoundLinuxRegion(0, layout, Disk, 200 * GiB, 4 * GiB, BoundDebian));
 
-        Assert.Contains("20 GiB or more", small.Message, StringComparison.Ordinal);
-        Assert.Contains("Windows has not been resized", large.Message, StringComparison.Ordinal);
+        Assert.Contains("Linux requires at least 20 GB", small.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Insufficient space on Disk", large.Heading, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -643,7 +643,7 @@ public sealed class LinuxRegionAdmissionTests
         var refused = Assert.Throws<InstallationRefusedException>(() => service.RequireBoundLinuxRegion(2, 30 * GiB, 4 * GiB, [], BoundDebian));
         var later = Assert.Throws<InvalidOperationException>(() => service.RequireInstallerPlacement(2, 30 * GiB, 4 * GiB));
 
-        Assert.Contains("Windows has not been resized", refused.Message, StringComparison.Ordinal);
+        Assert.EndsWith("try again.", refused.Message, StringComparison.OrdinalIgnoreCase);
         Assert.IsNotType<InstallationRefusedException>(later);
         Assert.DoesNotContain("has not been resized", later.Message, StringComparison.Ordinal);
     }

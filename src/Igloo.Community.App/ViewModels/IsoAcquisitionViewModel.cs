@@ -40,9 +40,25 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private IsoAcquisitionResult? _result;
 
+    // Set when the user canceled: the wizard then returns to the previous page without a message.
+    [ObservableProperty] private bool _wasCanceled;
+
+    [ObservableProperty] private bool _showLogs;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowRetry))]
+    private bool _requiresReinstall;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowRetry))]
+    private bool _canRetryHere = true;
+
+    private bool _historyUnreadable;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanRetry))]
     [NotifyPropertyChangedFor(nameof(CanCheckStatus))]
+    [NotifyPropertyChangedFor(nameof(RetryLabel))]
     private bool _retryBlocked;
 
     [ObservableProperty]
@@ -67,15 +83,30 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
     public bool CanCheckStatus => RetryBlocked && Distro is not null &&
         _acquisition is IIsoOperationStatusWorkflow;
 
+    public bool ShowRetry => CanRetryHere && !RequiresReinstall;
+
+    // An unknown end of an earlier download is looked up again; every other error runs the download again.
+    public string RetryLabel => RetryBlocked && !_historyUnreadable ? "Refresh" : "Retry";
+
     public string PhaseDisplay => Phase switch
     {
-        IsoAcquisitionPhase.ResolvingMirror => "Resolving mirror…",
+        IsoAcquisitionPhase.ResolvingMirror => "Connecting…",
         IsoAcquisitionPhase.Downloading => "Downloading…",
-        IsoAcquisitionPhase.VerifyingSha256 => "Verifying SHA-256…",
-        IsoAcquisitionPhase.VerifyingGpg => "Verifying GPG signature…",
+        IsoAcquisitionPhase.VerifyingSha256 => "Verifying…",
+        IsoAcquisitionPhase.VerifyingGpg => "Verifying…",
         IsoAcquisitionPhase.Complete => "Complete",
         _ => string.Empty,
     };
+
+    private void ShowError(string title, string message, bool retry = true, bool logs = false, bool reinstall = false)
+    {
+        ErrorTitle = title;
+        ErrorMessage = message;
+        CanRetryHere = retry;
+        ShowLogs = logs;
+        RequiresReinstall = reinstall;
+        HasError = true;
+    }
 
     //   Constructor                              
 
@@ -98,8 +129,13 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
 
         IsComplete = false;
         HasError = false;
+        WasCanceled = false;
         ErrorTitle = "Download failed";
         ErrorMessage = null;
+        CanRetryHere = true;
+        ShowLogs = false;
+        RequiresReinstall = false;
+        _historyUnreadable = false;
         RetryBlocked = false;
         OperationToReview = null;
         Result = null;
@@ -125,6 +161,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         Interlocked.Increment(ref _activeAcquisitions);
         IsRunning = true;
         HasError = false;
+        WasCanceled = false;
         ErrorMessage = null;
 
         var uiProgress = new Progress<IsoAcquisitionProgress>(p =>
@@ -165,9 +202,9 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
                     _logger.LogWarning(ex, "Could not inspect previous ISO operations");
                     if (RememberUnresolvedOperation(distro.Id, null))
                     {
-                        ErrorTitle = "Download failed";
-                        ErrorMessage = "Check that the local iGloo CLI can read download history, " +
-                                       "then go back one step and continue again.";
+                        _historyUnreadable = true;
+                        OnPropertyChanged(nameof(RetryLabel));
+                        ShowError("Download could not be started", "Check the logs and try again.", logs: true);
                     }
                     return;
                 }
@@ -190,10 +227,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
             _logger.LogInformation("ISO acquisition cancelled");
             if (!IsCurrentAcquisition(distro.Id, generation))
                 return;
-            ErrorTitle = "Download failed";
-            ErrorMessage = "The transfer was cancelled before verification. " +
-                           "Retry to resume and verify the installation image.";
-            HasError = true;
+            WasCanceled = true;
         }
         catch (IsoAcquisitionRecoveryRequiredException ex)
         {
@@ -208,9 +242,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
             _logger.LogError(ex, "Packaged CLI cannot start an ISO request");
             if (!IsCurrentAcquisition(distro.Id, generation))
                 return;
-            HasError = true;
-            ErrorTitle = "Repair local iGloo package";
-            ErrorMessage = "Repair or reinstall the local iGloo package, then go back one step and continue again.";
+            ShowError(DamagedTitle, DamagedMessage, retry: false, reinstall: true);
         }
         catch (CliTransportException ex) when (ex.Code == CliTransportError.ProcessStartFailed)
         {
@@ -218,10 +250,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
             _logger.LogError(ex, "Packaged CLI could not start an ISO request");
             if (!IsCurrentAcquisition(distro.Id, generation))
                 return;
-            HasError = true;
-            ErrorTitle = "Check local iGloo CLI";
-            ErrorMessage = "Check that the local iGloo CLI can start, then go back one step and continue again. " +
-                           "Repair the iGloo package if the problem continues.";
+            ShowError("Download could not be started", "Check the logs and try again.", logs: true);
         }
         catch (CliTransportException ex)
         {
@@ -236,9 +265,7 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
                 distro.Id, commandFailure?.Code, commandFailure?.OperationId);
             if (!IsCurrentAcquisition(distro.Id, generation))
                 return;
-            HasError = true;
-            (ErrorTitle, ErrorMessage) = CommandFailureAction(commandFailure?.Code,
-                commandFailure?.DetailCode);
+            ShowCommandFailure(commandFailure?.Code, commandFailure?.DetailCode, distro.DisplayName);
         }
         finally
         {
@@ -247,50 +274,46 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
         }
     }
 
-    private static (string Title, string Message) CommandFailureAction(CommandErrorCode? code,
-        string? detailCode) =>
-        (code, detailCode) switch
-        {
-            (CommandErrorCode.InternalFailure, "IsoNetworkUnavailable") => (
-                "Check your connection",
-                "Check your internet connection, then go back one step and continue again."),
-            (CommandErrorCode.InternalFailure, "IsoCacheUnavailable") => (
-                "Check the download folder",
-                "Check available storage and access to iGloo's download folder, " +
-                "then go back one step and continue again."),
-            (CommandErrorCode.VerificationFailed, "IsoVerificationFailed") => (
-                "Retry image verification",
-                "Go back one step and continue again; iGloo will fetch and verify the image again. " +
-                "If verification fails again, use Back to choose another distribution."),
-            (CommandErrorCode.VerificationFailed, "IsoSourceMetadataUnavailable") => (
-                "Update iGloo or choose another distribution",
-                "Install an updated iGloo package and reopen it, then retry. " +
-                "To continue now, use Back to choose another distribution."),
-            _ => CommandFailureActionForCode(code),
-        };
+    private const string DamagedTitle = "iGloo Community installation is damaged";
+    private const string DamagedMessage = "Reinstall iGloo Community and try again.";
 
-    private static (string Title, string Message) CommandFailureActionForCode(
-        CommandErrorCode? code) => code switch
+    // The drive the download folder is on.
+    private static string DownloadDrive => System.IO.Path.GetPathRoot(Environment.GetFolderPath(
+        Environment.SpecialFolder.LocalApplicationData))?.TrimEnd('\\') is { Length: > 0 } root ? root : "C:";
+
+    private void ShowCommandFailure(CommandErrorCode? code, string? detailCode, string distribution)
+    {
+        switch (code, detailCode)
         {
-            CommandErrorCode.VerificationFailed => (
-                "Retry image verification",
-                "Go back one step and continue again; iGloo will fetch and verify the image again. " +
-                "If verification fails again, use Back to choose another distribution."),
-            CommandErrorCode.ResourceBusy => (
-                "Wait for the other transfer",
-                "Wait for the other iGloo image transfer to finish, then go back one step and continue again."),
-            CommandErrorCode.NotSupported => (
-                "Choose another distribution",
-                "Use Back to choose a distribution supported by this iGloo package."),
-            CommandErrorCode.InvalidRequest or CommandErrorCode.UnsupportedCapability or
-                CommandErrorCode.UnsupportedVersion => (
-                "Repair local iGloo package",
-                "Repair or reinstall the local iGloo package, then go back one step and continue again."),
-            _ => (
-                "Download failed",
-                "Check your connection and available storage, then go back one step and continue again. " +
-                "If this keeps happening, use Back to choose another distribution."),
-        };
+            case (CommandErrorCode.InternalFailure, "IsoNetworkUnavailable"):
+                ShowError("No internet connection", "Check the network connection and try again.");
+                break;
+            case (CommandErrorCode.InternalFailure, "IsoCacheUnavailable"):
+                ShowError("Insufficient disk space", $"Free up space on drive {DownloadDrive} and try again.");
+                break;
+            case (CommandErrorCode.VerificationFailed, "IsoSourceMetadataUnavailable"):
+                ShowError($"Current {distribution} release not found", "Update iGloo Community and try again.", retry: false);
+                break;
+            case (CommandErrorCode.VerificationFailed, _):
+                ShowError("Checksum verification failed",
+                    "The downloaded file does not match the published checksum. Try again.");
+                break;
+            case (CommandErrorCode.ResourceBusy, _):
+                ShowError("Another download is in progress", "Wait until it is complete and try again.");
+                break;
+            case (CommandErrorCode.NotSupported, _):
+                ShowError($"{distribution} is not supported", "Select another distribution.", retry: false);
+                break;
+            case (CommandErrorCode.InvalidRequest or CommandErrorCode.UnsupportedCapability or
+                CommandErrorCode.UnsupportedVersion, _):
+                ShowError(DamagedTitle, DamagedMessage, retry: false, reinstall: true);
+                break;
+            default:
+                ShowError("Download failed",
+                    "Check the network connection and the available disk space and try again.");
+                break;
+        }
+    }
 
     private bool RememberUnresolvedOperation(string distroId, Guid? operationId)
     {
@@ -323,32 +346,27 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
                 return;
             if (unresolved is null)
             {
+                // The wizard runs the download again right after this.
                 _unresolvedOperations.Remove(distroId);
                 OperationToReview = null;
                 RetryBlocked = false;
-                ErrorTitle = "Download failed";
-                ErrorMessage = "Go back one step and continue again to verify the cached image.";
+                HasError = false;
             }
             else
             {
                 BlockRetryUntilStatusReview(unresolved);
-                ErrorMessage = "Check the iGloo operation log, then go back one step and continue again. " +
-                               "The previous transfer has no confirmed terminal state.";
             }
         }
         catch (OperationCanceledException)
         {
-            if (!IsCurrentReview(distroId, generation))
-                return;
-            ErrorMessage = "Go back one step and continue again before starting another transfer.";
+            // The block and its message stay as they are.
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "ISO operation status check failed");
             if (!IsCurrentReview(distroId, generation))
                 return;
-            ErrorMessage = "Check that the local iGloo CLI is available, then select " +
-                           "go back one step and continue again.";
+            ShowLogs = true;
         }
     }
 
@@ -359,13 +377,9 @@ public sealed partial class IsoAcquisitionViewModel : ObservableObject
             _unresolvedOperations[distro.Id] = operationId;
         RetryBlocked = true;
         OperationToReview = operationId is { } id && id != Guid.Empty ? id : null;
-        ErrorTitle = OperationToReview is null
-            ? "Review the download log"
-            : "Download failed";
-        ErrorMessage = OperationToReview is { } known
-            ? $"Go back one step and continue again. iGloo could not confirm operation {known:D}."
-            : "Open the local iGloo log and review the unfinished download before starting another transfer.";
-        HasError = true;
+        _historyUnreadable = false;
+        OnPropertyChanged(nameof(RetryLabel));
+        ShowError("Previous download did not complete", "Refresh to check the download status.");
     }
 
     private bool IsCurrentReview(string distroId, long generation) =>

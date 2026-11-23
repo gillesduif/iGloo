@@ -39,18 +39,18 @@ public class PreflightViewModelTests
 
     [Theory]
     [InlineData("Open Windows System Information and check Secure Boot State, then run the system check again.",
-        "Check Secure Boot State in Windows")]
+        "Secure Boot state could not be detected", "Windows did not return the Secure Boot state. Try again.")]
     [InlineData("Check BIOS Mode in Windows System Information, then run the system check again.",
-        "Check BIOS Mode in Windows")]
+        "BIOS mode could not be detected", "Windows did not return the BIOS mode. Try again.")]
     public async Task Unverified_firmware_shows_the_required_action_without_a_false_status(
-        string failure, string title)
+        string failure, string title, string message)
     {
         var vm = Create(Task.FromException<PreflightReport>(new InvalidOperationException(failure)));
 
         await vm.RunCheckCommand.ExecuteAsync(null);
 
         vm.ErrorTitle.Should().Be(title);
-        vm.ErrorMessage.Should().Be(failure);
+        vm.ErrorMessage.Should().Be(message);
         vm.Report.Should().BeNull();
         vm.FirmwareDisplay.Should().Be("Not checked");
         vm.SecureBootDisplay.Should().Be("Not checked");
@@ -65,8 +65,9 @@ public class PreflightViewModelTests
 
         await vm.RunCheckCommand.ExecuteAsync(null);
 
-        vm.ErrorTitle.Should().Be("Run the system check again");
-        vm.ErrorMessage.Should().Contain("latest iGloo log").And.NotContain(technicalDetail);
+        vm.ErrorTitle.Should().Be("System check failed");
+        vm.ErrorMessage.Should().Be("An unexpected error occurred. Check the logs and try again.");
+        vm.ShowLogs.Should().BeTrue();
         vm.Report.Should().BeNull();
         vm.CanProceed.Should().BeFalse();
     }

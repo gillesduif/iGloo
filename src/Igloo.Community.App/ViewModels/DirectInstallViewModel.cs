@@ -32,16 +32,29 @@ public sealed partial class DirectInstallViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCancelable))]
     [NotifyPropertyChangedFor(nameof(IsReadyToInstall))]
+    [NotifyPropertyChangedFor(nameof(CanRetry))]
     private bool _isRunning;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsReadyToInstall))]
+    [NotifyPropertyChangedFor(nameof(CanRetry))]
     private bool _isComplete;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsReadyToInstall))]
-    [NotifyPropertyChangedFor(nameof(ErrorTitle))]
+    [NotifyPropertyChangedFor(nameof(CanRetry))]
     private bool _hasError;
+    [ObservableProperty] private string _errorTitle = DefaultTitle;
     [ObservableProperty] private string? _errorMessage;
+
+    // The name of the distribution, for the result line.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ReadyTitle))]
+    private string? _distroName;
+
+    public string ReadyTitle => $"Ready to install {DistroName ?? "Linux"}";
+
+    private const string DefaultTitle = "Preparation failed";
+    private const string CheckDetails = "Check the details and try again.";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasErrorDetail))]
@@ -80,7 +93,9 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
     
     public bool IsCancelable => !IsRunning || CurrentPhase != DirectInstallPhase.CreatingPartition;
-    public string ErrorTitle => HasError ? "Installation preparation failed" : "Installation";
+
+    // After a failed registration the prepared installer stays; Restart tries that again, not the preparation.
+    public bool CanRetry => HasError && !IsComplete && !IsRunning;
 
     public bool IsReadyToInstall => !IsRunning && !IsComplete && !HasError &&
         _verifiedIso is not null && _stagingDirectory is not null &&
@@ -116,7 +131,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
                 .FirstOrDefault();
             if (newest is null)
             {
-                LogTail = "No log file yet.";
+                LogTail = "No log available.";
                 return;
             }
 
@@ -132,7 +147,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                                       or SecurityException or DirectoryNotFoundException)
         {
-            LogTail = $"Could not read the log: {ex.Message}";
+            LogTail = "The log could not be read.";
         }
     }
 
@@ -167,8 +182,9 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         FileStagingResult stagingResult,
         DiskInfo targetDisk,
         int linuxSizeGb,
-        string distroId, Uri? stage2Url = null)
+        string distroId, Uri? stage2Url = null, string? distroName = null)
     {
+        DistroName = distroName;
         ArgumentNullException.ThrowIfNull(isoResult);
         ArgumentNullException.ThrowIfNull(stagingResult);
         ArgumentNullException.ThrowIfNull(targetDisk);
@@ -183,6 +199,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
 
         IsComplete = false;
         HasError = false;
+        ErrorTitle = DefaultTitle;
         ErrorMessage = null;
         ErrorDetail = null;
         PhaseDisplay = null;
@@ -218,13 +235,12 @@ public sealed partial class DirectInstallViewModel : ObservableObject
             BytesTotal = p.BytesTotal;
             PhaseDisplay = p.Phase switch
             {
-                DirectInstallPhase.ShrinkingPartition => p.Message ?? "Shrinking Windows partition…",
-                DirectInstallPhase.CreatingPartition => p.Message ?? "Creating installer partition…",
-                DirectInstallPhase.CopyingIso => "Copying installer image…",
-                DirectInstallPhase.CopyingFiles => "Copying migration files…",
-                DirectInstallPhase.ConfiguringGrub => "Configuring bootloader…",
-                DirectInstallPhase.RegisteringBootEntry => "Registering boot entry…",
-                DirectInstallPhase.Complete => "Ready to reboot",
+                DirectInstallPhase.ShrinkingPartition => p.Message ?? "Resizing Windows partition…",
+                DirectInstallPhase.CreatingPartition => p.Message ?? "Creating partitions…",
+                DirectInstallPhase.CopyingIso => p.Message ?? "Copying installer…",
+                DirectInstallPhase.CopyingFiles => p.Message ?? "Copying files…",
+                DirectInstallPhase.ConfiguringGrub => p.Message ?? "Copying installer…",
+                DirectInstallPhase.RegisteringBootEntry => "Restarting…",
                 _ => string.Empty,
             };
             if (LogsExpanded)
@@ -253,18 +269,17 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         {
             _logger.LogInformation("Direct install cancelled at phase {Phase}", CurrentPhase);
             HasError = true;
-            ErrorMessage = "Check the target disk in Disk Management before trying again. " +
-                           "Cancelled preparation may have left an incomplete installer partition.";
+            ErrorTitle = "Preparation was canceled";
+            ErrorMessage = "Try again.";
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Direct install preparation failed");
             HasError = true;
-            // A refusal before the resize carries its own instruction for the user.
-            ErrorMessage = ex is InstallationRefusedException
-                ? ex.Message
-                : "Inspect the target disk in Disk Management before retrying. " +
-                  "Preparation did not complete.";
+            // A refusal carries its own heading and instruction.
+            (ErrorTitle, ErrorMessage) = ex is InstallationRefusedException refusal
+                ? (refusal.Heading, refusal.Message)
+                : (DefaultTitle, CheckDetails);
             ErrorDetail = BuildErrorDetail(ex);
         }
         finally
@@ -286,7 +301,7 @@ public sealed partial class DirectInstallViewModel : ObservableObject
         HasError = false;
         ErrorMessage = null;
         ErrorDetail = null;
-        PhaseDisplay = "Registering UEFI boot entry…";
+        PhaseDisplay = "Restarting…";
         try
         {
             await _installer.RegisterBootEntryAsync(
@@ -302,10 +317,10 @@ public sealed partial class DirectInstallViewModel : ObservableObject
             _logger.LogError(ex, "Installer boot registration or restart failed");
             IsRebooting = false;
             HasError = true;
-            // A refusal carries its own instruction; nothing was registered when it is raised.
-            ErrorMessage = ex is InstallationRefusedException
-                ? ex.Message
-                : "iGloo could not register the installer boot or restart Windows. Review the technical details before retrying.";
+            // A refusal carries its own heading and instruction; nothing was registered when it is raised.
+            (ErrorTitle, ErrorMessage) = ex is InstallationRefusedException refusal
+                ? (refusal.Heading, refusal.Message)
+                : ("Installer boot entry could not be registered", CheckDetails);
             ErrorDetail = BuildErrorDetail(ex);
         }
     }

@@ -465,7 +465,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
     {
         const long MiB = 1024L * 1024;
 
-        progress?.Report("Querying Windows partition layout…");
+        progress?.Report("Checking disk…");
         _logger.LogInformation(
             "Partition resize: disk {Disk}, need {LinuxMiB} MiB for Linux",
             diskNumber, linuxSizeBytes / MiB);
@@ -516,7 +516,7 @@ public sealed class PartitionResizeService : IPartitionResizeService
             "Resizing NTFS partition: {Old} MiB → {New} MiB (freeing {Free} MiB for Linux)",
             currentSize / MiB, newSize / MiB, (currentSize - newSize) / MiB);
 
-        progress?.Report($"Shrinking Windows partition from {currentSize / MiB:N0} MiB to {newSize / MiB:N0} MiB…");
+        progress?.Report("Resizing Windows partition…");
 
         ct.ThrowIfCancellationRequested();
 
@@ -542,7 +542,6 @@ public sealed class PartitionResizeService : IPartitionResizeService
                 "The Windows disk or boot volume identity changed after resizing; recheck the disk before installation.");
 
         _logger.LogInformation("Partition resize succeeded");
-        progress?.Report("Windows partition shrunk successfully.");
     }
 
     internal static bool HasCandidateLetter(char letter) => letter != '\0';

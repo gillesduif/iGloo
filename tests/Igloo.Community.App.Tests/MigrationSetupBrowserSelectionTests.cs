@@ -64,8 +64,7 @@ public sealed class MigrationSetupBrowserSelectionTests
          Browser("Mozilla Firefox", "AppData", "Roaming", "Mozilla", "Firefox", "Profiles")]);
 
         vm.DetectedBrowsers.Should().Contain(browser => browser.Name == "Microsoft Edge"
-            && !browser.CanMigrate && !browser.IsSelected && browser.NeedsManualTransfer
-            && browser.AvailabilityMessage.StartsWith("Continue without Microsoft Edge", StringComparison.Ordinal));
+            && !browser.CanMigrate && !browser.IsSelected && browser.NeedsManualTransfer);
         vm.DetectedBrowsers.Should().Contain(browser => browser.Name == "Waterfox"
             && !browser.CanMigrate && !browser.IsSelected);
         vm.DetectedBrowsers.Single(browser => browser.Name == "Mozilla Firefox")

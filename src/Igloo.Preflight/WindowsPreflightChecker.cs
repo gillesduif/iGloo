@@ -776,6 +776,9 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         }
     }
 
+    // The drive Windows runs from, as the findings name it.
+    private static string SystemDrive => Path.GetPathRoot(Environment.SystemDirectory)?.TrimEnd('\\') is { Length: > 0 } root ? root : "C:";
+
     internal static List<PreflightFinding> BuildFindings(
         bool isUefi, bool secureBoot, bool tpmPresent, BitLockerState bitLocker, long totalRam)
     {
@@ -783,8 +786,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
         if (!isUefi)
             findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BIOS_LEGACY",
-                "Machine uses Legacy BIOS. Most Linux installers require UEFI.",
-                "Enable UEFI mode in firmware settings."));
+                "Legacy BIOS detected",
+                "iGloo Community requires UEFI firmware."));
 
         if (secureBoot)
             findings.Add(new PreflightFinding(FindingSeverity.Info, "SECURE_BOOT_ON",
@@ -792,23 +795,23 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
 
         if (bitLocker is BitLockerState.EncryptedAndUnlocked or BitLockerState.SuspendedProtection)
             findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_ACTIVE",
-                "BitLocker encryption is active on the system drive. The partition table cannot be modified while encrypted.",
-                "Disable BitLocker in Windows Settings › Privacy & Security › Device Encryption before proceeding."));
+                $"BitLocker is enabled on drive {SystemDrive}",
+                "An encrypted drive cannot be resized. Disable BitLocker and try again."));
 
         if (bitLocker is BitLockerState.DecryptionInProgress)
             findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_DECRYPTING",
-                "BitLocker decryption is in progress. Wait for it to finish before proceeding.",
-                "Run the system check again after Windows finishes decrypting the drive."));
+                "BitLocker decryption in progress",
+                "Wait until decryption is complete and try again."));
 
         if (bitLocker is BitLockerState.EncryptedAndLocked)
             findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_LOCKED",
-                "The system volume is encrypted and locked; installation cannot proceed.",
-                "Unlock and fully decrypt the system volume in Windows before proceeding."));
+                $"Drive {SystemDrive} is locked by BitLocker",
+                "Unlock the drive, disable BitLocker and try again."));
 
         if (bitLocker is BitLockerState.Unknown)
             findings.Add(new PreflightFinding(FindingSeverity.Blocker, "BITLOCKER_UNAVAILABLE",
-                "The system volume's BitLocker state could not be verified.",
-                "Re-run the system check with access to the BitLocker provider before proceeding."));
+                "BitLocker status could not be detected",
+                "Windows did not return the BitLocker status. Try again."));
 
         if (!tpmPresent)
             findings.Add(new PreflightFinding(FindingSeverity.Info, "NO_TPM",
@@ -817,8 +820,8 @@ public sealed class WindowsPreflightChecker : IPreflightChecker
         const long minRamBytes = 2L * 1024 * 1024 * 1024;
         if (totalRam > 0 && totalRam < minRamBytes)
             findings.Add(new PreflightFinding(FindingSeverity.Warning, "LOW_RAM",
-                $"Only {totalRam / (1024 * 1024)} MB of RAM detected. Most Linux distributions require at least 2 GB.",
-                "Increase RAM to meet the selected distribution's minimum requirement, then rerun the system check."));
+                "Insufficient memory detected",
+                FormattableString.Invariant($"This PC has {totalRam / (1024.0 * 1024 * 1024):0.#} GB of memory. Linux requires at least 2 GB.")));
 
         return findings;
     }

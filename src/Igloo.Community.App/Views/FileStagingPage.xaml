@@ -93,10 +93,23 @@
                 Style="{StaticResource Card.Danger}" VerticalAlignment="Top">
             <StackPanel>
                 <TextBlock Text="{Binding ErrorTitle}"
-                           FontSize="16" FontWeight="SemiBold"
+                           FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"
                            Foreground="{StaticResource Brush.Danger}" />
                 <TextBlock Text="{Binding ErrorMessage}"
                            Style="{StaticResource Text.Body}" Margin="0,8,0,0" />
+                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <Button Content="Retry" MinWidth="88" Margin="0,0,8,0"
+                            Command="{Binding DataContext.RetryCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    <Button Content="Task Manager" MinWidth="88" Margin="0,0,8,0"
+                            Command="{Binding OpenTaskManagerCommand}"
+                            Visibility="{Binding CanOpenTaskManager, Converter={StaticResource BoolToVis}}" />
+                    <Button Content="Open" MinWidth="88" Margin="0,0,8,0"
+                            Command="{Binding OpenIncompleteFolderCommand}"
+                            Visibility="{Binding HasOrphanDirectory, Converter={StaticResource BoolToVis}}" />
+                    <Button Content="Logs" MinWidth="88"
+                            Command="{Binding DataContext.OpenLogsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Visibility="{Binding ShowLogs, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
             </StackPanel>
         </Border>
 
@@ -113,7 +126,7 @@
                         <TextBlock Text="✓" FontWeight="Bold" Foreground="{StaticResource Brush.Success}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
-                    <TextBlock Text="Migration package ready"
+                    <TextBlock Text="Files ready"
                                FontSize="19" FontWeight="SemiBold"
                                Foreground="{StaticResource Brush.Text.Primary}"
                                VerticalAlignment="Center" Margin="14,0,0,0" />
@@ -124,30 +137,9 @@
                         <ColumnDefinition Width="150" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Files staged" Style="{StaticResource Text.Caption}" FontSize="12" />
+                    <TextBlock Text="Files" Style="{StaticResource Text.Caption}" FontSize="12" />
                     <TextBlock Grid.Column="1" Text="{Binding Result.FileCount}"
                                Foreground="{StaticResource Brush.Text.Primary}" FontWeight="SemiBold" FontSize="13" />
-                </Grid>
-
-                <Grid Margin="0,0,0,9">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="150" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="Total size" Style="{StaticResource Text.Caption}" FontSize="12" />
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding Result.TotalBytesCopied, Converter={StaticResource BytesToSize}}"
-                               Foreground="{StaticResource Brush.Text.Primary}" FontWeight="SemiBold" FontSize="13" />
-                </Grid>
-
-                <Grid Margin="0,0,0,9">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="150" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="Staging directory" Style="{StaticResource Text.Caption}" FontSize="12" />
-                    <TextBlock Grid.Column="1" Text="{Binding Result.StagingDirectory}"
-                               Style="{StaticResource Text.Mono}" />
                 </Grid>
 
                 <Grid>
@@ -155,9 +147,10 @@
                         <ColumnDefinition Width="150" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Installer config" Style="{StaticResource Text.Caption}" FontSize="12" />
-                    <TextBlock Grid.Column="1" Text="✓ ks.cfg generated"
-                               Foreground="{StaticResource Brush.Success}" FontWeight="SemiBold" FontSize="13" />
+                    <TextBlock Text="Size" Style="{StaticResource Text.Caption}" FontSize="12" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Result.TotalBytesCopied, Converter={StaticResource BytesToSize}}"
+                               Foreground="{StaticResource Brush.Text.Primary}" FontWeight="SemiBold" FontSize="13" />
                 </Grid>
             </StackPanel>
         </Border>

@@ -68,17 +68,16 @@ public sealed class DebianPlugin : IDistroPlugin, IReviewedInstallerConfigProvid
         {
             findings.Add(new PreflightFinding(
                 FindingSeverity.Blocker, "BITLOCKER_LOCKED",
-                "BitLocker is enabled and the volume is locked. Igloo cannot resize a locked volume.",
-                "Unlock and fully decrypt the drive in Windows before re-running Igloo."));
+                "Drive C: is locked by BitLocker.",
+                "Unlock the drive, disable BitLocker and try again."));
         }
 
         if (report.TotalRamBytes < Metadata.MinimumRequirements.MinRamBytes)
         {
             findings.Add(new PreflightFinding(
                 FindingSeverity.Blocker, "DEBIAN_INSTALL_RAM_BELOW_MINIMUM",
-                $"This machine has {report.TotalRamBytes / (1024.0 * 1024 * 1024):F1} GiB of RAM. " +
-                $"The iGloo Debian Live ISO installer requires at least {Metadata.MinimumRequirements.MinRamBytes / (1024.0 * 1024 * 1024):F0} GiB for its ISO-to-RAM path.",
-                "Use a machine with sufficient RAM for the offline installer."));
+                FormattableString.Invariant($"Debian requires at least {Metadata.MinimumRequirements.MinRamBytes / (1024.0 * 1024 * 1024):F0} GB of memory."),
+                null));
         }
 
         return findings;
