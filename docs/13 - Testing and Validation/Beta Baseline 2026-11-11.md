@@ -564,6 +564,8 @@ Evidence: two screenshots by the owner. No wizard log of this attempt was handed
 
 **Not verified.** The pages in the wizard itself, in a VM: the render has no window frame, no navigation and no real disk. The dialog was not rendered.
 
+**The r35 package (`32b4fd5`).** `artifacts\r35-32b4fd5\` and `artifacts\r35-32b4fd5.iso` in the main checkout. The published `iGloo.dll` holds `Performing system check`, the line of checked items, `LINUX SIZE` and the new dialog sentence, and none of `Checking system configuration`, `Back up Windows before`, `INSTALLATION TYPE`, `Windows can shrink by up to` or `automatically reclaim`.
+
 ## Read in source, not changed
 
 - **Browser locks (B-03).** `CopyLockedChromiumDatabase` covers `SQLITE_BUSY`/`SQLITE_LOCKED`. A database Windows refuses to open (`SQLITE_CANTOPEN` → `BrowserInUse` in `LoginDataReader.ReadConnectionWithoutSharedMemory`), a non-database profile file held open for writing (`CopyFileAsync` opens the source with `FileShare.Read`) and Firefox profile files in the same position still raise `BrowserProfileStagingException`, which removes the generation and ends staging. Whether a running Edge or Chrome produces these today is not verified.
