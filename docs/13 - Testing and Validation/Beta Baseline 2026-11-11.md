@@ -7,8 +7,8 @@ doc_status: current
 validation_status: partial
 availability: branch-only
 graph_cluster: delivery
-last_reviewed: 2026-11-22
-reviewed_commit: 75f17cf69be3c6dea5c89c881bfb1bac71e6ee11
+last_reviewed: 2026-11-23
+reviewed_commit: 6cb588355885f7f95e45a06bff0758b245630b37
 sources: [src/Igloo.Preflight/DirectInstallService.cs, src/Igloo.Core/Preparation/SeedIdentityV1.cs, src/Igloo.Migration/FileStagingService.cs, src/Igloo.Migration/FileStagingService.Chromium.cs, src/Igloo.Migration/Chromium/LoginDataReader.cs, src/Igloo.Preflight/LinuxRemovalService.cs, src/Igloo.Preflight/WindowsPreflightChecker.cs, distros/_debian-family/agent/agent.py, distros/fedora-kde/agent/agent.py, distros/debian/preseed/igloo-bound-free-do-option.sh, tests/Igloo.Preflight.Tests/SeedStagingCopyTests.cs, tests/Igloo.Preflight.Tests/DirectInstallReadinessTests.cs, tools/vm-lab/Check-BootRegistration.ps1]
 aliases: []
 tags: [igloo]
@@ -539,6 +539,31 @@ Evidence: two screenshots by the owner. No wizard log of this attempt was handed
 
 **The r34 package (`93d3711`).** `artifacts\r34-93d3711\` and `artifacts\r34-93d3711.iso` in the main checkout. The published Debian plugin holds the index address, the fingerprint, the identity line and `install/vmlinuz`, and no hash of the pair; the published manifest holds the 13-series pattern.
 
+## The wizard's texts cut for r35, 22 and 23 Nov (asked by the owner; unit tests and pages rendered on the host, L1)
+
+**[Reported by the owner, 22 Nov]** "debian + fedora waren succesvol." Which package, which parts of the guide and what was checked in Linux and in Windows was not said, and no log or evidence folder of those runs was delivered. It is recorded as the owner's statement and raises no evidence level here.
+
+**[Observed in the owner's screenshots, 22 Nov]** In that guest the `Uninstall Linux?` dialog listed a Linux installation of 50,0 GB (2 partitions), one of 46,0 GB (1 partition) and the installer partition `OEMDRV` of 3,5 GB, all on the one 210 GB disk. System Check afterwards showed EFI system 200 MB, Microsoft Reserved 16 MB, Windows 162,8 GB, an NTFS partition of 1,0 GB and 46,0 GB unallocated behind that partition. The dialog's sentence `Windows will automatically reclaim the freed space.` did not hold for those 46 GB: the reclaim takes only space directly behind C:. Target Disk then offered 20 to 117 GiB.
+
+**Asked.** The owner, with those screenshots: the wizard shows far too much information; the progress text of System Check should read `Performing system check...`; `No TPM chip detected.` stands twice on that page; Target Disk has far too much text; the notice about Windows on Target Disk has to go. On 23 Nov, shown the result: the line `Firmware · Secure boot · TPM · BitLocker · Memory · Storage` under the progress text had not been asked to go, and is back.
+
+**Change (`543f9bc`, `6cb5883`).**
+- System Check, running: `Performing system check…`.
+- System Check, results: the page lists warnings and blockers only. The two informational findings (`SECURE_BOOT_ON`, `NO_TPM`) repeat a row of the device card. They stay in the report the Platform makes and block nothing, as before.
+- Target Disk: the sections are `DISK` and `LINUX SIZE`. The disk card keeps the model, a `WINDOWS` pill, size, partition style and the strip; the line with free space and the shrink limit is gone. The size card holds the slider with its value beside it and its two ends below it, in `GB` as the rest of the wizard writes binary sizes. Gone: the heading `Install alongside Windows (dual boot)` with its sentence about the resize, the preview bar, the reserved installer space, and the red card `Back up Windows before resizing it` or `… before installing Linux`.
+- Decided by the owner: that red card goes. No page of the wizard names a backup now.
+- Kept, in one line: when the installer is not confined to the size asked (Linux Mint and Fedora on unallocated space), `Linux gets N GB: this distribution's installer takes all unallocated space on the disk.` There the slider's value is not what Linux gets, or there is no slider.
+- The stop for too little space reads `Linux needs at least N GB on this disk. Free up space in Windows, or go back to Configuration and select fewer files.`; the space check reads `Checking available space…`.
+- `Uninstall Linux?`: one sentence, `Everything on these partitions is permanently deleted:`, and the list. The sentence about Windows reclaiming the space is gone.
+- Download: the fixed caption about the SHA-256 check under the progress is gone; the phase line above it names each step. Configuration: `Select the browsers to transfer to Linux.`
+- Not changed: every other page, the order of the steps, what `Next` requires, and everything below the view models.
+
+**Observed (L1, rendered on the host).** A program outside the repository loads the two pages with the wizard's theme and their view models over stand-ins, and saves them as images: Target Disk with a resize, with a fixed size, with a choice the installer overrides, with too little space and while the space is checked; System Check while running, with informational findings only (no Results section) and with a warning. No Platform service runs in it. The images show what is listed above.
+
+**Gate at `6cb5883`.** Build `-warnaserror` clean; 2,383 tests, 2,382 passed, 0 failed, 1 skipped; 47 agent test scripts pass in WSL.
+
+**Not verified.** The pages in the wizard itself, in a VM: the render has no window frame, no navigation and no real disk. The dialog was not rendered.
+
 ## Read in source, not changed
 
 - **Browser locks (B-03).** `CopyLockedChromiumDatabase` covers `SQLITE_BUSY`/`SQLITE_LOCKED`. A database Windows refuses to open (`SQLITE_CANTOPEN` → `BrowserInUse` in `LoginDataReader.ReadConnectionWithoutSharedMemory`), a non-database profile file held open for writing (`CopyFileAsync` opens the source with `FileShare.Read`) and Firefox profile files in the same position still raise `BrowserProfileStagingException`, which removes the generation and ends staging. Whether a running Edge or Chrome produces these today is not verified.
@@ -551,4 +576,4 @@ Evidence: two screenshots by the owner. No wizard log of this attempt was handed
 
 ## Not verified
 
-Every installer, first-boot and boot-registration statement above is L0 or L1, except what the r10, r19 and r23 sections report for Debian, the r25 section for Linux Mint and the r31 section for Fedora KDE, in one VMware guest without Secure Boot. The runs of Mint and Fedora have no Windows-side evidence, Fedora's one run installed and finished its first boot with a failed step, no run covers a second attempt, and no run covers Secure Boot. The r6 runs in [[00 - Home/Beta Track]] remain the acceptance test; see also [[13 - Testing and Validation/Evidence Register]].
+Every installer, first-boot and boot-registration statement above is L0 or L1, except what the r10, r19 and r23 sections report for Debian, the r25 section for Linux Mint and the r31 section for Fedora KDE, in one VMware guest without Secure Boot. The runs of Mint and Fedora have no Windows-side evidence, Fedora's one run installed and finished its first boot with a failed step, no run covers a second attempt, and no run covers Secure Boot. On 22 Nov the owner reported a Debian and a Fedora run as successful; no evidence of those runs was delivered. The r6 runs in [[00 - Home/Beta Track]] remain the acceptance test; see also [[13 - Testing and Validation/Evidence Register]].
