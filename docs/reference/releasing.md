@@ -8,7 +8,7 @@ PowerShell; `&&` is a parser error there, so a guarded chain reads
 
 | Tool | Where the build expects it |
 |---|---|
-| .NET 9 SDK | `C:\Program Files\dotnet` |
+| .NET 10 SDK | `C:\Program Files\dotnet` |
 | Inno Setup 6 | `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe` |
 | GitHub CLI (`gh`) | on `PATH`, authenticated |
 
@@ -22,23 +22,26 @@ dotnet build -c Release
 dotnet test -c Release --no-build
 ```
 
-The agents are not part of the solution and have their own suites:
+The agents are not part of the solution. Their suite runs on Linux, as the CI job
+`linux-agent-regressions` does; on Windows run it in WSL from the repository root:
 
 ```powershell
-Get-ChildItem tests\agent\*.py | ForEach-Object { python $_.FullName }
+wsl -- python3 scripts/test_agent_regressions.py
 ```
 
-Each prints `all checks passed` on success. Do not continue past a red suite.
+It ends with `Agent regression scripts: N/N passed.` Do not continue past a red suite.
 
 ## 2. Version numbers
 
-`<Version>` in `src/Igloo.App/Igloo.App.csproj` is the source of truth:
-`build-setup.bat` reads it and passes it to Inno Setup as `/DIglooVersion`, which
-names the output file. Three places do **not** follow automatically:
+`<IglooRelease>` in `src/Igloo.Community.App/Igloo.Community.App.csproj` is the
+name of the release (`beta1`): `build-setup.bat` reads it and passes it to Inno
+Setup as `/DIglooVersion`, which names the output file and the entry in Installed
+apps. Four places do **not** follow automatically:
 
 | File | Field | When |
 |---|---|---|
-| `installer/iGloo.iss` | `VersionInfoVersion=0.2.0.0` | every major.minor bump |
+| `src/Igloo.Community.App/Igloo.Community.App.csproj` | `<Version>`, the number of the program file (`1.0.0-beta.1`) | every release |
+| `installer/iGloo.iss` | `VersionInfoVersion=1.0.0.0` | every major.minor bump |
 | `installer/iGloo.iss` | `#define IglooVersion` | the fallback when ISCC is run by hand |
 | `.github/ISSUE_TEMPLATE/bug_report.yml` | version placeholder | every release |
 
@@ -48,7 +51,7 @@ upgrade rather than a second copy.
 Sweep for leftovers before moving on:
 
 ```powershell
-Select-String -Path *.md,installer\*.iss,src\Igloo.App\*.csproj,.github\ISSUE_TEMPLATE\*.yml -Pattern "\d+\.\d+-alpha" | Select-Object Path,Line
+Select-String -Path *.md,installer\*.iss,src\Igloo.Community.App\*.csproj,.github\ISSUE_TEMPLATE\*.yml -Pattern "<previous release>" | Select-Object Path,Line
 ```
 
 The references in `docs/marketing/` and `docs/funding/` are historical and stay
@@ -88,9 +91,9 @@ git status --porcelain
 ```
 
 Five steps: copy `src\` and `distros\` to `C:\Temp\igloo-build`, read the
-version from the csproj, `dotnet publish`, copy the result to
-`installer\publish`, compile `iGloo.iss`. It prints the output path and the
-SHA256 when it finishes.
+release name from the csproj, `dotnet publish`, copy the result to
+`installer\publish`, compile `iGloo.iss`. It prints the output path,
+`installer\output\iGloo-Community-<release>.exe`, and the SHA256 when it finishes.
 
 The copy to `C:\Temp` is not optional: publishing from a path containing an
 apostrophe fails with MSB3094, because the SDK's publish Copy step collapses
@@ -99,12 +102,9 @@ fine; only `publish` breaks.
 
 > **Architecture.** Releases are `win-x64`, self-contained: that is what
 > `build-setup.bat` publishes, and what 0.1-alpha shipped. The two Visual Studio
-> profiles in `src/Igloo.App/Properties/PublishProfiles/` publish `win-x86`, so
-> a build made with the Publish button is *not* what goes out. Mind the gap
-> while testing: a 32-bit process has its `HKLM` reads redirected into
-> `Wow6432Node` and reaches the real System32 only through `Sysnative`. Both are
-> handled in code, but they are different code paths, and the app scan missing a
-> quarter of the installed programs came out of exactly this difference.
+> profiles in `src/Igloo.Community.App/Properties/PublishProfiles/` publish
+> `win-x64`, self-contained as well; the release still comes from
+> `build-setup.bat`, which also restores and publishes the packaged CLI.
 
 `installer\output\` is not cleaned between releases, so older installers stay
 behind. It is in `.gitignore`, so nothing can be committed by accident; the risk
@@ -116,7 +116,7 @@ Put the SHA256 that step 5 printed into `RELEASE-NOTES.md`, then verify against
 the file you are about to upload:
 
 ```powershell
-Get-FileHash installer\output\iGloo-Setup-<version>.exe -Algorithm SHA256
+Get-FileHash installer\output\iGloo-Community-<release>.exe -Algorithm SHA256
 ```
 
 ```powershell
@@ -129,7 +129,7 @@ match the binary.
 ## 7. Tag and publish
 
 ```powershell
-git tag -a v<version> -m "iGloo <version>"
+git tag -a v<version> -m "iGloo Community <release>"
 ```
 
 ```powershell
@@ -137,7 +137,7 @@ git push origin main --follow-tags
 ```
 
 ```powershell
-gh release create v<version> --title "iGloo <version>" --notes-file RELEASE-NOTES.md installer\output\iGloo-Setup-<version>.exe
+gh release create v<version> --title "iGloo Community <release>" --notes-file RELEASE-NOTES.md installer\output\iGloo-Community-<release>.exe
 ```
 
 Name the installer path in full. Tab completion in `installer\output\` will
@@ -154,7 +154,7 @@ offer the previous release too.
 ```
 [ ] dotnet build + dotnet test green
 [ ] agent suites green
-[ ] <Version> bumped in Igloo.App.csproj
+[ ] <IglooRelease> and <Version> set in Igloo.Community.App.csproj
 [ ] VersionInfoVersion bumped in iGloo.iss
 [ ] issue template placeholder bumped
 [ ] CHANGELOG section closed, compare link added
